@@ -83,12 +83,11 @@ tests/app-shell.spec.ts              # desktop/mobile smoke tests
 - Consumes: none.
 - Produces: `App(): JSX.Element`, the global token names used by every later task, and runnable `dev`, `build`, `test`, and `test:e2e` scripts.
 
-- [ ] **Step 1: Initialize Git and create the package manifest**
+- [ ] **Step 1: Create the package manifest in the prepared worktree**
 
 Run:
 
 ```powershell
-git init
 npm init -y
 npm install react@^19.1.1 react-dom@^19.1.1
 npm install -D typescript@^5.9.2 vite@^7.1.0 @vitejs/plugin-react@^4.6.0 vitest@^3.2.4 jsdom@^26.1.0 @testing-library/react@^16.3.0 @testing-library/jest-dom@^6.6.4 @testing-library/user-event@^14.6.1 @playwright/test@^1.54.2
