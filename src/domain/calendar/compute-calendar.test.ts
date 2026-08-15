@@ -130,11 +130,29 @@ describe("isCalendarResult", () => {
       ["automatic source with a different effective value", (value) => { value.pillars.year.effective = "乙巳"; }],
       ["noncanonical automatic month-general pair", (value) => { value.monthGeneral.automatic = { name: "登明", branch: "子" }; }],
       ["noncanonical effective month-general pair", (value) => { value.monthGeneral.effective = { name: "登明", branch: "子" }; }],
+      ["automatic month pillar branch differing from month build", (value) => {
+        value.pillars.month = { automatic: "丁卯", effective: "丁卯", source: "automatic" };
+      }],
+      ["automatic hour pillar branch differing from automatic divination hour", (value) => {
+        value.pillars.hour = { automatic: "庚午", effective: "庚午", source: "automatic" };
+      }],
+      ["automatic month general differing from the active Zhongqi", (value) => {
+        value.monthGeneral = {
+          automatic: { name: "登明", branch: "亥" },
+          effective: { name: "登明", branch: "亥" },
+          source: "automatic",
+        };
+      }],
       ["datetime carrying an offset", (value) => { value.civilDateTime = "2024-02-10T14:30:00+08:00"; }],
       ["wrong effective Ganzhi date", (value) => { value.effectiveGanzhiDate = "2024-02-11"; }],
+      ["invalid effective Ganzhi ISO date", (value) => { value.effectiveGanzhiDate = "2024-02-30"; }],
       ["wrong boundary kind", (value) => { value.boundaries.previousJie.kind = "zhongqi"; }],
       ["boundary instant inconsistent with its Beijing datetime", (value) => { value.boundaries.nextJie.utcEpochMs += 1_000; }],
       ["unordered boundaries", (value) => { value.boundaries.nextJie = { ...value.boundaries.previousJie }; }],
+      ["nonadjacent Jie names", (value) => { value.boundaries.nextJie.name = "清明"; }],
+      ["duplicate Jie names", (value) => { value.boundaries.nextJie.name = value.boundaries.previousJie.name; }],
+      ["nonadjacent Zhongqi names", (value) => { value.boundaries.nextZhongQi.name = "春分"; }],
+      ["duplicate Zhongqi names", (value) => { value.boundaries.nextZhongQi.name = value.boundaries.previousZhongQi.name; }],
       ["empty evidence", (value) => { value.evidence = []; }],
       ["meaningless evidence input", (value) => { value.evidence = [{ ...value.evidence[0], input: "   " }, ...value.evidence.slice(1)]; }],
     ];
@@ -152,6 +170,31 @@ describe("isCalendarResult", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.pillars.day).toEqual({ automatic: "甲辰", effective: "甲辰", source: "manual" });
+    expect(isCalendarResult(result.value)).toBe(true);
+  });
+
+  it("compares reviewed month-general fields explicitly rather than by object key order", () => {
+    const value = structuredClone(validResult());
+    value.monthGeneral.effective = {
+      branch: value.monthGeneral.automatic.branch,
+      name: value.monthGeneral.automatic.name,
+    };
+
+    expect(isCalendarResult(value)).toBe(true);
+  });
+
+  it("keeps independently corrected effective fields independent from automatic cross-field contracts", () => {
+    let input = setCalendarCorrection(baseInput, "monthPillar", "丁卯");
+    input = setCalendarCorrection(input, "hourPillar", "甲子");
+    input = setCalendarCorrection(input, "divinationHour", "子");
+    const result = computeCalendar(input, adapter);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.monthBuild).toBe("寅");
+    expect(result.value.pillars.month.effective).toBe("丁卯");
+    expect(result.value.pillars.hour.effective).toBe("甲子");
+    expect(result.value.divinationHour.effective).toBe("子");
     expect(isCalendarResult(result.value)).toBe(true);
   });
 });

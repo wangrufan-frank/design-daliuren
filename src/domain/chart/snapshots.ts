@@ -1,6 +1,10 @@
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
 import type { CourseSession, RuleStageId } from "./types";
-import { isCalendarResult } from "../calendar/compute-calendar";
+import {
+  CALENDAR_SNAPSHOT_RULE_ID,
+  calendarResultSource,
+  isCalendarResult,
+} from "../calendar/result-guard";
 
 export function validateSession(session: CourseSession): readonly string[] {
   const errors: string[] = [];
@@ -8,7 +12,15 @@ export function validateSession(session: CourseSession): readonly string[] {
     const snapshot = session.snapshots[stage];
     if (!snapshot) continue;
     if (snapshot.stage !== stage) errors.push(`${stage} 快照阶段与键不一致: ${snapshot.stage}`);
-    if (stage === "calendar" && !isCalendarResult(snapshot.value)) errors.push("calendar 快照结果无效");
+    if (stage === "calendar") {
+      if (!isCalendarResult(snapshot.value)) {
+        errors.push("calendar 快照结果无效");
+      } else {
+        if (snapshot.ruleId !== CALENDAR_SNAPSHOT_RULE_ID) errors.push("calendar 快照规则编号无效");
+        const expectedSource = calendarResultSource(snapshot.value);
+        if (snapshot.source !== expectedSource) errors.push(`calendar 快照来源无效，应为 ${expectedSource}`);
+      }
+    }
     const expectedDependencies = stageDependencies[stage];
     if (
       !Array.isArray(snapshot.dependsOn)

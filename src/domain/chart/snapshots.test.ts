@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import { invalidateFrom, validateSession } from "./snapshots";
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
 import { referenceSession } from "../../test/reference-session";
-import { LunarTypescriptAdapter } from "../../adapters/calendar/lunar-typescript-adapter";
-import { computeCalendar } from "../calendar/compute-calendar";
 
 describe("rule stage metadata", () => {
   it("orders every calculation dependency before its consumer", () => {
@@ -64,17 +62,43 @@ it("removes the changed stage and every downstream stage", () => {
 });
 
 it("rejects a present calendar snapshot whose value fails the runtime guard", () => {
-  const outcome = computeCalendar({
-    civilDateTime: "2024-02-10T14:30:00",
-    timeZone: "Asia/Shanghai",
-    locationName: "北京",
-    longitude: 116.4074,
-    latitude: 39.9042,
-    corrections: {},
-  }, new LunarTypescriptAdapter());
-  if (!outcome.ok) throw new Error("expected calendar fixture to succeed");
-  const broken = structuredClone({ ...referenceSession, snapshots: { calendar: outcome.snapshot } });
+  const broken = structuredClone(referenceSession);
+  if (!broken.snapshots.calendar) throw new Error("expected calendar fixture");
   broken.snapshots.calendar.value.pillars.day.effective = "甲丑" as never;
 
   expect(validateSession(broken)).toContain("calendar 快照结果无效");
+});
+
+it("rejects a forged calendar rule ID", () => {
+  const broken = structuredClone(referenceSession);
+  if (!broken.snapshots.calendar) throw new Error("expected calendar fixture");
+  broken.snapshots.calendar.ruleId = "calendar/forged-v1";
+
+  expect(validateSession(broken)).toContain("calendar 快照规则编号无效");
+});
+
+it("derives automatic calendar snapshot source from all six reviewed values", () => {
+  const broken = structuredClone(referenceSession);
+  if (!broken.snapshots.calendar) throw new Error("expected calendar fixture");
+  broken.snapshots.calendar.source = "manual";
+
+  expect(validateSession(broken)).toContain("calendar 快照来源无效，应为 automatic");
+});
+
+it("derives manual calendar snapshot source from any manual reviewed value", () => {
+  const broken = structuredClone(referenceSession);
+  const calendar = broken.snapshots.calendar;
+  if (!calendar) throw new Error("expected calendar fixture");
+  calendar.value.pillars.year.source = "manual";
+  calendar.value.evidence = [
+    ...calendar.value.evidence,
+    {
+      ruleId: "calendar/manual-correction-v1",
+      field: "yearPillar",
+      input: "自动值 丙午，人工值 丙午",
+      conclusion: "yearPillar 采用人工有效值 丙午",
+    },
+  ];
+
+  expect(validateSession(broken)).toContain("calendar 快照来源无效，应为 manual");
 });
