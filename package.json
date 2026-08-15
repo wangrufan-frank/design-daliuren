@@ -11,7 +11,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify:calendar-sources": "node scripts/verify-calendar-cases.mjs"
   },
   "keywords": [],
   "type": "commonjs",
@@ -19,6 +20,7 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "dependencies": {
+    "lunar-typescript": "1.8.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -30,6 +32,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^4.7.0",
+    "astronomy-engine": "2.1.19",
     "jsdom": "^26.1.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
