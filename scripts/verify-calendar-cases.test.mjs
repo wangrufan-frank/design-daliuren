@@ -30,11 +30,17 @@ async function runWithChangedFixture(change) {
 test("rejects a changed independent solar-term instant", { concurrency: false }, async () => {
   const result = await runWithChangedFixture((source) => source.replace("2024-02-04T16:26:49.630+08:00", "2024-02-04T16:00:00.000+08:00"));
 
-  assert.notEqual(result.status, 0);
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /independentMatch/);
+  assert.match(result.stdout, /^│ 0.*│ false\s+│ true\s+│ false/m);
 });
 
 test("rejects a changed locked solar-term discrepancy", { concurrency: false }, async () => {
   const result = await runWithChangedFixture((source) => source.replace("differenceSeconds: 17.37", "differenceSeconds: 1"));
 
-  assert.notEqual(result.status, 0);
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /discrepancyMatch/);
+  assert.match(result.stdout, /^│ 0.*│ true\s+│ false\s+│ false/m);
 });
