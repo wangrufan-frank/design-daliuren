@@ -7,6 +7,7 @@ import {
   deriveAutomaticCalendar,
   deriveHourPillar,
   deriveMonthPillar,
+  deriveYearPillar,
   nextStemBranch,
 } from "./policy";
 import type { BeijingDateTime, CalendarEngineInput, CalendarPrimitives } from "./types";
@@ -58,6 +59,17 @@ describe("deriveAutomaticCalendar", () => {
     expect(result.divinationHour).toBe(expected.divinationHour);
   });
 
+  it.each([
+    ["2026-08-14T23:00:00", "处于 23:00–23:59，干支日从民用日期前推至 2026-08-15"],
+    ["2026-08-15T00:00:00", "处于 00:00–00:59，当前民用日期已承接前夜子初，干支日不前推（2026-08-15）"],
+    ["2026-08-15T00:59:59", "处于 00:00–00:59，当前民用日期已承接前夜子初，干支日不前推（2026-08-15）"],
+  ] as const)("describes the civil-date relationship accurately at $0", (input, conclusion) => {
+    const result = deriveAutomaticCalendar(engineInput(input));
+    const evidence = result.evidence.find(({ ruleId }) => ruleId === CALENDAR_RULE_IDS.ziInitial);
+
+    expect(evidence?.conclusion).toBe(conclusion);
+  });
+
   it.each(termBoundaryCases)("uses the new exact-second interval at $input", ({ input, expected }) => {
     const result = deriveAutomaticCalendar(engineInput(input));
 
@@ -66,6 +78,22 @@ describe("deriveAutomaticCalendar", () => {
     if ("previousJie" in expected) expect(result.boundaries.previousJie.name).toBe(expected.previousJie);
     if ("monthGeneral" in expected) expect(result.monthGeneral).toEqual(expected.monthGeneral);
     if ("previousZhongQi" in expected) expect(result.boundaries.previousZhongQi.name).toBe(expected.previousZhongQi);
+  });
+
+  it("selects synthetic next Jie and Zhongqi boundaries at exact equality", () => {
+    const base = engineInput(ordinaryCalendarCase.input);
+    const exactBoundary = { beijingDateTime: base.time.isoLocal, utcEpochMs: base.time.utcEpochMs };
+    const primitives: CalendarPrimitives = {
+      ...base.primitives,
+      nextJie: { ...exactBoundary, name: "惊蛰", kind: "jie" },
+      nextZhongQi: { ...exactBoundary, name: "雨水", kind: "zhongqi" },
+    };
+
+    const result = deriveAutomaticCalendar({ ...base, primitives });
+
+    expect(result.monthBuild).toBe("卯");
+    expect(result.pillars.month).toBe("丁卯");
+    expect(result.monthGeneral).toEqual({ name: "登明", branch: "亥" });
   });
 
   it("emits exactly the eight reviewed decision categories with stable rule IDs and displayable conclusions", () => {
@@ -89,21 +117,21 @@ describe("deriveAutomaticCalendar", () => {
   it("covers every reviewed Jie/month-build and Zhongqi/month-general mapping", () => {
     const base = engineInput(ordinaryCalendarCase.input);
     const mappingCases = [
-      ["立春", "寅", "雨水", { name: "登明", branch: "亥" }],
-      ["惊蛰", "卯", "春分", { name: "河魁", branch: "戌" }],
-      ["清明", "辰", "谷雨", { name: "从魁", branch: "酉" }],
-      ["立夏", "巳", "小满", { name: "传送", branch: "申" }],
-      ["芒种", "午", "夏至", { name: "小吉", branch: "未" }],
-      ["小暑", "未", "大暑", { name: "胜光", branch: "午" }],
-      ["立秋", "申", "处暑", { name: "太乙", branch: "巳" }],
-      ["白露", "酉", "秋分", { name: "天罡", branch: "辰" }],
-      ["寒露", "戌", "霜降", { name: "太冲", branch: "卯" }],
-      ["立冬", "亥", "小雪", { name: "功曹", branch: "寅" }],
-      ["大雪", "子", "冬至", { name: "大吉", branch: "丑" }],
-      ["小寒", "丑", "大寒", { name: "神后", branch: "子" }],
+      ["立春", "寅", "丙寅", "雨水", { name: "登明", branch: "亥" }],
+      ["惊蛰", "卯", "丁卯", "春分", { name: "河魁", branch: "戌" }],
+      ["清明", "辰", "戊辰", "谷雨", { name: "从魁", branch: "酉" }],
+      ["立夏", "巳", "己巳", "小满", { name: "传送", branch: "申" }],
+      ["芒种", "午", "庚午", "夏至", { name: "小吉", branch: "未" }],
+      ["小暑", "未", "辛未", "大暑", { name: "胜光", branch: "午" }],
+      ["立秋", "申", "壬申", "处暑", { name: "太乙", branch: "巳" }],
+      ["白露", "酉", "癸酉", "秋分", { name: "天罡", branch: "辰" }],
+      ["寒露", "戌", "甲戌", "霜降", { name: "太冲", branch: "卯" }],
+      ["立冬", "亥", "乙亥", "小雪", { name: "功曹", branch: "寅" }],
+      ["大雪", "子", "丙子", "冬至", { name: "大吉", branch: "丑" }],
+      ["小寒", "丑", "丁丑", "大寒", { name: "神后", branch: "子" }],
     ] as const;
 
-    mappingCases.forEach(([jie, monthBuild, zhongQi, monthGeneral]) => {
+    mappingCases.forEach(([jie, monthBuild, monthPillar, zhongQi, monthGeneral]) => {
       const primitives: CalendarPrimitives = {
         ...base.primitives,
         previousJie: { ...base.primitives.previousJie, name: jie },
@@ -113,12 +141,19 @@ describe("deriveAutomaticCalendar", () => {
       const result = deriveAutomaticCalendar({ ...base, primitives });
 
       expect(result.monthBuild).toBe(monthBuild);
+      expect(result.pillars.month).toBe(monthPillar);
       expect(result.monthGeneral).toEqual(monthGeneral);
     });
   });
 });
 
 describe("traditional pillar formulas", () => {
+  it("normalizes the negative year-cycle offset before 1984", () => {
+    const input = engineInput("1900-01-01T00:00:00");
+
+    expect(deriveYearPillar(input.time, input.primitives.liChun)).toBe("己亥");
+  });
+
   it("wraps the sixty-day cycle from 癸亥 to 甲子", () => {
     expect(nextStemBranch("癸亥")).toBe("甲子");
   });

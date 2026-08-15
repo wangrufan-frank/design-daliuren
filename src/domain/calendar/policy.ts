@@ -124,7 +124,11 @@ export function deriveAutomaticCalendar({ time, primitives }: CalendarEngineInpu
       ruleId: CALENDAR_RULE_IDS.ziInitial,
       field: "effectiveGanzhiDate",
       input: `北京时间 ${time.isoLocal}，日界 23:00`,
-      conclusion: `${time.hour === 23 ? "已进入子初新日" : "尚未进入子初新日"}，生效干支日期为 ${effectiveGanzhiDate}`,
+      conclusion: time.hour === 23
+        ? `处于 23:00–23:59，干支日从民用日期前推至 ${effectiveGanzhiDate}`
+        : time.hour === 0
+          ? `处于 00:00–00:59，当前民用日期已承接前夜子初，干支日不前推（${effectiveGanzhiDate}）`
+          : `不处于子初换日区间，干支日与民用日期一致（${effectiveGanzhiDate}）`,
     },
     {
       ruleId: CALENDAR_RULE_IDS.year,
