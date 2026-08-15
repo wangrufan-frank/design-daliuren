@@ -1,0 +1,13 @@
+*, *::before, *::after { box-sizing: border-box; }
+html { color-scheme: dark; }
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--ink);
+  color: var(--ash);
+  font-family: "Noto Serif SC", "Songti SC", serif;
+}
+button, input, select { font: inherit; }
+:focus-visible { outline: 2px solid var(--ru-celadon); outline-offset: 3px; }
+.app-shell { width: min(100%, 1440px); margin: 0 auto; padding: 24px; }
+.app-header { border-bottom: 1px solid var(--patina); }
