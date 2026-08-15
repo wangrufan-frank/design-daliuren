@@ -53,6 +53,24 @@ it.each([
       )),
     },
   },
+  {
+    name: "duplicate earth palace branch",
+    value: {
+      ...referenceCourse,
+      palaces: referenceCourse.palaces.map((item, index) => (
+        index === 0 ? { ...item, branch: "午" } : item
+      )),
+    },
+  },
+  {
+    name: "duplicate heaven palace branch",
+    value: {
+      ...referenceCourse,
+      palaces: referenceCourse.palaces.map((item, index) => (
+        index === 0 ? { ...item, heaven: "子" } : item
+      )),
+    },
+  },
   { name: "null auxiliary", value: { ...referenceCourse, auxiliary: null } },
   { name: "non-string auxiliary value", value: { ...referenceCourse, auxiliary: { 驿马: 12 } } },
 ])("rejects $name with a predictable error", ({ value }) => {

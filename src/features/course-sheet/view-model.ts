@@ -44,6 +44,10 @@ function isCourseResult(value: unknown): value is CourseResult {
       && typeof item.general === "string"
     ))
   ) return false;
+  if (
+    new Set(value.palaces.map((item) => item.branch)).size !== 12
+    || new Set(value.palaces.map((item) => item.heaven)).size !== 12
+  ) return false;
   return isRecord(value.auxiliary) && Object.values(value.auxiliary).every((item) => typeof item === "string");
 }
 
