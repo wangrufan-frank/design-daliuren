@@ -11,3 +11,17 @@ button, input, select { font: inherit; }
 :focus-visible { outline: 2px solid var(--ru-celadon); outline-offset: 3px; }
 .app-shell { width: min(100%, 1440px); margin: 0 auto; padding: 24px; }
 .app-header { border-bottom: 1px solid var(--patina); }
+.course-sheet { padding: 24px; background: var(--ash); color: var(--ink); }
+.course-sheet header { padding-bottom: 16px; border-bottom: 1px solid var(--ru-celadon); }
+.course-sheet__columns { display: grid; grid-template-columns: 1fr 1.05fr; gap: 24px; }
+.course-sheet section { margin-top: 20px; }
+.course-sheet h2 { padding-left: 10px; border-left: 3px solid var(--patina); font-size: 1.05rem; }
+.course-sheet__lessons, .course-sheet__palaces { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.course-sheet__lessons > div, .course-sheet__palaces > div { padding: 10px; border: 1px solid var(--ru-celadon); text-align: center; }
+.course-sheet__lessons > div > span, .course-sheet__palaces > div > span { display: block; }
+.course-sheet__lessons strong, .course-sheet__palaces strong { display: block; margin-top: 6px; font-size: 1.25rem; }
+.course-sheet__lessons i { display: block; width: 60%; margin: 4px auto; border-top: 1px solid var(--ru-celadon); }
+@media (max-width: 820px) {
+  .course-sheet__columns { grid-template-columns: 1fr; }
+  .course-sheet__lessons, .course-sheet__palaces { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
