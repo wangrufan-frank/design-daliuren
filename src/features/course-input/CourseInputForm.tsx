@@ -27,6 +27,9 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
         id="civilDateTime"
         name="civilDateTime"
         type="datetime-local"
+        step={1}
+        min="1900-01-01T00:00:00"
+        max="2100-12-31T23:59:59"
         aria-describedby={errors.civilDateTime ? "civilDateTime-error" : undefined}
         aria-invalid={errors.civilDateTime ? true : undefined}
       />

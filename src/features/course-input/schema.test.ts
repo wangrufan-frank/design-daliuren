@@ -2,6 +2,36 @@ import { describe, expect, it } from "vitest";
 import { parseCourseInput } from "./schema";
 
 describe("parseCourseInput", () => {
+  it("normalizes minute-only input and preserves second-level input", () => {
+    const minuteOnly = new FormData();
+    minuteOnly.set("civilDateTime", "2024-02-10T14:30");
+    minuteOnly.set("locationName", "北京");
+    minuteOnly.set("longitude", "116.4074");
+    minuteOnly.set("latitude", "39.9042");
+
+    const secondLevel = new FormData();
+    secondLevel.set("civilDateTime", "2024-02-10T14:30:45");
+    secondLevel.set("locationName", "北京");
+    secondLevel.set("longitude", "116.4074");
+    secondLevel.set("latitude", "39.9042");
+
+    expect(parseCourseInput(minuteOnly)).toMatchObject({ civilDateTime: "2024-02-10T14:30:00" });
+    expect(parseCourseInput(secondLevel)).toMatchObject({ civilDateTime: "2024-02-10T14:30:45" });
+  });
+
+  it.each(["1899-12-31T23:59:59", "2101-01-01T00:00:00"])(
+    "returns a civil datetime error for out-of-range input %s",
+    (civilDateTime) => {
+      const form = new FormData();
+      form.set("civilDateTime", civilDateTime);
+      form.set("locationName", "北京");
+      form.set("longitude", "116.4074");
+      form.set("latitude", "39.9042");
+
+      expect(parseCourseInput(form)).toEqual({ civilDateTime: "请输入 1900–2100 年内的有效北京时间" });
+    },
+  );
+
   it("rejects missing location and invalid coordinates", () => {
     const form = new FormData();
     form.set("civilDateTime", "2026-08-15T00:30");
@@ -62,7 +92,7 @@ describe("parseCourseInput", () => {
     form.set("longitude", "116.4074");
     form.set("latitude", "39.9042");
 
-    expect(parseCourseInput(form)).toEqual({ civilDateTime: "请输入有效的日期与时间" });
+    expect(parseCourseInput(form)).toEqual({ civilDateTime: "请输入 1900–2100 年内的有效北京时间" });
   });
 
   it("rejects non-branch manual corrections", () => {

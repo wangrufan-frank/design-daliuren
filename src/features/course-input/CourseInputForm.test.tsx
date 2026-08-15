@@ -39,3 +39,12 @@ it("associates each invalid base input with its own error", async () => {
     expect(screen.getByText(message)).toHaveAttribute("id", errorId);
   }
 });
+
+it("accepts second-level Beijing time within the supported range", () => {
+  render(<CourseInputForm onSubmit={vi.fn()} />);
+
+  const input = screen.getByLabelText("日期与时间");
+  expect(input).toHaveAttribute("step", "1");
+  expect(input).toHaveAttribute("min", "1900-01-01T00:00:00");
+  expect(input).toHaveAttribute("max", "2100-12-31T23:59:59");
+});

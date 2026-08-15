@@ -1,4 +1,5 @@
 import type { CourseInput, EarthlyBranch } from "../../domain/chart/types";
+import { parseBeijingDateTime } from "../../domain/calendar/beijing-time";
 
 export type InputErrors = Partial<Record<
   "civilDateTime" | "locationName" | "longitude" | "latitude" | "monthGeneral" | "divinationHour",
@@ -11,20 +12,6 @@ function isEarthlyBranch(value: string): value is EarthlyBranch {
   return earthlyBranches.has(value);
 }
 
-function isValidCivilDateTime(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
-  if (!match) return false;
-  const [, yearValue, monthValue, dayValue, hourValue, minuteValue] = match;
-  const year = Number(yearValue);
-  const month = Number(monthValue);
-  const day = Number(dayValue);
-  const hour = Number(hourValue);
-  const minute = Number(minuteValue);
-  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
-  return year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth && hour <= 23 && minute <= 59;
-}
-
 export function parseCourseInput(form: FormData): CourseInput | InputErrors {
   const civilDateTime = String(form.get("civilDateTime") ?? "");
   const locationName = String(form.get("locationName") ?? "").trim();
@@ -35,11 +22,16 @@ export function parseCourseInput(form: FormData): CourseInput | InputErrors {
   const longitude = Number(longitudeValue);
   const latitude = Number(latitudeValue);
   const errors: InputErrors = {};
+  let normalizedCivilDateTime = civilDateTime;
 
   if (!civilDateTime) {
     errors.civilDateTime = "请输入日期与时间";
-  } else if (!isValidCivilDateTime(civilDateTime)) {
-    errors.civilDateTime = "请输入有效的日期与时间";
+  } else {
+    try {
+      normalizedCivilDateTime = parseBeijingDateTime(civilDateTime).isoLocal;
+    } catch {
+      errors.civilDateTime = "请输入 1900–2100 年内的有效北京时间";
+    }
   }
   if (!locationName) errors.locationName = "请输入地点";
   if (!longitudeValue) {
@@ -57,7 +49,7 @@ export function parseCourseInput(form: FormData): CourseInput | InputErrors {
   if (Object.keys(errors).length) return errors;
 
   return {
-    civilDateTime,
+    civilDateTime: normalizedCivilDateTime,
     timeZone: "Asia/Shanghai",
     locationName,
     longitude,

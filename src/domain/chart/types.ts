@@ -1,3 +1,5 @@
+import type { StemBranch } from "../calendar/types";
+
 export type EarthlyBranch =
   | "子" | "丑" | "寅" | "卯" | "辰" | "巳"
   | "午" | "未" | "申" | "酉" | "戌" | "亥";
@@ -21,10 +23,10 @@ export interface CourseInput {
   longitude: number;
   latitude: number;
   corrections: Partial<{
-    yearPillar: string;
-    monthPillar: string;
-    dayPillar: string;
-    hourPillar: string;
+    yearPillar: StemBranch;
+    monthPillar: StemBranch;
+    dayPillar: StemBranch;
+    hourPillar: StemBranch;
     monthGeneral: EarthlyBranch;
     divinationHour: EarthlyBranch;
   }>;
