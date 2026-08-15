@@ -1,7 +1,7 @@
 import type { CourseResult, CourseSession, RuleStageId, RuleSnapshot } from "../domain/chart/types";
 import { stageDependencies } from "../domain/chart/stages";
 
-function snapshot(stage: RuleStageId, value: unknown): RuleSnapshot<unknown> {
+function snapshot<Stage extends RuleStageId>(stage: Stage, value: unknown): RuleSnapshot<unknown, Stage> {
   return { stage, dependsOn: stageDependencies[stage], ruleId: "reference-layout-only", source: "manual", value };
 }
 

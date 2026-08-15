@@ -22,6 +22,34 @@ it("rejects a snapshot whose declared dependencies are absent", () => {
   expect(validateSession(broken)).toContain("four-lessons 缺少依赖 heaven-earth");
 });
 
+it("rejects a snapshot whose stage does not match its key", () => {
+  const broken = {
+    ...referenceSession,
+    snapshots: {
+      ...referenceSession.snapshots,
+      calendar: { ...referenceSession.snapshots.calendar, stage: "course" },
+    },
+  } as unknown as typeof referenceSession;
+
+  expect(validateSession(broken)).toContain("calendar 快照阶段与键不一致: course");
+});
+
+it.each([
+  { name: "missing", dependsOn: [] },
+  { name: "forged", dependsOn: ["calendar"] },
+  { name: "extra", dependsOn: ["heaven-earth", "calendar"] },
+])("rejects $name declared dependencies", ({ dependsOn }) => {
+  const broken = {
+    ...referenceSession,
+    snapshots: {
+      ...referenceSession.snapshots,
+      "four-lessons": { ...referenceSession.snapshots["four-lessons"], dependsOn },
+    },
+  } as unknown as typeof referenceSession;
+
+  expect(validateSession(broken)).toContain("four-lessons 依赖声明无效，应为 heaven-earth");
+});
+
 it("removes the changed stage and every downstream stage", () => {
   const next = invalidateFrom(referenceSession, "four-lessons");
 

@@ -49,4 +49,48 @@ describe("parseCourseInput", () => {
       divinationHour: "子",
     });
   });
+
+  it.each([
+    "2026/08/15 00:30",
+    "0000-01-01T00:00",
+    "2026-02-30T00:30",
+    "2026-08-15T24:00",
+  ])("rejects invalid datetime-local value %s", (civilDateTime) => {
+    const form = new FormData();
+    form.set("civilDateTime", civilDateTime);
+    form.set("locationName", "北京");
+    form.set("longitude", "116.4074");
+    form.set("latitude", "39.9042");
+
+    expect(parseCourseInput(form)).toEqual({ civilDateTime: "请输入有效的日期与时间" });
+  });
+
+  it("rejects non-branch manual corrections", () => {
+    const form = new FormData();
+    form.set("civilDateTime", "2026-08-15T00:30");
+    form.set("locationName", "北京");
+    form.set("longitude", "116.4074");
+    form.set("latitude", "39.9042");
+    form.set("monthGeneral", "甲");
+    form.set("divinationHour", "午时");
+
+    expect(parseCourseInput(form)).toEqual({
+      monthGeneral: "月将必须是十二地支之一",
+      divinationHour: "占时必须是十二地支之一",
+    });
+  });
+
+  it("keeps empty manual corrections automatic", () => {
+    const form = new FormData();
+    form.set("civilDateTime", "2026-08-15T00:30");
+    form.set("locationName", "北京");
+    form.set("longitude", "116.4074");
+    form.set("latitude", "39.9042");
+    form.set("monthGeneral", "");
+    form.set("divinationHour", "");
+
+    const result = parseCourseInput(form);
+
+    expect("corrections" in result && result.corrections).toEqual({});
+  });
 });

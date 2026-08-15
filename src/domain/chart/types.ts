@@ -30,17 +30,21 @@ export interface CourseInput {
   }>;
 }
 
-export interface RuleSnapshot<T> {
-  stage: RuleStageId;
+export interface RuleSnapshot<T, Stage extends RuleStageId = RuleStageId> {
+  stage: Stage;
   dependsOn: readonly RuleStageId[];
   ruleId: string;
   source: ValueSource;
   value: T;
 }
 
+export type RuleSnapshots = {
+  [Stage in RuleStageId]?: RuleSnapshot<unknown, Stage>;
+};
+
 export interface CourseSession {
   input: CourseInput;
-  snapshots: Partial<Record<RuleStageId, RuleSnapshot<unknown>>>;
+  snapshots: RuleSnapshots;
 }
 
 export interface CourseResult {

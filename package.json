@@ -11,10 +11,13 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --pass-with-no-tests"
+    "test:e2e": "playwright test"
   },
   "keywords": [],
   "type": "commonjs",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

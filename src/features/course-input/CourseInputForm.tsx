@@ -23,20 +23,45 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
   return (
     <form onSubmit={submit} noValidate>
       <label htmlFor="civilDateTime">日期与时间</label>
-      <input id="civilDateTime" name="civilDateTime" type="datetime-local" aria-describedby="civilDateTime-error" />
+      <input
+        id="civilDateTime"
+        name="civilDateTime"
+        type="datetime-local"
+        aria-describedby={errors.civilDateTime ? "civilDateTime-error" : undefined}
+        aria-invalid={errors.civilDateTime ? true : undefined}
+      />
       <p id="civilDateTime-error" role="alert">{errors.civilDateTime}</p>
 
       <label htmlFor="locationName">地点</label>
-      <input id="locationName" name="locationName" />
+      <input
+        id="locationName"
+        name="locationName"
+        aria-describedby={errors.locationName ? "locationName-error" : undefined}
+        aria-invalid={errors.locationName ? true : undefined}
+      />
       <p id="locationName-error" role="alert">{errors.locationName}</p>
 
       <label htmlFor="longitude">经度</label>
-      <input id="longitude" name="longitude" type="number" step="any" />
-      <p role="alert">{errors.longitude}</p>
+      <input
+        id="longitude"
+        name="longitude"
+        type="number"
+        step="any"
+        aria-describedby={errors.longitude ? "longitude-error" : undefined}
+        aria-invalid={errors.longitude ? true : undefined}
+      />
+      <p id="longitude-error" role="alert">{errors.longitude}</p>
 
       <label htmlFor="latitude">纬度</label>
-      <input id="latitude" name="latitude" type="number" step="any" />
-      <p role="alert">{errors.latitude}</p>
+      <input
+        id="latitude"
+        name="latitude"
+        type="number"
+        step="any"
+        aria-describedby={errors.latitude ? "latitude-error" : undefined}
+        aria-invalid={errors.latitude ? true : undefined}
+      />
+      <p id="latitude-error" role="alert">{errors.latitude}</p>
 
       {(["monthGeneral", "divinationHour"] as const).map((name) => (
         <label key={name}>
