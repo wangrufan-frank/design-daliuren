@@ -18,6 +18,21 @@ describe("parseCourseInput", () => {
     });
   });
 
+  it("rejects empty coordinates with field-specific errors", () => {
+    const form = new FormData();
+    form.set("civilDateTime", "2026-08-15T00:30");
+    form.set("locationName", "北京");
+    form.set("longitude", "");
+    form.set("latitude", "");
+
+    const result = parseCourseInput(form);
+
+    expect(result).toEqual({
+      longitude: "请输入经度",
+      latitude: "请输入纬度",
+    });
+  });
+
   it("keeps manual month-general and hour corrections explicit", () => {
     const form = new FormData();
     form.set("civilDateTime", "2026-08-15T00:30");
