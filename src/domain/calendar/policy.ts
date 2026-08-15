@@ -83,7 +83,7 @@ export function deriveDayPillar(civilDayPillar: StemBranch, time: BeijingDateTim
   return time.hour === 23 ? nextStemBranch(civilDayPillar) : civilDayPillar;
 }
 
-function deriveHourBranch(time: BeijingDateTime): EarthlyBranch {
+export function deriveHourBranch(time: BeijingDateTime): EarthlyBranch {
   const hourBranchIndex = Math.floor((time.hour + 1) / 2) % 12;
   return EARTHLY_BRANCHES[hourBranchIndex];
 }

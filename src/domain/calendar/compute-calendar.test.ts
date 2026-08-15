@@ -183,6 +183,40 @@ describe("isCalendarResult", () => {
     expect(isCalendarResult(value)).toBe(true);
   });
 
+  it.each([
+    {
+      name: "month build and automatic month pillar forged together",
+      mutate: (value: CalendarResult) => {
+        value.monthBuild = "卯";
+        value.pillars.month = { automatic: "丁卯", effective: "丁卯", source: "automatic" };
+      },
+    },
+    {
+      name: "automatic divination hour and automatic hour pillar forged together",
+      mutate: (value: CalendarResult) => {
+        value.divinationHour = { automatic: "午", effective: "午", source: "automatic" };
+        value.pillars.hour = { automatic: "庚午", effective: "庚午", source: "automatic" };
+      },
+    },
+    {
+      name: "automatic month-pillar stem forged while keeping the anchored branch",
+      mutate: (value: CalendarResult) => {
+        value.pillars.month = { automatic: "戊寅", effective: "戊寅", source: "automatic" };
+      },
+    },
+    {
+      name: "automatic hour-pillar stem forged while keeping the anchored branch",
+      mutate: (value: CalendarResult) => {
+        value.pillars.hour = { automatic: "癸未", effective: "癸未", source: "automatic" };
+      },
+    },
+  ])("rejects $name", ({ mutate }) => {
+    const value = structuredClone(validResult());
+    mutate(value);
+
+    expect(isCalendarResult(value)).toBe(false);
+  });
+
   it("keeps independently corrected effective fields independent from automatic cross-field contracts", () => {
     let input = setCalendarCorrection(baseInput, "monthPillar", "丁卯");
     input = setCalendarCorrection(input, "hourPillar", "甲子");

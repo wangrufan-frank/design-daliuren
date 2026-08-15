@@ -7,6 +7,7 @@ import {
   ZHONG_QI_TO_MONTH_GENERAL,
   isStemBranch,
 } from "./constants";
+import { deriveHourBranch, deriveHourPillar, deriveMonthPillar } from "./policy";
 import type {
   BeijingDateTime,
   CalendarPrimitives,
@@ -196,8 +197,6 @@ export function isCalendarResult(value: unknown): value is CalendarResult {
     (automatic, effective) => automatic.name === effective.name && automatic.branch === effective.branch,
   )) return false;
   if (!isReviewed(value.divinationHour, isBranch, (automatic, effective) => automatic === effective)) return false;
-  if (value.pillars.month.automatic[1] !== value.monthBuild) return false;
-  if (value.pillars.hour.automatic[1] !== value.divinationHour.automatic) return false;
   if (!isRecord(value.boundaries)) return false;
   const { previousJie, nextJie, previousZhongQi, nextZhongQi } = value.boundaries;
   if (!validBoundary(previousJie, "jie") || !validBoundary(nextJie, "jie")) return false;
@@ -210,6 +209,10 @@ export function isCalendarResult(value: unknown): value is CalendarResult {
     || time.utcEpochMs >= nextZhongQi.utcEpochMs
     || !adjacent(previousZhongQi.name, nextZhongQi.name, ZHONG_QI_NAMES)
   ) return false;
+  if (value.monthBuild !== JIE_TO_MONTH_BUILD[previousJie.name as keyof typeof JIE_TO_MONTH_BUILD]) return false;
+  if (value.divinationHour.automatic !== deriveHourBranch(time)) return false;
+  if (value.pillars.month.automatic !== deriveMonthPillar(value.pillars.year.automatic, previousJie.name)) return false;
+  if (value.pillars.hour.automatic !== deriveHourPillar(value.pillars.day.automatic, time)) return false;
   const expectedMonthGeneral = ZHONG_QI_TO_MONTH_GENERAL[
     previousZhongQi.name as keyof typeof ZHONG_QI_TO_MONTH_GENERAL
   ];
