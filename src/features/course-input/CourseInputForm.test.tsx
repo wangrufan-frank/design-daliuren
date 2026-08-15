@@ -48,3 +48,20 @@ it("accepts second-level Beijing time within the supported range", () => {
   expect(input).toHaveAttribute("min", "1900-01-01T00:00:00");
   expect(input).toHaveAttribute("max", "2100-12-31T23:59:59");
 });
+
+it("keeps ordinary entry to base context fields and submits empty corrections", async () => {
+  const onSubmit = vi.fn();
+  render(<CourseInputForm onSubmit={onSubmit} />);
+
+  expect(screen.queryByLabelText("月将")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("占时")).not.toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
+  await userEvent.type(screen.getByLabelText("地点"), "北京");
+  await userEvent.type(screen.getByLabelText("经度"), "116.4074");
+  await userEvent.type(screen.getByLabelText("纬度"), "39.9042");
+  await userEvent.click(screen.getByRole("button", { name: "建立起课上下文" }));
+
+  expect(onSubmit).toHaveBeenCalledOnce();
+  expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ corrections: {} }));
+});

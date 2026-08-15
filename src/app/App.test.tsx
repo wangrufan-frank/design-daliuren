@@ -1,10 +1,20 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
 import { App } from "./App";
 
 afterEach(cleanup);
+
+async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText("日期与时间"), civilDateTime);
+  await user.type(screen.getByLabelText("地点"), "北京");
+  await user.type(screen.getByLabelText("经度"), "116.4074");
+  await user.type(screen.getByLabelText("纬度"), "39.9042");
+  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  return user;
+}
 
 it("starts at input without a fake model or fake course", () => {
   render(<App />);
@@ -12,22 +22,90 @@ it("starts at input without a fake model or fake course", () => {
   expect(screen.getByRole("heading", { name: "大六壬演式" })).toBeVisible();
   expect(screen.getByRole("button", { name: "建立起课上下文" })).toBeVisible();
   expect(screen.getByLabelText("传统规则阶段")).toBeVisible();
+  expect(screen.queryByLabelText("历法结果矩阵")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("标准文字课式")).not.toBeInTheDocument();
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
-it("moves to rule confirmation after a valid input without rendering a course", async () => {
-  const user = userEvent.setup();
+it("runs the real offline calendar stage and renders only its valid matrix", async () => {
   render(<App />);
 
-  await user.type(screen.getByLabelText("日期与时间"), "2026-08-15T12:00");
-  await user.type(screen.getByLabelText("地点"), "北京");
-  await user.type(screen.getByLabelText("经度"), "116.4074");
-  await user.type(screen.getByLabelText("纬度"), "39.9042");
-  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  await submitCourse();
 
-  expect(screen.getByRole("heading", { name: "规则确认" })).toBeVisible();
+  const matrix = screen.getByRole("list", { name: "历法结果矩阵" });
+  for (const [label, value] of [
+    ["年柱", "甲辰"],
+    ["月柱", "丙寅"],
+    ["日柱", "甲辰"],
+    ["时柱", "辛未"],
+  ]) {
+    expect(within(matrix).getByRole("button", { name: new RegExp(`${label}.*${value}`) })).toBeVisible();
+  }
+  expect(within(matrix).getByRole("button", { name: /月将.*神后.*子/ })).toBeVisible();
+  expect(screen.queryByRole("region", { name: "天地盘加临" })).not.toBeInTheDocument();
   expect(screen.queryByLabelText("标准文字课式")).not.toBeInTheDocument();
+  expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
+});
+
+it("advances the read-only rail only after a valid calendar snapshot exists", async () => {
+  render(<App />);
+
+  expect(screen.getByText("历法与月将")).toHaveAttribute("data-status", "current");
+  expect(screen.getByText("天地盘加临")).toHaveAttribute("data-status", "locked");
+
+  await submitCourse();
+
+  expect(screen.getByText("历法与月将", { selector: ".rule-stage-rail span" })).toHaveAttribute("data-status", "completed");
+  expect(screen.getByText("天地盘加临")).toHaveAttribute("data-status", "current");
+});
+
+it("reruns the full stage for a day-pillar correction and reset", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
+
+  let dayPillar = screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 乙巳.*人工修正/ });
+  expect(within(dayPillar).getByText("自动：甲辰")).toBeVisible();
+  expect(within(dayPillar).getByText("有效：乙巳")).toBeVisible();
+  expect(within(dayPillar).getByText("人工修正")).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "恢复日柱自动值" }));
+
+  dayPillar = screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 甲辰.*自动计算/ });
+  expect(within(dayPillar).getByText("有效：甲辰")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "恢复日柱自动值" })).not.toBeInTheDocument();
+});
+
+it("keeps the prior valid snapshot on a failed correction and clears the error after success", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
+  const correction = screen.getByRole("combobox", { name: "修正日柱" });
+  correction.append(new Option("甲丑", "甲丑"));
+  fireEvent.change(correction, { target: { value: "甲丑" } });
+
+  expect(screen.getByRole("alert")).toHaveTextContent("日柱：人工修正值无效");
+  expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 甲辰.*自动计算/ })).toBeVisible();
+
+  await user.selectOptions(correction, "乙巳");
+
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 乙巳.*人工修正/ })).toBeVisible();
+});
+
+it("keeps an out-of-range submission in the input state with the stable domain message", async () => {
+  render(<App />);
+
+  await submitCourse("2101-01-01T00:00:00");
+
+  expect(screen.getByRole("alert")).toHaveTextContent("仅支持 1900–2100 年的北京时间");
+  expect(screen.getByRole("heading", { name: "起课输入" })).toBeVisible();
+  expect(screen.queryByLabelText("历法结果矩阵")).not.toBeInTheDocument();
+  expect(screen.getByText("历法与月将")).toHaveAttribute("data-status", "current");
 });
 
 it("collapses each shell panel and unmounts its content", async () => {

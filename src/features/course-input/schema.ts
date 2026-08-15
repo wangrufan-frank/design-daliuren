@@ -1,5 +1,6 @@
 import type { CourseInput, EarthlyBranch } from "../../domain/chart/types";
 import { parseBeijingDateTime } from "../../domain/calendar/beijing-time";
+import { CalendarDomainError } from "../../domain/calendar/types";
 
 export type InputErrors = Partial<Record<
   "civilDateTime" | "locationName" | "longitude" | "latitude" | "monthGeneral" | "divinationHour",
@@ -29,8 +30,10 @@ export function parseCourseInput(form: FormData): CourseInput | InputErrors {
   } else {
     try {
       normalizedCivilDateTime = parseBeijingDateTime(civilDateTime).isoLocal;
-    } catch {
-      errors.civilDateTime = "请输入 1900–2100 年内的有效北京时间";
+    } catch (error) {
+      errors.civilDateTime = error instanceof CalendarDomainError && error.detail.code === "OUT_OF_SUPPORTED_RANGE"
+        ? error.detail.message
+        : "请输入 1900–2100 年内的有效北京时间";
     }
   }
   if (!locationName) errors.locationName = "请输入地点";

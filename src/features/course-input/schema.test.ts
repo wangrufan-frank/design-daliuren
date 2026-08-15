@@ -28,7 +28,7 @@ describe("parseCourseInput", () => {
       form.set("longitude", "116.4074");
       form.set("latitude", "39.9042");
 
-      expect(parseCourseInput(form)).toEqual({ civilDateTime: "请输入 1900–2100 年内的有效北京时间" });
+      expect(parseCourseInput(form)).toEqual({ civilDateTime: "仅支持 1900–2100 年的北京时间" });
     },
   );
 

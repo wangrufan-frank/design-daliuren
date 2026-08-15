@@ -2,8 +2,6 @@ import { useState, type FormEvent } from "react";
 import type { CourseInput } from "../../domain/chart/types";
 import { parseCourseInput, type InputErrors } from "./schema";
 
-const branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"] as const;
-
 export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) => void }) {
   const [errors, setErrors] = useState<InputErrors>({});
 
@@ -33,7 +31,7 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
         aria-describedby={errors.civilDateTime ? "civilDateTime-error" : undefined}
         aria-invalid={errors.civilDateTime ? true : undefined}
       />
-      <p id="civilDateTime-error" role="alert">{errors.civilDateTime}</p>
+      {errors.civilDateTime ? <p id="civilDateTime-error" role="alert">{errors.civilDateTime}</p> : null}
 
       <label htmlFor="locationName">地点</label>
       <input
@@ -42,7 +40,7 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
         aria-describedby={errors.locationName ? "locationName-error" : undefined}
         aria-invalid={errors.locationName ? true : undefined}
       />
-      <p id="locationName-error" role="alert">{errors.locationName}</p>
+      {errors.locationName ? <p id="locationName-error" role="alert">{errors.locationName}</p> : null}
 
       <label htmlFor="longitude">经度</label>
       <input
@@ -53,7 +51,7 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
         aria-describedby={errors.longitude ? "longitude-error" : undefined}
         aria-invalid={errors.longitude ? true : undefined}
       />
-      <p id="longitude-error" role="alert">{errors.longitude}</p>
+      {errors.longitude ? <p id="longitude-error" role="alert">{errors.longitude}</p> : null}
 
       <label htmlFor="latitude">纬度</label>
       <input
@@ -64,17 +62,7 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
         aria-describedby={errors.latitude ? "latitude-error" : undefined}
         aria-invalid={errors.latitude ? true : undefined}
       />
-      <p id="latitude-error" role="alert">{errors.latitude}</p>
-
-      {(["monthGeneral", "divinationHour"] as const).map((name) => (
-        <label key={name}>
-          {name === "monthGeneral" ? "月将" : "占时"}
-          <select name={name} defaultValue="">
-            <option value="">自动换算</option>
-            {branches.map((branch) => <option key={branch} value={branch}>{branch}</option>)}
-          </select>
-        </label>
-      ))}
+      {errors.latitude ? <p id="latitude-error" role="alert">{errors.latitude}</p> : null}
 
       <button type="submit">建立起课上下文</button>
     </form>
