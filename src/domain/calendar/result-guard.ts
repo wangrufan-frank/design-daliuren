@@ -23,8 +23,10 @@ const ZHONG_QI_NAMES = Object.keys(ZHONG_QI_TO_MONTH_GENERAL);
 const BASE_EVIDENCE = [
   [CALENDAR_RULE_IDS.beijingTime, "civilDateTime"],
   [CALENDAR_RULE_IDS.ziInitial, "effectiveGanzhiDate"],
+  [CALENDAR_RULE_IDS.lunarDate, "lunarDate"],
   [CALENDAR_RULE_IDS.year, "yearPillar"],
   [CALENDAR_RULE_IDS.month, "monthPillar"],
+  [CALENDAR_RULE_IDS.monthBuild, "monthBuild"],
   [CALENDAR_RULE_IDS.day, "dayPillar"],
   [CALENDAR_RULE_IDS.hourBranch, "divinationHour"],
   [CALENDAR_RULE_IDS.hourStem, "hourPillar"],

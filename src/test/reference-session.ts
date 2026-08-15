@@ -82,6 +82,12 @@ const calendarSnapshot = {
         conclusion: "处于 23:00–23:59，干支日从民用日期前推至 2026-08-15",
       },
       {
+        ruleId: "calendar/lunar-date-v1",
+        field: "lunarDate",
+        input: "民用日期 2026-08-14，适配器农历 二〇二六年七月初二",
+        conclusion: "按民用日期读取适配器农历结果 二〇二六年七月初二",
+      },
+      {
         ruleId: "calendar/year-at-li-chun-v1",
         field: "yearPillar",
         input: "立春 2026-02-04T04:02:08",
@@ -92,6 +98,12 @@ const calendarSnapshot = {
         field: "monthPillar",
         input: "立秋 2026-08-07T19:42:43",
         conclusion: "当前节为立秋，月建为申，月柱为丙申",
+      },
+      {
+        ruleId: "calendar/month-build-at-jie-v1",
+        field: "monthBuild",
+        input: "立秋 2026-08-07T19:42:43",
+        conclusion: "当前活动节为立秋，月建为申",
       },
       {
         ruleId: "calendar/day-cycle-v1",

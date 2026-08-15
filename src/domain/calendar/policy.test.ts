@@ -99,7 +99,8 @@ describe("deriveAutomaticCalendar", () => {
   it("emits the complete required evidence set with stable fields and displayable conclusions", () => {
     const result = deriveAutomaticCalendar(engineInput(ordinaryCalendarCase.input));
 
-    expect(result.evidence.map(({ ruleId, field }) => ({ ruleId, field }))).toEqual(expect.arrayContaining([
+    const evidenceKeys = result.evidence.map(({ ruleId, field }) => `${ruleId}:${field}`);
+    expect(result.evidence.map(({ ruleId, field }) => ({ ruleId, field }))).toEqual([
       { ruleId: "calendar/beijing-time-v1", field: "civilDateTime" },
       { ruleId: "calendar/zi-initial-rollover-v1", field: "effectiveGanzhiDate" },
       { ruleId: "calendar/lunar-date-v1", field: "lunarDate" },
@@ -110,7 +111,8 @@ describe("deriveAutomaticCalendar", () => {
       { ruleId: "calendar/hour-double-hour-v1", field: "divinationHour" },
       { ruleId: "calendar/hour-stem-v1", field: "hourPillar" },
       { ruleId: "calendar/month-general-at-zhongqi-v1", field: "monthGeneral" },
-    ]));
+    ]);
+    expect(new Set(evidenceKeys).size).toBe(evidenceKeys.length);
     expect(result.evidence.every(({ input, conclusion }) => input.length > 0 && conclusion.length > 0)).toBe(true);
     expect(result.evidence.map(({ conclusion }) => conclusion).join("\n")).toContain(ordinaryCalendarCase.expected.pillars.year);
     expect(result.evidence.map(({ conclusion }) => conclusion).join("\n")).toContain(ordinaryCalendarCase.expected.lunarDisplay);

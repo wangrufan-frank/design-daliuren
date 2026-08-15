@@ -41,9 +41,17 @@ describe("CalendarReview", () => {
     const review = screen.getByRole("region", { name: "历法与月将" });
     const matrix = within(review).getByRole("list", { name: "历法结果矩阵" });
     const items = within(matrix).getAllByRole("listitem");
+    expect(review.tagName).toBe("SECTION");
+    expect(matrix.tagName).toBe("UL");
     expect(items).toHaveLength(8);
     expect(within(matrix).getAllByRole("button")).toHaveLength(8);
-    items.forEach((item) => expect(within(item).getByRole("button")).toBeVisible());
+    items.forEach((item) => {
+      const button = within(item).getByRole("button");
+      expect(item.tagName).toBe("LI");
+      expect(item.parentElement).toBe(matrix);
+      expect(button.tagName).toBe("BUTTON");
+      expect(button.parentElement).toBe(item);
+    });
     expect(screen.getByText("calendar/zi-initial-rollover-v1")).toBeVisible();
     expect(screen.queryByRole("button", { name: /批准|审核通过/ })).not.toBeInTheDocument();
   });

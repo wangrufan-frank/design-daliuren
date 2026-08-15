@@ -137,6 +137,7 @@ export function CalendarReview({ result, onSetCorrection, onResetCorrection }: C
                   <span>有效：{cell.effective}</span>
                   <span className="calendar-review__source">{sourceLabel}</span>
                 </button>
+                <span className="calendar-review__connector" aria-hidden="true" />
               </li>
             );
           })}
