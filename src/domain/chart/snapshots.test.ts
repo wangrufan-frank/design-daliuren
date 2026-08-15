@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { invalidateFrom, validateSession } from "./snapshots";
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
 import { referenceSession } from "../../test/reference-session";
+import { LunarTypescriptAdapter } from "../../adapters/calendar/lunar-typescript-adapter";
+import { computeCalendar } from "../calendar/compute-calendar";
 
 describe("rule stage metadata", () => {
   it("orders every calculation dependency before its consumer", () => {
@@ -59,4 +61,20 @@ it("removes the changed stage and every downstream stage", () => {
   expect(next.snapshots["three-transmissions"]).toBeUndefined();
   expect(next.snapshots["heavenly-generals"]).toBeDefined();
   expect(next.snapshots.course).toBeUndefined();
+});
+
+it("rejects a present calendar snapshot whose value fails the runtime guard", () => {
+  const outcome = computeCalendar({
+    civilDateTime: "2024-02-10T14:30:00",
+    timeZone: "Asia/Shanghai",
+    locationName: "北京",
+    longitude: 116.4074,
+    latitude: 39.9042,
+    corrections: {},
+  }, new LunarTypescriptAdapter());
+  if (!outcome.ok) throw new Error("expected calendar fixture to succeed");
+  const broken = structuredClone({ ...referenceSession, snapshots: { calendar: outcome.snapshot } });
+  broken.snapshots.calendar.value.pillars.day.effective = "甲丑" as never;
+
+  expect(validateSession(broken)).toContain("calendar 快照结果无效");
 });

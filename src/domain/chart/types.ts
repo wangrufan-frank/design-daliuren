@@ -1,4 +1,4 @@
-import type { StemBranch } from "../calendar/types";
+import type { CalendarSnapshot, StemBranch } from "../calendar/types";
 
 export type EarthlyBranch =
   | "子" | "丑" | "寅" | "卯" | "辰" | "巳"
@@ -41,7 +41,9 @@ export interface RuleSnapshot<T, Stage extends RuleStageId = RuleStageId> {
 }
 
 export type RuleSnapshots = {
-  [Stage in RuleStageId]?: RuleSnapshot<unknown, Stage>;
+  calendar?: CalendarSnapshot;
+} & {
+  [Stage in Exclude<RuleStageId, "calendar">]?: RuleSnapshot<unknown, Stage>;
 };
 
 export interface CourseSession {

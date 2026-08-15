@@ -1,5 +1,6 @@
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
 import type { CourseSession, RuleStageId } from "./types";
+import { isCalendarResult } from "../calendar/compute-calendar";
 
 export function validateSession(session: CourseSession): readonly string[] {
   const errors: string[] = [];
@@ -7,6 +8,7 @@ export function validateSession(session: CourseSession): readonly string[] {
     const snapshot = session.snapshots[stage];
     if (!snapshot) continue;
     if (snapshot.stage !== stage) errors.push(`${stage} 快照阶段与键不一致: ${snapshot.stage}`);
+    if (stage === "calendar" && !isCalendarResult(snapshot.value)) errors.push("calendar 快照结果无效");
     const expectedDependencies = stageDependencies[stage];
     if (
       !Array.isArray(snapshot.dependsOn)

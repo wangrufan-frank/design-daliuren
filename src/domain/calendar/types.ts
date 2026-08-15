@@ -88,6 +88,7 @@ export interface CalendarError {
   code: CalendarErrorCode;
   message: string;
   field?: CalendarCorrectionField;
+  cause?: unknown;
 }
 
 export class CalendarDomainError extends Error {

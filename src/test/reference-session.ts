@@ -1,21 +1,27 @@
-import type { CourseResult, CourseSession, RuleStageId, RuleSnapshot } from "../domain/chart/types";
+import { LunarTypescriptAdapter } from "../adapters/calendar/lunar-typescript-adapter";
+import { computeCalendar } from "../domain/calendar/compute-calendar";
+import type { CourseInput, CourseResult, CourseSession, RuleStageId, RuleSnapshot } from "../domain/chart/types";
 import { stageDependencies } from "../domain/chart/stages";
 
 function snapshot<Stage extends RuleStageId>(stage: Stage, value: unknown): RuleSnapshot<unknown, Stage> {
   return { stage, dependsOn: stageDependencies[stage], ruleId: "reference-layout-only", source: "manual", value };
 }
 
+const referenceInput: CourseInput = {
+  civilDateTime: "2026-08-14T23:57:00",
+  timeZone: "Asia/Shanghai",
+  locationName: "参考课式",
+  longitude: 116.4074,
+  latitude: 39.9042,
+  corrections: {},
+};
+const calendar = computeCalendar(referenceInput, new LunarTypescriptAdapter());
+if (!calendar.ok) throw new Error(`参考历法快照生成失败：${calendar.error.code}`);
+
 export const referenceSession: CourseSession = {
-  input: {
-    civilDateTime: "2026-08-14T23:57:00+08:00",
-    timeZone: "Asia/Shanghai",
-    locationName: "参考课式",
-    longitude: 116.4074,
-    latitude: 39.9042,
-    corrections: {},
-  },
+  input: referenceInput,
   snapshots: {
-    calendar: snapshot("calendar", { lunarDate: "丙午年七月初二", pillars: ["丙午", "丙申", "庚申", "戊子"] }),
+    calendar: calendar.snapshot,
     "heaven-earth": snapshot("heaven-earth", { centerLabel: "时课天地盘", branches: ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"] }),
     "four-lessons": snapshot("four-lessons", { labels: ["四课", "三课", "二课", "一课"] }),
     "three-transmissions": snapshot("three-transmissions", { labels: ["初传", "中传", "末传"] }),
