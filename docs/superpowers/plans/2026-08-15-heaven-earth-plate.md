@@ -95,13 +95,19 @@ export type HeavenEarthStageOutcome =
 - [ ] **Step 2: 写失败测试，锁定三类案例**
 
 ```ts
+const MONTH_GENERAL_NAME_BY_BRANCH: Record<EarthlyBranch, MonthGeneralName> = {
+  子: "神后", 丑: "大吉", 寅: "功曹", 卯: "太冲", 辰: "天罡", 巳: "太乙",
+  午: "胜光", 未: "小吉", 申: "传送", 酉: "从魁", 戌: "河魁", 亥: "登明",
+};
+
 function calendarFixture(general: EarthlyBranch, hour: EarthlyBranch): CalendarResult {
   const base = structuredClone(referenceSession.snapshots.calendar!.value);
+  const name = MONTH_GENERAL_NAME_BY_BRANCH[general];
   return {
     ...base,
     monthGeneral: {
-      automatic: { name: "胜光", branch: general },
-      effective: { name: "胜光", branch: general },
+      automatic: { name, branch: general },
+      effective: { name, branch: general },
       source: "automatic",
     },
     divinationHour: { automatic: hour, effective: hour, source: "automatic" },
