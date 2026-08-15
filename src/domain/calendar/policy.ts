@@ -131,6 +131,12 @@ export function deriveAutomaticCalendar({ time, primitives }: CalendarEngineInpu
           : `不处于子初换日区间，干支日与民用日期一致（${effectiveGanzhiDate}）`,
     },
     {
+      ruleId: CALENDAR_RULE_IDS.lunarDate,
+      field: "lunarDate",
+      input: `民用日期 ${time.isoLocal.slice(0, 10)}，适配器农历 ${primitives.lunarDate.display}`,
+      conclusion: `按民用日期读取适配器农历结果 ${primitives.lunarDate.display}`,
+    },
+    {
       ruleId: CALENDAR_RULE_IDS.year,
       field: "yearPillar",
       input: `立春 ${primitives.liChun.beijingDateTime}`,
@@ -141,6 +147,12 @@ export function deriveAutomaticCalendar({ time, primitives }: CalendarEngineInpu
       field: "monthPillar",
       input: `${jie.name} ${jie.beijingDateTime}`,
       conclusion: `当前节为${jie.name}，月建为${monthBuild}，月柱为${monthPillar}`,
+    },
+    {
+      ruleId: CALENDAR_RULE_IDS.monthBuild,
+      field: "monthBuild",
+      input: `${jie.name} ${jie.beijingDateTime}`,
+      conclusion: `当前活动节为${jie.name}，月建为${monthBuild}`,
     },
     {
       ruleId: CALENDAR_RULE_IDS.day,

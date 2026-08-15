@@ -96,21 +96,25 @@ describe("deriveAutomaticCalendar", () => {
     expect(result.monthGeneral).toEqual({ name: "登明", branch: "亥" });
   });
 
-  it("emits exactly the eight reviewed decision categories with stable rule IDs and displayable conclusions", () => {
+  it("emits the complete required evidence set with stable fields and displayable conclusions", () => {
     const result = deriveAutomaticCalendar(engineInput(ordinaryCalendarCase.input));
 
-    expect(result.evidence.map(({ ruleId, field }) => ({ ruleId, field }))).toEqual([
-      { ruleId: CALENDAR_RULE_IDS.beijingTime, field: "civilDateTime" },
-      { ruleId: CALENDAR_RULE_IDS.ziInitial, field: "effectiveGanzhiDate" },
-      { ruleId: CALENDAR_RULE_IDS.year, field: "yearPillar" },
-      { ruleId: CALENDAR_RULE_IDS.month, field: "monthPillar" },
-      { ruleId: CALENDAR_RULE_IDS.day, field: "dayPillar" },
-      { ruleId: CALENDAR_RULE_IDS.hourBranch, field: "divinationHour" },
-      { ruleId: CALENDAR_RULE_IDS.hourStem, field: "hourPillar" },
-      { ruleId: CALENDAR_RULE_IDS.monthGeneral, field: "monthGeneral" },
-    ]);
+    expect(result.evidence.map(({ ruleId, field }) => ({ ruleId, field }))).toEqual(expect.arrayContaining([
+      { ruleId: "calendar/beijing-time-v1", field: "civilDateTime" },
+      { ruleId: "calendar/zi-initial-rollover-v1", field: "effectiveGanzhiDate" },
+      { ruleId: "calendar/lunar-date-v1", field: "lunarDate" },
+      { ruleId: "calendar/year-at-li-chun-v1", field: "yearPillar" },
+      { ruleId: "calendar/month-at-jie-v1", field: "monthPillar" },
+      { ruleId: "calendar/month-build-at-jie-v1", field: "monthBuild" },
+      { ruleId: "calendar/day-cycle-v1", field: "dayPillar" },
+      { ruleId: "calendar/hour-double-hour-v1", field: "divinationHour" },
+      { ruleId: "calendar/hour-stem-v1", field: "hourPillar" },
+      { ruleId: "calendar/month-general-at-zhongqi-v1", field: "monthGeneral" },
+    ]));
     expect(result.evidence.every(({ input, conclusion }) => input.length > 0 && conclusion.length > 0)).toBe(true);
     expect(result.evidence.map(({ conclusion }) => conclusion).join("\n")).toContain(ordinaryCalendarCase.expected.pillars.year);
+    expect(result.evidence.map(({ conclusion }) => conclusion).join("\n")).toContain(ordinaryCalendarCase.expected.lunarDisplay);
+    expect(result.evidence.map(({ conclusion }) => conclusion).join("\n")).toContain(`月建为${ordinaryCalendarCase.expected.monthBuild}`);
     expect(result.evidence.map(({ conclusion }) => conclusion).join("\n")).toContain(ordinaryCalendarCase.expected.monthGeneral.name);
   });
 

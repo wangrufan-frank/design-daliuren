@@ -25,8 +25,10 @@ export const ZHONG_QI_TO_MONTH_GENERAL = {
 export const CALENDAR_RULE_IDS = {
   beijingTime: "calendar/beijing-time-v1",
   ziInitial: "calendar/zi-initial-rollover-v1",
+  lunarDate: "calendar/lunar-date-v1",
   year: "calendar/year-at-li-chun-v1",
   month: "calendar/month-at-jie-v1",
+  monthBuild: "calendar/month-build-at-jie-v1",
   day: "calendar/day-cycle-v1",
   hourBranch: "calendar/hour-double-hour-v1",
   hourStem: "calendar/hour-stem-v1",
