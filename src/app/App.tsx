@@ -16,15 +16,6 @@ import "../styles/global.css";
 
 const calendarAdapter = new LunarTypescriptAdapter();
 
-const CORRECTION_LABELS: Record<CalendarCorrectionField, string> = {
-  yearPillar: "年柱",
-  monthPillar: "月柱",
-  dayPillar: "日柱",
-  hourPillar: "时柱",
-  monthGeneral: "月将",
-  divinationHour: "占时",
-};
-
 export function App() {
   const [session, setSession] = useState<CourseSession | null>(null);
   const [calendarError, setCalendarError] = useState<CalendarError | null>(null);
@@ -58,9 +49,10 @@ export function App() {
     replaceFrom({ ...session, input: resetCalendarCorrection(session.input, field) });
   }
 
-  const errorMessage = calendarError
-    ? `${calendarError.field ? `${CORRECTION_LABELS[calendarError.field]}：` : ""}${calendarError.message}`
+  const correctionError = calendarError?.code === "INVALID_CALENDAR_CORRECTION" && calendarError.field
+    ? { field: calendarError.field, message: calendarError.message }
     : undefined;
+  const generalErrorMessage = calendarError && !correctionError ? calendarError.message : undefined;
 
   return (
     <main className="app-shell">
@@ -80,14 +72,15 @@ export function App() {
               result={calendarResult}
               onSetCorrection={setCorrection}
               onResetCorrection={resetCorrection}
+              correctionError={correctionError}
             />
           ) : (
             <>
               <h2>起课输入</h2>
-              {!errorMessage ? <p>输入时间与地点，建立可追溯的起课上下文。</p> : null}
+              {!generalErrorMessage ? <p>输入时间与地点，建立可追溯的起课上下文。</p> : null}
             </>
           )}
-          {errorMessage ? <p role="alert">{errorMessage}</p> : null}
+          {generalErrorMessage ? <p role="alert">{generalErrorMessage}</p> : null}
         </section>
         <aside className="app-panel app-rule-panel" aria-label="推演依据">
           <button className="app-panel__toggle" type="button" aria-expanded={railOpen} onClick={() => setRailOpen((value) => !value)}>

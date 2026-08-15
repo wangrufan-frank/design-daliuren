@@ -16,6 +16,7 @@ interface CalendarReviewProps {
   result: CalendarResult;
   onSetCorrection: (field: CalendarCorrectionField, rawValue: string) => void;
   onResetCorrection: (field: CalendarCorrectionField) => void;
+  correctionError?: { field: CalendarCorrectionField; message: string };
 }
 
 const FIELD_LABELS: Record<CalendarField, string> = {
@@ -81,7 +82,7 @@ function isCorrectable(field: CalendarField): field is CalendarCorrectionField {
   return field !== "lunarDate" && field !== "monthBuild";
 }
 
-export function CalendarReview({ result, onSetCorrection, onResetCorrection }: CalendarReviewProps) {
+export function CalendarReview({ result, onSetCorrection, onResetCorrection, correctionError }: CalendarReviewProps) {
   const [activeField, setActiveField] = useState<CalendarField>("yearPillar");
   const cells = calendarCells(result);
   const activeCell = cells.find(({ id }) => id === activeField)!;
@@ -90,6 +91,10 @@ export function CalendarReview({ result, onSetCorrection, onResetCorrection }: C
   );
   const correctionOptions = isCorrectable(activeField)
     ? PILLAR_FIELDS.has(activeField) ? JIA_ZI : EARTHLY_BRANCHES
+    : undefined;
+  const activeCorrectionError = correctionError?.field === activeField ? correctionError : undefined;
+  const correctionErrorId = activeCorrectionError
+    ? `calendar-correction-${activeCorrectionError.field}-error`
     : undefined;
 
   return (
@@ -177,6 +182,8 @@ export function CalendarReview({ result, onSetCorrection, onResetCorrection }: C
             <label htmlFor={`calendar-correction-${activeField}`}>修正{FIELD_LABELS[activeField]}</label>
             <select
               id={`calendar-correction-${activeField}`}
+              aria-invalid={activeCorrectionError ? true : undefined}
+              aria-errormessage={correctionErrorId}
               value={activeField === "monthGeneral"
                 ? result.monthGeneral.effective.branch
                 : activeCell.effective}
@@ -184,6 +191,9 @@ export function CalendarReview({ result, onSetCorrection, onResetCorrection }: C
             >
               {correctionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
+            {activeCorrectionError ? (
+              <p id={correctionErrorId} role="alert">{activeCorrectionError.message}</p>
+            ) : null}
             {activeCell.source === "manual" ? (
               <button type="button" onClick={() => onResetCorrection(activeField)}>
                 恢复{FIELD_LABELS[activeField]}自动值

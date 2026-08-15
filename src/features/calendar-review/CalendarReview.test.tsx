@@ -147,4 +147,32 @@ describe("CalendarReview", () => {
     await userEvent.click(screen.getByRole("button", { name: /月将.*神后.*子.*自动/ }));
     expect(screen.queryByLabelText("月将名称")).not.toBeInTheDocument();
   });
+
+  it("associates a correction error only with its active field select", async () => {
+    render(
+      <CalendarReview
+        result={calendarResult()}
+        onSetCorrection={vi.fn()}
+        onResetCorrection={vi.fn()}
+        correctionError={{ field: "dayPillar", message: "人工修正值无效" }}
+      />,
+    );
+
+    expect(screen.queryByText("人工修正值无效")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /日柱.*甲辰.*自动/ }));
+    const daySelect = screen.getByRole("combobox", { name: "修正日柱" });
+    const error = screen.getByRole("alert");
+    expect(error).toHaveAttribute("id", "calendar-correction-dayPillar-error");
+    expect(error).toHaveTextContent("人工修正值无效");
+    expect(daySelect).toHaveAttribute("aria-invalid", "true");
+    expect(daySelect).toHaveAttribute("aria-errormessage", error.id);
+    expect(daySelect.nextElementSibling).toBe(error);
+
+    await userEvent.click(screen.getByRole("button", { name: /月柱.*丙寅.*自动/ }));
+    const monthSelect = screen.getByRole("combobox", { name: "修正月柱" });
+    expect(monthSelect).not.toHaveAttribute("aria-invalid");
+    expect(monthSelect).not.toHaveAttribute("aria-errormessage");
+    expect(screen.queryByText("人工修正值无效")).not.toBeInTheDocument();
+  });
 });

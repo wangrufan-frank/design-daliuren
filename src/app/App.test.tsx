@@ -87,14 +87,49 @@ it("keeps the prior valid snapshot on a failed correction and clears the error a
   correction.append(new Option("甲丑", "甲丑"));
   fireEvent.change(correction, { target: { value: "甲丑" } });
 
-  expect(screen.getByRole("alert")).toHaveTextContent("日柱：人工修正值无效");
+  const error = screen.getByRole("alert");
+  const failedSelect = screen.getByRole("combobox", { name: "修正日柱" });
+  expect(error).toHaveAttribute("id", "calendar-correction-dayPillar-error");
+  expect(error).toHaveTextContent("人工修正值无效");
+  expect(failedSelect).toHaveAttribute("aria-invalid", "true");
+  expect(failedSelect).toHaveAttribute("aria-errormessage", error.id);
   expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
   expect(screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 甲辰.*自动计算/ })).toBeVisible();
 
-  await user.selectOptions(correction, "乙巳");
+  await user.click(screen.getByRole("button", { name: /月柱.*自动 丙寅/ }));
+  expect(screen.getByRole("combobox", { name: "修正月柱" })).not.toHaveAttribute("aria-invalid");
+  expect(screen.queryByText("人工修正值无效")).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
 
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 乙巳.*人工修正/ })).toBeVisible();
+});
+
+it("clears a field correction error after reset and after a new successful submit", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
+  let correction = screen.getByRole("combobox", { name: "修正日柱" });
+  correction.append(new Option("甲丑", "甲丑"));
+  fireEvent.change(correction, { target: { value: "甲丑" } });
+  expect(screen.getByRole("alert")).toHaveTextContent("人工修正值无效");
+
+  await user.click(screen.getByRole("button", { name: "恢复日柱自动值" }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /日柱.*有效 甲辰.*自动计算/ })).toBeVisible();
+
+  correction = screen.getByRole("combobox", { name: "修正日柱" });
+  correction.append(new Option("甲丑", "甲丑"));
+  fireEvent.change(correction, { target: { value: "甲丑" } });
+  expect(screen.getByRole("alert")).toHaveTextContent("人工修正值无效");
+
+  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
 });
 
 it("keeps an out-of-range submission in the input state with the stable domain message", async () => {
