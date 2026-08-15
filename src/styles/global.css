@@ -8,7 +8,7 @@ body {
   font-family: "Noto Serif SC", "Songti SC", serif;
 }
 button, input, select { font: inherit; }
-:focus-visible { outline: 2px solid var(--ru-celadon); outline-offset: 3px; }
+:focus, :focus-visible, input[type="datetime-local"]:focus-within { outline: 2px solid var(--ru-celadon); outline-offset: 3px; }
 .app-shell { width: min(100%, 1440px); margin: 0 auto; padding: 24px; }
 .app-header { border-bottom: 1px solid var(--patina); }
 .course-sheet { padding: 24px; background: var(--ash); color: var(--ink); }
