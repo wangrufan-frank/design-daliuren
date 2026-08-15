@@ -29,3 +29,18 @@ it("moves to rule confirmation after a valid input without rendering a course", 
   expect(screen.getByRole("heading", { name: "规则确认" })).toBeVisible();
   expect(screen.queryByLabelText("标准文字课式")).not.toBeInTheDocument();
 });
+
+it("collapses each shell panel and unmounts its content", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+
+  const inputToggle = screen.getByRole("button", { name: "起课输入" });
+  await user.click(inputToggle);
+  expect(inputToggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByLabelText("日期与时间")).not.toBeInTheDocument();
+
+  const railToggle = screen.getByRole("button", { name: "推演依据" });
+  await user.click(railToggle);
+  expect(railToggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByLabelText("传统规则阶段")).not.toBeInTheDocument();
+});

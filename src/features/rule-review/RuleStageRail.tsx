@@ -10,6 +10,12 @@ const labels: Record<RuleStageId, string> = {
   course: "复制结课",
 };
 
+const statusLabels = {
+  completed: "已完成",
+  current: "进行中",
+  locked: "待进行",
+} as const;
+
 export function RuleStageRail({ completed, current }: { completed: readonly RuleStageId[]; current: RuleStageId }) {
   return (
     <ol className="rule-stage-rail" aria-label="传统规则阶段">
@@ -18,7 +24,7 @@ export function RuleStageRail({ completed, current }: { completed: readonly Rule
 
         return (
           <li key={stage}>
-            <span data-status={status} aria-current={status === "current" ? "step" : undefined}>{labels[stage]}</span>
+            <span data-status={status} aria-current={status === "current" ? "step" : undefined} aria-label={`${labels[stage]}，${statusLabels[status]}`}>{labels[stage]}</span>
           </li>
         );
       })}
