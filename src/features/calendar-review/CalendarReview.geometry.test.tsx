@@ -81,6 +81,16 @@ describe("CalendarReview connector geometry", () => {
         const connectorFootRight = connectorRect.right - Number.parseFloat(connectorFoot.right);
         const connectorFootBottom = connectorRect.bottom - Number.parseFloat(connectorFoot.bottom);
         const connectorFootTop = connectorFootBottom - Number.parseFloat(connectorFoot.height);
+        const visibleConnectorIndices = [...document.querySelectorAll<HTMLElement>(".calendar-review__connector")]
+          .flatMap((candidate, candidateIndex) => {
+            const style = getComputedStyle(candidate);
+            const before = getComputedStyle(candidate, "::before");
+            const after = getComputedStyle(candidate, "::after");
+            const rootVisible = style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+            const beforeDrawn = before.content !== "none" && before.backgroundColor !== "rgba(0, 0, 0, 0)";
+            const afterDrawn = after.content !== "none" && after.backgroundColor !== "rgba(0, 0, 0, 0)";
+            return rootVisible && (beforeDrawn || afterDrawn) ? [candidateIndex] : [];
+          });
         const seamStart = mainRect.right - Number.parseFloat(getComputedStyle(main).borderRightWidth);
         const crossesButtonInterior = buttons.some((candidate, candidateIndex) => {
           if (candidateIndex === index) return false;
@@ -109,6 +119,13 @@ describe("CalendarReview connector geometry", () => {
           pointerEvents: getComputedStyle(connector).pointerEvents,
           linePointerEvents: connectorLine.pointerEvents,
           footPointerEvents: connectorFoot.pointerEvents,
+          lineContent: connectorLine.content,
+          lineBackground: connectorLine.backgroundColor,
+          lineWidth: connectorLine.width,
+          footContent: connectorFoot.content,
+          footBackground: connectorFoot.backgroundColor,
+          footHeight: connectorFoot.height,
+          visibleConnectorIndices,
         };
       }, activeIndex);
 
@@ -121,6 +138,13 @@ describe("CalendarReview connector geometry", () => {
       expect(metrics.pointerEvents).toBe("none");
       expect(metrics.linePointerEvents).toBe("none");
       expect(metrics.footPointerEvents).toBe("none");
+      expect(metrics.lineContent).not.toBe("none");
+      expect(metrics.footContent).not.toBe("none");
+      expect(metrics.lineBackground).toBe("rgb(67, 92, 83)");
+      expect(metrics.footBackground).toBe("rgb(67, 92, 83)");
+      expect(metrics.lineWidth).toBe("2px");
+      expect(metrics.footHeight).toBe("2px");
+      expect(metrics.visibleConnectorIndices).toEqual([activeIndex]);
     }
 
     await activate(page, 0);
