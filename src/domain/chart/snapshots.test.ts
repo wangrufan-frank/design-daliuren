@@ -102,3 +102,42 @@ it("derives manual calendar snapshot source from any manual reviewed value", () 
 
   expect(validateSession(broken)).toContain("calendar 快照来源无效，应为 manual");
 });
+
+it("rejects an invalid heaven-earth result", () => {
+  const broken = structuredClone(referenceSession);
+  const heavenEarth = broken.snapshots["heaven-earth"];
+  if (!heavenEarth || typeof heavenEarth.value !== "object" || heavenEarth.value === null) {
+    throw new Error("expected heaven-earth fixture");
+  }
+  const value = heavenEarth.value as { palaces: Array<{ earth: string; heaven: string }> };
+  value.palaces[1].heaven = value.palaces[0].heaven;
+
+  expect(validateSession(broken)).toContain("heaven-earth 快照结果无效");
+});
+
+it("rejects a forged heaven-earth rule ID", () => {
+  const broken = structuredClone(referenceSession);
+  const heavenEarth = broken.snapshots["heaven-earth"];
+  if (!heavenEarth) throw new Error("expected heaven-earth fixture");
+  heavenEarth.ruleId = "heaven-earth/forged-v1";
+
+  expect(validateSession(broken)).toContain("heaven-earth 快照规则编号无效");
+});
+
+it("rejects a heaven-earth source that does not match its reviewed inputs", () => {
+  const broken = structuredClone(referenceSession);
+  const heavenEarth = broken.snapshots["heaven-earth"];
+  if (!heavenEarth) throw new Error("expected heaven-earth fixture");
+  heavenEarth.source = "manual";
+
+  expect(validateSession(broken)).toContain("heaven-earth 快照来源无效，应为 automatic");
+});
+
+it("rejects a heaven-earth snapshot missing its calendar dependency", () => {
+  const broken = {
+    ...referenceSession,
+    snapshots: { "heaven-earth": referenceSession.snapshots["heaven-earth"] },
+  };
+
+  expect(validateSession(broken)).toContain("heaven-earth 缺少依赖 calendar");
+});

@@ -1,6 +1,8 @@
 import type { CalendarSnapshot } from "../domain/calendar/types";
 import type { CourseInput, CourseResult, CourseSession, RuleStageId, RuleSnapshot } from "../domain/chart/types";
 import { stageDependencies } from "../domain/chart/stages";
+import { deriveHeavenEarth } from "../domain/heaven-earth/policy";
+import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
 
 function snapshot<Stage extends RuleStageId>(stage: Stage, value: unknown): RuleSnapshot<unknown, Stage> {
   return { stage, dependsOn: stageDependencies[stage], ruleId: "reference-layout-only", source: "manual", value };
@@ -133,11 +135,19 @@ const calendarSnapshot = {
   },
 } as const satisfies CalendarSnapshot;
 
+const heavenEarthSnapshot = {
+  stage: "heaven-earth",
+  dependsOn: ["calendar"],
+  ruleId: "heaven-earth/month-general-over-hour-v1",
+  source: "automatic",
+  value: deriveHeavenEarth(calendarSnapshot.value),
+} as const satisfies HeavenEarthSnapshot;
+
 export const referenceSession: CourseSession = {
   input: referenceInput,
   snapshots: {
     calendar: calendarSnapshot,
-    "heaven-earth": snapshot("heaven-earth", { centerLabel: "时课天地盘", branches: ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"] }),
+    "heaven-earth": heavenEarthSnapshot,
     "four-lessons": snapshot("four-lessons", { labels: ["四课", "三课", "二课", "一课"] }),
     "three-transmissions": snapshot("three-transmissions", { labels: ["初传", "中传", "末传"] }),
     "heavenly-generals": snapshot("heavenly-generals", { count: 12 }),
