@@ -52,9 +52,59 @@ button, input, select { font: inherit; }
 .rule-stage-rail [data-status="current"] { color: var(--ru-celadon); font-weight: 700; }
 .rule-stage-rail li:has([data-status="current"])::before { border-color: var(--ru-celadon); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ru-celadon) 20%, transparent); }
 
+.calendar-review { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 0.36fr); border-block: 1px solid var(--patina); }
+.calendar-review__header, .calendar-review__time-band { grid-column: 1 / -1; }
+.calendar-review__header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 24px; padding: 20px 0 16px; }
+.calendar-review__header p { margin: 0; color: var(--ru-celadon); font-size: 0.78rem; letter-spacing: 0.12em; }
+.calendar-review__header p:last-child { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.calendar-review__header h2 { margin: 0; color: var(--ash); font-size: clamp(1.5rem, 3vw, 2.3rem); font-weight: 600; letter-spacing: 0.1em; }
+.calendar-review__time-band { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-block: 1px solid var(--patina); }
+.calendar-review__time-band > div { min-width: 0; padding: 13px 16px; border-inline-end: 1px solid var(--patina); }
+.calendar-review__time-band > div:last-child { border-inline-end: 0; }
+.calendar-review__time-band dt, .calendar-review__cell-label, .calendar-review__evidence-label { color: var(--ru-celadon); font-size: 0.75rem; letter-spacing: 0.12em; }
+.calendar-review__time-band dd { margin: 5px 0 0; color: var(--ash); line-height: 1.45; }
+.calendar-review__main { min-width: 0; padding: 24px 24px 24px 0; }
+.calendar-review__matrix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; padding: 0; background: var(--patina); list-style: none; }
+.calendar-review__matrix li { min-width: 0; background: var(--ink); }
+.calendar-review__cell { display: grid; align-content: start; gap: 6px; width: 100%; min-height: 142px; padding: 14px; border: 1px solid var(--patina); border-radius: 0; background: var(--ink); color: var(--ash); text-align: left; cursor: pointer; }
+.calendar-review__cell strong { color: var(--ash); font-size: clamp(1.25rem, 2.2vw, 1.7rem); font-weight: 600; letter-spacing: 0.08em; overflow-wrap: anywhere; }
+.calendar-review__cell > span:not(.calendar-review__cell-label):not(.calendar-review__source) { font-size: 0.78rem; line-height: 1.45; overflow-wrap: anywhere; }
+.calendar-review__cell[aria-pressed="true"] { border-inline-end: 4px solid var(--patina); }
+.calendar-review__cell[data-source="manual"] { border-color: var(--old-gold); }
+.calendar-review__cell[data-source="manual"] strong, .calendar-review__cell[data-source="manual"] .calendar-review__source { color: var(--old-gold); }
+.calendar-review__source { justify-self: start; margin-top: auto; padding-top: 4px; color: var(--ru-celadon); font-size: 0.72rem; letter-spacing: 0.08em; }
+.calendar-review__boundaries { margin-top: 22px; border-top: 1px solid var(--patina); }
+.calendar-review__boundaries h3 { margin: 14px 0 10px; color: var(--ru-celadon); font-size: 0.85rem; font-weight: 500; letter-spacing: 0.1em; }
+.calendar-review__boundaries dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; margin: 0; }
+.calendar-review__boundaries dt { color: var(--ru-celadon); font-size: 0.78rem; }
+.calendar-review__boundaries dd { margin: 4px 0 0; font-size: 0.9rem; }
+.calendar-review__evidence { min-width: 0; padding: 24px 0 24px 24px; border-inline-start: 4px solid var(--patina); }
+.calendar-review__evidence > p { margin: 0; }
+.calendar-review__evidence h3 { margin: 5px 0 18px; color: var(--ash); font-size: 1.2rem; font-weight: 600; letter-spacing: 0.08em; }
+.calendar-review__evidence ol { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+.calendar-review__evidence li { padding-top: 12px; border-top: 1px solid var(--patina); }
+.calendar-review__evidence li p { margin: 7px 0 0; line-height: 1.65; }
+.calendar-review__rule-id { color: var(--ru-celadon); font-family: inherit; font-size: 0.72rem; overflow-wrap: anywhere; }
+.calendar-review__correction { display: grid; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--patina); }
+.calendar-review__correction label { color: var(--ru-celadon); font-size: 0.82rem; letter-spacing: 0.08em; }
+.calendar-review__correction select, .calendar-review__correction button { width: 100%; min-height: 44px; border: 1px solid var(--patina); border-radius: 0; background: var(--dark-bronze); color: var(--ash); }
+.calendar-review__correction select { padding: 8px; }
+.calendar-review__correction button { padding: 8px 12px; color: var(--old-gold); border-color: var(--old-gold); cursor: pointer; }
+
 @media (max-width: 1023px) {
   .app-workspace { grid-template-columns: 1fr; }
   .app-stage { min-height: 240px; }
+}
+
+@media (max-width: 820px) {
+  .calendar-review { grid-template-columns: minmax(0, 1fr); }
+  .calendar-review__header, .calendar-review__time-band { grid-column: 1; }
+  .calendar-review__time-band { grid-template-columns: 1fr; }
+  .calendar-review__time-band > div { border-inline-end: 0; border-block-end: 1px solid var(--patina); }
+  .calendar-review__time-band > div:last-child { border-block-end: 0; }
+  .calendar-review__main { padding: 20px 0; }
+  .calendar-review__matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendar-review__evidence { padding: 20px 0 24px 16px; border-block-start: 4px solid var(--patina); border-inline-start-width: 1px; }
 }
 
 @media (max-width: 600px) {
@@ -62,4 +112,8 @@ button, input, select { font: inherit; }
   .app-workspace { gap: 14px; }
   .app-header h1 { letter-spacing: 0.1em; }
   .app-stage { padding: 28px 20px; }
+  .calendar-review__header { grid-template-columns: 1fr; }
+  .calendar-review__header p:last-child { grid-column: 1; grid-row: auto; margin-top: 6px; }
+  .calendar-review__cell { min-height: 152px; padding: 12px; }
+  .calendar-review__boundaries dl { grid-template-columns: 1fr; }
 }
