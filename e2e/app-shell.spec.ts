@@ -31,97 +31,159 @@ async function expectNoHorizontalOverflow(page: Page) {
   });
 }
 
-async function expectNoUnimplementedResult(page: Page) {
-  await expect(page.locator(".course-sheet")).toHaveCount(0);
-  await expect(page.getByLabel("标准文字课式")).toHaveCount(0);
-  await expect(page.locator("canvas")).toHaveCount(0);
-  await expect(page.getByText(/三维模型占位|3D placeholder/i)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /批准|审核通过/ })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: /天地盘加临|四课生成|三传取法|天将排列/ })).toHaveCount(0);
+function isNonLocalNetworkUrl(url: string) {
+  const target = new URL(url);
+  return ["http:", "https:", "ws:", "wss:"].includes(target.protocol)
+    && !["127.0.0.1", "localhost", "::1", "[::1]"].includes(target.hostname);
 }
 
-async function expectContrastAtLeast(element: Locator, minimum: number) {
-  const colors = await element.evaluate((node) => {
-    type Rgba = { red: number; green: number; blue: number; alpha: number };
+async function expectNoUnimplementedResult(page: Page) {
+  const stage = page.locator(".app-stage");
+  const downstreamName = /天地盘加临|四课生成|三传取法|天将排列|复制结课/;
+  await expect(stage.locator([
+    ".course-sheet",
+    "[aria-label='标准文字课式']",
+    "[data-course-result]",
+    "[data-downstream-result]",
+    "canvas",
+  ].join(", "))).toHaveCount(0);
+  await expect(stage.getByRole("heading", { name: downstreamName })).toHaveCount(0);
+  await expect(stage.getByText(/标准文字课式|天地盘加临|四课生成|三传取法|天将排列|复制结课|三维模型占位|3D placeholder/i)).toHaveCount(0);
+  await expect(stage.getByRole("button", { name: /批准|审核通过/ })).toHaveCount(0);
+}
 
-    function clamp(value: number, maximum = 1) {
-      return Math.min(maximum, Math.max(0, value));
+function inspectComputedColors(node: Element, options?: { activeElement?: boolean }) {
+  type Rgba = { red: number; green: number; blue: number; alpha: number };
+
+  function clamp(value: number) {
+    return Math.min(1, Math.max(0, value));
+  }
+
+  function numericToken(value: string, label: string) {
+    if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?%?$/i.test(value)) {
+      throw new Error(`Invalid ${label} in computed CSS color: ${value}`);
+    }
+    return Number.parseFloat(value);
+  }
+
+  function parseAlpha(value: string | undefined) {
+    if (value === undefined) return 1;
+    const parsed = numericToken(value, "alpha");
+    return clamp(value.endsWith("%") ? parsed / 100 : parsed);
+  }
+
+  function parseCssColor(value: string): Rgba {
+    const color = value.trim().toLowerCase();
+    if (color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
+
+    const hex = color.match(/^#([\da-f]+)$/i)?.[1];
+    if (hex) {
+      if (![3, 4, 6, 8].includes(hex.length)) {
+        throw new Error(`Invalid computed hex CSS color: ${value}`);
+      }
+      const expanded = hex.length <= 4 ? [...hex].map((digit) => `${digit}${digit}`).join("") : hex;
+      return {
+        red: Number.parseInt(expanded.slice(0, 2), 16) / 255,
+        green: Number.parseInt(expanded.slice(2, 4), 16) / 255,
+        blue: Number.parseInt(expanded.slice(4, 6), 16) / 255,
+        alpha: expanded.length === 8 ? Number.parseInt(expanded.slice(6, 8), 16) / 255 : 1,
+      };
     }
 
-    function parseCssColor(value: string): Rgba {
-      const color = value.trim().toLowerCase();
-      if (color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
-
-      const hex = color.match(/^#([\da-f]{3,8})$/i)?.[1];
-      if (hex) {
-        const expanded = hex.length <= 4 ? [...hex].map((digit) => `${digit}${digit}`).join("") : hex;
-        return {
-          red: Number.parseInt(expanded.slice(0, 2), 16) / 255,
-          green: Number.parseInt(expanded.slice(2, 4), 16) / 255,
-          blue: Number.parseInt(expanded.slice(4, 6), 16) / 255,
-          alpha: expanded.length === 8 ? Number.parseInt(expanded.slice(6, 8), 16) / 255 : 1,
-        };
-      }
-
-      const functional = color.match(/^rgba?\((.*)\)$/i)?.[1];
-      if (!functional) throw new Error(`Unsupported computed CSS color: ${value}`);
+    const functional = color.match(/^rgba?\((.*)\)$/i)?.[1];
+    if (functional) {
       const [channelsPart, slashAlpha] = functional.split(/\s*\/\s*/);
       const parts = channelsPart.includes(",")
         ? channelsPart.split(/\s*,\s*/)
         : channelsPart.trim().split(/\s+/);
-      const alphaPart = slashAlpha ?? parts[3];
-      const channel = (part: string) => clamp(
-        part.endsWith("%") ? Number.parseFloat(part) / 100 : Number.parseFloat(part) / 255,
-      );
-      const alpha = alphaPart === undefined
-        ? 1
-        : clamp(alphaPart.endsWith("%") ? Number.parseFloat(alphaPart) / 100 : Number.parseFloat(alphaPart));
-      if (parts.length < 3 || [parts[0], parts[1], parts[2], alphaPart ?? "1"].some((part) => Number.isNaN(Number.parseFloat(part)))) {
-        throw new Error(`Invalid computed CSS color: ${value}`);
+      if (parts.length < 3 || parts.length > 4) {
+        throw new Error(`Invalid computed RGB CSS color: ${value}`);
       }
-      return { red: channel(parts[0]), green: channel(parts[1]), blue: channel(parts[2]), alpha };
-    }
-
-    function composite(foreground: Rgba, background: Rgba): Rgba {
-      const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
-      if (alpha === 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+      const alphaPart = slashAlpha ?? parts[3];
+      const channel = (part: string) => {
+        const parsed = numericToken(part, "RGB channel");
+        return clamp(part.endsWith("%") ? parsed / 100 : parsed / 255);
+      };
       return {
-        red: (foreground.red * foreground.alpha + background.red * background.alpha * (1 - foreground.alpha)) / alpha,
-        green: (foreground.green * foreground.alpha + background.green * background.alpha * (1 - foreground.alpha)) / alpha,
-        blue: (foreground.blue * foreground.alpha + background.blue * background.alpha * (1 - foreground.alpha)) / alpha,
-        alpha,
+        red: channel(parts[0]),
+        green: channel(parts[1]),
+        blue: channel(parts[2]),
+        alpha: parseAlpha(alphaPart),
       };
     }
 
-    function luminance(color: Rgba) {
-      const linear = (channel: number) => channel <= 0.04045
-        ? channel / 12.92
-        : ((channel + 0.055) / 1.055) ** 2.4;
-      return 0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue);
+    const colorFunction = color.match(/^color\(\s*srgb\s+(.+)\)$/i)?.[1];
+    if (colorFunction) {
+      const [channelsPart, alphaPart] = colorFunction.split(/\s*\/\s*/);
+      const parts = channelsPart.trim().split(/\s+/);
+      if (parts.length !== 3) throw new Error(`Invalid computed color(srgb): ${value}`);
+      const channel = (part: string) => {
+        const parsed = numericToken(part, "sRGB channel");
+        return clamp(part.endsWith("%") ? parsed / 100 : parsed);
+      };
+      return {
+        red: channel(parts[0]),
+        green: channel(parts[1]),
+        blue: channel(parts[2]),
+        alpha: parseAlpha(alphaPart),
+      };
     }
 
-    const computedForeground = getComputedStyle(node).color;
-    let background = { red: 0, green: 0, blue: 0, alpha: 0 };
-    for (let current: Element | null = node; current; current = current.parentElement) {
-      background = composite(background, parseCssColor(getComputedStyle(current).backgroundColor));
-      if (background.alpha >= 0.999) break;
-    }
-    if (background.alpha < 0.999) {
-      background = composite(background, { red: 1, green: 1, blue: 1, alpha: 1 });
-    }
-    const foreground = composite(parseCssColor(computedForeground), background);
-    const foregroundLuminance = luminance(foreground);
-    const backgroundLuminance = luminance(background);
+    throw new Error(`Unsupported computed CSS color: ${value}`);
+  }
 
+  function composite(foreground: Rgba, background: Rgba): Rgba {
+    const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
+    if (alpha === 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
     return {
-      background: getComputedStyle(node).backgroundColor,
-      computedForeground,
-      ratio: (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
-        / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05),
+      red: (foreground.red * foreground.alpha + background.red * background.alpha * (1 - foreground.alpha)) / alpha,
+      green: (foreground.green * foreground.alpha + background.green * background.alpha * (1 - foreground.alpha)) / alpha,
+      blue: (foreground.blue * foreground.alpha + background.blue * background.alpha * (1 - foreground.alpha)) / alpha,
+      alpha,
     };
-  });
+  }
 
-  expect(colors.ratio, JSON.stringify(colors)).toBeGreaterThanOrEqual(minimum);
+  function luminance(color: Rgba) {
+    const linear = (channel: number) => channel <= 0.04045
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
+    return 0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue);
+  }
+
+  const element = options?.activeElement ? document.activeElement : node;
+  if (!(element instanceof Element)) throw new Error("Expected an active Element for computed color inspection");
+  const style = getComputedStyle(element);
+  let background = { red: 0, green: 0, blue: 0, alpha: 0 };
+  for (let current: Element | null = element; current; current = current.parentElement) {
+    background = composite(background, parseCssColor(getComputedStyle(current).backgroundColor));
+    if (background.alpha >= 0.999) break;
+  }
+  if (background.alpha < 0.999) {
+    background = composite(background, { red: 1, green: 1, blue: 1, alpha: 1 });
+  }
+  const foreground = composite(parseCssColor(style.color), background);
+  const foregroundLuminance = luminance(foreground);
+  const backgroundLuminance = luminance(background);
+
+  return {
+    background,
+    computedForeground: style.color,
+    contrastRatio: (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
+      / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05),
+    controlIndex: [...document.querySelectorAll("button, input, select")].indexOf(element),
+    outlineAlpha: parseCssColor(style.outlineColor).alpha,
+    outlineColor: style.outlineColor,
+    outlineStyle: style.outlineStyle,
+    outlineWidth: Number.parseFloat(style.outlineWidth),
+    tagName: element.tagName,
+    text: element.textContent?.trim(),
+  };
+}
+
+async function expectContrastAtLeast(element: Locator, minimum: number) {
+  const colors = await element.evaluate(inspectComputedColors);
+
+  expect(colors.contrastRatio, JSON.stringify(colors)).toBeGreaterThanOrEqual(minimum);
 }
 
 async function expectVisibleControlsKeyboardReachable(page: Page) {
@@ -141,34 +203,15 @@ async function expectVisibleControlsKeyboardReachable(page: Page) {
   const reachedIndexes: number[] = [];
   for (let press = 0; press < expectedIndexes.length * 4 && reachedIndexes.length < expectedIndexes.length; press += 1) {
     await page.keyboard.press("Tab");
-    const focused = await page.evaluate((controlSelector) => {
-      const activeElement = document.activeElement as HTMLElement;
-      const style = getComputedStyle(activeElement);
-      const alphaMatch = style.outlineColor.match(/^rgba\(.*?,\s*([\d.]+)\s*\)$/i)
-        ?? style.outlineColor.match(/^rgb\(.*?\/\s*([\d.]+%?)\s*\)$/i);
-      const outlineAlpha = style.outlineColor === "transparent"
-        ? 0
-        : alphaMatch
-          ? alphaMatch[1].endsWith("%") ? Number.parseFloat(alphaMatch[1]) / 100 : Number.parseFloat(alphaMatch[1])
-          : 1;
-      return {
-        index: [...document.querySelectorAll(controlSelector)].indexOf(activeElement),
-        outlineAlpha,
-        outlineColor: style.outlineColor,
-        outlineStyle: style.outlineStyle,
-        outlineWidth: Number.parseFloat(style.outlineWidth),
-        tagName: activeElement?.tagName,
-        text: activeElement?.textContent?.trim(),
-      };
-    }, selector);
+    const focused = await page.locator("body").evaluate(inspectComputedColors, { activeElement: true });
 
-    if (!expectedIndexes.includes(focused.index)) continue;
+    if (!expectedIndexes.includes(focused.controlIndex)) continue;
     expect(focused.outlineStyle, JSON.stringify(focused)).not.toBe("none");
     expect(focused.outlineWidth, JSON.stringify(focused)).toBeGreaterThan(0);
     expect(focused.outlineAlpha, JSON.stringify(focused)).toBeGreaterThan(0);
-    if (!reachedIndexes.includes(focused.index)) {
-      expect(focused.index, JSON.stringify(focused)).toBe(expectedIndexes[reachedIndexes.length]);
-      reachedIndexes.push(focused.index);
+    if (!reachedIndexes.includes(focused.controlIndex)) {
+      expect(focused.controlIndex, JSON.stringify(focused)).toBe(expectedIndexes[reachedIndexes.length]);
+      reachedIndexes.push(focused.controlIndex);
     }
   }
 
@@ -193,17 +236,27 @@ for (const viewport of VIEWPORTS) {
   test(`${viewport.name} real calendar flow remains complete after going offline`, async ({ context, page }) => {
     const requestUrls: string[] = [];
     const offlineRequestUrls: string[] = [];
+    const websocketUrls: string[] = [];
+    const offlineWebsocketUrls: string[] = [];
+    const offlineSentFrames: Array<{ payload: string | Buffer; url: string }> = [];
     let isOffline = false;
     context.on("request", (request) => {
       requestUrls.push(request.url());
       if (isOffline) offlineRequestUrls.push(request.url());
     });
+    page.on("websocket", (websocket) => {
+      websocketUrls.push(websocket.url());
+      if (isOffline) offlineWebsocketUrls.push(websocket.url());
+      websocket.on("framesent", ({ payload }) => {
+        if (isOffline) offlineSentFrames.push({ payload, url: websocket.url() });
+      });
+    });
 
     await page.setViewportSize(viewport);
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "大六壬演式" })).toBeVisible();
-    isOffline = true;
     await context.setOffline(true);
+    isOffline = true;
 
     await calculateCalendar(page);
     const matrix = page.getByRole("list", { name: "历法结果矩阵" });
@@ -239,13 +292,19 @@ for (const viewport of VIEWPORTS) {
     })).toBeVisible();
     await expect(page.getByRole("button", { name: "恢复日柱自动值" })).toHaveCount(0);
 
-    const nonLocalRequests = requestUrls.filter((url) => {
-      const target = new URL(url);
-      return ["http:", "https:", "ws:", "wss:"].includes(target.protocol)
-        && !["127.0.0.1", "localhost", "::1"].includes(target.hostname);
-    });
+    const nonLocalRequests = requestUrls.filter(isNonLocalNetworkUrl);
+    const nonLocalWebsockets = websocketUrls.filter(isNonLocalNetworkUrl);
     expect(nonLocalRequests).toEqual([]);
     expect(offlineRequestUrls).toEqual([]);
+    expect({
+      nonLocalWebsockets,
+      offlineSentFrames,
+      offlineWebsocketUrls,
+    }).toEqual({
+      nonLocalWebsockets: [],
+      offlineSentFrames: [],
+      offlineWebsocketUrls: [],
+    });
 
     if (viewport.name === "mobile") {
       const mainRegion = page.locator(".calendar-review__main");
@@ -254,16 +313,28 @@ for (const viewport of VIEWPORTS) {
         const aside = evidenceElement as HTMLElement;
         const mainBounds = main.getBoundingClientRect();
         const evidenceBounds = aside.getBoundingClientRect();
+        const followingMarker = document.createElement("span");
+        followingMarker.style.cssText = "display:block;height:0;min-height:0;padding:0;border:0";
+        aside.after(followingMarker);
+        const followingTop = followingMarker.getBoundingClientRect().top;
+        followingMarker.remove();
         return {
+          evidenceBottom: evidenceBounds.bottom,
           followsMain: Boolean(main.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING),
+          followingTop,
+          hasLayoutBox: aside.offsetParent !== null && evidenceBounds.height > 0,
           mainBottom: mainBounds.bottom,
           evidenceTop: evidenceBounds.top,
+          parentDisplay: getComputedStyle(aside.parentElement!).display,
           position: getComputedStyle(aside).position,
         };
       }, await evidence.elementHandle());
       expect(flow.followsMain).toBe(true);
       expect(flow.evidenceTop).toBeGreaterThanOrEqual(flow.mainBottom - 1);
-      expect(flow.position).not.toMatch(/fixed|sticky/);
+      expect(["static", "relative"]).toContain(flow.position);
+      expect(flow.parentDisplay).toBe("grid");
+      expect(flow.hasLayoutBox).toBe(true);
+      expect(flow.followingTop).toBeGreaterThanOrEqual(flow.evidenceBottom - 1);
     }
   });
 
