@@ -38,7 +38,9 @@ for (const viewport of [
         return {
           id: activeElement?.id,
           index: [...document.querySelectorAll("button, input, select")].indexOf(activeElement),
+          outlineColor: getComputedStyle(activeElement).outlineColor,
           outlineStyle: getComputedStyle(activeElement).outlineStyle,
+          outlineWidth: Number.parseFloat(getComputedStyle(activeElement).outlineWidth),
           type: activeElement?.getAttribute("type"),
         };
       });
@@ -46,9 +48,22 @@ for (const viewport of [
       if (visibleControlIndexes.includes(focusedControl.index)) {
         focusedControlIndexes.add(focusedControl.index);
         expect(focusedControl.outlineStyle, JSON.stringify(focusedControl)).toBe("solid");
+        expect(focusedControl.outlineWidth, JSON.stringify(focusedControl)).toBeGreaterThan(0);
+        expect(focusedControl.outlineColor, JSON.stringify(focusedControl)).not.toMatch(
+          /^(transparent|rgba\(.+,\s*0(?:\.0+)?\))$/,
+        );
       }
     }
 
     expect([...focusedControlIndexes].sort((a, b) => a - b)).toEqual(visibleControlIndexes);
+  });
+
+  test(`${viewport.name} pointer focus does not show the keyboard focus ring`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    const inputToggle = page.getByRole("button", { name: "起课输入" });
+    await inputToggle.click();
+    expect(await inputToggle.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("none");
   });
 }
