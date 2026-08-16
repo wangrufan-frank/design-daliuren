@@ -31,4 +31,4 @@ export type HeavenEarthOutcome =
 
 export type HeavenEarthStageOutcome =
   | { ok: true; value: HeavenEarthResult; session: CourseSession }
-  | { ok: false; error: { code: HeavenEarthErrorCode; message: string; cause?: unknown } };
+  | { ok: false; error: { code: HeavenEarthErrorCode; message: string; cause?: unknown }; session: CourseSession };

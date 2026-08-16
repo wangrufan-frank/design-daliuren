@@ -48,8 +48,8 @@ export function computeHeavenEarth(calendar?: CalendarSnapshot): HeavenEarthOutc
 
 export function runHeavenEarthStage(session: CourseSession): HeavenEarthStageOutcome {
   const outcome = computeHeavenEarth(session.snapshots.calendar);
-  if (!outcome.ok) return outcome;
   const invalidated = invalidateFrom(session, "heaven-earth");
+  if (!outcome.ok) return { ...outcome, session: invalidated };
   return {
     ok: true,
     value: outcome.value,

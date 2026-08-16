@@ -57,6 +57,10 @@ export function isHeavenEarthResult(value: unknown): value is HeavenEarthResult 
   if (!palaces.some(({ earth, heaven }) => (
     earth === divinationHour.branch && heaven === monthGeneral.branch
   ))) return false;
+  if (!palaces.every(({ earth, heaven }, earthIndex) => (
+    earth === EARTHLY_BRANCHES[earthIndex]
+    && heaven === EARTHLY_BRANCHES[(earthIndex + offset) % 12]
+  ))) return false;
 
   return hasCompleteEvidence(value.evidence);
 }

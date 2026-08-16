@@ -53,11 +53,23 @@ describe("computeHeavenEarth", () => {
 describe("isHeavenEarthResult", () => {
   it.each([
     ["an out-of-range offset", (value: HeavenEarthResult) => { value.offset = 12; }],
-    ["a duplicate heaven branch", (value: HeavenEarthResult) => { value.palaces = [{ ...value.palaces[0] }, { ...value.palaces[0] }, ...value.palaces.slice(2)]; }],
+    ["a duplicate heaven branch", (value: HeavenEarthResult) => { value.palaces = [{ ...value.palaces[0] }, { ...value.palaces[1], heaven: value.palaces[0].heaven }, ...value.palaces.slice(2)]; }],
     ["an invalid earth branch", (value: HeavenEarthResult) => { value.palaces = [{ ...value.palaces[0], earth: "invalid" as never }, ...value.palaces.slice(1)]; }],
-    ["a month general outside the divination-hour palace", (value: HeavenEarthResult) => {
-      const hourIndex = value.palaces.findIndex(({ earth }) => earth === value.divinationHour.branch);
-      value.palaces = value.palaces.map((palace, index) => index === hourIndex ? { ...palace, heaven: value.palaces[(index + 1) % 12].heaven } : palace);
+    ["a noncanonical earth palace order", (value: HeavenEarthResult) => {
+      value.palaces = [value.palaces[1], value.palaces[0], ...value.palaces.slice(2)];
+    }],
+    ["a unique heaven permutation that breaks forward order", (value: HeavenEarthResult) => {
+      value.palaces = value.palaces.map((palace, index) => {
+        if (index === 1) return { ...palace, heaven: value.palaces[2].heaven };
+        if (index === 2) return { ...palace, heaven: value.palaces[1].heaven };
+        return palace;
+      });
+    }],
+    ["a month general outside the divination-hour palace without duplicating heaven branches", (value: HeavenEarthResult) => {
+      value.palaces = value.palaces.map((palace, index) => ({
+        ...palace,
+        heaven: value.palaces[(index + 1) % 12].heaven,
+      }));
     }],
     ["missing palace evidence", (value: HeavenEarthResult) => { value.evidence = value.evidence.filter(({ field }) => field !== `palace.${value.palaces[0].earth}`); }],
   ])("rejects %s", (_name, mutate) => {
@@ -77,5 +89,18 @@ describe("runHeavenEarthStage", () => {
     expect(Object.keys(outcome.session.snapshots)).toEqual(["calendar", "heaven-earth"]);
     expect(outcome.session.snapshots["heaven-earth"]?.value).toBe(outcome.value);
     expect(referenceSession.snapshots.course).toBeDefined();
+  });
+
+  it("invalidates stale heaven-earth and downstream snapshots when calendar is invalid", () => {
+    const session = structuredClone(referenceSession);
+    if (!session.snapshots.calendar) throw new Error("expected calendar fixture");
+    session.snapshots.calendar.value.pillars.day.effective = "甲丑" as never;
+
+    const outcome = runHeavenEarthStage(session);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(Object.keys(outcome.session.snapshots)).toEqual(["calendar"]);
+    expect(outcome.session.snapshots.calendar).toBe(session.snapshots.calendar);
   });
 });
