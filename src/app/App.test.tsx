@@ -62,6 +62,22 @@ it("runs the real offline calendar and heaven-earth stages, then navigates their
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
+it("returns from calendar to the guarded heaven-earth snapshot without recomputing", async () => {
+  const runStage = vi.spyOn(heavenEarthStage, "runHeavenEarthStage");
+  render(<App />);
+  const user = await submitCourse();
+
+  expect(runStage).toHaveBeenCalledTimes(1);
+  await openCalendarReview(user);
+  await user.click(screen.getByRole("button", { name: /天地盘加临，已完成/ }));
+
+  expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByText("四课生成")).toHaveAttribute("data-status", "current");
+  expect(screen.queryByRole("button", { name: /四课生成/ })).not.toBeInTheDocument();
+  expect(runStage).toHaveBeenCalledTimes(1);
+});
+
 it("advances the rail only after valid stage snapshots exist", async () => {
   render(<App />);
 

@@ -36,3 +36,13 @@ it("navigates completed snapshots without making locked stages clickable", async
   expect(screen.queryByRole("button", { name: /四课生成/ })).not.toBeInTheDocument();
   expect(screen.getByText("四课生成")).toHaveAttribute("data-status", "current");
 });
+
+it("keeps completed rail stages keyboard focusable for the scoped focus treatment", async () => {
+  const user = userEvent.setup();
+  render(<RuleStageRail completed={["calendar"]} current="heaven-earth" />);
+
+  const completedStage = screen.getByRole("button", { name: /历法与月将，已完成/ });
+
+  await user.tab();
+  expect(completedStage).toHaveFocus();
+});
