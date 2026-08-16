@@ -54,8 +54,16 @@ describe("ThreeTransmissionsReview", () => {
       />,
     );
 
+    const review = screen.getByRole("region", { name: "三传取法" });
+    const header = screen.getByRole("banner");
+    expect(review.firstElementChild).toBe(header);
     expect(screen.getByRole("heading", { name: /九宗门 · 三传取法/ })).toBeInTheDocument();
-    expect(screen.getByText(`${result.method}${result.subtype ? ` · ${result.subtype}` : ""}`)).toBeInTheDocument();
+    expect(within(header).getByText("日柱")).toBeVisible();
+    expect(within(header).getByText(result.dayPillar)).toBeVisible();
+    expect(within(header).getByText("主课格")).toBeVisible();
+    expect(within(header).getByText(result.method)).toBeVisible();
+    expect(within(header).getByText("细课格")).toBeVisible();
+    expect(within(header).getByText(result.subtype!)).toBeVisible();
 
     const list = screen.getByRole("list", { name: "三传" });
     const transmissions = within(list).getAllByRole("button");
@@ -69,11 +77,47 @@ describe("ThreeTransmissionsReview", () => {
     for (const [index, transmission] of result.transmissions.entries()) {
       expect(within(transmissions[index]).getByText(transmission.branch)).toBeInTheDocument();
       expect(within(transmissions[index]).getByText(transmission.relation)).toBeInTheDocument();
+      expect(within(transmissions[index]).getByText(transmission.derivation)).toBeVisible();
     }
     expect(screen.getAllByText("待天将加临")).toHaveLength(3);
   });
 
-  it("selects only the matching evidence, returns focus after close, and exposes upstream reviews", async () => {
+  it("keeps shared and transmission evidence isolated by the selected transmission", async () => {
+    const user = userEvent.setup();
+    render(
+      <ThreeTransmissionsReview
+        result={sheHaiResult}
+        onReviewFourLessons={vi.fn()}
+        onReviewHeavenEarth={vi.fn()}
+      />,
+    );
+
+    const initialEvidence = screen.getByRole("complementary", { name: "初传证据" });
+    expect(within(initialEvidence).getAllByRole("listitem")).toHaveLength(6);
+    for (const input of ["共享天地盘", "共享四课", "共享候选", "候选午、子逐宫涉害", "一课上神午", "庚与午"]) {
+      expect(within(initialEvidence).getByText(input)).toBeVisible();
+    }
+    expect(within(initialEvidence).queryByText("初传午")).not.toBeInTheDocument();
+    expect(within(initialEvidence).queryByText("中传辰")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /中传/ }));
+    const middleEvidence = screen.getByRole("complementary", { name: "中传证据" });
+    expect(within(middleEvidence).getAllByRole("listitem")).toHaveLength(2);
+    for (const input of ["初传午", "庚与辰"]) expect(within(middleEvidence).getByText(input)).toBeVisible();
+    for (const input of ["共享天地盘", "共享四课", "共享候选", "候选午、子逐宫涉害", "一课上神午", "中传辰", "庚与寅"]) {
+      expect(within(middleEvidence).queryByText(input)).not.toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole("button", { name: /末传/ }));
+    const finalEvidence = screen.getByRole("complementary", { name: "末传证据" });
+    expect(within(finalEvidence).getAllByRole("listitem")).toHaveLength(2);
+    for (const input of ["中传辰", "庚与寅"]) expect(within(finalEvidence).getByText(input)).toBeVisible();
+    for (const input of ["共享天地盘", "共享四课", "共享候选", "候选午、子逐宫涉害", "一课上神午", "初传午", "庚与辰"]) {
+      expect(within(finalEvidence).queryByText(input)).not.toBeInTheDocument();
+    }
+  });
+
+  it("returns focus after close and exposes upstream reviews", async () => {
     const onReviewFourLessons = vi.fn();
     const onReviewHeavenEarth = vi.fn();
     const user = userEvent.setup();
@@ -91,8 +135,9 @@ describe("ThreeTransmissionsReview", () => {
     const middle = screen.getByRole("button", { name: /中传/ });
     await user.click(middle);
     expect(screen.getByRole("heading", { name: "中传证据" })).toBeVisible();
-    expect(screen.getByText(sheHaiResult.transmissions[1].derivation)).toBeVisible();
-    expect(screen.queryByText("共享天地盘")).not.toBeInTheDocument();
+    const middleEvidence = screen.getByRole("complementary", { name: "中传证据" });
+    expect(within(middleEvidence).getByText(sheHaiResult.transmissions[1].derivation)).toBeVisible();
+    expect(within(middleEvidence).queryByText("共享天地盘")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "关闭证据" }));
     expect(middle).toHaveFocus();

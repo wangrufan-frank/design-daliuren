@@ -39,7 +39,11 @@ export function ThreeTransmissionsReview({
     <section className="three-transmissions-review" aria-label="三传取法">
       <header className="three-transmissions-review__header">
         <h2>九宗门 · 三传取法</h2>
-        <p>{result.method}{result.subtype ? ` · ${result.subtype}` : ""}</p>
+        <dl className="three-transmissions-review__summary" aria-label="三传摘要">
+          <div><dt>日柱</dt><dd>{result.dayPillar}</dd></div>
+          <div><dt>主课格</dt><dd>{result.method}</dd></div>
+          <div><dt>细课格</dt><dd>{result.subtype ?? "未分细格"}</dd></div>
+        </dl>
       </header>
       <div className="three-transmissions-review__results-region">
         <ol className="three-transmissions-review__transmissions" aria-label="三传">
@@ -59,6 +63,7 @@ export function ThreeTransmissionsReview({
                 <strong>{transmission.branch}</strong>
                 <small>{transmission.label}</small>
                 <em>{transmission.relation}</em>
+                <p>{transmission.derivation}</p>
               </button>
             </li>
           ))}
