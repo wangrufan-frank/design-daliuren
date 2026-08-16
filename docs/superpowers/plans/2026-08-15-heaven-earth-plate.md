@@ -89,7 +89,11 @@ export type HeavenEarthOutcome =
 
 export type HeavenEarthStageOutcome =
   | { ok: true; value: HeavenEarthResult; session: CourseSession }
-  | { ok: false; error: { code: HeavenEarthErrorCode; message: string; cause?: unknown } };
+  | {
+      ok: false;
+      error: { code: HeavenEarthErrorCode; message: string; cause?: unknown };
+      session: CourseSession;
+    };
 ```
 
 - [ ] **Step 2: 写失败测试，锁定三类案例**
@@ -298,8 +302,8 @@ export function computeHeavenEarth(calendar?: CalendarSnapshot): HeavenEarthOutc
 
 export function runHeavenEarthStage(session: CourseSession): HeavenEarthStageOutcome {
   const outcome = computeHeavenEarth(session.snapshots.calendar);
-  if (!outcome.ok) return outcome;
   const invalidated = invalidateFrom(session, "heaven-earth");
+  if (!outcome.ok) return { ...outcome, session: invalidated };
   return {
     ok: true,
     value: outcome.value,
