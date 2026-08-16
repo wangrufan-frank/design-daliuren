@@ -234,3 +234,45 @@ button, input, select { font: inherit; }
   .four-lessons-review__evidence { padding: 20px 0 24px; border-block-start: 4px solid var(--patina); }
   .four-lessons-review__evidence-heading button { display: block; }
 }
+
+.three-transmissions-review { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(260px, 1fr); border-block: 1px solid var(--patina); }
+.three-transmissions-review__header { display: flex; grid-column: 1 / -1; align-items: end; justify-content: space-between; gap: 16px; padding: 20px 0 16px; border-bottom: 1px solid var(--patina); }
+.three-transmissions-review__header h2 { margin: 0; color: var(--ash); font-size: clamp(1.5rem, 3vw, 2.3rem); font-weight: 600; letter-spacing: 0.1em; }
+.three-transmissions-review__header p { margin: 0; color: var(--ru-celadon); font-size: 0.78rem; letter-spacing: 0.12em; }
+.three-transmissions-review__results-region { min-width: 0; padding: 20px 24px 24px 0; border-inline-end: 4px solid var(--patina); }
+.three-transmissions-review__transmissions { display: grid; position: relative; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.three-transmissions-review__transmissions::before { position: absolute; inset-block: 34px; inset-inline-start: 27px; width: 1px; background: var(--patina); content: ""; }
+.three-transmissions-review__transmissions li { position: relative; z-index: 1; min-width: 0; }
+.three-transmissions-review__transmission { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 12px; width: 100%; min-height: 104px; padding: 16px 14px; border: 1px solid var(--patina); border-radius: 0; background: var(--ink); color: var(--ash); cursor: pointer; text-align: start; }
+.three-transmissions-review__transmission > span { grid-column: 2; grid-row: 1; color: var(--old-gold); font-size: 0.68rem; letter-spacing: 0.12em; opacity: 0.65; }
+.three-transmissions-review__transmission strong { grid-column: 2; grid-row: 2; min-width: 0; color: var(--ash); font-size: clamp(1.8rem, 4vw, 2.7rem); font-weight: 600; line-height: 1.15; }
+.three-transmissions-review__transmission small { grid-column: 1; grid-row: 1 / span 2; justify-self: center; color: var(--ru-celadon); font-size: 0.78rem; letter-spacing: 0.12em; writing-mode: vertical-rl; }
+.three-transmissions-review__transmission em { grid-column: 3; grid-row: 2; color: var(--ru-celadon); font-size: 0.82rem; font-style: normal; letter-spacing: 0.08em; white-space: nowrap; }
+.three-transmissions-review__transmission[aria-pressed="true"] { background: var(--dark-bronze); box-shadow: inset 4px 0 0 var(--ru-celadon); }
+.three-transmissions-review__transmission:focus-visible, .three-transmissions-review__evidence button:focus-visible { outline: 2px solid var(--ash); outline-offset: -4px; }
+.three-transmissions-review__evidence { min-width: 0; padding: 24px 0 24px 24px; }
+.three-transmissions-review__evidence[hidden] { display: none; }
+.three-transmissions-review__evidence-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.three-transmissions-review__evidence-heading p { margin: 0; color: var(--ru-celadon); font-size: 0.75rem; letter-spacing: 0.12em; }
+.three-transmissions-review__evidence-heading h3 { margin: 5px 0 0; color: var(--ash); font-size: 1.2rem; font-weight: 600; letter-spacing: 0.08em; }
+.three-transmissions-review__evidence-heading button, .three-transmissions-review__upstream-actions button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--patina); border-radius: 0; background: transparent; color: var(--ash); cursor: pointer; }
+.three-transmissions-review__evidence-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0 0; padding-block: 12px; border-block: 1px solid var(--patina); }
+.three-transmissions-review__evidence-summary dt, .three-transmissions-review__shehai-palace dt { color: var(--ru-celadon); font-size: 0.72rem; letter-spacing: 0.1em; }
+.three-transmissions-review__evidence-summary dd, .three-transmissions-review__shehai-palace dd { margin: 4px 0 0; color: var(--ash); font-size: 0.84rem; }
+.three-transmissions-review__evidence ol { display: grid; gap: 16px; margin: 20px 0 0; padding: 0; list-style: none; }
+.three-transmissions-review__evidence ol > li { min-width: 0; padding-top: 12px; border-top: 1px solid var(--patina); }
+.three-transmissions-review__evidence ol p { margin: 7px 0 0; line-height: 1.65; overflow-wrap: anywhere; }
+.three-transmissions-review__rule-id { color: var(--ru-celadon); font-size: 0.72rem; overflow-wrap: anywhere; }
+.three-transmissions-review__shehai-palace { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; padding: 10px; border: 1px solid var(--patina); }
+.three-transmissions-review__shehai-palace dd { overflow-wrap: anywhere; }
+.three-transmissions-review__upstream-actions { display: grid; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--patina); }
+
+@media (max-width: 820px) {
+  .three-transmissions-review { grid-template-columns: minmax(0, 1fr); }
+  .three-transmissions-review__header { grid-column: 1; grid-row: 2; align-items: start; flex-direction: column; gap: 6px; }
+  .three-transmissions-review__results-region { grid-row: 1; padding: 20px 0; border-inline-end: 0; }
+  .three-transmissions-review__transmissions { min-width: 0; }
+  .three-transmissions-review__transmission { grid-template-columns: 48px minmax(0, 1fr) auto; min-width: 0; }
+  .three-transmissions-review__evidence { grid-row: 3; padding: 20px 0 24px; border-block-start: 4px solid var(--patina); }
+  .three-transmissions-review__shehai-palace { grid-template-columns: minmax(0, 1fr); }
+}
