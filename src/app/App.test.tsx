@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import * as calendarStage from "../domain/calendar/compute-calendar";
 import * as heavenEarthStage from "../domain/heaven-earth/compute-heaven-earth";
+import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
 import * as fourLessonsStage from "../domain/four-lessons/compute-four-lessons";
 import { App } from "./App";
 
@@ -91,17 +92,32 @@ it("navigates to prior snapshots without recomputing four lessons", async () => 
 });
 
 it("keeps valid upstream snapshots when four-lessons generation fails", async () => {
-  vi.spyOn(fourLessonsStage, "runFourLessonsStage").mockImplementationOnce((session) => ({
-    ok: false,
-    error: { code: "FOUR_LESSONS_RESULT_INCOMPLETE", message: "四课结果不完整" },
-    session,
-  }));
+  const marker = "FOUR_LESSONS_FAILURE_SESSION_MARKER";
+  vi.spyOn(fourLessonsStage, "runFourLessonsStage").mockImplementationOnce((session) => {
+    const failedSession = structuredClone(session);
+    const plate = failedSession.snapshots["heaven-earth"] as HeavenEarthSnapshot;
+    failedSession.snapshots["heaven-earth"] = {
+      ...plate,
+      value: {
+        ...plate.value,
+        evidence: plate.value.evidence.map((step) => (
+          step.field === "palace.巳" ? { ...step, conclusion: marker } : step
+        )),
+      },
+    };
+    return {
+      ok: false,
+      error: { code: "FOUR_LESSONS_RESULT_INCOMPLETE", message: "四课结果不完整" },
+      session: failedSession,
+    };
+  });
   render(<App />);
 
   await submitCourse();
 
   expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
   expect(screen.getByRole("alert")).toHaveTextContent("四课结果不完整");
+  expect(screen.getByText(marker)).toBeVisible();
   expect(screen.getByText("四课生成")).toHaveAttribute("data-status", "current");
 });
 
@@ -130,6 +146,21 @@ it("rebuilds heaven-earth after a calendar correction and returns to its review"
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: /天地盘加临，已完成/ }));
   expect(screen.getByText(/登明.*亥.*加临.*未/)).toBeVisible();
+});
+
+it("reruns four lessons after a divination-hour correction", async () => {
+  const runStage = vi.spyOn(fourLessonsStage, "runFourLessonsStage");
+  render(<App />);
+  const user = await submitCourse();
+
+  expect(runStage).toHaveBeenCalledTimes(1);
+  await openCalendarReview(user);
+  await user.click(screen.getByRole("button", { name: /占时.*自动.*未.*自动计算/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正占时" }), "申");
+
+  expect(runStage).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /四课生成，已完成/ })).toHaveAttribute("aria-current", "page");
 });
 
 it("keeps the latest calendar and associates a heaven-earth failure with the stage", async () => {
