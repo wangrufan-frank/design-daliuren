@@ -584,7 +584,7 @@ git commit -m "feat: derive ordinary three transmissions"
 ```ts
 fuYinWithOvercoming(dayPillar: StemBranch): [HeavenEarthResult, FourLessonsResult];
 fuYinWithoutOvercoming(dayPillar: StemBranch): [HeavenEarthResult, FourLessonsResult];
-fuYinSelfPunishmentCase(): [HeavenEarthResult, FourLessonsResult];
+fuYinSelfPunishmentCase(dayPillar: "壬辰"): [HeavenEarthResult, FourLessonsResult];
 fanYinWithOvercoming(): [HeavenEarthResult, FourLessonsResult];
 fanYinWithoutOvercoming(dayPillar: StemBranch): [HeavenEarthResult, FourLessonsResult];
 noncanonicalFanYinNoOvercoming(): [HeavenEarthResult, FourLessonsResult];
@@ -623,18 +623,18 @@ Expected after implementation: classification and precedence tests PASS.
 
 ```ts
 it("uses punishment transmissions for Fu Yin with vertical overcoming", () => {
-  const result = deriveThreeTransmissions(...fuYinWithOvercoming("庚寅"));
+  const result = deriveThreeTransmissions(...fuYinWithOvercoming("乙卯"));
   expect(result).toEqual(expect.objectContaining({ method: "伏吟", subtype: "不虞" }));
   expect(result.transmissions[1].branch).toBe(punishmentOf(result.transmissions[0].branch));
 });
 
 it("uses Self-Reliance and Self-Confidence when Fu Yin has no overcoming", () => {
   expect(deriveThreeTransmissions(...fuYinWithoutOvercoming("甲辰")).subtype).toBe("自任");
-  expect(deriveThreeTransmissions(...fuYinWithoutOvercoming("乙辰")).subtype).toBe("自信");
+  expect(deriveThreeTransmissions(...fuYinWithoutOvercoming("丁辰")).subtype).toBe("自信");
 });
 
 it("switches the middle source and clashes the final after repeated self-punishment", () => {
-  const result = deriveThreeTransmissions(...fuYinSelfPunishmentCase());
+  const result = deriveThreeTransmissions(...fuYinSelfPunishmentCase("壬辰"));
   expect(result.variants).toContain("杜传");
   expect(result.transmissions[2].branch).toBe(clashOf(result.transmissions[1].branch));
 });
