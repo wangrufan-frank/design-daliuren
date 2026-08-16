@@ -12,6 +12,7 @@ import type {
   BeijingDateTime,
   CalendarPrimitives,
   CalendarResult,
+  CalendarSnapshot,
   ReviewedValue,
   SolarTermBoundary,
 } from "./types";
@@ -234,4 +235,16 @@ export function calendarResultSource(value: CalendarResult): ValueSource {
     value.monthGeneral,
     value.divinationHour,
   ].some(({ source }) => source === "manual") ? "manual" : "automatic";
+}
+
+export function isCalendarSnapshot(value: unknown): value is CalendarSnapshot {
+  if (
+    !isRecord(value)
+    || value.stage !== "calendar"
+    || !Array.isArray(value.dependsOn)
+    || value.dependsOn.length !== 0
+    || value.ruleId !== CALENDAR_SNAPSHOT_RULE_ID
+    || !isCalendarResult(value.value)
+  ) return false;
+  return value.source === calendarResultSource(value.value);
 }

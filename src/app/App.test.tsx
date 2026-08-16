@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import * as calendarStage from "../domain/calendar/compute-calendar";
 import * as heavenEarthStage from "../domain/heaven-earth/compute-heaven-earth";
 import { App } from "./App";
 
@@ -238,6 +239,44 @@ it("keeps an out-of-range submission in the input state with the stable domain m
   expect(screen.getByRole("heading", { name: "起课输入" })).toBeVisible();
   expect(screen.queryByLabelText("历法结果矩阵")).not.toBeInTheDocument();
   expect(screen.getByText("历法与月将")).toHaveAttribute("data-status", "current");
+});
+
+it("clears prior snapshots when a new parsed submission fails the calendar stage", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  vi.spyOn(calendarStage, "runCalendarStage").mockReturnValueOnce({
+    ok: false,
+    error: { code: "CALENDAR_ADAPTER_FAILURE", message: "历法数据读取失败" },
+  });
+  const dateTime = screen.getByLabelText("日期与时间");
+  await user.clear(dateTime);
+  await user.type(dateTime, "2024-02-11T14:30:00");
+  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+
+  expect(screen.getByRole("alert")).toHaveTextContent("历法数据读取失败");
+  expect(screen.queryByLabelText("历法结果矩阵")).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "天地盘加临" })).not.toBeInTheDocument();
+  expect(screen.getByText("历法与月将")).toHaveAttribute("data-status", "current");
+  expect(screen.getByText("天地盘加临")).toHaveAttribute("data-status", "locked");
+});
+
+it("preserves prior snapshots when a snapshot-bearing correction fails the calendar stage", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  await openCalendarReview(user);
+  vi.spyOn(calendarStage, "runCalendarStage").mockReturnValueOnce({
+    ok: false,
+    error: { code: "CALENDAR_ADAPTER_FAILURE", message: "历法数据读取失败" },
+  });
+  await user.click(screen.getByRole("button", { name: /月将.*自动计算/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正月将" }), "亥");
+
+  expect(screen.getByRole("alert")).toHaveTextContent("历法数据读取失败");
+  expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /月将.*有效 神后.*子.*自动计算/ })).toBeVisible();
+  expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("data-status", "completed");
 });
 
 it("collapses each shell panel and unmounts its content", async () => {

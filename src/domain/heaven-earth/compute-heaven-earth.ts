@@ -1,6 +1,6 @@
 import { invalidateFrom } from "../chart/snapshots";
 import type { CourseSession } from "../chart/types";
-import { isCalendarResult } from "../calendar/result-guard";
+import { isCalendarSnapshot } from "../calendar/result-guard";
 import type { CalendarSnapshot } from "../calendar/types";
 import { deriveHeavenEarth } from "./policy";
 import {
@@ -13,7 +13,7 @@ import type { HeavenEarthOutcome, HeavenEarthStageOutcome } from "./types";
 export { isHeavenEarthResult } from "./result-guard";
 
 export function computeHeavenEarth(calendar?: CalendarSnapshot): HeavenEarthOutcome {
-  if (!calendar || !isCalendarResult(calendar.value)) {
+  if (!isCalendarSnapshot(calendar)) {
     return {
       ok: false,
       error: { code: "INVALID_HEAVEN_EARTH_INPUT", message: "缺少有效的历法与月将快照" },

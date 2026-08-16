@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { invalidateFrom, validateSession } from "./snapshots";
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
 import { referenceSession } from "../../test/reference-session";
+import { deriveHeavenEarth } from "../heaven-earth/policy";
 
 describe("rule stage metadata", () => {
   it("orders every calculation dependency before its consumer", () => {
@@ -140,4 +141,25 @@ it("rejects a heaven-earth snapshot missing its calendar dependency", () => {
   };
 
   expect(validateSession(broken)).toContain("heaven-earth 缺少依赖 calendar");
+});
+
+it("rejects an internally valid heaven-earth plate copied from different calendar inputs", () => {
+  const broken = structuredClone(referenceSession);
+  const calendar = structuredClone(referenceSession.snapshots.calendar!.value);
+  calendar.monthGeneral.effective = { name: "登明", branch: "亥" };
+  calendar.monthGeneral.source = "manual";
+  calendar.divinationHour.effective = "丑";
+  calendar.divinationHour.source = "manual";
+  const heavenEarth = broken.snapshots["heaven-earth"];
+  if (!heavenEarth) throw new Error("expected heaven-earth fixture");
+  heavenEarth.value = deriveHeavenEarth(calendar);
+  heavenEarth.source = "manual";
+
+  expect(validateSession(broken)).toEqual(expect.arrayContaining([
+    "heaven-earth 月将名称与 calendar 生效值不一致",
+    "heaven-earth 月将地支与 calendar 生效值不一致",
+    "heaven-earth 月将来源与 calendar 来源不一致",
+    "heaven-earth 占时地支与 calendar 生效值不一致",
+    "heaven-earth 占时来源与 calendar 来源不一致",
+  ]));
 });

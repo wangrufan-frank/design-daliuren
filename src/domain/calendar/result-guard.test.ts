@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { referenceSession } from "../../test/reference-session";
-import { isCalendarResult } from "./result-guard";
+import type { CalendarSnapshot } from "./types";
+import { isCalendarResult, isCalendarSnapshot } from "./result-guard";
 
 it("exposes the calendar result guard without importing snapshot orchestration", () => {
   expect(isCalendarResult(referenceSession.snapshots.calendar?.value)).toBe(true);
@@ -11,4 +12,17 @@ it.each(["lunarDate", "monthBuild"])("rejects a calendar result missing %s evide
   value.evidence = value.evidence.filter((step) => step.field !== field);
 
   expect(isCalendarResult(value)).toBe(false);
+});
+
+it.each<[string, (snapshot: CalendarSnapshot) => void]>([
+  ["value", (snapshot) => { snapshot.value.pillars.day.effective = "甲丑" as never; }],
+  ["stage", (snapshot) => { snapshot.stage = "heaven-earth" as never; }],
+  ["dependencies", (snapshot) => { snapshot.dependsOn = ["calendar"]; }],
+  ["rule ID", (snapshot) => { snapshot.ruleId = "calendar/forged-v1"; }],
+  ["derived source", (snapshot) => { snapshot.source = "manual"; }],
+])("rejects a calendar snapshot with forged %s metadata", (_name, mutate) => {
+  const snapshot = structuredClone(referenceSession.snapshots.calendar!);
+  mutate(snapshot);
+
+  expect(isCalendarSnapshot(snapshot)).toBe(false);
 });

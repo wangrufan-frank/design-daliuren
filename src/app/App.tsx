@@ -35,6 +35,7 @@ export function App() {
   function replaceFrom(nextSession: CourseSession) {
     const calendarOutcome = runCalendarStage(nextSession, calendarAdapter);
     if (!calendarOutcome.ok) {
+      setSession(nextSession);
       setReviewStage("calendar");
       setStageError(calendarOutcome.error);
       return;

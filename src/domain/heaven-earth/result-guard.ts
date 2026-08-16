@@ -1,4 +1,4 @@
-import { EARTHLY_BRANCHES } from "../calendar/constants";
+import { EARTHLY_BRANCHES, ZHONG_QI_TO_MONTH_GENERAL } from "../calendar/constants";
 import type { EarthlyBranch, ValueSource } from "../chart/types";
 import { HEAVEN_EARTH_RULE_ID } from "./policy";
 import type { HeavenEarthResult } from "./types";
@@ -21,23 +21,27 @@ function isInputValue(value: unknown): value is { branch: EarthlyBranch; source:
   return isRecord(value) && isBranch(value.branch) && isValueSource(value.source);
 }
 
-function isMonthGeneral(value: unknown): value is { name: string; branch: EarthlyBranch; source: ValueSource } {
+function isMonthGeneral(value: unknown): value is HeavenEarthResult["monthGeneral"] {
   if (!isRecord(value)) return false;
-  const name = value.name;
-  return isInputValue(value) && typeof name === "string" && name.trim().length > 0;
+  const monthGeneralName = value.name;
+  return isInputValue(value) && Object.values(ZHONG_QI_TO_MONTH_GENERAL).some(
+    ({ name, branch }) => monthGeneralName === name && value.branch === branch,
+  );
 }
 
 function hasCompleteEvidence(value: unknown): boolean {
   if (!Array.isArray(value)) return false;
   const expectedFields = ["plate", ...EARTHLY_BRANCHES.map((branch) => `palace.${branch}`)];
-  return value.every((step) => isRecord(step)
+  if (value.length !== expectedFields.length || !value.every((step) => isRecord(step)
     && step.ruleId === HEAVEN_EARTH_RULE_ID
     && typeof step.field === "string"
     && typeof step.input === "string"
     && step.input.trim().length > 0
     && typeof step.conclusion === "string"
-    && step.conclusion.trim().length > 0)
-    && expectedFields.every((field) => value.some((step) => isRecord(step) && step.field === field));
+    && step.conclusion.trim().length > 0)) return false;
+  const fields = value.map((step) => step.field);
+  return new Set(fields).size === expectedFields.length
+    && expectedFields.every((field) => fields.includes(field));
 }
 
 export function isHeavenEarthResult(value: unknown): value is HeavenEarthResult {

@@ -31,6 +31,19 @@ describe("computeHeavenEarth", () => {
     });
   });
 
+  it.each([
+    ["rule ID", (calendar: NonNullable<typeof referenceSession.snapshots.calendar>) => { calendar.ruleId = "calendar/forged-v1"; }],
+    ["derived source", (calendar: NonNullable<typeof referenceSession.snapshots.calendar>) => { calendar.source = "manual"; }],
+  ])("rejects forged calendar snapshot %s metadata", (_name, mutate) => {
+    const calendar = structuredClone(referenceSession.snapshots.calendar!);
+    mutate(calendar);
+
+    expect(computeHeavenEarth(calendar)).toEqual({
+      ok: false,
+      error: { code: "INVALID_HEAVEN_EARTH_INPUT", message: "缺少有效的历法与月将快照" },
+    });
+  });
+
   it("derives a manual snapshot source from either reviewed input", () => {
     const calendar = structuredClone(referenceSession.snapshots.calendar!);
     calendar.value.monthGeneral.source = "manual";
@@ -43,6 +56,7 @@ describe("computeHeavenEarth", () => {
         conclusion: "manual",
       },
     ];
+    calendar.source = "manual";
 
     const outcome = computeHeavenEarth(calendar);
 
@@ -71,7 +85,12 @@ describe("isHeavenEarthResult", () => {
         heaven: value.palaces[(index + 1) % 12].heaven,
       }));
     }],
+    ["a noncanonical month-general name and branch pairing", (value: HeavenEarthResult) => { value.monthGeneral.name = "登明"; }],
     ["missing palace evidence", (value: HeavenEarthResult) => { value.evidence = value.evidence.filter(({ field }) => field !== `palace.${value.palaces[0].earth}`); }],
+    ["duplicate palace evidence", (value: HeavenEarthResult) => { value.evidence = [...value.evidence, { ...value.evidence[1] }]; }],
+    ["extra evidence", (value: HeavenEarthResult) => {
+      value.evidence = [...value.evidence, { ...value.evidence[0], field: "palace.invalid" as never }];
+    }],
   ])("rejects %s", (_name, mutate) => {
     const value = structuredClone(validResult());
     mutate(value);
