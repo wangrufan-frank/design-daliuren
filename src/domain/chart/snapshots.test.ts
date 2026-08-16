@@ -5,6 +5,8 @@ import { referenceSession } from "../../test/reference-session";
 import { deriveHeavenEarth } from "../heaven-earth/policy";
 import { isHeavenEarthResult } from "../heaven-earth/result-guard";
 import { deriveFourLessons } from "../four-lessons/policy";
+import type { ThreeTransmissionsSnapshot } from "../three-transmissions/types";
+import { deriveThreeTransmissions } from "../three-transmissions/policy";
 
 describe("rule stage metadata", () => {
   it("requires both direct four-lessons dependencies", () => {
@@ -109,6 +111,43 @@ it("removes the changed stage and every downstream stage", () => {
   expect(next.snapshots["three-transmissions"]).toBeUndefined();
   expect(next.snapshots["heavenly-generals"]).toBeUndefined();
   expect(next.snapshots.course).toBeUndefined();
+});
+
+it("rejects forged three-transmissions metadata", () => {
+  const broken = structuredClone(referenceSession);
+  const transmissions = broken.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot;
+  transmissions.ruleId = "three-transmissions/forged-v1";
+
+  expect(validateSession(broken)).toContain("three-transmissions 快照规则编号无效");
+});
+
+it("rejects a three-transmissions source that does not match its direct inputs", () => {
+  const broken = structuredClone(referenceSession);
+  const transmissions = broken.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot;
+  transmissions.source = "manual";
+
+  expect(validateSession(broken)).toContain("three-transmissions 快照来源无效，应为 automatic");
+});
+
+it("rejects an invalid three-transmissions result", () => {
+  const broken = structuredClone(referenceSession);
+  broken.snapshots["three-transmissions"]!.value = {};
+
+  expect(validateSession(broken)).toContain("three-transmissions 快照结果无效");
+});
+
+it("rejects a three-transmissions snapshot copied from another plate", () => {
+  const broken = structuredClone(referenceSession);
+  const otherCalendar = structuredClone(referenceSession.snapshots.calendar!.value);
+  otherCalendar.monthGeneral.effective = { name: "登明", branch: "亥" };
+  otherCalendar.monthGeneral.source = "manual";
+  otherCalendar.divinationHour.effective = "丑";
+  otherCalendar.divinationHour.source = "manual";
+  const otherPlate = deriveHeavenEarth(otherCalendar);
+  const otherFourLessons = deriveFourLessons(otherCalendar, otherPlate);
+  broken.snapshots["three-transmissions"]!.value = deriveThreeTransmissions(otherPlate, otherFourLessons);
+
+  expect(validateSession(broken)).toContain("three-transmissions 与生效天地盘或四课不一致");
 });
 
 it("rejects a present calendar snapshot whose value fails the runtime guard", () => {

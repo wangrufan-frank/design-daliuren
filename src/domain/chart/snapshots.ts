@@ -17,6 +17,12 @@ import {
   isFourLessonsResult,
   matchesFourLessonsInputs,
 } from "../four-lessons/result-guard";
+import {
+  THREE_TRANSMISSIONS_SNAPSHOT_RULE_ID,
+  isThreeTransmissionsResult,
+  matchesThreeTransmissionsInputs,
+  threeTransmissionsResultSource,
+} from "../three-transmissions/result-guard";
 
 export function validateSession(session: CourseSession): readonly string[] {
   const errors: string[] = [];
@@ -76,6 +82,26 @@ export function validateSession(session: CourseSession): readonly string[] {
           }
           if (!matchesFourLessonsInputs(snapshot.value, calendar.value, plate.value)) {
             errors.push("four-lessons 与生效日柱或天地盘不一致");
+          }
+        }
+      }
+    }
+    if (stage === "three-transmissions") {
+      if (!isThreeTransmissionsResult(snapshot.value)) {
+        errors.push("three-transmissions 快照结果无效");
+      } else {
+        if (snapshot.ruleId !== THREE_TRANSMISSIONS_SNAPSHOT_RULE_ID) {
+          errors.push("three-transmissions 快照规则编号无效");
+        }
+        const plate = session.snapshots["heaven-earth"];
+        const fourLessons = session.snapshots["four-lessons"];
+        if (plate && isHeavenEarthResult(plate.value) && fourLessons && isFourLessonsResult(fourLessons.value)) {
+          const expectedSource = threeTransmissionsResultSource(plate.source, fourLessons.source);
+          if (snapshot.source !== expectedSource) {
+            errors.push(`three-transmissions 快照来源无效，应为 ${expectedSource}`);
+          }
+          if (!matchesThreeTransmissionsInputs(snapshot.value, plate.value, fourLessons.value)) {
+            errors.push("three-transmissions 与生效天地盘或四课不一致");
           }
         }
       }
