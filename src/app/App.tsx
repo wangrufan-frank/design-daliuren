@@ -12,14 +12,19 @@ import { isHeavenEarthResult, runHeavenEarthStage } from "../domain/heaven-earth
 import type { HeavenEarthStageOutcome } from "../domain/heaven-earth/types";
 import { CalendarReview } from "../features/calendar-review/CalendarReview";
 import { CourseInputForm } from "../features/course-input/CourseInputForm";
+import { isFourLessonsResult, runFourLessonsStage } from "../domain/four-lessons/compute-four-lessons";
+import type { FourLessonsStageOutcome } from "../domain/four-lessons/types";
+import { FourLessonsReview } from "../features/four-lessons-review/FourLessonsReview";
 import { HeavenEarthReview } from "../features/heaven-earth-review/HeavenEarthReview";
 import { RuleStageRail } from "../features/rule-review/RuleStageRail";
 import "../styles/tokens.css";
 import "../styles/global.css";
 
 const calendarAdapter = new LunarTypescriptAdapter();
-type ReviewStage = "calendar" | "heaven-earth";
-type StageError = CalendarError | Extract<HeavenEarthStageOutcome, { ok: false }>["error"];
+type ReviewStage = "calendar" | "heaven-earth" | "four-lessons";
+type StageError = CalendarError
+  | Extract<HeavenEarthStageOutcome, { ok: false }>["error"]
+  | Extract<FourLessonsStageOutcome, { ok: false }>["error"];
 
 export function App() {
   const [session, setSession] = useState<CourseSession | null>(null);
@@ -29,8 +34,10 @@ export function App() {
   const [railOpen, setRailOpen] = useState(true);
   const calendarResult = session?.snapshots.calendar?.value;
   const heavenEarthResult = session?.snapshots["heaven-earth"]?.value;
+  const fourLessonsResult = session?.snapshots["four-lessons"]?.value;
   const hasCalendar = isCalendarResult(calendarResult);
   const hasHeavenEarth = isHeavenEarthResult(heavenEarthResult);
+  const hasFourLessons = isFourLessonsResult(fourLessonsResult);
 
   function replaceFrom(nextSession: CourseSession) {
     const calendarOutcome = runCalendarStage(nextSession, calendarAdapter);
@@ -47,8 +54,15 @@ export function App() {
       setStageError(plateOutcome.error);
       return;
     }
-    setSession(plateOutcome.session);
-    setReviewStage("heaven-earth");
+    const lessonsOutcome = runFourLessonsStage(plateOutcome.session);
+    if (!lessonsOutcome.ok) {
+      setSession(lessonsOutcome.session);
+      setReviewStage("heaven-earth");
+      setStageError(lessonsOutcome.error);
+      return;
+    }
+    setSession(lessonsOutcome.session);
+    setReviewStage("four-lessons");
     setStageError(null);
   }
 
@@ -73,7 +87,14 @@ export function App() {
   const generalErrorMessage = stageError && !correctionError ? stageError.message : undefined;
   const completed: RuleStageId[] = hasCalendar ? ["calendar"] : [];
   if (hasHeavenEarth) completed.push("heaven-earth");
-  const current: RuleStageId = hasHeavenEarth ? "four-lessons" : hasCalendar ? "heaven-earth" : "calendar";
+  if (hasFourLessons) completed.push("four-lessons");
+  const current: RuleStageId = hasFourLessons
+    ? "three-transmissions"
+    : hasHeavenEarth
+      ? "four-lessons"
+      : hasCalendar
+        ? "heaven-earth"
+        : "calendar";
 
   return (
     <main className="app-shell">
@@ -88,7 +109,13 @@ export function App() {
           {inputOpen && <CourseInputForm onSubmit={(input) => replaceFrom({ input, snapshots: {} })} />}
         </aside>
         <section className="app-stage" aria-live="polite">
-          {reviewStage === "heaven-earth" && hasHeavenEarth ? (
+          {reviewStage === "four-lessons" && hasFourLessons ? (
+            <FourLessonsReview
+              result={fourLessonsResult}
+              onReviewCalendar={() => setReviewStage("calendar")}
+              onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
+            />
+          ) : reviewStage === "heaven-earth" && hasHeavenEarth ? (
             <HeavenEarthReview result={heavenEarthResult} />
           ) : hasCalendar ? (
             <CalendarReview
@@ -115,7 +142,7 @@ export function App() {
               current={current}
               selected={hasCalendar ? reviewStage : undefined}
               onSelect={(stage) => {
-                if (stage === "calendar" || stage === "heaven-earth") setReviewStage(stage);
+                if (stage === "calendar" || stage === "heaven-earth" || stage === "four-lessons") setReviewStage(stage);
               }}
             />
           )}
