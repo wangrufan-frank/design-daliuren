@@ -340,10 +340,12 @@ it("counts branches and resident stems while returning each traversed palace", (
 });
 
 it.each([
-  ["孟位先取", [candidateOver("second", "午", "寅"), candidateOver("third", "戌", "子")], "见机"],
-  ["无孟取仲", [candidateOver("second", "午", "卯"), candidateOver("third", "戌", "子")], "察微"],
-] as const)("resolves equal depth by %s", (_label, candidates, subtype) => {
-  expect(selectBySheHai(candidates, "庚", equalDepthPlate())).toEqual(expect.objectContaining({ kind: "selected", subtype }));
+  ["孟位先取", equalDepthPlate(), [candidate("second", "寅"), candidate("third", "卯")], "见机"],
+  ["无孟取仲", makePlate("寅", "子"), [candidate("second", "寅"), candidate("third", "卯")], "察微"],
+] as const)("resolves equal depth by %s", (_label, plate, candidates, subtype) => {
+  const result = selectBySheHai(candidates, "庚", plate);
+  expect(result.counts).toEqual(expect.objectContaining({ 寅: 1, 卯: 1 }));
+  expect(result).toEqual(expect.objectContaining({ kind: "selected", subtype }));
 });
 ```
 
@@ -365,7 +367,7 @@ Expected: PASS for direction, 比用, 涉害 count, 孟仲 tie, 缀瑕, and unre
 
 ```ts
 it("checks only unique upper gods from lessons two through four", () => {
-  const lessons = makeRemoteLessons({ first: "辰", second: "戌", third: "午", fourth: "午" });
+  const lessons = makeRemoteLessons({ first: "辰", second: "戌", third: "戌", fourth: "午" });
   expect(findRemoteCandidates(lessons, "壬")).toEqual(expect.objectContaining({
     subtype: "蒿矢",
     candidates: [expect.objectContaining({ upper: "戌" })],
@@ -373,8 +375,20 @@ it("checks only unique upper gods from lessons two through four", () => {
 });
 
 it("uses day-overcomes-god only when no god overcomes the day", () => {
-  const lessons = makeRemoteLessons({ first: "子", second: "巳", third: "午", fourth: "卯" });
-  expect(findRemoteCandidates(lessons, "庚").subtype).toBe("弹射");
+  const lessons = makeRemoteLessons({ first: "子", second: "寅", third: "卯", fourth: "子" });
+  const result = findRemoteCandidates(lessons, "庚");
+  expect(result.scans.godOvercomesDay).toEqual([]);
+  expect(result.subtype).toBe("弹射");
+  expect(result).toEqual(expect.objectContaining({ kind: "selected", candidate: expect.objectContaining({ upper: "寅" }) }));
+  expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({ ruleId: "three-transmissions/comparison-v1" })]));
+});
+
+it("uses comparison instead of the first entry for multiple 弹射 candidates", () => {
+  const lessons = makeRemoteLessons({ first: "子", second: "卯", third: "寅", fourth: "子" });
+  expect(findRemoteCandidates(lessons, "庚")).toEqual(expect.objectContaining({
+    kind: "selected",
+    candidate: expect.objectContaining({ upper: "寅" }),
+  }));
 });
 ```
 
