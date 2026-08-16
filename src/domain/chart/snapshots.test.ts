@@ -81,6 +81,20 @@ it("rejects forged four-lessons metadata", () => {
   expect(validateSession(broken)).toContain("four-lessons 快照规则编号无效");
 });
 
+it("rejects a four-lessons source that does not match its valid inputs", () => {
+  const broken = structuredClone(referenceSession);
+  broken.snapshots["four-lessons"]!.source = "manual";
+
+  expect(validateSession(broken)).toContain("four-lessons 快照来源无效，应为 automatic");
+});
+
+it("rejects an invalid four-lessons result with valid dependencies", () => {
+  const broken = structuredClone(referenceSession);
+  broken.snapshots["four-lessons"]!.value = {};
+
+  expect(validateSession(broken)).toContain("four-lessons 快照结果无效");
+});
+
 it("removes the changed stage and every downstream stage", () => {
   const next = invalidateFrom(referenceSession, "four-lessons");
 
