@@ -96,12 +96,13 @@ describe("isFourLessonsResult", () => {
 });
 
 describe("runFourLessonsStage", () => {
-  it("replaces four-lessons and removes all of its downstream snapshots", () => {
+  it("replaces four-lessons and removes every direct and transitive descendant", () => {
     const outcome = runFourLessonsStage(referenceSession);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
-    expect(Object.keys(outcome.session.snapshots)).toEqual(["calendar", "heaven-earth", "heavenly-generals", "four-lessons"]);
+    expect(Object.keys(outcome.session.snapshots)).toEqual(["calendar", "heaven-earth", "four-lessons"]);
     expect(outcome.session.snapshots["three-transmissions"]).toBeUndefined();
+    expect(outcome.session.snapshots["heavenly-generals"]).toBeUndefined();
     expect(outcome.session.snapshots.course).toBeUndefined();
   });
 
@@ -113,6 +114,7 @@ describe("runFourLessonsStage", () => {
     if (outcome.ok) return;
     expect(outcome.session.snapshots["four-lessons"]).toBeUndefined();
     expect(outcome.session.snapshots["three-transmissions"]).toBeUndefined();
+    expect(outcome.session.snapshots["heavenly-generals"]).toBeUndefined();
     expect(outcome.session.snapshots.course).toBeUndefined();
   });
 
@@ -124,6 +126,7 @@ describe("runFourLessonsStage", () => {
     if (outcome.ok) return;
     expect(outcome.session.snapshots["four-lessons"]).toBeUndefined();
     expect(outcome.session.snapshots["three-transmissions"]).toBeUndefined();
+    expect(outcome.session.snapshots["heavenly-generals"]).toBeUndefined();
     expect(outcome.session.snapshots.course).toBeUndefined();
   });
 });
