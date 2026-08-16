@@ -77,6 +77,7 @@ describe("special plate classification and dispatch", () => {
   it("classifies only six-palace opposition as Fan Yin", () => {
     expect(isFanYin(makePlate("午", "子"))).toBe(true);
     expect(isFanYin(makePlate("巳", "子"))).toBe(false);
+    expect(isFanYin({ ...makePlate("午", "子"), offset: 5 })).toBe(false);
 
     const tampered = makePlate("午", "子");
     expect(isFanYin({

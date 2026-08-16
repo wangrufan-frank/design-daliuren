@@ -110,7 +110,7 @@ export function isFuYin(plate: HeavenEarthResult): boolean {
 }
 
 export function isFanYin(plate: HeavenEarthResult): boolean {
-  return EARTHLY_BRANCHES.every((earth) => (
+  return plate.offset === 6 && EARTHLY_BRANCHES.every((earth) => (
     plate.palaces.filter((palace) => palace.earth === earth).length === 1
     && plate.palaces.find((palace) => palace.earth === earth)?.heaven === clashOf(earth)
   ));
