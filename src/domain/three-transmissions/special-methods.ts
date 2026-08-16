@@ -22,6 +22,11 @@ export interface TransmissionDraft {
   subtype?: TransmissionSubtype;
   variants: readonly TransmissionVariant[];
   branches: readonly [EarthlyBranch, EarthlyBranch, EarthlyBranch];
+  derivations: readonly [
+    { input: string; conclusion: string },
+    { input: string; conclusion: string },
+    { input: string; conclusion: string },
+  ];
   evidence: readonly EvidenceDraft[];
 }
 
@@ -41,6 +46,35 @@ export function deriveMaoStar(
     branches: isYang
       ? [initial, thirdUpper, firstUpper]
       : [initial, firstUpper, thirdUpper],
+    derivations: isYang
+      ? [
+          {
+            input: `阳日虎视查酉地盘上神${initial}`,
+            conclusion: `阳日虎视取酉上神${initial}为初传`,
+          },
+          {
+            input: `阳日虎视取三课上神${thirdUpper}`,
+            conclusion: `阳日虎视取三课上神${thirdUpper}为中传`,
+          },
+          {
+            input: `阳日虎视取一课日上神${firstUpper}`,
+            conclusion: `阳日虎视取一课日上神${firstUpper}为末传`,
+          },
+        ]
+      : [
+          {
+            input: `阴日冬蛇掩目查酉天盘所临地盘${initial}`,
+            conclusion: `阴日冬蛇掩目取酉下神${initial}为初传`,
+          },
+          {
+            input: `阴日冬蛇掩目取一课日上神${firstUpper}`,
+            conclusion: `阴日冬蛇掩目取一课日上神${firstUpper}为中传`,
+          },
+          {
+            input: `阴日冬蛇掩目取三课上神${thirdUpper}`,
+            conclusion: `阴日冬蛇掩目取三课上神${thirdUpper}为末传`,
+          },
+        ],
     evidence: [{
       ruleId: "three-transmissions/mao-star-v1",
       phase: "selection",
@@ -66,6 +100,22 @@ export function deriveSeparateResponsibility(
     method: "别责",
     variants: [],
     branches: [initial, firstUpper, firstUpper],
+    derivations: [
+      {
+        input: isYang
+          ? `阳日别责取五合${combinedStem}寄宫${STEM_RESIDENCES[combinedStem]}上神${initial}`
+          : `阴日别责取日支${dayBranch}三合下一支${initial}`,
+        conclusion: `${isYang ? "阳日" : "阴日"}别责取${initial}为初传`,
+      },
+      {
+        input: `别责固定取一课日上神${firstUpper}`,
+        conclusion: `别责中传固定取一课日上神${firstUpper}`,
+      },
+      {
+        input: `别责固定取一课日上神${firstUpper}`,
+        conclusion: `别责末传固定取一课日上神${firstUpper}`,
+      },
+    ],
     evidence: [{
       ruleId: "three-transmissions/separate-responsibility-v1",
       phase: "selection",
@@ -94,6 +144,20 @@ export function deriveEightSpecial(
     method: "八专",
     variants: [],
     branches: [initial, firstUpper, firstUpper],
+    derivations: [
+      {
+        input: `${isYang ? "阳日从一课日上神顺数三位" : "阴日从四课上神逆数三位"}，起点计一`,
+        conclusion: `${isYang ? "阳日" : "阴日"}八专取${initial}为初传`,
+      },
+      {
+        input: `八专固定取一课日上神${firstUpper}`,
+        conclusion: `八专中传固定取一课日上神${firstUpper}`,
+      },
+      {
+        input: `八专固定取一课日上神${firstUpper}`,
+        conclusion: `八专末传固定取一课日上神${firstUpper}`,
+      },
+    ],
     evidence: [{
       ruleId: "three-transmissions/eight-special-v1",
       phase: "selection",

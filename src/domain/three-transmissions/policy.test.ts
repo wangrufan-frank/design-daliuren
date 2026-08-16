@@ -10,6 +10,24 @@ import {
 } from "./test-helpers";
 import { deriveEightSpecial, deriveMaoStar, deriveSeparateResponsibility } from "./special-methods";
 
+function expectMiddleFinalDerivations(
+  result: ReturnType<typeof deriveThreeTransmissions>,
+  expected: readonly [
+    { input: string; conclusion: string },
+    { input: string; conclusion: string },
+  ],
+) {
+  expect(result.transmissions.slice(1).map(({ derivation }) => derivation)).toEqual(
+    expected.map(({ conclusion }) => conclusion),
+  );
+  expect(["middle", "final"].map((position) => {
+    const step = result.evidence.find(({ phase, transmission }) => (
+      phase === position && transmission === position
+    ));
+    return step && { input: step.input, conclusion: step.conclusion };
+  })).toEqual(expected);
+}
+
 function completeLessons(uppers: { first: "亥"; third: "卯" }) {
   return makeSelectorInput({
     dayPillar: "戊酉",
@@ -68,6 +86,18 @@ describe("deriveThreeTransmissions", () => {
     expect(result.transmissions.map(({ branch }) => branch)).toEqual(branches);
   });
 
+  it("records why the sole vertical candidate is selected for use", () => {
+    const input = makeRuleInput("戊戌", "子", "戌");
+    const result = deriveThreeTransmissions(input.plate, input.fourLessons);
+
+    expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({
+      ruleId: "three-transmissions/thief-overcoming-v1",
+      phase: "selection",
+      input: "上下克候选仅三课上神子",
+      conclusion: "唯一上下克候选为三课上神子，取子发用",
+    })]));
+  });
+
   it("routes two co-resident lessons to Eight Special before remote overcoming", () => {
     const fourLessons = makeSelectorInput({
       dayPillar: "庚申",
@@ -83,6 +113,10 @@ describe("deriveThreeTransmissions", () => {
 
     expect(result.method).toBe("八专");
     expect(result.transmissions.map(({ branch }) => branch)).toEqual(["卯", "丑", "丑"]);
+    expectMiddleFinalDerivations(result, [
+      { input: "八专固定取一课日上神丑", conclusion: "八专中传固定取一课日上神丑" },
+      { input: "八专固定取一课日上神丑", conclusion: "八专末传固定取一课日上神丑" },
+    ]);
   });
 
   it("uses selected remote overcoming before lesson-count methods", () => {
@@ -101,6 +135,12 @@ describe("deriveThreeTransmissions", () => {
     expect(result.method).toBe("遥克");
     expect(result.subtype).toBe("蒿矢");
     expect(result.transmissions.map(({ branch }) => branch)).toEqual(["酉", "卯", "酉"]);
+    expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({
+      ruleId: "three-transmissions/remote-overcoming-v1",
+      phase: "selection",
+      input: "遥克候选仅四课上神酉",
+      conclusion: "唯一遥克候选为四课上神酉，取酉发用",
+    })]));
   });
 
   it("throws structured evidence when remote overcoming remains unresolved", () => {
@@ -142,6 +182,10 @@ describe("deriveThreeTransmissions", () => {
       }),
       method: "昴星",
       branches: ["卯", "亥", "卯"],
+      derivations: [
+        { input: "阳日虎视取三课上神亥", conclusion: "阳日虎视取三课上神亥为中传" },
+        { input: "阳日虎视取一课日上神卯", conclusion: "阳日虎视取一课日上神卯为末传" },
+      ],
     },
     {
       name: "three unique lessons to Separate Responsibility",
@@ -156,12 +200,27 @@ describe("deriveThreeTransmissions", () => {
       }),
       method: "别责",
       branches: ["丑", "卯", "卯"],
+      derivations: [
+        { input: "别责固定取一课日上神卯", conclusion: "别责中传固定取一课日上神卯" },
+        { input: "别责固定取一课日上神卯", conclusion: "别责末传固定取一课日上神卯" },
+      ],
     },
-  ] as const)("routes $name", ({ fourLessons, method, branches }) => {
+  ] as const)("routes $name", ({ fourLessons, method, branches, derivations }) => {
     const result = deriveThreeTransmissions(makePlate("午", "子"), fourLessons);
 
     expect(result.method).toBe(method);
     expect(result.transmissions.map(({ branch }) => branch)).toEqual(branches);
+    expectMiddleFinalDerivations(result, derivations);
+  });
+
+  it("records ordinary middle and final transmissions as heaven-at lookups", () => {
+    const input = makeRuleInput("戊戌", "子", "戌");
+    const result = deriveThreeTransmissions(input.plate, input.fourLessons);
+
+    expectMiddleFinalDerivations(result, [
+      { input: "初传子落地盘子宫", conclusion: "从地盘子宫查得天盘上神寅，取为中传" },
+      { input: "中传寅落地盘寅宫", conclusion: "从地盘寅宫查得天盘上神辰，取为末传" },
+    ]);
   });
 
   it("attaches transmission labels, six relations, and complete evidence", () => {

@@ -51,6 +51,20 @@ function chainOrdinary(
     ...(subtype ? { subtype } : {}),
     variants,
     branches: [initial, middle, final],
+    derivations: [
+      {
+        input: `${candidate.lesson.label}上神${initial}`,
+        conclusion: `${method}${subtype ?? ""}取${candidate.lesson.label}上神${initial}发用为初传`,
+      },
+      {
+        input: `初传${initial}落地盘${initial}宫`,
+        conclusion: `从地盘${initial}宫查得天盘上神${middle}，取为中传`,
+      },
+      {
+        input: `中传${middle}落地盘${middle}宫`,
+        conclusion: `从地盘${middle}宫查得天盘上神${final}，取为末传`,
+      },
+    ],
     evidence,
   };
 }
@@ -61,8 +75,18 @@ function deriveFromVertical(
   plate: HeavenEarthResult,
 ): TransmissionDraft {
   if (vertical.candidates.length === 1) {
+    const candidate = vertical.candidates[0];
     const subtype = vertical.preferredDirection === "lower-overcomes-upper" ? "始入" : "元首";
-    return chainOrdinary(vertical.candidates[0], plate, "贼克", subtype, [], vertical.evidence);
+    const selectionEvidence: EvidenceDraft = {
+      ruleId: "three-transmissions/thief-overcoming-v1",
+      phase: "selection",
+      input: `上下克候选仅${candidate.lesson.label}上神${candidate.upper}`,
+      conclusion: `唯一上下克候选为${candidate.lesson.label}上神${candidate.upper}，取${candidate.upper}发用`,
+    };
+    return chainOrdinary(candidate, plate, "贼克", subtype, [], [
+      ...vertical.evidence,
+      selectionEvidence,
+    ]);
   }
 
   const comparison = selectByComparison(vertical.candidates, dayStem);
@@ -109,9 +133,18 @@ function deriveOrdinary(
 
   const remote = findRemoteCandidates(fourLessons, dayStem);
   if (remote.kind === "selected") {
+    const selectionEvidence: readonly EvidenceDraft[] = remote.candidates.length === 1
+      ? [{
+          ruleId: "three-transmissions/remote-overcoming-v1",
+          phase: "selection",
+          input: `遥克候选仅${remote.candidate.lesson.label}上神${remote.candidate.upper}`,
+          conclusion: `唯一遥克候选为${remote.candidate.lesson.label}上神${remote.candidate.upper}，取${remote.candidate.upper}发用`,
+        }]
+      : [];
     return chainOrdinary(remote.candidate, plate, "遥克", remote.subtype, [], [
       ...evidenceBeforeRemote,
       ...remote.evidence,
+      ...selectionEvidence,
     ]);
   }
   const evidence = [...evidenceBeforeRemote, ...remote.evidence];
@@ -150,6 +183,7 @@ function finalizeEvidence(
 
   draft.branches.forEach((branch, index) => {
     const position = POSITIONS[index];
+    const derivation = draft.derivations[index];
     evidence.push({
       ruleId: index === 0
         ? "three-transmissions/initial-v1"
@@ -158,8 +192,8 @@ function finalizeEvidence(
           : "three-transmissions/final-v1",
       phase: position,
       transmission: position,
-      input: index === 0 ? `取初传${branch}` : `前传${draft.branches[index - 1]}`,
-      conclusion: `${LABELS[index]}为${branch}`,
+      input: derivation.input,
+      conclusion: derivation.conclusion,
     }, {
       ruleId: "three-transmissions/six-relation-v1",
       phase: "relation",
