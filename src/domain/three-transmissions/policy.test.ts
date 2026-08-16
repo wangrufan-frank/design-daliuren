@@ -8,7 +8,13 @@ import {
   makeSelectorInput,
   threeUniqueLessons as makeThreeUniqueInput,
 } from "./test-helpers";
-import { deriveEightSpecial, deriveMaoStar, deriveSeparateResponsibility } from "./special-methods";
+import {
+  deriveEightSpecial,
+  deriveMaoStar,
+  deriveSeparateResponsibility,
+  isFanYin,
+  isFuYin,
+} from "./special-methods";
 
 function expectMiddleFinalDerivations(
   result: ReturnType<typeof deriveThreeTransmissions>,
@@ -109,7 +115,10 @@ describe("deriveThreeTransmissions", () => {
       ],
     });
 
-    const result = deriveThreeTransmissions(makePlate("午", "子"), fourLessons);
+    const plate = makePlate("巳", "子");
+    expect(isFuYin(plate)).toBe(false);
+    expect(isFanYin(plate)).toBe(false);
+    const result = deriveThreeTransmissions(plate, fourLessons);
 
     expect(result.method).toBe("八专");
     expect(result.transmissions.map(({ branch }) => branch)).toEqual(["卯", "丑", "丑"]);
@@ -130,11 +139,14 @@ describe("deriveThreeTransmissions", () => {
       ],
     });
 
-    const result = deriveThreeTransmissions(makePlate("午", "子"), fourLessons);
+    const plate = makePlate("巳", "子");
+    expect(isFuYin(plate)).toBe(false);
+    expect(isFanYin(plate)).toBe(false);
+    const result = deriveThreeTransmissions(plate, fourLessons);
 
     expect(result.method).toBe("遥克");
     expect(result.subtype).toBe("蒿矢");
-    expect(result.transmissions.map(({ branch }) => branch)).toEqual(["酉", "卯", "酉"]);
+    expect(result.transmissions.map(({ branch }) => branch)).toEqual(["酉", "寅", "未"]);
     expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({
       ruleId: "three-transmissions/remote-overcoming-v1",
       phase: "selection",
@@ -154,11 +166,14 @@ describe("deriveThreeTransmissions", () => {
       ],
     });
 
-    expect(() => deriveThreeTransmissions(makePlate("午", "子"), fourLessons)).toThrow(
+    const plate = makePlate("巳", "子");
+    expect(isFuYin(plate)).toBe(false);
+    expect(isFanYin(plate)).toBe(false);
+    expect(() => deriveThreeTransmissions(plate, fourLessons)).toThrow(
       ThreeTransmissionsRuleUnresolvedError,
     );
     try {
-      deriveThreeTransmissions(makePlate("午", "子"), fourLessons);
+      deriveThreeTransmissions(plate, fourLessons);
     } catch (error) {
       expect(error).toBeInstanceOf(ThreeTransmissionsRuleUnresolvedError);
       expect((error as ThreeTransmissionsRuleUnresolvedError).evidence).toEqual(expect.arrayContaining([
@@ -181,7 +196,7 @@ describe("deriveThreeTransmissions", () => {
         ],
       }),
       method: "昴星",
-      branches: ["卯", "亥", "卯"],
+      branches: ["寅", "亥", "卯"],
       derivations: [
         { input: "阳日虎视取三课上神亥", conclusion: "阳日虎视取三课上神亥为中传" },
         { input: "阳日虎视取一课日上神卯", conclusion: "阳日虎视取一课日上神卯为末传" },
@@ -199,14 +214,17 @@ describe("deriveThreeTransmissions", () => {
         ],
       }),
       method: "别责",
-      branches: ["丑", "卯", "卯"],
+      branches: ["子", "卯", "卯"],
       derivations: [
         { input: "别责固定取一课日上神卯", conclusion: "别责中传固定取一课日上神卯" },
         { input: "别责固定取一课日上神卯", conclusion: "别责末传固定取一课日上神卯" },
       ],
     },
   ] as const)("routes $name", ({ fourLessons, method, branches, derivations }) => {
-    const result = deriveThreeTransmissions(makePlate("午", "子"), fourLessons);
+    const plate = makePlate("巳", "子");
+    expect(isFuYin(plate)).toBe(false);
+    expect(isFanYin(plate)).toBe(false);
+    const result = deriveThreeTransmissions(plate, fourLessons);
 
     expect(result.method).toBe(method);
     expect(result.transmissions.map(({ branch }) => branch)).toEqual(branches);

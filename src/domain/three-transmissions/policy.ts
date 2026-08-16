@@ -11,9 +11,14 @@ import {
   type VerticalCandidatesResult,
 } from "./selectors";
 import {
+  ThreeTransmissionsRuleUnresolvedError,
   deriveEightSpecial,
+  deriveFanYin,
+  deriveFuYin,
   deriveMaoStar,
   deriveSeparateResponsibility,
+  isFanYin,
+  isFuYin,
   type TransmissionDraft,
 } from "./special-methods";
 import type {
@@ -25,12 +30,7 @@ import type {
   TransmissionSubtype,
 } from "./types";
 
-export class ThreeTransmissionsRuleUnresolvedError extends Error {
-  constructor(readonly evidence: readonly EvidenceDraft[]) {
-    super("九宗门规则无法唯一确定初传");
-    this.name = "ThreeTransmissionsRuleUnresolvedError";
-  }
-}
+export { ThreeTransmissionsRuleUnresolvedError } from "./special-methods";
 
 const POSITIONS = ["initial", "middle", "final"] as const satisfies readonly TransmissionPosition[];
 const LABELS = ["初传", "中传", "末传"] as const;
@@ -233,7 +233,12 @@ export function deriveThreeTransmissions(
   fourLessons: FourLessonsResult,
 ): ThreeTransmissionsResult {
   const dayStem = fourLessons.dayPillar[0] as HeavenlyStem;
-  const draft = deriveOrdinary(plate, fourLessons, dayStem);
+  const dayBranch = fourLessons.dayPillar[1] as EarthlyBranch;
+  const draft = isFuYin(plate)
+    ? deriveFuYin(dayStem, fourLessons, plate)
+    : isFanYin(plate)
+      ? deriveFanYin(dayStem, dayBranch, fourLessons, plate)
+      : deriveOrdinary(plate, fourLessons, dayStem);
   const evidence = finalizeEvidence(plate, dayStem, draft);
   return {
     dayPillar: fourLessons.dayPillar,
