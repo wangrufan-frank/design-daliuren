@@ -23,7 +23,7 @@ function isPlateSnapshotForCalendar(
   calendar: CalendarSnapshot,
   plate: HeavenEarthSnapshot | undefined,
 ): plate is HeavenEarthSnapshot {
-  if (!plate || plate.stage !== "heaven-earth" || !isHeavenEarthResult(plate.value)) return false;
+  if (!plate || !Array.isArray(plate.dependsOn) || plate.stage !== "heaven-earth" || !isHeavenEarthResult(plate.value)) return false;
   return plate.dependsOn.length === 1
     && plate.dependsOn[0] === "calendar"
     && plate.ruleId === HEAVEN_EARTH_SNAPSHOT_RULE_ID

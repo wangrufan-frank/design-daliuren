@@ -68,6 +68,15 @@ describe("computeFourLessons", () => {
       error: { code: "INVALID_FOUR_LESSONS_INPUT" },
     });
   });
+
+  it("rejects an array-shaped plate dependency declaration", () => {
+    const plate = structuredClone(referenceSession.snapshots["heaven-earth"] as HeavenEarthSnapshot);
+    (plate as unknown as { dependsOn: unknown }).dependsOn = { length: 1, 0: "calendar" };
+    expect(computeFourLessons(referenceSession.snapshots.calendar, plate)).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_FOUR_LESSONS_INPUT" },
+    });
+  });
 });
 
 describe("isFourLessonsResult", () => {
@@ -101,6 +110,17 @@ describe("runFourLessonsStage", () => {
     delete broken.snapshots["heaven-earth"];
     const outcome = runFourLessonsStage(broken);
     expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.session.snapshots["four-lessons"]).toBeUndefined();
+    expect(outcome.session.snapshots["three-transmissions"]).toBeUndefined();
+    expect(outcome.session.snapshots.course).toBeUndefined();
+  });
+
+  it("invalidates descendants when the plate dependency declaration is malformed", () => {
+    const broken = structuredClone(referenceSession);
+    (broken.snapshots["heaven-earth"] as unknown as { dependsOn: unknown }).dependsOn = undefined;
+    const outcome = runFourLessonsStage(broken);
+    expect(outcome).toMatchObject({ ok: false, error: { code: "INVALID_FOUR_LESSONS_INPUT" } });
     if (outcome.ok) return;
     expect(outcome.session.snapshots["four-lessons"]).toBeUndefined();
     expect(outcome.session.snapshots["three-transmissions"]).toBeUndefined();
