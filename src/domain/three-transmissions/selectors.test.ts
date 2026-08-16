@@ -163,14 +163,28 @@ describe("findRemoteCandidates", () => {
   });
 
   it("uses day-overcomes-god only when no god overcomes the day", () => {
-    const lessons = makeRemoteLessons({ first: "子", second: "卯", third: "寅", fourth: "子" });
+    const lessons = makeRemoteLessons({ first: "子", second: "寅", third: "卯", fourth: "子" });
     const result = findRemoteCandidates(lessons, "庚");
 
     expect(result.scans.godOvercomesDay).toEqual([]);
-    expect(result.scans.dayOvercomesGod.map(({ upper }) => upper)).toEqual(["卯", "寅"]);
+    expect(result.scans.dayOvercomesGod.map(({ upper }) => upper)).toEqual(["寅", "卯"]);
     expect(result.subtype).toBe("弹射");
     expect(result).toEqual(expect.objectContaining({
       kind: "selected",
+      candidate: expect.objectContaining({ upper: "寅" }),
+    }));
+    expect(result.evidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ruleId: "three-transmissions/comparison-v1" }),
+    ]));
+  });
+
+  it("uses comparison instead of the first entry for multiple 弹射 candidates", () => {
+    const lessons = makeRemoteLessons({ first: "子", second: "卯", third: "寅", fourth: "子" });
+    const result = findRemoteCandidates(lessons, "庚");
+
+    expect(result).toEqual(expect.objectContaining({
+      kind: "selected",
+      subtype: "弹射",
       candidate: expect.objectContaining({ upper: "寅" }),
     }));
     expect(result.evidence).toEqual(expect.arrayContaining([
