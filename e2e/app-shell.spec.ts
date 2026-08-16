@@ -17,8 +17,14 @@ async function calculateCalendar(page: Page) {
   await page.getByLabel("经度").fill("116.4074");
   await page.getByLabel("纬度").fill("39.9042");
   await page.getByRole("button", { name: "建立起课上下文" }).click();
-  await expect(page.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "天地盘十二宫" })).toBeVisible();
+  await returnToCalendar(page);
   await expect(page.locator(".calendar-review__time-band").getByText("2024-02-10T14:30:00", { exact: true })).toBeVisible();
+}
+
+async function returnToCalendar(page: Page) {
+  await page.getByRole("button", { name: "历法与月将，已完成" }).click();
+  await expect(page.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -39,7 +45,7 @@ function isNonLocalNetworkUrl(url: string) {
 
 async function expectNoUnimplementedResult(page: Page) {
   const stage = page.locator(".app-stage");
-  const downstreamName = /天地盘加临|四课生成|三传取法|天将排列|复制结课/;
+  const downstreamName = /四课生成|三传取法|天将排列|复制结课/;
   await expect(stage.locator([
     ".course-sheet",
     "[aria-label='标准文字课式']",
@@ -48,7 +54,7 @@ async function expectNoUnimplementedResult(page: Page) {
     "canvas",
   ].join(", "))).toHaveCount(0);
   await expect(stage.getByRole("heading", { name: downstreamName })).toHaveCount(0);
-  await expect(stage.getByText(/标准文字课式|天地盘加临|四课生成|三传取法|天将排列|复制结课|三维模型占位|3D placeholder/i)).toHaveCount(0);
+  await expect(stage.getByText(/标准文字课式|四课生成|三传取法|天将排列|复制结课|三维模型占位|3D placeholder/i)).toHaveCount(0);
   await expect(stage.getByRole("button", { name: /批准|审核通过/ })).toHaveCount(0);
 }
 
@@ -269,6 +275,7 @@ for (const viewport of VIEWPORTS) {
     });
     await automaticDay.click();
     await page.getByRole("combobox", { name: "修正日柱" }).selectOption("乙巳");
+    await returnToCalendar(page);
 
     const manualDay = matrix.getByRole("button", {
       name: /日柱，自动 甲辰，有效 乙巳，人工修正/,
@@ -277,6 +284,7 @@ for (const viewport of VIEWPORTS) {
     await expect(manualDay.getByText("有效：乙巳", { exact: true })).toBeVisible();
     await expect(manualDay.getByText("人工修正", { exact: true })).toBeVisible();
     await expectContrastAtLeast(manualDay.locator("strong"), 4.5);
+    await manualDay.click();
 
     if (process.env.CAPTURE_CALENDAR_VISUALS === "1") {
       mkdirSync(VISUALS_DIRECTORY, { recursive: true });
@@ -287,6 +295,7 @@ for (const viewport of VIEWPORTS) {
     }
 
     await page.getByRole("button", { name: "恢复日柱自动值" }).click();
+    await returnToCalendar(page);
     await expect(matrix.getByRole("button", {
       name: /日柱，自动 甲辰，有效 甲辰，自动计算/,
     })).toBeVisible();
@@ -347,6 +356,10 @@ for (const viewport of VIEWPORTS) {
     const automaticControlCount = await expectVisibleControlsKeyboardReachable(page);
 
     await page.getByRole("combobox", { name: "修正日柱" }).selectOption("乙巳");
+    await returnToCalendar(page);
+    await page.getByRole("list", { name: "历法结果矩阵" }).getByRole("button", {
+      name: /日柱，自动 甲辰，有效 乙巳，人工修正/,
+    }).click();
     const reset = page.getByRole("button", { name: "恢复日柱自动值" });
     await expect(reset).toBeVisible();
     const manualControlCount = await expectVisibleControlsKeyboardReachable(page);
