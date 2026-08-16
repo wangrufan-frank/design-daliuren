@@ -3,8 +3,14 @@ import { invalidateFrom, validateSession } from "./snapshots";
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
 import { referenceSession } from "../../test/reference-session";
 import { deriveHeavenEarth } from "../heaven-earth/policy";
+import { isHeavenEarthResult } from "../heaven-earth/result-guard";
+import { deriveFourLessons } from "../four-lessons/policy";
 
 describe("rule stage metadata", () => {
+  it("requires both direct four-lessons dependencies", () => {
+    expect(stageDependencies["four-lessons"]).toEqual(["calendar", "heaven-earth"]);
+  });
+
   it("orders every calculation dependency before its consumer", () => {
     for (const [index, stage] of RULE_STAGE_ORDER.entries()) {
       for (const dependency of stageDependencies[stage]) {
@@ -20,7 +26,10 @@ it("rejects a snapshot whose declared dependencies are absent", () => {
     snapshots: { "four-lessons": referenceSession.snapshots["four-lessons"] },
   };
 
-  expect(validateSession(broken)).toContain("four-lessons 缺少依赖 heaven-earth");
+  expect(validateSession(broken)).toEqual(expect.arrayContaining([
+    "four-lessons 缺少依赖 calendar",
+    "four-lessons 缺少依赖 heaven-earth",
+  ]));
 });
 
 it("rejects a snapshot whose stage does not match its key", () => {
@@ -37,8 +46,8 @@ it("rejects a snapshot whose stage does not match its key", () => {
 
 it.each([
   { name: "missing", dependsOn: [] },
-  { name: "forged", dependsOn: ["calendar"] },
-  { name: "extra", dependsOn: ["heaven-earth", "calendar"] },
+  { name: "forged", dependsOn: ["heaven-earth"] },
+  { name: "extra", dependsOn: ["calendar", "heaven-earth", "course"] },
 ])("rejects $name declared dependencies", ({ dependsOn }) => {
   const broken = {
     ...referenceSession,
@@ -48,7 +57,28 @@ it.each([
     },
   } as unknown as typeof referenceSession;
 
-  expect(validateSession(broken)).toContain("four-lessons 依赖声明无效，应为 heaven-earth");
+  expect(validateSession(broken)).toContain("four-lessons 依赖声明无效，应为 calendar, heaven-earth");
+});
+
+it("rejects a four-lessons snapshot copied from different day inputs", () => {
+  const broken = structuredClone(referenceSession);
+  const otherCalendar = structuredClone(referenceSession.snapshots.calendar!.value);
+  const plate = referenceSession.snapshots["heaven-earth"];
+  if (!plate || !isHeavenEarthResult(plate.value)) throw new Error("expected heaven-earth fixture");
+  otherCalendar.pillars.day.effective = "庚申";
+  broken.snapshots["four-lessons"]!.value = deriveFourLessons(
+    otherCalendar,
+    plate.value,
+  );
+
+  expect(validateSession(broken)).toContain("four-lessons 与生效日柱或天地盘不一致");
+});
+
+it("rejects forged four-lessons metadata", () => {
+  const broken = structuredClone(referenceSession);
+  broken.snapshots["four-lessons"]!.ruleId = "four-lessons/forged-v1";
+
+  expect(validateSession(broken)).toContain("four-lessons 快照规则编号无效");
 });
 
 it("removes the changed stage and every downstream stage", () => {

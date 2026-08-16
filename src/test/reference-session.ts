@@ -3,6 +3,8 @@ import type { CourseInput, CourseResult, CourseSession, RuleStageId, RuleSnapsho
 import { stageDependencies } from "../domain/chart/stages";
 import { deriveHeavenEarth } from "../domain/heaven-earth/policy";
 import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
+import { deriveFourLessons, FOUR_LESSONS_RULE_ID } from "../domain/four-lessons/policy";
+import type { FourLessonsSnapshot } from "../domain/four-lessons/types";
 
 function snapshot<Stage extends RuleStageId>(stage: Stage, value: unknown): RuleSnapshot<unknown, Stage> {
   return { stage, dependsOn: stageDependencies[stage], ruleId: "reference-layout-only", source: "manual", value };
@@ -143,12 +145,20 @@ const heavenEarthSnapshot = {
   value: deriveHeavenEarth(calendarSnapshot.value),
 } as const satisfies HeavenEarthSnapshot;
 
+const fourLessonsSnapshot = {
+  stage: "four-lessons",
+  dependsOn: ["calendar", "heaven-earth"],
+  ruleId: FOUR_LESSONS_RULE_ID,
+  source: "automatic",
+  value: deriveFourLessons(calendarSnapshot.value, heavenEarthSnapshot.value),
+} as const satisfies FourLessonsSnapshot;
+
 export const referenceSession: CourseSession = {
   input: referenceInput,
   snapshots: {
     calendar: calendarSnapshot,
     "heaven-earth": heavenEarthSnapshot,
-    "four-lessons": snapshot("four-lessons", { labels: ["四课", "三课", "二课", "一课"] }),
+    "four-lessons": fourLessonsSnapshot,
     "three-transmissions": snapshot("three-transmissions", { labels: ["初传", "中传", "末传"] }),
     "heavenly-generals": snapshot("heavenly-generals", { count: 12 }),
     course: snapshot("course", {

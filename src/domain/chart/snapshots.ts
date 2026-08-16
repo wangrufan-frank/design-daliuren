@@ -11,6 +11,12 @@ import {
   heavenEarthResultSource,
   isHeavenEarthResult,
 } from "../heaven-earth/result-guard";
+import {
+  FOUR_LESSONS_SNAPSHOT_RULE_ID,
+  fourLessonsResultSource,
+  isFourLessonsResult,
+  matchesFourLessonsInputs,
+} from "../four-lessons/result-guard";
 
 export function validateSession(session: CourseSession): readonly string[] {
   const errors: string[] = [];
@@ -50,6 +56,26 @@ export function validateSession(session: CourseSession): readonly string[] {
           }
           if (snapshot.value.divinationHour.source !== calendar.value.divinationHour.source) {
             errors.push("heaven-earth 占时来源与 calendar 来源不一致");
+          }
+        }
+      }
+    }
+    if (stage === "four-lessons") {
+      if (!isFourLessonsResult(snapshot.value)) {
+        errors.push("four-lessons 快照结果无效");
+      } else {
+        if (snapshot.ruleId !== FOUR_LESSONS_SNAPSHOT_RULE_ID) {
+          errors.push("four-lessons 快照规则编号无效");
+        }
+        const calendar = session.snapshots.calendar;
+        const plate = session.snapshots["heaven-earth"];
+        if (isCalendarSnapshot(calendar) && plate && isHeavenEarthResult(plate.value)) {
+          const expectedSource = fourLessonsResultSource(calendar.value, plate.source);
+          if (snapshot.source !== expectedSource) {
+            errors.push(`four-lessons 快照来源无效，应为 ${expectedSource}`);
+          }
+          if (!matchesFourLessonsInputs(snapshot.value, calendar.value, plate.value)) {
+            errors.push("four-lessons 与生效日柱或天地盘不一致");
           }
         }
       }
