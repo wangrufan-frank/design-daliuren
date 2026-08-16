@@ -63,6 +63,20 @@ for (const viewport of VIEWPORTS) {
       await expect(card).toHaveAccessibleName(`${lesson.label}，上神${lesson.upper}，下神${lesson.lower}，天将待加临`);
       await expect(card.locator(":scope > *")).toHaveCount(4);
     }
+    const cardPositions = await cards.evaluateAll((items) => items.map((item) => {
+      const { x, y } = item.getBoundingClientRect();
+      return { offsetLeft: item.offsetLeft, x, y };
+    }));
+    for (let index = 1; index < cardPositions.length; index += 1) {
+      const previous = cardPositions[index - 1];
+      const current = cardPositions[index];
+      expect(current.x).toBeGreaterThan(previous.x);
+      if (viewport.name === "desktop") {
+        expect(current.y).toBeCloseTo(previous.y, 3);
+      } else {
+        expect(current.offsetLeft).toBeGreaterThan(previous.offsetLeft);
+      }
+    }
 
     const first = cards.nth(3);
     await expect(first).toHaveAttribute("aria-pressed", "true");
@@ -70,9 +84,14 @@ for (const viewport of VIEWPORTS) {
 
     const fourth = cards.first();
     await fourth.click();
+    const evidence = page.locator("#four-lessons-evidence");
     await expect(page.getByRole("complementary", { name: "四课证据" })).toBeVisible();
-    await expect(page.getByRole("complementary", { name: "一课证据" })).toHaveCount(0);
+    await expect(page.getByText("地盘酉宫所临天盘为寅", { exact: true })).toBeVisible();
+    await expect(page.getByText("地盘寅宫所临天盘为未", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("地盘未宫所临天盘为子", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("地盘辰宫所临天盘为酉", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "关闭证据" }).click();
+    await expect(evidence).toBeHidden();
     await expect(fourth).toBeFocused();
 
     await expect(page.getByRole("button", { name: "四课生成，已完成" })).toHaveAttribute("aria-current", "page");
