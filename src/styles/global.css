@@ -215,7 +215,7 @@ button, input, select { font: inherit; }
 .four-lessons-review__evidence-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .four-lessons-review__evidence-heading p { margin: 0; color: var(--ru-celadon); font-size: 0.75rem; letter-spacing: 0.12em; }
 .four-lessons-review__evidence-heading h3 { margin: 5px 0 0; color: var(--ash); font-size: 1.2rem; font-weight: 600; letter-spacing: 0.08em; }
-.four-lessons-review__evidence-heading button { display: none; min-height: 44px; padding: 8px 12px; border: 1px solid var(--patina); border-radius: 0; background: transparent; color: var(--ash); cursor: pointer; }
+.four-lessons-review__evidence-heading button { display: block; min-height: 44px; padding: 8px 12px; border: 1px solid var(--patina); border-radius: 0; background: transparent; color: var(--ash); cursor: pointer; }
 .four-lessons-review__evidence-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0 0; padding-block: 12px; border-block: 1px solid var(--patina); }
 .four-lessons-review__evidence-summary dt { color: var(--ru-celadon); font-size: 0.72rem; letter-spacing: 0.1em; }
 .four-lessons-review__evidence-summary dd { margin: 4px 0 0; color: var(--ash); font-size: 0.84rem; }

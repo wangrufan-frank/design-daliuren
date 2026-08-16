@@ -17,6 +17,7 @@ async function calculateCalendar(page: Page) {
   await page.getByLabel("经度").fill("116.4074");
   await page.getByLabel("纬度").fill("39.9042");
   await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
   await expect(page.getByRole("list", { name: "天地盘十二宫" })).toBeVisible();
   await returnToCalendar(page);
   await expect(page.locator(".calendar-review__time-band").getByText("2024-02-10T14:30:00", { exact: true })).toBeVisible();

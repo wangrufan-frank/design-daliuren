@@ -64,6 +64,7 @@ for (const viewport of VIEWPORTS) {
     await context.setOffline(true);
     isOffline = true;
     await submitOrdinaryInput(page);
+    await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
 
     const review = page.getByRole("region", { name: "天地盘加临" });
     const plate = review.getByRole("list", { name: "天地盘十二宫" });
@@ -106,6 +107,7 @@ for (const viewport of VIEWPORTS) {
     await expect(matrix).toBeVisible();
     await matrix.getByRole("button", { name: /月将，自动 神后（子），有效 神后（子），自动计算/ }).click();
     await page.getByRole("combobox", { name: "修正月将" }).selectOption("亥");
+    await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
 
     const rebuiltPlate = page.getByRole("list", { name: "天地盘十二宫" });
     await expect(rebuiltPlate.getByRole("button", { name: /天盘亥加临地盘未/ })).toBeVisible();
@@ -127,6 +129,7 @@ test("mobile fallback keeps all twelve palace comparisons on two stacked lines a
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await submitOrdinaryInput(page);
+  await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
 
   const fallback = page.getByRole("list", { name: "十二宫文字对照" });
   const records = fallback.getByRole("listitem");
@@ -165,10 +168,11 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await submitOrdinaryInput(page);
+  await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
 
   const rail = page.getByRole("list", { name: "传统规则阶段" });
   const stageButtons = rail.getByRole("button");
-  await expect(stageButtons).toHaveCount(2);
+  await expect(stageButtons).toHaveCount(3);
 
   const resetStyles = await stageButtons.evaluateAll((buttons) => buttons.map((button) => {
     const style = getComputedStyle(button);
@@ -206,7 +210,7 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
     });
   }
 
-  for (let index = 0; index < 2; index += 1) {
+  for (let index = 0; index < 3; index += 1) {
     const button = stageButtons.nth(index);
     const restingColor = await button.evaluate((element) => getComputedStyle(element).color);
     await button.hover();
@@ -219,7 +223,7 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
   }
 
   await page.getByRole("button", { name: "推演依据" }).focus();
-  for (let index = 0; index < 2; index += 1) {
+  for (let index = 0; index < 3; index += 1) {
     await page.keyboard.press("Tab");
     const button = stageButtons.nth(index);
     await expect(button).toBeFocused();
