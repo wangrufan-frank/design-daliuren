@@ -87,6 +87,7 @@ for (const viewport of VIEWPORTS) {
     const evidence = page.locator("#four-lessons-evidence");
     await expect(page.getByRole("complementary", { name: "四课证据" })).toBeVisible();
     await expect(page.getByText("地盘酉宫所临天盘为寅", { exact: true })).toBeVisible();
+    await expect(page.getByText("甲寄寅", { exact: true })).toHaveCount(0);
     await expect(page.getByText("地盘寅宫所临天盘为未", { exact: true })).toHaveCount(0);
     await expect(page.getByText("地盘未宫所临天盘为子", { exact: true })).toHaveCount(0);
     await expect(page.getByText("地盘辰宫所临天盘为酉", { exact: true })).toHaveCount(0);
