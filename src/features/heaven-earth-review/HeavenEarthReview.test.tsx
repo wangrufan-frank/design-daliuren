@@ -68,20 +68,36 @@ describe("HeavenEarthReview", () => {
     expect(palace).toHaveFocus();
   });
 
-  it("provides a narrow-screen text fallback and restores focus when evidence closes", async () => {
+  it("keeps each narrow-screen palace comparison as two ordered text lines", () => {
+    renderReview();
+    const fallback = screen.getByRole("list", { name: "十二宫文字对照" });
+    const haiPalace = within(fallback).getByText("天盘 巳").closest("li");
+    const lines = haiPalace?.querySelectorAll(":scope > p");
+
+    expect(within(fallback).getAllByRole("listitem")).toHaveLength(12);
+    expect(lines).toHaveLength(2);
+    expect(lines?.[0]).toHaveTextContent("天盘 巳");
+    expect(lines?.[1]).toHaveTextContent("地盘 亥");
+  });
+
+  it("restores focus to the palace that opened evidence", async () => {
     renderReview();
     const user = userEvent.setup();
     const palace = screen.getByRole("button", { name: /天盘巳加临地盘亥/ });
 
     await user.click(palace);
-    const fallback = screen.getByRole("list", { name: "十二宫文字对照" });
-    expect(within(fallback).getAllByRole("listitem")).toHaveLength(12);
-    expect(within(fallback).getByText("天盘 巳")).toBeVisible();
-    expect(within(fallback).getByText("地盘 亥")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "关闭证据" }));
+
+    expect(palace).toHaveFocus();
+  });
+
+  it("restores focus to the initially selected palace when evidence closes first", async () => {
+    renderReview();
+    const user = userEvent.setup();
+    const initialPalace = screen.getByRole("button", { name: /天盘亥加临地盘巳/ });
 
     await user.click(screen.getByRole("button", { name: "关闭证据" }));
 
-    expect(screen.queryByRole("complementary", { name: "亥宫证据" })).not.toBeInTheDocument();
-    expect(palace).toHaveFocus();
+    expect(initialPalace).toHaveFocus();
   });
 });

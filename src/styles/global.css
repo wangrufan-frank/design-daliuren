@@ -162,9 +162,10 @@ button, input, select { font: inherit; }
   .heaven-earth-review__plate-region { padding: 20px 0; border-inline-end: 0; }
   .heaven-earth-review__plate-grid { aspect-ratio: 1; }
   .heaven-earth-review__fallback { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--patina); }
-  .heaven-earth-review__fallback li { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; border-inline-end: 1px solid var(--patina); border-bottom: 1px solid var(--patina); font-size: 0.76rem; }
+  .heaven-earth-review__fallback li { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 8px; border-inline-end: 1px solid var(--patina); border-bottom: 1px solid var(--patina); font-size: 0.76rem; }
   .heaven-earth-review__fallback li:nth-child(even) { border-inline-end: 0; }
-  .heaven-earth-review__fallback li span:last-child { color: var(--ru-celadon); }
+  .heaven-earth-review__fallback li p { margin: 0; }
+  .heaven-earth-review__fallback li p:last-child { color: var(--ru-celadon); }
   .heaven-earth-review__evidence { padding: 20px 0 24px; border-block-start: 4px solid var(--patina); }
   .heaven-earth-review__evidence-heading button { display: block; }
   .calendar-review { grid-template-columns: minmax(0, 1fr); }

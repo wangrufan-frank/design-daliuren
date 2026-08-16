@@ -41,7 +41,8 @@ export function HeavenEarthReview({ result }: HeavenEarthReviewProps) {
   }
 
   function closeEvidence() {
-    evidenceTrigger.current?.focus();
+    const selectedIndex = VISUAL_EARTH_ORDER.findIndex((earth) => earth === selectedEarth);
+    (evidenceTrigger.current ?? buttonRefs.current[selectedIndex])?.focus();
     setEvidenceOpen(false);
   }
 
@@ -110,8 +111,8 @@ export function HeavenEarthReview({ result }: HeavenEarthReviewProps) {
         <ul className="heaven-earth-review__fallback" aria-label="十二宫文字对照">
           {palaces.map((palace) => (
             <li key={palace.earth}>
-              <span>天盘 {palace.heaven}</span>
-              <span>地盘 {palace.earth}</span>
+              <p>天盘 {palace.heaven}</p>
+              <p>地盘 {palace.earth}</p>
             </li>
           ))}
         </ul>
