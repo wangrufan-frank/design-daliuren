@@ -11,6 +11,11 @@ describe("rule stage metadata", () => {
     expect(stageDependencies["four-lessons"]).toEqual(["calendar", "heaven-earth"]);
   });
 
+  it("requires three-transmissions before heavenly-generals", () => {
+    expect(stageDependencies["three-transmissions"]).toEqual(["heaven-earth", "four-lessons"]);
+    expect(stageDependencies["heavenly-generals"]).toEqual(["calendar", "heaven-earth", "three-transmissions"]);
+  });
+
   it("orders every calculation dependency before its consumer", () => {
     for (const [index, stage] of RULE_STAGE_ORDER.entries()) {
       for (const dependency of stageDependencies[stage]) {
@@ -102,7 +107,7 @@ it("removes the changed stage and every downstream stage", () => {
   expect(next.snapshots["heaven-earth"]).toBeDefined();
   expect(next.snapshots["four-lessons"]).toBeUndefined();
   expect(next.snapshots["three-transmissions"]).toBeUndefined();
-  expect(next.snapshots["heavenly-generals"]).toBeDefined();
+  expect(next.snapshots["heavenly-generals"]).toBeUndefined();
   expect(next.snapshots.course).toBeUndefined();
 });
 
