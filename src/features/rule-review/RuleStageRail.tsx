@@ -16,15 +16,32 @@ const statusLabels = {
   locked: "待进行",
 } as const;
 
-export function RuleStageRail({ completed, current }: { completed: readonly RuleStageId[]; current: RuleStageId }) {
+interface RuleStageRailProps {
+  completed: readonly RuleStageId[];
+  current: RuleStageId;
+  selected?: RuleStageId;
+  onSelect?: (stage: RuleStageId) => void;
+}
+
+export function RuleStageRail({ completed, current, selected, onSelect }: RuleStageRailProps) {
   return (
     <ol className="rule-stage-rail" aria-label="传统规则阶段">
       {RULE_STAGE_ORDER.map((stage) => {
         const status = completed.includes(stage) ? "completed" : stage === current ? "current" : "locked";
+        const stageProps = {
+          "data-status": status,
+          "aria-label": `${labels[stage]}，${statusLabels[status]}`,
+        };
 
         return (
           <li key={stage}>
-            <span data-status={status} aria-current={status === "current" ? "step" : undefined} aria-label={`${labels[stage]}，${statusLabels[status]}`}>{labels[stage]}</span>
+            {status === "completed" ? (
+              <button type="button" {...stageProps} aria-current={stage === selected ? "page" : undefined} onClick={() => onSelect?.(stage)}>
+                {labels[stage]}
+              </button>
+            ) : (
+              <span {...stageProps} aria-current={status === "current" ? "step" : undefined}>{labels[stage]}</span>
+            )}
           </li>
         );
       })}

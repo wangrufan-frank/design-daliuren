@@ -1,10 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import * as heavenEarthStage from "../domain/heaven-earth/compute-heaven-earth";
 import { App } from "./App";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
   const user = userEvent.setup();
@@ -14,6 +18,10 @@ async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
   await user.type(screen.getByLabelText("纬度"), "39.9042");
   await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
   return user;
+}
+
+async function openCalendarReview(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /历法与月将，已完成/ }));
 }
 
 it("starts at input without a fake model or fake course", () => {
@@ -27,10 +35,17 @@ it("starts at input without a fake model or fake course", () => {
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
-it("runs the real offline calendar stage and renders only its valid matrix", async () => {
+it("runs the real offline calendar and heaven-earth stages, then navigates their reviews", async () => {
   render(<App />);
 
-  await submitCourse();
+  const user = await submitCourse();
+
+  expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByText("四课生成")).toHaveAttribute("data-status", "current");
+  expect(screen.queryByRole("button", { name: /四课生成/ })).not.toBeInTheDocument();
+
+  await openCalendarReview(user);
 
   const matrix = screen.getByRole("list", { name: "历法结果矩阵" });
   for (const [label, value] of [
@@ -47,7 +62,7 @@ it("runs the real offline calendar stage and renders only its valid matrix", asy
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
-it("advances the read-only rail only after a valid calendar snapshot exists", async () => {
+it("advances the rail only after valid stage snapshots exist", async () => {
   render(<App />);
 
   expect(screen.getByText("历法与月将")).toHaveAttribute("data-status", "current");
@@ -55,23 +70,75 @@ it("advances the read-only rail only after a valid calendar snapshot exists", as
 
   await submitCourse();
 
-  expect(screen.getByText("历法与月将", { selector: ".rule-stage-rail span" })).toHaveAttribute("data-status", "completed");
+  expect(screen.getByRole("button", { name: /历法与月将，已完成/ })).toHaveAttribute("data-status", "completed");
+  expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("data-status", "completed");
+  expect(screen.getByText("四课生成")).toHaveAttribute("data-status", "current");
+});
+
+it("rebuilds heaven-earth after a calendar correction and returns to its review", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  await openCalendarReview(user);
+  await user.click(screen.getByRole("button", { name: /月将.*自动计算/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正月将" }), "亥");
+
+  expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
+  expect(screen.getByText(/登明.*亥.*加临.*未/)).toBeVisible();
+});
+
+it("keeps the latest calendar and associates a heaven-earth failure with the stage", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  await openCalendarReview(user);
+  vi.spyOn(heavenEarthStage, "runHeavenEarthStage").mockImplementationOnce((session) => ({
+    ok: false,
+    error: { code: "HEAVEN_EARTH_RESULT_INCOMPLETE", message: "天地盘结果不完整" },
+    session,
+  }));
+  await user.click(screen.getByRole("button", { name: /月将.*自动计算/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正月将" }), "亥");
+
+  expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /月将.*有效 登明.*亥.*人工修正/ })).toBeVisible();
+  expect(screen.getByRole("combobox", { name: "修正月将" })).not.toHaveAttribute("aria-invalid");
+  expect(screen.getByRole("alert")).toHaveTextContent("天地盘结果不完整");
+  expect(screen.queryByRole("region", { name: "天地盘加临" })).not.toBeInTheDocument();
   expect(screen.getByText("天地盘加临")).toHaveAttribute("data-status", "current");
+});
+
+it("offers no independent correction or approval controls on the heaven-earth review", async () => {
+  render(<App />);
+
+  await submitCourse();
+
+  expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
+  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /修正|恢复|批准|旋转|拖动/ })).not.toBeInTheDocument();
+  expect(screen.queryByText(/逐宫修正/)).not.toBeInTheDocument();
 });
 
 it("reruns the full stage for a day-pillar correction and reset", async () => {
   render(<App />);
   const user = await submitCourse();
 
+  await openCalendarReview(user);
+
   await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
   await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
+
+  await openCalendarReview(user);
 
   let dayPillar = screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 乙巳.*人工修正/ });
   expect(within(dayPillar).getByText("自动：甲辰")).toBeVisible();
   expect(within(dayPillar).getByText("有效：乙巳")).toBeVisible();
   expect(within(dayPillar).getByText("人工修正")).toBeVisible();
 
+  await user.click(dayPillar);
   await user.click(screen.getByRole("button", { name: "恢复日柱自动值" }));
+
+  await openCalendarReview(user);
 
   dayPillar = screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 甲辰.*自动计算/ });
   expect(within(dayPillar).getByText("有效：甲辰")).toBeVisible();
@@ -81,6 +148,8 @@ it("reruns the full stage for a day-pillar correction and reset", async () => {
 it("keeps the prior valid snapshot on a failed correction and clears the error after success", async () => {
   render(<App />);
   const user = await submitCourse();
+
+  await openCalendarReview(user);
 
   await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
   const correction = screen.getByRole("combobox", { name: "修正日柱" });
@@ -103,6 +172,8 @@ it("keeps the prior valid snapshot on a failed correction and clears the error a
   await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰/ }));
   await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
 
+  await openCalendarReview(user);
+
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: /日柱.*自动 甲辰.*有效 乙巳.*人工修正/ })).toBeVisible();
 });
@@ -111,14 +182,24 @@ it("clears a field correction error after reset and after a new successful submi
   render(<App />);
   const user = await submitCourse();
 
+  await openCalendarReview(user);
+
   await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
   await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
+
+  await openCalendarReview(user);
+  await user.click(screen.getByRole("button", { name: /日柱.*有效 乙巳.*人工修正/ }));
+
   let correction = screen.getByRole("combobox", { name: "修正日柱" });
   correction.append(new Option("甲丑", "甲丑"));
   fireEvent.change(correction, { target: { value: "甲丑" } });
   expect(screen.getByRole("alert")).toHaveTextContent("人工修正值无效");
 
   await user.click(screen.getByRole("button", { name: "恢复日柱自动值" }));
+
+  await openCalendarReview(user);
+  await user.click(screen.getByRole("button", { name: /日柱.*有效 甲辰.*自动计算/ }));
+
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: /日柱.*有效 甲辰.*自动计算/ })).toBeVisible();
 
@@ -129,7 +210,7 @@ it("clears a field correction error after reset and after a new successful submi
 
   await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
 });
 
 it("keeps an out-of-range submission in the input state with the stable domain message", async () => {
