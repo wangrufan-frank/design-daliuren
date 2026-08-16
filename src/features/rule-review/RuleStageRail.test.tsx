@@ -39,10 +39,20 @@ it("navigates completed snapshots without making locked stages clickable", async
 
 it("keeps completed rail stages keyboard focusable for the scoped focus treatment", async () => {
   const user = userEvent.setup();
-  render(<RuleStageRail completed={["calendar"]} current="heaven-earth" />);
+  render(
+    <RuleStageRail
+      completed={["calendar", "heaven-earth", "four-lessons", "three-transmissions"]}
+      current="heavenly-generals"
+    />,
+  );
 
   const completedStage = screen.getByRole("button", { name: /历法与月将，已完成/ });
+  const threeTransmissionsStage = screen.getByRole("button", { name: /三传取法，已完成/ });
 
   await user.tab();
   expect(completedStage).toHaveFocus();
+  await user.tab();
+  await user.tab();
+  await user.tab();
+  expect(threeTransmissionsStage).toHaveFocus();
 });

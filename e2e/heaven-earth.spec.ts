@@ -172,7 +172,7 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
 
   const rail = page.getByRole("list", { name: "传统规则阶段" });
   const stageButtons = rail.getByRole("button");
-  await expect(stageButtons).toHaveCount(3);
+  await expect(stageButtons).toHaveCount(4);
 
   const resetStyles = await stageButtons.evaluateAll((buttons) => buttons.map((button) => {
     const style = getComputedStyle(button);
@@ -210,7 +210,7 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
     });
   }
 
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 4; index += 1) {
     const button = stageButtons.nth(index);
     const restingColor = await button.evaluate((element) => getComputedStyle(element).color);
     await button.hover();
@@ -223,7 +223,7 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
   }
 
   await page.getByRole("button", { name: "推演依据" }).focus();
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 4; index += 1) {
     await page.keyboard.press("Tab");
     const button = stageButtons.nth(index);
     await expect(button).toBeFocused();

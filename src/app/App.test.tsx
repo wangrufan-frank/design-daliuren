@@ -6,6 +6,7 @@ import * as calendarStage from "../domain/calendar/compute-calendar";
 import * as heavenEarthStage from "../domain/heaven-earth/compute-heaven-earth";
 import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
 import * as fourLessonsStage from "../domain/four-lessons/compute-four-lessons";
+import * as threeTransmissionsStage from "../domain/three-transmissions/compute-three-transmissions";
 import { App } from "./App";
 
 afterEach(() => {
@@ -27,6 +28,10 @@ async function openCalendarReview(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: /历法与月将，已完成/ }));
 }
 
+async function openFourLessonsReview(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "查看四课" }));
+}
+
 it("starts at input without a fake model or fake course", () => {
   render(<App />);
 
@@ -38,14 +43,15 @@ it("starts at input without a fake model or fake course", () => {
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
-it("runs the real offline stages through four lessons, then navigates their reviews", async () => {
+it("runs the real offline stages through three transmissions, then navigates prior reviews", async () => {
   render(<App />);
 
   const user = await submitCourse();
+  await openFourLessonsReview(user);
 
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
   expect(screen.getByRole("button", { name: /四课生成，已完成/ })).toHaveAttribute("aria-current", "page");
-  expect(screen.getByText("三传取法")).toHaveAttribute("data-status", "current");
+  expect(screen.getByRole("button", { name: /三传取法，已完成/ })).toHaveAttribute("data-status", "completed");
 
   await openCalendarReview(user);
 
@@ -64,6 +70,42 @@ it("runs the real offline stages through four lessons, then navigates their revi
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
+it("runs through three transmissions and advances the current stage to heavenly generals", async () => {
+  render(<App />);
+
+  await submitCourse();
+
+  expect(await screen.findByRole("heading", { name: /九宗门 · 三传取法/ })).toBeInTheDocument();
+  expect(screen.getByText("天将排列", { selector: '[data-status="current"]' })).toBeInTheDocument();
+});
+
+it("navigates from three transmissions back to four lessons and the plate", async () => {
+  render(<App />);
+
+  const user = await submitCourse();
+  await user.click(screen.getByRole("button", { name: "查看四课" }));
+  expect(screen.getByRole("region", { name: "四课生成" })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /三传取法，已完成/ }));
+  await user.click(screen.getByRole("button", { name: "查看天地盘" }));
+  expect(screen.getByRole("region", { name: "天地盘加临" })).toBeInTheDocument();
+});
+
+it("associates a three-transmissions failure with its stage and preserves four-lessons review", async () => {
+  vi.spyOn(threeTransmissionsStage, "runThreeTransmissionsStage").mockImplementationOnce((session) => ({
+    ok: false,
+    error: { code: "THREE_TRANSMISSIONS_RESULT_INCOMPLETE", message: "三传结果不完整" },
+    session,
+  }));
+  render(<App />);
+
+  await submitCourse();
+
+  expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
+  expect(screen.getByRole("alert")).toHaveTextContent("三传结果不完整");
+  expect(screen.getByText("三传取法", { selector: '[data-status="current"]' })).toBeInTheDocument();
+});
+
 it("returns from calendar to the guarded heaven-earth snapshot without recomputing", async () => {
   const runStage = vi.spyOn(heavenEarthStage, "runHeavenEarthStage");
   render(<App />);
@@ -76,7 +118,7 @@ it("returns from calendar to the guarded heaven-earth snapshot without recomputi
   expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
   expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("button", { name: /四课生成，已完成/ })).toBeVisible();
-  expect(screen.getByText("三传取法")).toHaveAttribute("data-status", "current");
+  expect(screen.getByRole("button", { name: /三传取法，已完成/ })).toBeVisible();
   expect(runStage).toHaveBeenCalledTimes(1);
 });
 
@@ -132,7 +174,8 @@ it("advances the rail only after valid stage snapshots exist", async () => {
   expect(screen.getByRole("button", { name: /历法与月将，已完成/ })).toHaveAttribute("data-status", "completed");
   expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("data-status", "completed");
   expect(screen.getByRole("button", { name: /四课生成，已完成/ })).toHaveAttribute("data-status", "completed");
-  expect(screen.getByText("三传取法")).toHaveAttribute("data-status", "current");
+  expect(screen.getByRole("button", { name: /三传取法，已完成/ })).toHaveAttribute("data-status", "completed");
+  expect(screen.getByText("天将排列")).toHaveAttribute("data-status", "current");
 });
 
 it("rebuilds heaven-earth after a calendar correction and returns to its review", async () => {
@@ -143,6 +186,7 @@ it("rebuilds heaven-earth after a calendar correction and returns to its review"
   await user.click(screen.getByRole("button", { name: /月将.*自动计算/ }));
   await user.selectOptions(screen.getByRole("combobox", { name: "修正月将" }), "亥");
 
+  await openFourLessonsReview(user);
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: /天地盘加临，已完成/ }));
   expect(screen.getByText(/登明.*亥.*加临.*未/)).toBeVisible();
@@ -163,6 +207,7 @@ it("reruns four lessons after a divination-hour correction", async () => {
   const correctedPlate = correctedSession.snapshots["heaven-earth"] as HeavenEarthSnapshot | undefined;
   expect(correctedSession.snapshots.calendar?.value.divinationHour.effective).toBe("申");
   expect(correctedPlate?.value.divinationHour.branch).toBe("申");
+  await openFourLessonsReview(user);
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
   expect(screen.getByRole("button", { name: /一课，上神午，下神甲/ })).toBeVisible();
   expect(screen.getByRole("button", { name: /四课生成，已完成/ })).toHaveAttribute("aria-current", "page");
@@ -292,6 +337,7 @@ it("clears a field correction error after reset and after a new successful submi
 
   await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  await openFourLessonsReview(user);
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
 });
 
