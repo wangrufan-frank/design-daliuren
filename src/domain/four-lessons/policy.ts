@@ -31,16 +31,22 @@ export function deriveFourLessons(calendar: CalendarResult, plate: HeavenEarthRe
     { id: "third", label: "三课", upper: thirdUpper, lower: { kind: "branch", value: branch }, lookupEarth: branch },
     { id: "fourth", label: "四课", upper: fourthUpper, lower: { kind: "branch", value: thirdUpper }, lookupEarth: thirdUpper },
   ];
+  const derivationInputs = [
+    `一课：生效日干${stem}，固定寄宫${residence}，查地盘${residence}宫`,
+    `二课：下神来自一课上神${firstUpper}，查地盘${firstUpper}宫`,
+    `三课：下神为生效日支${branch}，查地盘${branch}宫`,
+    `四课：下神来自三课上神${thirdUpper}，查地盘${thirdUpper}宫`,
+  ] as const;
   return {
     dayPillar,
     stemResidence: { stem, earth: residence },
     lessons,
     evidence: [
       { ruleId: FOUR_LESSONS_STEM_RESIDENCE_RULE_ID, lesson: "first", input: `生效日干 ${stem}`, lookupEarth: residence, conclusion: `${stem}寄${residence}` },
-      ...lessons.map((lesson) => ({
+      ...lessons.map((lesson, index) => ({
         ruleId: FOUR_LESSONS_RULE_ID,
         lesson: lesson.id,
-        input: `${lesson.label}查地盘${lesson.lookupEarth}宫`,
+        input: derivationInputs[index],
         lookupEarth: lesson.lookupEarth,
         conclusion: `地盘${lesson.lookupEarth}宫所临天盘为${lesson.upper}`,
       })),

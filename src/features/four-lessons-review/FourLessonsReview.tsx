@@ -33,7 +33,7 @@ export function FourLessonsReview({ result, onReviewCalendar, onReviewHeavenEart
   return (
     <section className="four-lessons-review" aria-label="四课生成">
       <div className="four-lessons-review__lessons-region">
-        <p className="four-lessons-review__orientation">右起四、三、二、一课</p>
+        <p className="four-lessons-review__orientation">从左至右：四、三、二、一课</p>
         <ul className="four-lessons-review__lessons" aria-label="四课课体">
           {lessons.map((lesson, index) => (
             <li key={lesson.id}>

@@ -159,7 +159,12 @@ it("reruns four lessons after a divination-hour correction", async () => {
   await user.selectOptions(screen.getByRole("combobox", { name: "修正占时" }), "申");
 
   expect(runStage).toHaveBeenCalledTimes(2);
+  const correctedSession = runStage.mock.calls[1]![0];
+  const correctedPlate = correctedSession.snapshots["heaven-earth"] as HeavenEarthSnapshot | undefined;
+  expect(correctedSession.snapshots.calendar?.value.divinationHour.effective).toBe("申");
+  expect(correctedPlate?.value.divinationHour.branch).toBe("申");
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /一课，上神午，下神甲/ })).toBeVisible();
   expect(screen.getByRole("button", { name: /四课生成，已完成/ })).toHaveAttribute("aria-current", "page");
 });
 

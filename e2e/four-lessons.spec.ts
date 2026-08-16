@@ -64,13 +64,13 @@ for (const viewport of VIEWPORTS) {
       await expect(card.locator(":scope > *")).toHaveCount(4);
     }
     const cardPositions = await cards.evaluateAll((items) => items.map((item) => {
-      const { x, y } = item.getBoundingClientRect();
-      return { offsetLeft: item.offsetLeft, x, y };
+      const { right, x, y } = item.getBoundingClientRect();
+      return { offsetLeft: item.offsetLeft, right, x, y };
     }));
     for (let index = 1; index < cardPositions.length; index += 1) {
       const previous = cardPositions[index - 1];
       const current = cardPositions[index];
-      expect(current.x).toBeGreaterThan(previous.x);
+      expect(current.x).toBeGreaterThanOrEqual(previous.right);
       if (viewport.name === "desktop") {
         expect(current.y).toBeCloseTo(previous.y, 3);
       } else {
@@ -80,23 +80,41 @@ for (const viewport of VIEWPORTS) {
 
     const first = cards.nth(3);
     await expect(first).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("complementary", { name: "一课证据" })).toContainText("甲寄寅");
+    const initialEvidence = page.getByRole("complementary", { name: "一课证据" });
+    await expect(initialEvidence.getByRole("listitem")).toHaveCount(2);
+    await expect(initialEvidence).toContainText("甲寄寅");
+    await expect(initialEvidence).toContainText("一课：生效日干甲，固定寄宫寅，查地盘寅宫");
+    await expect(initialEvidence).not.toContainText("地盘未宫所临天盘为子");
+    await expect(initialEvidence).not.toContainText("地盘辰宫所临天盘为酉");
+    await expect(initialEvidence).not.toContainText("地盘酉宫所临天盘为寅");
 
     const fourth = cards.first();
     await fourth.click();
     const evidence = page.locator("#four-lessons-evidence");
+    const closeEvidence = page.getByRole("button", { name: "关闭证据" });
     await expect(page.getByRole("complementary", { name: "四课证据" })).toBeVisible();
+    await expect(closeEvidence).toBeVisible();
+    await expect(page.getByText("四课：下神来自三课上神酉，查地盘酉宫", { exact: true })).toBeVisible();
     await expect(page.getByText("地盘酉宫所临天盘为寅", { exact: true })).toBeVisible();
     await expect(page.getByText("甲寄寅", { exact: true })).toHaveCount(0);
     await expect(page.getByText("地盘寅宫所临天盘为未", { exact: true })).toHaveCount(0);
     await expect(page.getByText("地盘未宫所临天盘为子", { exact: true })).toHaveCount(0);
     await expect(page.getByText("地盘辰宫所临天盘为酉", { exact: true })).toHaveCount(0);
-    await page.getByRole("button", { name: "关闭证据" }).click();
+    await closeEvidence.click();
     await expect(evidence).toBeHidden();
     await expect(fourth).toBeFocused();
 
     await expect(page.getByRole("button", { name: "四课生成，已完成" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("三传取法", { exact: true })).toHaveAttribute("data-status", "current");
+    const listOverflow = await list.evaluate((element) => {
+      const { left, right } = element.getBoundingClientRect();
+      return { clientWidth: element.clientWidth, left, right, scrollWidth: element.scrollWidth };
+    });
+    expect(listOverflow.left).toBeGreaterThanOrEqual(0);
+    expect(listOverflow.right).toBeLessThanOrEqual(viewport.width);
+    if (viewport.name === "mobile") {
+      expect(listOverflow.scrollWidth).toBeGreaterThan(listOverflow.clientWidth);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
 
     if (viewport.name === "mobile") {

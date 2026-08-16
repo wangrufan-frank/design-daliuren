@@ -26,11 +26,43 @@ describe("deriveFourLessons", () => {
       { id: "fourth", label: "四课", upper: "酉", lower: { kind: "branch", value: "卯" }, lookupEarth: "卯" },
     ]);
     expect(result.evidence).toHaveLength(5);
-    expect(result.evidence[0]).toMatchObject({
-      ruleId: "four-lessons/stem-residence-v1",
-      lesson: "first",
-      lookupEarth: "戌",
-    });
+    expect(result.evidence).toEqual([
+      {
+        ruleId: "four-lessons/stem-residence-v1",
+        lesson: "first",
+        input: "生效日干 辛",
+        lookupEarth: "戌",
+        conclusion: "辛寄戌",
+      },
+      {
+        ruleId: "four-lessons/derive-v1",
+        lesson: "first",
+        input: "一课：生效日干辛，固定寄宫戌，查地盘戌宫",
+        lookupEarth: "戌",
+        conclusion: "地盘戌宫所临天盘为辰",
+      },
+      {
+        ruleId: "four-lessons/derive-v1",
+        lesson: "second",
+        input: "二课：下神来自一课上神辰，查地盘辰宫",
+        lookupEarth: "辰",
+        conclusion: "地盘辰宫所临天盘为戌",
+      },
+      {
+        ruleId: "four-lessons/derive-v1",
+        lesson: "third",
+        input: "三课：下神为生效日支酉，查地盘酉宫",
+        lookupEarth: "酉",
+        conclusion: "地盘酉宫所临天盘为卯",
+      },
+      {
+        ruleId: "four-lessons/derive-v1",
+        lesson: "fourth",
+        input: "四课：下神来自三课上神卯，查地盘卯宫",
+        lookupEarth: "卯",
+        conclusion: "地盘卯宫所临天盘为酉",
+      },
+    ]);
   });
 
   it("keeps four positions when the plate makes lesson bodies repeat", () => {
