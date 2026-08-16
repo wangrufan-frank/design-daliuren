@@ -1,8 +1,12 @@
+import { isCalendarSnapshot } from "../calendar/result-guard";
+import type { CalendarSnapshot } from "../calendar/types";
 import { invalidateFrom } from "../chart/snapshots";
-import type { CourseSession } from "../chart/types";
+import type { CourseSession, RuleStageId } from "../chart/types";
 import {
   FOUR_LESSONS_SNAPSHOT_RULE_ID,
+  fourLessonsResultSource,
   isFourLessonsResult,
+  matchesFourLessonsInputs,
 } from "../four-lessons/result-guard";
 import type { FourLessonsSnapshot } from "../four-lessons/types";
 import {
@@ -51,6 +55,39 @@ function isFourLessonsSnapshotForPlate(
     )));
 }
 
+function isPlateSnapshotForCalendar(
+  value: HeavenEarthSnapshot | undefined,
+  calendar: CalendarSnapshot,
+): value is HeavenEarthSnapshot {
+  return Boolean(isPlateSnapshot(value)
+    && value.value.monthGeneral.name === calendar.value.monthGeneral.effective.name
+    && value.value.monthGeneral.branch === calendar.value.monthGeneral.effective.branch
+    && value.value.monthGeneral.source === calendar.value.monthGeneral.source
+    && value.value.divinationHour.branch === calendar.value.divinationHour.effective
+    && value.value.divinationHour.source === calendar.value.divinationHour.source);
+}
+
+function isFourLessonsSnapshotForCurrentInputs(
+  value: FourLessonsSnapshot | undefined,
+  calendar: CalendarSnapshot,
+  plate: HeavenEarthSnapshot,
+): value is FourLessonsSnapshot {
+  return Boolean(isFourLessonsSnapshotForPlate(value, plate)
+    && value.source === fourLessonsResultSource(calendar.value, plate.source)
+    && matchesFourLessonsInputs(value.value, calendar.value, plate.value));
+}
+
+function invalidStageOutcome(
+  session: CourseSession,
+  invalidFromStage: RuleStageId,
+): ThreeTransmissionsStageOutcome {
+  return {
+    ok: false,
+    error: { code: "INVALID_THREE_TRANSMISSIONS_INPUT", message: "缺少有效且一致的历法、天地盘或四课快照" },
+    session: invalidateFrom(session, invalidFromStage),
+  };
+}
+
 export function computeThreeTransmissions(
   plate?: HeavenEarthSnapshot,
   fourLessons?: FourLessonsSnapshot,
@@ -95,9 +132,19 @@ export function computeThreeTransmissions(
 }
 
 export function runThreeTransmissionsStage(session: CourseSession): ThreeTransmissionsStageOutcome {
+  const calendar = session.snapshots.calendar;
+  if (!isCalendarSnapshot(calendar)) return invalidStageOutcome(session, "calendar");
+  const plate = session.snapshots["heaven-earth"] as HeavenEarthSnapshot | undefined;
+  if (!isPlateSnapshotForCalendar(plate, calendar)) {
+    return invalidStageOutcome(session, "heaven-earth");
+  }
+  const fourLessons = session.snapshots["four-lessons"] as FourLessonsSnapshot | undefined;
+  if (!isFourLessonsSnapshotForCurrentInputs(fourLessons, calendar, plate)) {
+    return invalidStageOutcome(session, "four-lessons");
+  }
   const outcome = computeThreeTransmissions(
-    session.snapshots["heaven-earth"] as HeavenEarthSnapshot | undefined,
-    session.snapshots["four-lessons"] as FourLessonsSnapshot | undefined,
+    plate,
+    fourLessons,
   );
   const invalidated = invalidateFrom(session, "three-transmissions");
   if (!outcome.ok) return { ...outcome, session: invalidated };

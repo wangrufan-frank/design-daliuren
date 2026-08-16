@@ -1,14 +1,10 @@
 import type { EarthlyBranch, HeavenlyStem } from "../chart/types";
 import type { FourLesson, FourLessonsResult } from "../four-lessons/types";
 import type { HeavenEarthResult } from "../heaven-earth/types";
-import { heavenAt, relationFor } from "./foundations";
+import { elementOfBranch, elementOfStem, heavenAt, relationFor } from "./foundations";
 import {
   findRemoteCandidates,
-  findVerticalCandidates,
-  selectByComparison,
-  selectBySheHai,
   type LessonCandidate,
-  type VerticalCandidatesResult,
 } from "./selectors";
 import {
   ThreeTransmissionsRuleUnresolvedError,
@@ -19,6 +15,7 @@ import {
   deriveSeparateResponsibility,
   isFanYin,
   isFuYin,
+  selectVerticalInitial,
   type TransmissionDraft,
 } from "./special-methods";
 import type {
@@ -27,6 +24,7 @@ import type {
   ThreeTransmissionsResult,
   Transmission,
   TransmissionPosition,
+  SixRelationDirection,
   TransmissionSubtype,
 } from "./types";
 
@@ -69,63 +67,25 @@ function chainOrdinary(
   };
 }
 
-function deriveFromVertical(
-  vertical: VerticalCandidatesResult,
-  dayStem: HeavenlyStem,
-  plate: HeavenEarthResult,
-): TransmissionDraft {
-  if (vertical.candidates.length === 1) {
-    const candidate = vertical.candidates[0];
-    const subtype = vertical.preferredDirection === "lower-overcomes-upper" ? "始入" : "元首";
-    const selectionEvidence: EvidenceDraft = {
-      ruleId: "three-transmissions/thief-overcoming-v1",
-      phase: "selection",
-      input: `上下克候选仅${candidate.lesson.label}上神${candidate.upper}`,
-      conclusion: `唯一上下克候选为${candidate.lesson.label}上神${candidate.upper}，取${candidate.upper}发用`,
-    };
-    return chainOrdinary(candidate, plate, "贼克", subtype, [], [
-      ...vertical.evidence,
-      selectionEvidence,
-    ]);
-  }
-
-  const comparison = selectByComparison(vertical.candidates, dayStem);
-  const comparisonEvidence = [...vertical.evidence, ...comparison.evidence];
-  if (comparison.kind === "selected") {
-    return chainOrdinary(comparison.candidate, plate, "比用", "知一", [], comparisonEvidence);
-  }
-
-  const sheHai = selectBySheHai(comparison.candidates, dayStem, plate);
-  const evidence = [...comparisonEvidence, ...sheHai.evidence];
-  if (sheHai.kind === "unresolved") throw new ThreeTransmissionsRuleUnresolvedError(evidence);
-  return chainOrdinary(
-    sheHai.candidate,
-    plate,
-    "涉害",
-    sheHai.subtype,
-    sheHai.variant ? [sheHai.variant] : [],
-    evidence,
-  );
-}
-
 function deriveOrdinary(
   plate: HeavenEarthResult,
   fourLessons: FourLessonsResult,
   dayStem: HeavenlyStem,
 ): TransmissionDraft {
-  const vertical = findVerticalCandidates(fourLessons);
-  if (vertical.candidates.length > 0) return deriveFromVertical(vertical, dayStem, plate);
+  const vertical = selectVerticalInitial(dayStem, fourLessons, plate);
+  if (vertical.candidate) {
+    return chainOrdinary(
+      vertical.candidate,
+      plate,
+      vertical.method!,
+      vertical.subtype,
+      vertical.variants,
+      vertical.evidence,
+    );
+  }
 
   const uniqueLessonCount = countCanonicalLessons(fourLessons.lessons);
-  const lessonCountEvidence: EvidenceDraft = {
-    ruleId: "three-transmissions/lesson-deduplication-v1",
-    phase: "lessons",
-    input: fourLessons.lessons
-      .map(({ lookupEarth, upper }) => `${lookupEarth}上${upper}`)
-      .join("、"),
-    conclusion: `四课去重后为${uniqueLessonCount}课`,
-  };
-  const evidenceBeforeRemote = [...vertical.evidence, lessonCountEvidence];
+  const evidenceBeforeRemote = [...vertical.evidence];
   if (uniqueLessonCount === 2 && stemAndBranchShareResidence(fourLessons)) {
     const draft = deriveEightSpecial(dayStem, fourLessons);
     return { ...draft, evidence: [...evidenceBeforeRemote, ...draft.evidence] };
@@ -184,6 +144,16 @@ function finalizeEvidence(
   draft.branches.forEach((branch, index) => {
     const position = POSITIONS[index];
     const derivation = draft.derivations[index];
+    const relation = relationFor(dayStem, branch);
+    const direction: SixRelationDirection = relation === "父母"
+      ? "transmission-generates-day"
+      : relation === "子孙"
+        ? "day-generates-transmission"
+        : relation === "官鬼"
+          ? "transmission-overcomes-day"
+          : relation === "妻财"
+            ? "day-overcomes-transmission"
+            : "same-element";
     evidence.push({
       ruleId: index === 0
         ? "three-transmissions/initial-v1"
@@ -199,7 +169,16 @@ function finalizeEvidence(
       phase: "relation",
       transmission: position,
       input: `日干${dayStem}与${branch}比较五行`,
-      conclusion: `${branch}六亲为${relationFor(dayStem, branch)}`,
+      conclusion: `${branch}六亲为${relation}`,
+      details: [{
+        kind: "six-relation",
+        dayStem,
+        dayElement: elementOfStem(dayStem),
+        transmissionBranch: branch,
+        transmissionElement: elementOfBranch(branch),
+        direction,
+        relation,
+      }],
     });
   });
 

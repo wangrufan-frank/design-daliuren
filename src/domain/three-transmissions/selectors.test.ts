@@ -11,21 +11,15 @@ import {
 import { findRemoteCandidates, findVerticalCandidates, selectByComparison, selectBySheHai } from "./selectors";
 
 describe("findVerticalCandidates", () => {
-  it("prefers lower-overcomes-upper and ignores upper-overcomes-lower", () => {
-    const input = makeSelectorInput({
-      dayPillar: "戊戌",
-      lessons: [
-        ["first", "未", { kind: "stem", value: "戊" }],
-        ["second", "酉", { kind: "branch", value: "未" }],
-        ["third", "子", { kind: "branch", value: "戌" }],
-        ["fourth", "寅", { kind: "branch", value: "子" }],
-      ],
-    });
+  it("preserves both vertical categories while preferring lower-overcomes-upper", () => {
+    const { fourLessons: input } = makeRuleInput("甲子", "丑", "子");
 
     const result = findVerticalCandidates(input);
 
     expect(result.preferredDirection).toBe("lower-overcomes-upper");
-    expect(result.candidates.map(({ lesson }) => lesson.id)).toEqual(["third"]);
+    expect(result.candidates.map(({ lesson }) => lesson.id)).toEqual(["second"]);
+    expect(result.lowerOvercomesUpper.map(({ lesson }) => lesson.id)).toEqual(["second"]);
+    expect(result.upperOvercomesLower.map(({ lesson }) => lesson.id)).toEqual(["third", "fourth"]);
   });
 
   it("uses the actual day stem for the first lesson even when fixture lower data disagrees", () => {
@@ -81,14 +75,26 @@ describe("selectBySheHai", () => {
     const result = selectBySheHai([
       candidate("first", "午"),
       candidate("third", "戌"),
-    ], "庚", plate);
+    ], "庚子", plate);
 
     expect(result.kind).toBe("selected");
     if (result.kind !== "selected") return;
     expect(result.candidate.upper).toBe("午");
     expect(result.counts).toEqual(expect.objectContaining({ 午: 4, 戌: 2 }));
     expect(result.paths.午).toHaveLength(11);
-    expect(result.paths.午?.flatMap(({ residentStems }) => residentStems)).toEqual(expect.arrayContaining(["庚", "辛"]));
+    expect(result.paths.午?.flatMap(({ residentStems }) => residentStems.map(({ stem }) => stem))).toEqual(
+      expect.arrayContaining(["庚", "辛"]),
+    );
+    expect(result.paths.午?.every((detail) => (
+      detail.direction === "upper-overcomes-lower"
+      && typeof detail.branchContributes === "boolean"
+      && detail.residentStems.every(({ element, contributes }) => (
+        ["木", "火", "土", "金", "水"].includes(element)
+        && typeof contributes === "boolean"
+      ))
+      && detail.increment === Number(detail.branchContributes)
+        + detail.residentStems.filter(({ contributes }) => contributes).length
+    ))).toBe(true);
     expect(result.paths.午?.at(-1)).toEqual(expect.objectContaining({ earth: "午", total: 4 }));
   });
 
@@ -96,7 +102,7 @@ describe("selectBySheHai", () => {
     const result = selectBySheHai([
       candidateOver("second", "寅", "子"),
       candidateOver("third", "卯", "亥"),
-    ], "庚", equalDepthPlate());
+    ], "庚子", equalDepthPlate());
 
     expect(result.counts).toEqual(expect.objectContaining({ 寅: 1, 卯: 1 }));
     expect(result).toEqual(expect.objectContaining({
@@ -110,7 +116,7 @@ describe("selectBySheHai", () => {
     const result = selectBySheHai([
       candidateOver("second", "寅", "丑"),
       candidateOver("third", "卯", "子"),
-    ], "庚", makePlate("寅", "子"));
+    ], "庚子", makePlate("寅", "子"));
 
     expect(result.counts).toEqual(expect.objectContaining({ 寅: 1, 卯: 1 }));
     expect(result).toEqual(expect.objectContaining({
@@ -127,7 +133,7 @@ describe("selectBySheHai", () => {
     expect(comparison.kind).toBe("tied");
     if (comparison.kind !== "tied") return;
 
-    const result = selectBySheHai(comparison.candidates, "戊", plate);
+    const result = selectBySheHai(comparison.candidates, "戊辰", plate);
 
     expect(result.counts).toEqual(expect.objectContaining({ 子: 4, 午: 4 }));
     expect(result).toEqual(expect.objectContaining({
@@ -139,10 +145,13 @@ describe("selectBySheHai", () => {
   });
 
   it("does not invent a winner for a noncanonical complete tie", () => {
-    const result = selectBySheHai([
-      { ...candidate("second", "子"), direction: "lower-overcomes-upper" },
-      { ...candidate("fourth", "午"), direction: "lower-overcomes-upper" },
-    ], "戊", makePlate("未", "子"));
+    const { plate, fourLessons } = makeRuleInput("戊辰", "未", "子");
+    const vertical = findVerticalCandidates(fourLessons);
+    const comparison = selectByComparison(vertical.candidates, "戊");
+    expect(comparison.kind).toBe("tied");
+    if (comparison.kind !== "tied") return;
+
+    const result = selectBySheHai(comparison.candidates, "戊戌", plate);
 
     expect(result.counts).toEqual(expect.objectContaining({ 子: 4, 午: 4 }));
     expect(result.kind).toBe("unresolved");

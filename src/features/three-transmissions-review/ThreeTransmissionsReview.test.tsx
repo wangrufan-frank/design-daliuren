@@ -29,8 +29,23 @@ const sheHaiResult = {
       input: "候选午、子逐宫涉害",
       conclusion: "午四重，取午发用",
       details: [
-        { kind: "shehai-palace", candidateLesson: "first", earth: "寅", branchElement: "木", residentStems: ["甲", "乙"], increment: 2, total: 2 },
-        { kind: "shehai-palace", candidateLesson: "first", earth: "卯", branchElement: "木", residentStems: ["乙"], increment: 1, total: 3 },
+        {
+          kind: "shehai-palace", candidateLesson: "first", candidateUpper: "午",
+          direction: "lower-overcomes-upper", earth: "寅", branchElement: "木",
+          branchContributes: false,
+          residentStems: [
+            { stem: "甲", element: "木", contributes: true },
+            { stem: "乙", element: "木", contributes: true },
+          ],
+          increment: 2, total: 2,
+        },
+        {
+          kind: "shehai-palace", candidateLesson: "first", candidateUpper: "午",
+          direction: "lower-overcomes-upper", earth: "卯", branchElement: "木",
+          branchContributes: false,
+          residentStems: [{ stem: "乙", element: "木", contributes: true }],
+          increment: 1, total: 3,
+        },
       ],
     },
     { id: "initial", ruleId: "three-transmissions/initial-v1", phase: "initial", transmission: "initial", input: "一课上神午", conclusion: "涉害取午发用为初传" },
@@ -134,6 +149,7 @@ describe("ThreeTransmissionsReview", () => {
 
     const middle = screen.getByRole("button", { name: /中传/ });
     await user.click(middle);
+    expect(middle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("heading", { name: "中传证据" })).toBeVisible();
     const middleEvidence = screen.getByRole("complementary", { name: "中传证据" });
     expect(within(middleEvidence).getByText(sheHaiResult.transmissions[1].derivation)).toBeVisible();
@@ -141,12 +157,31 @@ describe("ThreeTransmissionsReview", () => {
 
     await user.click(screen.getByRole("button", { name: "关闭证据" }));
     expect(middle).toHaveFocus();
+    expect(middle).toHaveAttribute("aria-expanded", "false");
 
     await user.click(middle);
     await user.click(screen.getByRole("button", { name: "查看四课" }));
     await user.click(screen.getByRole("button", { name: "查看天地盘" }));
     expect(onReviewFourLessons).toHaveBeenCalledOnce();
     expect(onReviewHeavenEarth).toHaveBeenCalledOnce();
+  });
+
+  it("returns focus to the initial transmission when initially-open evidence closes", async () => {
+    const user = userEvent.setup();
+    render(
+      <ThreeTransmissionsReview
+        result={result}
+        onReviewFourLessons={vi.fn()}
+        onReviewHeavenEarth={vi.fn()}
+      />,
+    );
+
+    const initial = screen.getByRole("button", { name: /初传/ });
+    expect(initial).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "关闭证据" }));
+
+    expect(initial).toHaveFocus();
+    expect(initial).toHaveAttribute("aria-expanded", "false");
   });
 
   it("renders every palace detail used for a she hai selection", () => {
@@ -160,8 +195,15 @@ describe("ThreeTransmissionsReview", () => {
 
     const evidence = screen.getByRole("complementary", { name: "初传证据" });
     for (const detail of sheHaiResult.evidence[3].details) {
-      expect(within(evidence).getByText(new RegExp(`${detail.earth}宫`))).toBeVisible();
-      expect(within(evidence).getByText(`寄干${detail.residentStems.join("、")}`)).toBeVisible();
+      expect(within(evidence).getByText(
+        `一课 · 上神${detail.candidateUpper} · ${detail.direction === "lower-overcomes-upper" ? "下克上" : "上克下"} · ${detail.earth}宫`,
+      )).toBeVisible();
+      expect(within(evidence).getByText(
+        `地支${detail.earth}（${detail.branchElement}）· ${detail.branchContributes ? "计害" : "不计害"}`,
+      )).toBeVisible();
+      expect(within(evidence).getByText(`寄干${detail.residentStems.map(({ stem, element, contributes }) => (
+        `${stem}（${element}，${contributes ? "计害" : "不计害"}）`
+      )).join("、")}`)).toBeVisible();
       expect(within(evidence).getByText(`涉害 +${detail.increment}`)).toBeVisible();
       expect(within(evidence).getByText(`累计 ${detail.total}`)).toBeVisible();
     }

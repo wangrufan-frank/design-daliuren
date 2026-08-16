@@ -5,7 +5,7 @@ import type { FourLessonsResult } from "../four-lessons/types";
 import type { HeavenEarthResult } from "../heaven-earth/types";
 import { clashOf, heavenAt, postHorseOf, punishmentOf } from "./foundations";
 import { deriveThreeTransmissions, ThreeTransmissionsRuleUnresolvedError } from "./policy";
-import { isFanYin, isFuYin } from "./special-methods";
+import { isFanYin, isFuYin, selectVerticalInitial } from "./special-methods";
 import { makePlate, makeRuleInput, makeSelectorInput } from "./test-helpers";
 
 function fuYinInput(dayPillar: StemBranch): [HeavenEarthResult, FourLessonsResult] {
@@ -140,20 +140,45 @@ describe("Fu Yin transmissions", () => {
       }),
     ]));
   });
+
+  it("uses the shared lower-overcomes-upper comparison without Zhi Yi", () => {
+    const lessons = makeSelectorInput({
+      dayPillar: "丙辰",
+      lessons: [
+        ["first", "酉", { kind: "stem", value: "丙" }],
+        ["second", "寅", { kind: "branch", value: "酉" }],
+        ["third", "辰", { kind: "branch", value: "辰" }],
+        ["fourth", "辰", { kind: "branch", value: "辰" }],
+      ],
+    });
+    const plate = makePlate("子", "子");
+
+    const vertical = selectVerticalInitial("丙", lessons, plate);
+    expect(vertical).toEqual(expect.objectContaining({
+      method: "比用",
+      candidate: expect.objectContaining({ upper: "寅" }),
+    }));
+    expect(vertical).not.toHaveProperty("subtype");
+
+    const result = deriveThreeTransmissions(plate, lessons);
+
+    expect(result).toEqual(expect.objectContaining({ method: "伏吟", subtype: "不虞" }));
+    expect(result.transmissions[0].branch).toBe("寅");
+    expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({
+      ruleId: "three-transmissions/comparison-v1",
+      conclusion: "唯一比用上神为寅",
+    })]));
+  });
 });
 
 describe("Fan Yin transmissions", () => {
-  it("preserves full vertical disambiguation metadata for Fan Yin", () => {
+  it("does not apply Repeated Equality when the first lesson upper is not Zi", () => {
     const input = makeRuleInput("戊辰", "午", "子");
-    const result = deriveThreeTransmissions(input.plate, input.fourLessons);
 
-    expect(result.method).toBe("反吟");
-    expect(result.subtype).toBe("缀瑕");
-    expect(result.variants).toContain("复等");
-    expect(result.transmissions[0].branch).toBe("亥");
-    expect(result.evidence).toEqual(expect.arrayContaining([
-      expect.objectContaining({ ruleId: "three-transmissions/shehai-path-v1" }),
-    ]));
+    expect(input.fourLessons.lessons[0].upper).toBe("亥");
+    expect(() => deriveThreeTransmissions(input.plate, input.fourLessons)).toThrow(
+      ThreeTransmissionsRuleUnresolvedError,
+    );
   });
 
   it("uses vertical selection and ordinary heaven lookup when Fan Yin has overcoming", () => {
@@ -171,6 +196,28 @@ describe("Fan Yin transmissions", () => {
       }),
     ]));
     expectMethodEvidenceBound(result, "three-transmissions/fanyin-v1");
+  });
+
+  it("does not label a lower-overcomes-upper comparison as Zhi Yi", () => {
+    const lessons = makeSelectorInput({
+      dayPillar: "丙辰",
+      lessons: [
+        ["first", "酉", { kind: "stem", value: "丙" }],
+        ["second", "寅", { kind: "branch", value: "酉" }],
+        ["third", "辰", { kind: "branch", value: "辰" }],
+        ["fourth", "辰", { kind: "branch", value: "辰" }],
+      ],
+    });
+
+    const result = deriveThreeTransmissions(makePlate("午", "子"), lessons);
+
+    expect(result.method).toBe("反吟");
+    expect(result).not.toHaveProperty("subtype");
+    expect(result.transmissions[0].branch).toBe("寅");
+    expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({
+      ruleId: "three-transmissions/comparison-v1",
+      conclusion: "唯一比用上神为寅",
+    })]));
   });
 
   it.each(["丁丑", "丁未", "己丑", "己未", "辛丑", "辛未"] as const)(

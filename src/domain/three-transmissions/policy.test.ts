@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { STEM_RESIDENCES } from "../four-lessons/policy";
 import { earthUnder, heavenAt } from "./foundations";
 import { deriveThreeTransmissions, ThreeTransmissionsRuleUnresolvedError } from "./policy";
+import { findVerticalCandidates } from "./selectors";
 import {
   makePlate,
   makeRuleInput,
@@ -104,6 +105,43 @@ describe("deriveThreeTransmissions", () => {
     })]));
   });
 
+  it("derives Chong Shen when lower-overcomes-upper wins over existing upper-overcomes-lower lessons", () => {
+    const input = makeRuleInput("甲子", "丑", "子");
+
+    const result = deriveThreeTransmissions(input.plate, input.fourLessons);
+
+    expect(result.method).toBe("贼克");
+    expect(result.subtype).toBe("重审");
+    expect(result.transmissions.map(({ branch }) => branch)).toEqual(["辰", "巳", "午"]);
+    expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({
+      ruleId: "three-transmissions/vertical-relations-v1",
+      conclusion: "下克上候选：二课上神辰；上克下候选：三课上神丑、四课上神寅；按下克上优先",
+    })]));
+  });
+
+  it("uses comparison without Zhi Yi when a later lower-overcomes-upper candidate matches", () => {
+    const fourLessons = makeSelectorInput({
+      dayPillar: "丙辰",
+      lessons: [
+        ["first", "酉", { kind: "stem", value: "丙" }],
+        ["second", "寅", { kind: "branch", value: "酉" }],
+        ["third", "辰", { kind: "branch", value: "辰" }],
+        ["fourth", "辰", { kind: "branch", value: "辰" }],
+      ],
+    });
+
+    const result = deriveThreeTransmissions(makePlate("巳", "子"), fourLessons);
+
+    expect(result.method).toBe("比用");
+    expect(result).not.toHaveProperty("subtype");
+    expect(result.transmissions[0].branch).toBe("寅");
+    expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({
+      ruleId: "three-transmissions/comparison-v1",
+      input: "日干丙为yang，候选上神酉、寅",
+      conclusion: "唯一比用上神为寅",
+    })]));
+  });
+
   it("routes two co-resident lessons to Eight Special before remote overcoming", () => {
     const fourLessons = makeSelectorInput({
       dayPillar: "庚申",
@@ -126,6 +164,25 @@ describe("deriveThreeTransmissions", () => {
       { input: "八专固定取一课日上神丑", conclusion: "八专中传固定取一课日上神丑" },
       { input: "八专固定取一课日上神丑", conclusion: "八专末传固定取一课日上神丑" },
     ]);
+  });
+
+  it("derives the Lin Feng Eight Special book case through full policy", () => {
+    const input = makeRuleInput("甲寅", "丑", "辰");
+
+    expect(isFuYin(input.plate)).toBe(false);
+    expect(isFanYin(input.plate)).toBe(false);
+    expect(findVerticalCandidates(input.fourLessons).candidates).toEqual([]);
+
+    const result = deriveThreeTransmissions(input.plate, input.fourLessons);
+
+    expect(result.method).toBe("八专");
+    expect(result.transmissions.map(({ branch }) => branch)).toEqual(["丑", "亥", "亥"]);
+    expect(result.evidence.find(({ ruleId }) => ruleId === "three-transmissions/vertical-relations-v1"))
+      .toEqual(expect.objectContaining({ conclusion: "四课上下无贼克" }));
+    expect(result.evidence.some(({ ruleId }) => ruleId === "three-transmissions/remote-overcoming-v1")).toBe(false);
+    expect(result.evidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ruleId: "three-transmissions/eight-special-v1" }),
+    ]));
   });
 
   it("uses selected remote overcoming before lesson-count methods", () => {
@@ -242,15 +299,64 @@ describe("deriveThreeTransmissions", () => {
   });
 
   it("attaches transmission labels, six relations, and complete evidence", () => {
-    const input = makeRuleInput("戊戌", "子", "戌");
+    const input = makeRuleInput("甲子", "丑", "子");
     const result = deriveThreeTransmissions(input.plate, input.fourLessons);
+    const repeated = deriveThreeTransmissions(input.plate, input.fourLessons);
+    const details = result.evidence.flatMap(({ details = [] }) => details) as unknown as Array<Record<string, unknown>>;
     expect(result.transmissions.map(({ position, label }) => [position, label])).toEqual([
       ["initial", "初传"], ["middle", "中传"], ["final", "末传"],
     ]);
     expect(result.transmissions.every(({ relation }) => ["父母", "子孙", "官鬼", "妻财", "兄弟"].includes(relation))).toBe(true);
-    expect(result.transmissions.map(({ relation }) => relation)).toEqual(["妻财", "官鬼", "兄弟"]);
-    expect(result.evidence.some(({ phase }) => phase === "plate")).toBe(true);
+    expect(new Set(result.evidence.map(({ phase }) => phase))).toEqual(new Set([
+      "plate", "lessons", "candidates", "selection", "initial", "middle", "final", "relation",
+    ]));
+    expect(details.filter(({ kind }) => kind === "lesson-identity")).toHaveLength(4);
+    expect(details.filter(({ kind }) => kind === "lesson-relation")).toEqual([
+      expect.objectContaining({
+        lesson: "first", lowerKind: "stem", lowerValue: "甲", lowerElement: "木",
+        upper: "卯", upperElement: "木", lowerOvercomesUpper: false,
+        upperOvercomesLower: false, conclusion: "not-a-candidate",
+      }),
+      expect.objectContaining({
+        lesson: "second", lowerKind: "branch", lowerValue: "卯", lowerElement: "木",
+        upper: "辰", upperElement: "土", lowerOvercomesUpper: true,
+        upperOvercomesLower: false, conclusion: "selected-lower-overcomes-upper",
+      }),
+      expect.objectContaining({
+        lesson: "third", lowerKind: "branch", lowerValue: "子", lowerElement: "水",
+        upper: "丑", upperElement: "土", lowerOvercomesUpper: false,
+        upperOvercomesLower: true, conclusion: "excluded-by-lower-overcomes-upper-priority",
+      }),
+      expect.objectContaining({
+        lesson: "fourth", lowerKind: "branch", lowerValue: "丑", lowerElement: "土",
+        upper: "寅", upperElement: "木", lowerOvercomesUpper: false,
+        upperOvercomesLower: true, conclusion: "excluded-by-lower-overcomes-upper-priority",
+      }),
+    ]);
     expect(result.evidence.filter(({ phase }) => phase === "relation")).toHaveLength(3);
+    expect(details.filter(({ kind }) => kind === "six-relation")).toEqual([
+      expect.objectContaining({
+        dayStem: "甲", dayElement: "木", transmissionBranch: "辰", transmissionElement: "土",
+        direction: "day-overcomes-transmission", relation: "妻财",
+      }),
+      expect.objectContaining({
+        dayStem: "甲", dayElement: "木", transmissionBranch: "巳", transmissionElement: "火",
+        direction: "day-generates-transmission", relation: "子孙",
+      }),
+      expect.objectContaining({
+        dayStem: "甲", dayElement: "木", transmissionBranch: "午", transmissionElement: "火",
+        direction: "day-generates-transmission", relation: "子孙",
+      }),
+    ]);
+
+    const evidenceIds = result.evidence.map(({ id }) => id);
+    expect(new Set(evidenceIds).size).toBe(evidenceIds.length);
+    expect(result.transmissions.every(({ evidenceIds: references }) => (
+      references.length > 0 && references.every((id) => evidenceIds.includes(id))
+    ))).toBe(true);
+    expect(result.evidence.findIndex(({ ruleId }) => ruleId === "three-transmissions/lesson-deduplication-v1"))
+      .toBeLessThan(result.evidence.findIndex(({ ruleId }) => ruleId === "three-transmissions/vertical-relations-v1"));
+    expect(JSON.stringify(result.evidence)).toBe(JSON.stringify(repeated.evidence));
   });
 });
 

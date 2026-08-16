@@ -22,6 +22,13 @@ export type SixRelation = "父母" | "子孙" | "官鬼" | "妻财" | "兄弟";
 export type TransmissionPosition = "initial" | "middle" | "final";
 export type FiveElement = "木" | "火" | "土" | "金" | "水";
 export type Polarity = "yang" | "yin";
+export type VerticalDirection = "lower-overcomes-upper" | "upper-overcomes-lower";
+export type SixRelationDirection =
+  | "day-generates-transmission"
+  | "transmission-generates-day"
+  | "day-overcomes-transmission"
+  | "transmission-overcomes-day"
+  | "same-element";
 
 export type ThreeTransmissionsRuleId =
   | "three-transmissions/plate-classification-v1"
@@ -50,15 +57,66 @@ export interface Transmission {
   evidenceIds: readonly string[];
 }
 
+export interface LessonIdentityEvidence {
+  kind: "lesson-identity";
+  lesson: FourLessonId;
+  lookupEarth: EarthlyBranch;
+  upper: EarthlyBranch;
+  canonicalIdentity: string;
+  duplicateOf?: FourLessonId;
+}
+
+export interface LessonRelationEvidence {
+  kind: "lesson-relation";
+  lesson: FourLessonId;
+  lowerKind: "stem" | "branch";
+  lowerValue: HeavenlyStem | EarthlyBranch;
+  lowerElement: FiveElement;
+  upper: EarthlyBranch;
+  upperElement: FiveElement;
+  lowerOvercomesUpper: boolean;
+  upperOvercomesLower: boolean;
+  conclusion:
+    | "selected-lower-overcomes-upper"
+    | "selected-upper-overcomes-lower"
+    | "excluded-by-lower-overcomes-upper-priority"
+    | "not-a-candidate";
+}
+
+export interface SheHaiResidentStemEvidence {
+  stem: HeavenlyStem;
+  element: FiveElement;
+  contributes: boolean;
+}
+
 export interface SheHaiPalaceEvidence {
   kind: "shehai-palace";
   candidateLesson: FourLessonId;
+  candidateUpper: EarthlyBranch;
+  direction: VerticalDirection;
   earth: EarthlyBranch;
   branchElement: FiveElement;
-  residentStems: readonly HeavenlyStem[];
+  branchContributes: boolean;
+  residentStems: readonly SheHaiResidentStemEvidence[];
   increment: number;
   total: number;
 }
+
+export interface SixRelationEvidence {
+  kind: "six-relation";
+  dayStem: HeavenlyStem;
+  dayElement: FiveElement;
+  transmissionBranch: EarthlyBranch;
+  transmissionElement: FiveElement;
+  direction: SixRelationDirection;
+  relation: SixRelation;
+}
+
+export type ThreeTransmissionsEvidenceDetail =
+  | LessonIdentityEvidence
+  | LessonRelationEvidence
+  | SheHaiPalaceEvidence
+  | SixRelationEvidence;
 
 export interface ThreeTransmissionsEvidenceStep {
   id: string;
@@ -67,7 +125,7 @@ export interface ThreeTransmissionsEvidenceStep {
   transmission?: TransmissionPosition;
   input: string;
   conclusion: string;
-  details?: readonly SheHaiPalaceEvidence[];
+  details?: readonly ThreeTransmissionsEvidenceDetail[];
 }
 
 export type EvidenceDraft = Omit<ThreeTransmissionsEvidenceStep, "id">;

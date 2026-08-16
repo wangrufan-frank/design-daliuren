@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { referenceSession } from "../../test/reference-session";
+import { validateSession } from "../chart/snapshots";
 import type { FourLessonsSnapshot } from "../four-lessons/types";
+import { deriveHeavenEarth } from "../heaven-earth/policy";
 import type { HeavenEarthSnapshot } from "../heaven-earth/types";
 import { computeThreeTransmissions, runThreeTransmissionsStage } from "./compute-three-transmissions";
 import { deriveThreeTransmissions } from "./policy";
 import {
+  isThreeTransmissionsResult,
   matchesThreeTransmissionsInputs,
   threeTransmissionsResultSource,
 } from "./result-guard";
+import { makeRuleInput } from "./test-helpers";
 import type {
   SixRelation,
   ThreeTransmissionsEvidenceStep,
@@ -111,6 +115,59 @@ describe("matchesThreeTransmissionsInputs", () => {
     mutate(value);
     expect(matchesThreeTransmissionsInputs(value, validPlate, validFourLessons)).toBe(false);
   });
+
+  it("rejects a forged evidence rule ID before canonical recomputation", () => {
+    const value = structuredClone(validThreeTransmissions) as MutableThreeTransmissionsResult;
+    value.evidence[0].ruleId = "three-transmissions/forged-v1" as never;
+
+    expect(isThreeTransmissionsResult(value)).toBe(false);
+  });
+
+  it.each([
+    ["lesson identity", makeRuleInput("甲子", "丑", "子"), "lesson-identity", "canonicalIdentity"],
+    ["lesson relation", makeRuleInput("甲子", "丑", "子"), "lesson-relation", "lowerElement"],
+    ["She Hai palace", makeRuleInput("庚子", "申", "戌"), "shehai-palace", "branchContributes"],
+    ["six relation", makeRuleInput("甲子", "丑", "子"), "six-relation", "direction"],
+  ] as const)("rejects malformed nested %s evidence", (_name, input, kind, field) => {
+    const value = structuredClone(deriveThreeTransmissions(input.plate, input.fourLessons));
+    const detail = value.evidence
+      .flatMap(({ details = [] }) => details)
+      .find((candidate) => candidate.kind === kind) as unknown as Record<string, unknown>;
+    delete detail[field];
+
+    expect(isThreeTransmissionsResult(value)).toBe(false);
+  });
+
+  it("rejects a lesson relation whose overcoming result is present but wrong", () => {
+    const value = structuredClone(validThreeTransmissions) as MutableThreeTransmissionsResult;
+    const detail = value.evidence
+      .flatMap(({ details = [] }) => details)
+      .find(({ kind }) => kind === "lesson-relation");
+    if (!detail || detail.kind !== "lesson-relation") throw new Error("missing lesson relation fixture");
+    detail.lowerOvercomesUpper = !detail.lowerOvercomesUpper;
+
+    expect(isThreeTransmissionsResult(value)).toBe(false);
+  });
+
+  it("rejects a She Hai path whose cumulative total is present but wrong", () => {
+    const input = makeRuleInput("庚子", "申", "戌");
+    const value = structuredClone(deriveThreeTransmissions(input.plate, input.fourLessons));
+    const detail = value.evidence
+      .flatMap(({ details = [] }) => details)
+      .find(({ kind }) => kind === "shehai-palace");
+    if (!detail || detail.kind !== "shehai-palace") throw new Error("missing She Hai fixture");
+    detail.total = 999;
+
+    expect(isThreeTransmissionsResult(value)).toBe(false);
+  });
+
+  it("rejects a known rule ID used in the wrong evidence phase", () => {
+    const value = structuredClone(validThreeTransmissions) as MutableThreeTransmissionsResult;
+    value.evidence[0].ruleId = "three-transmissions/mao-star-v1";
+
+    expect(value.evidence[0].phase).toBe("plate");
+    expect(isThreeTransmissionsResult(value)).toBe(false);
+  });
 });
 
 describe("runThreeTransmissionsStage", () => {
@@ -126,13 +183,59 @@ describe("runThreeTransmissionsStage", () => {
     ]);
     expect(outcome.session.snapshots["heavenly-generals"]).toBeUndefined();
     expect(outcome.session.snapshots.course).toBeUndefined();
+    expect(validateSession(outcome.session)).toEqual([]);
   });
 
-  it("keeps upstream and removes the failed stage plus all downstream snapshots", () => {
+  it("keeps only the valid calendar and plate when four lessons are invalid", () => {
     const sessionWithInvalidFourLessons = structuredClone(referenceSession);
     sessionWithInvalidFourLessons.snapshots["four-lessons"] = forgedFourLessonsSnapshot;
     const outcome = runThreeTransmissionsStage(sessionWithInvalidFourLessons);
     expect(outcome.ok).toBe(false);
-    expect(Object.keys(outcome.session.snapshots)).toEqual(["calendar", "heaven-earth", "four-lessons"]);
+    expect(Object.keys(outcome.session.snapshots)).toEqual(["calendar", "heaven-earth"]);
+    expect(outcome.session.snapshots["three-transmissions"]).toBeUndefined();
+    expect(validateSession(outcome.session)).toEqual([]);
+  });
+
+  it("removes every transitive dependent when calendar is missing", () => {
+    const missingCalendar = structuredClone(referenceSession);
+    delete missingCalendar.snapshots.calendar;
+
+    const outcome = runThreeTransmissionsStage(missingCalendar);
+
+    expect(outcome).toMatchObject({ ok: false, error: { code: "INVALID_THREE_TRANSMISSIONS_INPUT" } });
+    expect(Object.keys(outcome.session.snapshots)).toEqual([]);
+    expect(validateSession(outcome.session)).toEqual([]);
+  });
+
+  it("removes every transitive dependent when the current calendar is forged", () => {
+    const forgedCalendar = structuredClone(referenceSession);
+    forgedCalendar.snapshots.calendar!.ruleId = "calendar/forged-v1";
+
+    const outcome = runThreeTransmissionsStage(forgedCalendar);
+
+    expect(outcome).toMatchObject({ ok: false, error: { code: "INVALID_THREE_TRANSMISSIONS_INPUT" } });
+    expect(Object.keys(outcome.session.snapshots)).toEqual([]);
+    expect(validateSession(outcome.session)).toEqual([]);
+  });
+
+  it("keeps only calendar when the plate belongs to different calendar inputs", () => {
+    const mismatchedPlate = structuredClone(referenceSession);
+    const otherCalendar = structuredClone(referenceSession.snapshots.calendar!.value);
+    otherCalendar.monthGeneral.effective = { name: "登明", branch: "亥" };
+    otherCalendar.monthGeneral.source = "manual";
+    otherCalendar.divinationHour.effective = "丑";
+    otherCalendar.divinationHour.source = "manual";
+    mismatchedPlate.snapshots["heaven-earth"] = {
+      ...structuredClone(validPlateSnapshot),
+      source: "manual",
+      value: deriveHeavenEarth(otherCalendar),
+    };
+
+    const outcome = runThreeTransmissionsStage(mismatchedPlate);
+
+    expect(outcome).toMatchObject({ ok: false, error: { code: "INVALID_THREE_TRANSMISSIONS_INPUT" } });
+    expect(Object.keys(outcome.session.snapshots)).toEqual(["calendar"]);
+    expect(outcome.session.snapshots["three-transmissions"]).toBeUndefined();
+    expect(validateSession(outcome.session)).toEqual([]);
   });
 });

@@ -74,13 +74,17 @@ const OVERCOMES: Readonly<Record<FiveElement, FiveElement>> = {
   木: "土", 火: "金", 土: "水", 金: "木", 水: "火",
 };
 
+export function elementOvercomes(source: FiveElement, target: FiveElement): boolean {
+  return OVERCOMES[source] === target;
+}
+
 export function relationFor(stem: HeavenlyStem, branch: EarthlyBranch): SixRelation {
   const stemElement = elementOfStem(stem);
   const branchElement = elementOfBranch(branch);
   if (stemElement === branchElement) return "兄弟";
   if (GENERATES[stemElement] === branchElement) return "子孙";
   if (GENERATES[branchElement] === stemElement) return "父母";
-  if (OVERCOMES[stemElement] === branchElement) return "妻财";
+  if (elementOvercomes(stemElement, branchElement)) return "妻财";
   return "官鬼";
 }
 

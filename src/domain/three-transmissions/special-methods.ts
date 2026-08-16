@@ -46,7 +46,7 @@ export class ThreeTransmissionsRuleUnresolvedError extends Error {
   }
 }
 
-interface VerticalInitialSelection {
+export interface VerticalInitialSelection {
   candidate?: LessonCandidate;
   method?: Extract<TransmissionMethod, "贼克" | "比用" | "涉害">;
   subtype?: TransmissionSubtype;
@@ -54,7 +54,7 @@ interface VerticalInitialSelection {
   evidence: readonly EvidenceDraft[];
 }
 
-function selectVerticalInitial(
+export function selectVerticalInitial(
   dayStem: HeavenlyStem,
   fourLessons: FourLessonsResult,
   plate: HeavenEarthResult,
@@ -63,7 +63,9 @@ function selectVerticalInitial(
   if (vertical.candidates.length === 0) return { variants: [], evidence: vertical.evidence };
   if (vertical.candidates.length === 1) {
     const candidate = vertical.candidates[0];
-    const subtype = vertical.preferredDirection === "lower-overcomes-upper" ? "始入" : "元首";
+    const subtype = vertical.preferredDirection === "lower-overcomes-upper"
+      ? vertical.upperOvercomesLower.length > 0 ? "重审" : "始入"
+      : "元首";
     return {
       candidate,
       method: "贼克",
@@ -84,13 +86,13 @@ function selectVerticalInitial(
     return {
       candidate: comparison.candidate,
       method: "比用",
-      subtype: "知一",
+      ...(comparison.candidate.direction === "upper-overcomes-lower" ? { subtype: "知一" as const } : {}),
       variants: [],
       evidence: comparisonEvidence,
     };
   }
 
-  const sheHai = selectBySheHai(comparison.candidates, dayStem, plate);
+  const sheHai = selectBySheHai(comparison.candidates, fourLessons.dayPillar, plate);
   const evidence = [...comparisonEvidence, ...sheHai.evidence];
   if (sheHai.kind === "unresolved") throw new ThreeTransmissionsRuleUnresolvedError(evidence);
   return {

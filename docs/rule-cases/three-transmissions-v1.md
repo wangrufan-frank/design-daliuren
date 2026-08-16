@@ -9,7 +9,7 @@
 | 贼克始入 | 戊戌 | 子加戌 | 子、寅、辰 | [`deriveThreeTransmissions > derives the Lin Feng 始入 case`](../../src/domain/three-transmissions/policy.test.ts#L66) |
 | 贼克元首 | 戊申 | 卯加辰 | 卯、寅、丑 | [`deriveThreeTransmissions > derives the Lin Feng 元首 case`](../../src/domain/three-transmissions/policy.test.ts#L66) |
 | 涉害 | 庚子 | 申加戌 | 午、辰、寅；午四重、戌二重 | [`deriveThreeTransmissions > derives the Lin Feng 涉害克数胜出 case`](../../src/domain/three-transmissions/policy.test.ts#L66)、[`selectBySheHai > counts branches and resident stems while returning each traversed palace`](../../src/domain/three-transmissions/selectors.test.ts#L78) |
-| 八专 | 甲寅 | 丑加辰 | 丑、亥、亥 | [`special ordinary methods > counts the starting god as one in Eight Special`](../../src/domain/three-transmissions/policy.test.ts#L284) |
+| 八专 | 甲寅 | 丑加辰 | 丑、亥、亥 | [`deriveThreeTransmissions > derives the Lin Feng Eight Special book case through full policy`](../../src/domain/three-transmissions/policy.test.ts#L169) |
 
 ## 合成规则夹具
 

@@ -55,6 +55,7 @@ export function ThreeTransmissionsReview({
                 className="three-transmissions-review__transmission"
                 data-transmission={transmission.position}
                 aria-pressed={selectedPosition === transmission.position}
+                aria-expanded={evidenceOpen && selectedPosition === transmission.position}
                 aria-controls="three-transmissions-evidence"
                 aria-label={`${transmission.label}，${transmission.branch}，${transmission.relation}，天将待加临`}
                 onClick={(event) => selectTransmission(transmission.position, event.currentTarget)}
@@ -93,10 +94,20 @@ export function ThreeTransmissionsReview({
               <span className="three-transmissions-review__rule-id">{step.ruleId}</span>
               <p>{step.input}</p>
               <p>{step.conclusion}</p>
-              {step.details?.map((detail) => (
+              {step.details?.filter((detail) => detail.kind === "shehai-palace").map((detail) => (
                 <dl key={`${detail.candidateLesson}-${detail.earth}`} className="three-transmissions-review__shehai-palace">
-                  <div><dt>{detail.candidateLesson === "first" ? "一课" : detail.candidateLesson === "second" ? "二课" : detail.candidateLesson === "third" ? "三课" : "四课"} · {detail.earth}宫</dt><dd>{detail.branchElement}</dd></div>
-                  <div><dt>寄干{detail.residentStems.join("、")}</dt><dd>涉害 +{detail.increment}</dd></div>
+                  <div>
+                    <dt>{detail.candidateLesson === "first" ? "一课" : detail.candidateLesson === "second" ? "二课" : detail.candidateLesson === "third" ? "三课" : "四课"} · 上神{detail.candidateUpper} · {detail.direction === "lower-overcomes-upper" ? "下克上" : "上克下"} · {detail.earth}宫</dt>
+                    <dd>{`地支${detail.earth}（${detail.branchElement}）· ${detail.branchContributes ? "计害" : "不计害"}`}</dd>
+                  </div>
+                  <div>
+                    <dt>寄干{detail.residentStems.length > 0
+                      ? detail.residentStems.map(({ stem, element, contributes }) => (
+                          `${stem}（${element}，${contributes ? "计害" : "不计害"}）`
+                        )).join("、")
+                      : "无"}</dt>
+                    <dd>涉害 +{detail.increment}</dd>
+                  </div>
                   <div><dt>累计 {detail.total}</dt></div>
                 </dl>
               ))}

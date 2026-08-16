@@ -1,10 +1,12 @@
 import { EARTHLY_BRANCHES } from "../calendar/constants";
+import type { StemBranch } from "../calendar/types";
 import type { EarthlyBranch, HeavenlyStem } from "../chart/types";
 import { STEM_RESIDENCES } from "../four-lessons/policy";
 import type { FourLesson, FourLessonsResult } from "../four-lessons/types";
 import type { HeavenEarthResult } from "../heaven-earth/types";
 import {
   earthUnder,
+  elementOvercomes,
   elementOfBranch,
   elementOfStem,
   polarityOfBranch,
@@ -13,6 +15,8 @@ import {
 import type {
   EvidenceDraft,
   FiveElement,
+  LessonIdentityEvidence,
+  LessonRelationEvidence,
   Polarity,
   SheHaiPalaceEvidence,
   TransmissionSubtype,
@@ -30,6 +34,8 @@ export interface LessonCandidate {
 
 export interface VerticalCandidatesResult {
   preferredDirection?: VerticalDirection;
+  lowerOvercomesUpper: readonly LessonCandidate[];
+  upperOvercomesLower: readonly LessonCandidate[];
   candidates: readonly LessonCandidate[];
   evidence: readonly EvidenceDraft[];
 }
@@ -88,14 +94,6 @@ export type RemoteCandidatesResult =
       evidence: readonly EvidenceDraft[];
     };
 
-const OVERCOMES: Readonly<Record<FiveElement, FiveElement>> = {
-  木: "土", 火: "金", 土: "水", 金: "木", 水: "火",
-};
-
-function overcomes(source: FiveElement, target: FiveElement): boolean {
-  return OVERCOMES[source] === target;
-}
-
 function candidateFor(lesson: FourLesson, direction: VerticalDirection): LessonCandidate {
   return {
     lesson,
@@ -110,17 +108,33 @@ export function findVerticalCandidates(fourLessons: FourLessonsResult): Vertical
   const lowerOvercomesUpper: LessonCandidate[] = [];
   const upperOvercomesLower: LessonCandidate[] = [];
 
-  for (const lesson of fourLessons.lessons) {
-    const lowerElement = lesson.id === "first"
-      ? elementOfStem(dayStem)
-      : elementOfBranch(lesson.lower.kind === "branch" ? lesson.lower.value : lesson.lookupEarth);
+  const relations = fourLessons.lessons.map((lesson) => {
+    const lowerKind = lesson.id === "first" ? "stem" as const : "branch" as const;
+    const lowerValue = lesson.id === "first"
+      ? dayStem
+      : lesson.lower.kind === "branch" ? lesson.lower.value : lesson.lookupEarth;
+    const lowerElement = lowerKind === "stem"
+      ? elementOfStem(lowerValue as HeavenlyStem)
+      : elementOfBranch(lowerValue as EarthlyBranch);
     const upperElement = elementOfBranch(lesson.upper);
-    if (overcomes(lowerElement, upperElement)) {
+    const lowerOvercomesUpperLesson = elementOvercomes(lowerElement, upperElement);
+    const upperOvercomesLowerLesson = elementOvercomes(upperElement, lowerElement);
+    if (lowerOvercomesUpperLesson) {
       lowerOvercomesUpper.push(candidateFor(lesson, "lower-overcomes-upper"));
-    } else if (overcomes(upperElement, lowerElement)) {
+    } else if (upperOvercomesLowerLesson) {
       upperOvercomesLower.push(candidateFor(lesson, "upper-overcomes-lower"));
     }
-  }
+    return {
+      lesson: lesson.id,
+      lowerKind,
+      lowerValue,
+      lowerElement,
+      upper: lesson.upper,
+      upperElement,
+      lowerOvercomesUpper: lowerOvercomesUpperLesson,
+      upperOvercomesLower: upperOvercomesLowerLesson,
+    };
+  });
 
   const preferredDirection = lowerOvercomesUpper.length > 0
     ? "lower-overcomes-upper" as const
@@ -130,17 +144,55 @@ export function findVerticalCandidates(fourLessons: FourLessonsResult): Vertical
   const candidates = preferredDirection === "lower-overcomes-upper"
     ? lowerOvercomesUpper
     : upperOvercomesLower;
+  const seenIdentities = new Map<string, FourLesson["id"]>();
+  const identities: LessonIdentityEvidence[] = fourLessons.lessons.map((lesson) => {
+    const canonicalIdentity = `${lesson.lookupEarth}:${lesson.upper}`;
+    const duplicateOf = seenIdentities.get(canonicalIdentity);
+    if (!duplicateOf) seenIdentities.set(canonicalIdentity, lesson.id);
+    return {
+      kind: "lesson-identity",
+      lesson: lesson.id,
+      lookupEarth: lesson.lookupEarth,
+      upper: lesson.upper,
+      canonicalIdentity,
+      ...(duplicateOf ? { duplicateOf } : {}),
+    };
+  });
+  const relationDetails: LessonRelationEvidence[] = relations.map((relation) => ({
+    kind: "lesson-relation",
+    ...relation,
+    conclusion: relation.lowerOvercomesUpper
+      ? "selected-lower-overcomes-upper"
+      : relation.upperOvercomesLower
+        ? preferredDirection === "lower-overcomes-upper"
+          ? "excluded-by-lower-overcomes-upper-priority"
+          : "selected-upper-overcomes-lower"
+        : "not-a-candidate",
+  }));
 
   return {
     preferredDirection,
+    lowerOvercomesUpper,
+    upperOvercomesLower,
     candidates,
     evidence: [{
+      ruleId: "three-transmissions/lesson-deduplication-v1",
+      phase: "lessons",
+      input: identities.map(({ canonicalIdentity }) => canonicalIdentity).join("、"),
+      conclusion: `四课按地盘宫与上神去重后为${seenIdentities.size}课`,
+      details: identities,
+    }, {
       ruleId: "three-transmissions/vertical-relations-v1",
       phase: "candidates",
       input: `日干${dayStem}，逐课比较上下五行生克`,
-      conclusion: preferredDirection
-        ? `${preferredDirection}候选：${candidates.map(({ lesson }) => lesson.label).join("、")}`
+      conclusion: lowerOvercomesUpper.length > 0 || upperOvercomesLower.length > 0
+        ? [
+            `下克上候选：${lowerOvercomesUpper.map(({ lesson, upper }) => `${lesson.label}上神${upper}`).join("、") || "无"}`,
+            `上克下候选：${upperOvercomesLower.map(({ lesson, upper }) => `${lesson.label}上神${upper}`).join("、") || "无"}`,
+            preferredDirection === "lower-overcomes-upper" ? "按下克上优先" : "仅有上克下",
+          ].join("；")
         : "四课上下无贼克",
+      details: relationDetails,
     }],
   };
 }
@@ -196,17 +248,25 @@ function sheHaiPath(
     const branchElement = elementOfBranch(earth);
     const residentStems = RESIDENT_STEMS[earth];
     const isHarm = (element: FiveElement) => candidate.direction === "lower-overcomes-upper"
-      ? overcomes(element, targetElement)
-      : overcomes(targetElement, element);
-    const increment = Number(isHarm(branchElement))
-      + residentStems.filter((stem) => isHarm(elementOfStem(stem))).length;
+      ? elementOvercomes(element, targetElement)
+      : elementOvercomes(targetElement, element);
+    const branchContributes = isHarm(branchElement);
+    const residentStemDetails = residentStems.map((stem) => {
+      const element = elementOfStem(stem);
+      return { stem, element, contributes: isHarm(element) };
+    });
+    const increment = Number(branchContributes)
+      + residentStemDetails.filter(({ contributes }) => contributes).length;
     total += increment;
     path.push({
       kind: "shehai-palace",
       candidateLesson: candidate.lesson.id,
+      candidateUpper: candidate.upper,
+      direction: candidate.direction,
       earth,
       branchElement,
-      residentStems: [...residentStems],
+      branchContributes,
+      residentStems: residentStemDetails,
       increment,
       total,
     });
@@ -219,7 +279,7 @@ function sheHaiPath(
 
 export function selectBySheHai(
   candidates: readonly LessonCandidate[],
-  dayStem: HeavenlyStem,
+  dayPillar: StemBranch,
   plate: HeavenEarthResult,
 ): SheHaiResult {
   const counts: SheHaiCounts = {};
@@ -272,9 +332,10 @@ export function selectBySheHai(
     if (zhong.length === 1) return selected(zhong[0].candidate, "察微");
   }
 
-  const reEqualLesson = polarityOfStem(dayStem) === "yang" ? "first" : "third";
-  const reEqual = deepest.filter(({ lesson }) => lesson.id === reEqualLesson);
-  if (reEqual.length === 1) return selected(reEqual[0], "缀瑕", "复等");
+  const repeatedEquality = dayPillar === "戊辰"
+    ? deepest.find(({ lesson, upper }) => lesson.id === "first" && upper === "子")
+    : undefined;
+  if (repeatedEquality) return selected(repeatedEquality, "缀瑕", "复等");
 
   return {
     kind: "unresolved",
@@ -299,10 +360,10 @@ export function findRemoteCandidates(
 
   const dayElement = elementOfStem(dayStem);
   const godOvercomesDay = uniqueLessons
-    .filter(({ upper }) => overcomes(elementOfBranch(upper), dayElement))
+    .filter(({ upper }) => elementOvercomes(elementOfBranch(upper), dayElement))
     .map((lesson) => candidateFor(lesson, "upper-overcomes-lower"));
   const dayOvercomesGod = uniqueLessons
-    .filter(({ upper }) => overcomes(dayElement, elementOfBranch(upper)))
+    .filter(({ upper }) => elementOvercomes(dayElement, elementOfBranch(upper)))
     .map((lesson) => candidateFor(lesson, "lower-overcomes-upper"));
   const scans: RemoteScans = { godOvercomesDay, dayOvercomesGod };
   const candidates = godOvercomesDay.length > 0 ? godOvercomesDay : dayOvercomesGod;
