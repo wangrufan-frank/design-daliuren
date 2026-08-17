@@ -1,4 +1,5 @@
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -8,6 +9,22 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from daliuren_contract import DIMENSIONS
 from geometry import add_beveled_box, add_disc
+
+
+GENERAL_KEYS = (
+    "noble",
+    "snake",
+    "vermilion-bird",
+    "harmony",
+    "hook-array",
+    "azure-dragon",
+    "void",
+    "white-tiger",
+    "constant",
+    "black-tortoise",
+    "yin",
+    "queen-of-heaven",
+)
 
 
 def clear_scene():
@@ -33,6 +50,41 @@ def new_empty(node_id, location):
     return obj
 
 
+def new_helper_empty(name, parent, location=(0.0, 0.0, 0.0)):
+    obj = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.parent = parent
+    obj.location = location
+    return obj
+
+
+def add_child_box(name, parent, size, location, bevel=0.001):
+    obj = add_beveled_box(name, size, (0.0, 0.0, 0.0), bevel)
+    del obj["node_id"]
+    obj.parent = parent
+    obj.location = location
+    return obj
+
+
+def add_runtime_child_box(node_id, parent, size, location, bevel=0.001):
+    obj = add_beveled_box(node_id, size, (0.0, 0.0, 0.0), bevel)
+    obj.parent = parent
+    obj.location = location
+    return obj
+
+
+def configure_motion(obj, closed_location, motion_axis, travel_m):
+    open_location = tuple(
+        coordinate + axis * travel_m
+        for coordinate, axis in zip(closed_location, motion_axis)
+    )
+    obj.location = closed_location
+    obj["closed_location"] = closed_location
+    obj["open_location"] = open_location
+    obj["motion_axis"] = motion_axis
+    obj["travel_m"] = travel_m
+
+
 def add_historical_ring(radius, z):
     bpy.ops.mesh.primitive_torus_add(
         major_radius=radius,
@@ -52,6 +104,141 @@ def parent_runtime_parts(root):
     for obj in bpy.context.scene.objects:
         if obj is not root and "node_id" in obj:
             obj.parent = root
+
+
+def add_calendar(root, base_height):
+    calendar = new_empty("calendar/slip", (0.0, 0.0, 0.0))
+    calendar.parent = root
+    configure_motion(
+        calendar,
+        (0.0, 0.238, base_height + 0.008),
+        (0.0, 0.0, 1.0),
+        DIMENSIONS["slip_rise"],
+    )
+    add_child_box(
+        "calendar/slip/body",
+        calendar,
+        (0.300, 0.032, 0.008),
+        (0.0, 0.0, 0.0),
+    )
+    add_child_box(
+        "calendar/slip/readout",
+        calendar,
+        (0.264, 0.020, 0.004),
+        (0.0, -0.002, 0.006),
+        0.0008,
+    )
+
+
+def add_lessons(root, base_height):
+    layout = (
+        ("fourth", 0, (-0.184, 0.110, base_height + 0.006), (-1.0, 0.0, 0.0)),
+        ("third", 1, (-0.184, -0.110, base_height + 0.006), (-1.0, 0.0, 0.0)),
+        ("second", 2, (0.184, -0.110, base_height + 0.006), (1.0, 0.0, 0.0)),
+        ("first", 3, (0.184, 0.110, base_height + 0.006), (1.0, 0.0, 0.0)),
+    )
+    lesson_width, lesson_depth = DIMENSIONS["lesson"]
+    for lesson, visual_order, closed_location, motion_axis in layout:
+        lesson_id = f"lesson/{lesson}"
+        lesson_root = new_empty(lesson_id, (0.0, 0.0, 0.0))
+        lesson_root.parent = root
+        lesson_root["visual_order"] = visual_order
+        configure_motion(
+            lesson_root,
+            closed_location,
+            motion_axis,
+            DIMENSIONS["lesson_travel"],
+        )
+        add_child_box(
+            f"{lesson_id}/body",
+            lesson_root,
+            (lesson_width, lesson_depth, 0.008),
+            (0.0, 0.0, 0.0),
+        )
+        for readout, local_y in (("upper", 0.024), ("lower", -0.024)):
+            add_child_box(
+                f"{lesson_id}/readout/{readout}",
+                lesson_root,
+                (0.124, 0.034, 0.006),
+                (0.0, local_y, DIMENSIONS["lesson_readout_rise"]),
+                0.0008,
+            )
+        new_helper_empty(
+            f"{lesson_id}/socket/general",
+            lesson_root,
+            (0.058, 0.0, 0.012),
+        )
+
+
+def add_transmission_bridge(root, base_height):
+    bridge = new_empty("transmission/bridge", (0.0, 0.0, 0.0))
+    bridge.parent = root
+    configure_motion(
+        bridge,
+        (0.0, -0.232, base_height + 0.006),
+        (0.0, -1.0, 0.0),
+        DIMENSIONS["bridge_travel"],
+    )
+    add_child_box(
+        "transmission/bridge/body",
+        bridge,
+        (DIMENSIONS["bridge_width"], 0.048, 0.008),
+        (0.0, 0.0, 0.0),
+    )
+    for module_order, (module, local_x) in enumerate(
+        (("initial", -0.140), ("middle", 0.0), ("final", 0.140))
+    ):
+        obj = add_runtime_child_box(
+            f"transmission/{module}",
+            bridge,
+            (0.112, 0.038, 0.010),
+            (local_x, 0.0, 0.009),
+        )
+        obj["module_order"] = module_order
+
+
+def add_generals(root, base_height):
+    radius = 0.218
+    closed_z = base_height + 0.007
+    first = None
+    for index, general_key in enumerate(GENERAL_KEYS):
+        angle = math.radians(90.0 - index * 30.0)
+        closed_location = (
+            radius * math.cos(angle),
+            radius * math.sin(angle),
+            closed_z,
+        )
+        node_id = f"general/{general_key}"
+        if first is None:
+            general = add_disc(node_id, 0.012, 0.014, closed_location, 0.001)
+            first = general
+            first.data.name = "general/shared-seal-mesh"
+        else:
+            general = bpy.data.objects.new(node_id, first.data)
+            bpy.context.scene.collection.objects.link(general)
+            general.location = closed_location
+            general["node_id"] = node_id
+        general.parent = root
+        general.rotation_euler.z = angle - math.pi / 2
+        general["domain"] = "general"
+        general["general_key"] = general_key
+        general["ring_index"] = index
+        configure_motion(
+            general,
+            closed_location,
+            (0.0, 0.0, 1.0),
+            DIMENSIONS["general_rise"],
+        )
+
+
+def add_course_copy_anchors(root):
+    for domain, location in (
+        ("lessons", (-0.185, 0.0, 0.125)),
+        ("transmissions", (0.0, -0.185, 0.125)),
+        ("generals", (0.185, 0.0, 0.125)),
+    ):
+        anchor = new_empty(f"anchor/course-copy/{domain}", location)
+        anchor.parent = root
 
 
 def build_graybox():
@@ -84,6 +271,11 @@ def build_graybox():
     )
     add_historical_ring(radius=0.145, z=0.087)
     parent_runtime_parts(root)
+    add_calendar(root, base_height)
+    add_lessons(root, base_height)
+    add_transmission_bridge(root, base_height)
+    add_generals(root, base_height)
+    add_course_copy_anchors(root)
     return root
 
 

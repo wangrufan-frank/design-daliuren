@@ -58,6 +58,8 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertNotIn("Light", bpy.data.objects)
 
     def test_rebuild_removes_hidden_objects_and_orphan_meshes(self):
+        expected_object_count = len(bpy.data.objects)
+        expected_mesh_count = len(bpy.data.meshes)
         stale_mesh = bpy.data.meshes.new("stale-mesh")
         stale = bpy.data.objects["base/body"]
         stale.hide_set(True)
@@ -67,19 +69,18 @@ class GrayboxStructureTest(unittest.TestCase):
 
         self.assertNotIn("base/body.001", bpy.data.objects)
         self.assertNotIn("stale-mesh", bpy.data.meshes)
-        self.assertEqual(len(bpy.data.objects), 5)
-        self.assertEqual(len(bpy.data.meshes), 4)
+        self.assertEqual(len(bpy.data.objects), expected_object_count)
+        self.assertEqual(len(bpy.data.meshes), expected_mesh_count)
 
-    def test_scene_contains_only_task_3_objects(self):
-        self.assertEqual(
-            set(bpy.data.objects.keys()),
+    def test_scene_retains_task_3_foundation_objects(self):
+        self.assertTrue(
             {
                 "artifact/root",
                 "base/body",
                 "plate/earth",
                 "plate/heaven",
                 "reference/historical-ring",
-            },
+            }.issubset(bpy.data.objects.keys())
         )
 
 

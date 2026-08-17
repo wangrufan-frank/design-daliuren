@@ -83,7 +83,7 @@ test("saves and reopens the graybox at the requested path", () => {
       "--background",
       output,
       "--python-expr",
-      "import bpy; assert len(bpy.data.objects) == 5; assert 'plate/heaven' in bpy.data.objects; print('SAVED_BLEND_OK')",
+      "import bpy; assert len(bpy.data.objects) == 48; assert len([obj for obj in bpy.data.objects if 'node_id' in obj]) == 28; assert 'plate/heaven' in bpy.data.objects; assert 'general/queen-of-heaven' in bpy.data.objects; print('SAVED_BLEND_OK')",
     ]);
     assert.equal(reopen.status, 0, `${reopen.stdout}\n${reopen.stderr}`);
     assert.match(reopen.stdout, /SAVED_BLEND_OK/);
