@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { serializeCourseText } from "../../domain/course/policy";
 import type { CourseResult } from "../../domain/course/types";
 
@@ -34,15 +34,19 @@ export function CourseSheet({ result }: { result: CourseResult }) {
     }
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     mounted.current = true;
+    copyRequest.current += 1;
+    window.clearTimeout(resetTimer.current);
+    resetTimer.current = undefined;
+    setCopyState("idle");
     return () => {
       mounted.current = false;
       copyRequest.current += 1;
       window.clearTimeout(resetTimer.current);
       resetTimer.current = undefined;
     };
-  }, []);
+  }, [result]);
 
   return (
     <article className="course-sheet" aria-label="标准文字课式">

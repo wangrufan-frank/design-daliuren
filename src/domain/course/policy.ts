@@ -39,7 +39,7 @@ export function deriveCourse(
           hour: calendar.pillars.hour.effective,
         },
         monthBuild: calendar.monthBuild,
-        monthGeneral: calendar.monthGeneral.effective,
+        monthGeneral: { ...calendar.monthGeneral.effective },
         divinationHour: calendar.divinationHour.effective,
       },
       method: {
@@ -61,7 +61,7 @@ export function deriveCourse(
           id: lesson.id,
           label: lesson.label,
           upper: lesson.upper,
-          lower: lesson.lower,
+          lower: { ...lesson.lower },
           general: generalForHeaven(generals, lesson.upper),
         };
       }),

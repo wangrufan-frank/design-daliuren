@@ -16,6 +16,10 @@ afterEach(() => {
 });
 
 const result = referenceSession.snapshots.course!.value as CourseResult;
+const nextResult: CourseResult = {
+  ...result,
+  context: { ...result.context, locationName: "更新后的课式" },
+};
 const globalCss = readFileSync("src/styles/global.css", "utf8");
 
 function deferred() {
@@ -151,4 +155,38 @@ it("invalidates a pending copy when the sheet unmounts", async () => {
     await Promise.resolve();
   });
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it("resets copied feedback when a new course result is rendered", async () => {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: vi.fn().mockResolvedValue(undefined) },
+  });
+  const { rerender } = render(<CourseSheet result={result} />);
+  await userEvent.click(screen.getByRole("button", { name: "复制课式" }));
+  expect(screen.getByRole("status")).toHaveTextContent("课式已复制");
+
+  rerender(<CourseSheet result={nextResult} />);
+  expect(screen.getByText("更新后的课式", { exact: false })).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制课式" })).toBeVisible();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+it("ignores an old clipboard completion after the course result changes", async () => {
+  const pending = deferred();
+  const writeText = vi.fn().mockReturnValue(pending.promise);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  const { rerender } = render(<CourseSheet result={result} />);
+  fireEvent.click(screen.getByRole("button", { name: "复制课式" }));
+
+  rerender(<CourseSheet result={nextResult} />);
+  await act(async () => {
+    pending.resolve();
+    await Promise.resolve();
+  });
+
+  expect(writeText).toHaveBeenCalledWith(serializeCourseText(result));
+  expect(screen.getByText("更新后的课式", { exact: false })).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制课式" })).toBeVisible();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });

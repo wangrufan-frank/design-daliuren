@@ -56,6 +56,54 @@ describe("deriveCourse", () => {
     expect(result.lessons.every((lesson) => !("lookupEarth" in lesson))).toBe(true);
   });
 
+  it("projects authoritative lesson, general, palace, and noble values field by field", () => {
+    const result = derive();
+    expect(result.lessons).toEqual(
+      ["fourth", "third", "second", "first"].map((id) => {
+        const source = lessons.value.lessons.find((lesson) => lesson.id === id)!;
+        const general = generals.value.placements.find((placement) => placement.heaven === source.upper)!.general;
+        return { id: source.id, label: source.label, upper: source.upper, lower: source.lower, general };
+      }),
+    );
+    expect(result.transmissions).toEqual(
+      transmissions.value.transmissions.map((source) => ({
+        position: source.position,
+        label: source.label,
+        branch: source.branch,
+        relation: source.relation,
+        general: generals.value.placements.find((placement) => placement.heaven === source.branch)!.general,
+      })),
+    );
+    expect(result.palaces).toEqual(
+      COURSE_PALACE_ORDER.map((earth) => {
+        const source = generals.value.placements.find((placement) => placement.earth === earth)!;
+        return { earth, heaven: source.heaven, general: source.general, noble: earth === generals.value.nobleEarth };
+      }),
+    );
+    expect(result.noble).toEqual({
+      dayNight: generals.value.dayNight,
+      nobleHeaven: generals.value.nobleHeaven,
+      nobleEarth: generals.value.nobleEarth,
+      direction: generals.value.direction,
+    });
+  });
+
+  it("isolates mutable nested course values from upstream results", () => {
+    const localCalendar = structuredClone(calendar.value);
+    const localLessons = structuredClone(lessons.value);
+    const localTransmissions = structuredClone(transmissions.value);
+    const localGenerals = structuredClone(generals.value);
+    const result = deriveCourse(referenceSession.input.locationName, localCalendar, localLessons, localTransmissions, localGenerals);
+    const sourceLower = localLessons.lessons.find((lesson) => lesson.id === "fourth")!.lower;
+    expect(result.context.monthGeneral).not.toBe(localCalendar.monthGeneral.effective);
+    expect(result.lessons[0].lower).not.toBe(sourceLower);
+    result.context.monthGeneral.name = "河魁";
+    if (result.lessons[0].lower.kind === "branch") result.lessons[0].lower.value = "子";
+    else result.lessons[0].lower.value = "甲";
+    expect(localCalendar.monthGeneral.effective.name).toBe("胜光");
+    expect(localLessons.lessons.find((lesson) => lesson.id === "fourth")!.lower).toEqual(sourceLower);
+  });
+
   it("serializes stable segmented plain text with LF line endings", () => {
     const result = derive();
     const text = serializeCourseText(result);
