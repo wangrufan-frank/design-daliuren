@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import * as calendarStage from "../domain/calendar/compute-calendar";
 import type { CalendarSnapshot } from "../domain/calendar/types";
+import * as courseStage from "../domain/course/compute-course";
 import * as heavenEarthStage from "../domain/heaven-earth/compute-heaven-earth";
 import { deriveHeavenEarth } from "../domain/heaven-earth/policy";
 import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
@@ -37,7 +38,7 @@ async function openCalendarReview(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function openFourLessonsReview(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "查看四课" }));
+  await user.click(screen.getByRole("button", { name: /四课生成，已完成/ }));
 }
 
 it("starts at input without a fake model or fake course", () => {
@@ -78,14 +79,65 @@ it("runs the real offline stages through three transmissions, then navigates pri
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
-it("runs through heavenly generals and advances the current stage to course", async () => {
+it("generates and selects the real course after heavenly generals", async () => {
   render(<App />);
 
   await submitCourse();
 
-  expect(await screen.findByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /天将排列，已完成/ })).toHaveAttribute("data-status", "completed");
-  expect(screen.getByText("复制结课", { selector: '[data-status="current"]' })).toBeInTheDocument();
+  expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+  for (const name of ["历法与月将", "天地盘加临", "四课生成", "三传取法", "天将排列", "复制结课"]) {
+    expect(screen.getByRole("button", { name: `${name}，已完成` })).toBeVisible();
+  }
+  expect(screen.queryByLabelText(/进行中/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "复制结课，已完成" })).toHaveAttribute("aria-current", "page");
+});
+
+it("returns to heavenly generals and back to the completed course without recomputing", async () => {
+  const runCourse = vi.spyOn(courseStage, "runCourseStage");
+  render(<App />);
+  const user = await submitCourse();
+
+  expect(runCourse).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole("button", { name: "天将排列，已完成" }));
+  expect(screen.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "复制结课，已完成" }));
+  expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+  expect(runCourse).toHaveBeenCalledTimes(1);
+});
+
+it("keeps five valid upstream stages when final course projection fails", async () => {
+  vi.spyOn(courseStage, "runCourseStage").mockImplementationOnce((session) => ({
+    ok: false,
+    error: { code: "COURSE_RESULT_GUARD_FAILED", message: "课式结果未通过完整性校验" },
+    session,
+  }));
+  render(<App />);
+
+  await submitCourse();
+
+  expect(screen.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
+  for (const name of ["历法与月将", "天地盘加临", "四课生成", "三传取法", "天将排列"]) {
+    expect(screen.getByRole("button", { name: `${name}，已完成` })).toBeVisible();
+  }
+  expect(screen.getByText("复制结课")).toHaveAttribute("data-status", "current");
+  expect(screen.getByRole("alert")).toHaveTextContent("课式结果未通过完整性校验");
+  expect(screen.queryByRole("article", { name: "标准文字课式" })).not.toBeInTheDocument();
+});
+
+it("replaces the completed course after a day-pillar correction and reset", async () => {
+  render(<App />);
+  const user = await submitCourse();
+
+  expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("甲辰");
+  await openCalendarReview(user);
+  await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
+  expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("乙巳");
+
+  await openCalendarReview(user);
+  await user.click(screen.getByRole("button", { name: /日柱.*有效 乙巳.*人工修正/ }));
+  await user.click(screen.getByRole("button", { name: "恢复日柱自动值" }));
+  expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("甲辰");
 });
 
 it("does not complete, render, or inject heavenly generals copied from another canonical plate", async () => {
@@ -156,7 +208,7 @@ it("navigates from three transmissions back to four lessons and the plate", asyn
   render(<App />);
 
   const user = await submitCourse();
-  await user.click(screen.getByRole("button", { name: "查看四课" }));
+  await openFourLessonsReview(user);
   expect(screen.getByRole("region", { name: "四课生成" })).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: /三传取法，已完成/ }));
@@ -252,7 +304,7 @@ it("keeps valid upstream snapshots when four-lessons generation fails", async ()
   expect(screen.getByText("四课生成")).toHaveAttribute("data-status", "current");
 });
 
-it("advances the rail only after valid stage snapshots exist", async () => {
+it("completes the rail only after every valid stage snapshot exists", async () => {
   render(<App />);
 
   expect(screen.getByText("历法与月将")).toHaveAttribute("data-status", "current");
@@ -265,7 +317,8 @@ it("advances the rail only after valid stage snapshots exist", async () => {
   expect(screen.getByRole("button", { name: /四课生成，已完成/ })).toHaveAttribute("data-status", "completed");
   expect(screen.getByRole("button", { name: /三传取法，已完成/ })).toHaveAttribute("data-status", "completed");
   expect(screen.getByRole("button", { name: /天将排列，已完成/ })).toHaveAttribute("data-status", "completed");
-  expect(screen.getByText("复制结课")).toHaveAttribute("data-status", "current");
+  expect(screen.getByRole("button", { name: /复制结课，已完成/ })).toHaveAttribute("data-status", "completed");
+  expect(screen.queryByLabelText(/进行中/)).not.toBeInTheDocument();
 });
 
 it("rebuilds heaven-earth after a calendar correction and returns to its review", async () => {

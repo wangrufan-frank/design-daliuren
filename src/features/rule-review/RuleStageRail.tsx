@@ -18,7 +18,7 @@ const statusLabels = {
 
 interface RuleStageRailProps {
   completed: readonly RuleStageId[];
-  current: RuleStageId;
+  current?: RuleStageId;
   selected?: RuleStageId;
   onSelect?: (stage: RuleStageId) => void;
 }

@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { RULE_STAGE_ORDER } from "../../domain/chart/stages";
 import { RuleStageRail } from "./RuleStageRail";
 
 afterEach(cleanup);
@@ -67,4 +68,12 @@ it("exposes heavenly generals as a completed snapshot before the course stage", 
 
   expect(screen.getByRole("button", { name: /天将排列，已完成/ })).toHaveAttribute("data-status", "completed");
   expect(screen.getByText("复制结课")).toHaveAttribute("data-status", "current");
+});
+
+it("keeps every completed stage selectable when no stage is current", () => {
+  render(<RuleStageRail completed={RULE_STAGE_ORDER} selected="course" />);
+
+  expect(screen.queryByLabelText(/进行中/)).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button")).toHaveLength(RULE_STAGE_ORDER.length);
+  expect(screen.getByRole("button", { name: "复制结课，已完成" })).toHaveAttribute("aria-current", "page");
 });
