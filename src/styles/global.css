@@ -292,6 +292,7 @@ button, input, select { font: inherit; }
 .heavenly-generals-review__summary dd, .heavenly-generals-review__evidence dd { margin: 4px 0 0; color: var(--ash); font-size: 0.84rem; }
 .heavenly-generals-review__plate-region { min-width: 0; padding: 20px 24px 24px 0; border-inline-end: 4px solid var(--patina); }
 .heavenly-generals-review__orientation { margin: 0 0 10px; color: var(--ru-celadon); font-size: 0.76rem; letter-spacing: 0.12em; text-align: center; }
+.heavenly-generals-review__plate-layout { position: relative; }
 .heavenly-generals-review__plate-grid { display: grid; position: relative; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); width: 100%; aspect-ratio: 1; background: var(--patina); }
 .heavenly-generals-review__plate { margin: 0; padding: 0; list-style: none; }
 .heavenly-generals-review__plate li { min-width: 0; background: var(--ink); }
@@ -313,7 +314,7 @@ button, input, select { font: inherit; }
 .heavenly-generals-review__palace[data-noble="true"] { color: var(--old-gold); }
 .heavenly-generals-review__palace[data-noble="true"] b { color: var(--old-gold); }
 .heavenly-generals-review__palace[aria-pressed="true"] { background: var(--dark-bronze); box-shadow: inset 0 0 0 2px var(--ash); }
-.heavenly-generals-review__center { display: grid; grid-column: 2 / 4; grid-row: 2 / 4; place-content: center; gap: 8px; padding: 14px; border: 1px solid var(--patina); background: var(--dark-bronze); text-align: center; }
+.heavenly-generals-review__center { display: grid; position: absolute; inset: 25%; place-content: center; gap: 8px; padding: 14px; border: 1px solid var(--patina); background: var(--dark-bronze); text-align: center; }
 .heavenly-generals-review__center span, .heavenly-generals-review__center small { color: var(--ru-celadon); font-size: 0.72rem; letter-spacing: 0.12em; }
 .heavenly-generals-review__center strong { color: var(--old-gold); font-size: clamp(1rem, 2.2vw, 1.45rem); font-weight: 600; line-height: 1.55; }
 .heavenly-generals-review__four-lessons, .heavenly-generals-review__three-transmissions { grid-column: 1 / -1; }

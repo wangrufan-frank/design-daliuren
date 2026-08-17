@@ -68,7 +68,7 @@ export function HeavenlyGeneralsReview({
 
   return (
     <section className="heavenly-generals-review" aria-labelledby="heavenly-generals-review-title">
-      <header className="heavenly-generals-review__summary">
+      <header className="heavenly-generals-review__summary" data-heavenly-generals-section="summary">
         <p>规则阶段 05 / 06</p>
         <h2 id="heavenly-generals-review-title">贵人起例 · 十二天将布列</h2>
         <dl>
@@ -79,43 +79,45 @@ export function HeavenlyGeneralsReview({
         </dl>
       </header>
 
-      <div className="heavenly-generals-review__plate-region">
+      <div className="heavenly-generals-review__plate-region" data-heavenly-generals-section="plate">
         <p className="heavenly-generals-review__orientation">上南 · 下北 · 左东 · 右西</p>
-        <ul className="heavenly-generals-review__plate-grid heavenly-generals-review__plate" aria-label="十二天将方盘">
-          {palaces.map((palace, index) => {
-            const isNoble = palace.earth === result.nobleEarth;
-            return (
-              <li key={palace.earth}>
-                <button
-                  ref={(button) => { buttonRefs.current[index] = button; }}
-                  type="button"
-                  className="heavenly-generals-review__palace"
-                  data-earth={palace.earth}
-                  data-noble={isNoble}
-                  aria-label={`${palace.earth}宫，天盘${palace.heaven}，${palace.general}${isNoble ? "，贵人宫" : ""}`}
-                  aria-pressed={selectedEarth === palace.earth}
-                  aria-expanded={evidenceOpen && selectedEarth === palace.earth}
-                  aria-controls="heavenly-generals-evidence"
-                  onClick={(event) => selectPalace(palace.earth, event.currentTarget)}
-                  onFocus={(event) => selectPalace(palace.earth, event.currentTarget)}
-                  onKeyDown={(event) => moveFocus(event, index)}
-                >
-                  <strong>{palace.heaven}</strong>
-                  <span>地盘 {palace.earth}</span>
-                  <b>{palace.general}</b>
-                </button>
-              </li>
-            );
-          })}
-          <li className="heavenly-generals-review__center" role="presentation">
+        <div className="heavenly-generals-review__plate-layout">
+          <ul className="heavenly-generals-review__plate-grid heavenly-generals-review__plate" aria-label="十二天将方盘">
+            {palaces.map((palace, index) => {
+              const isNoble = palace.earth === result.nobleEarth;
+              return (
+                <li key={palace.earth}>
+                  <button
+                    ref={(button) => { buttonRefs.current[index] = button; }}
+                    type="button"
+                    className="heavenly-generals-review__palace"
+                    data-earth={palace.earth}
+                    data-noble={isNoble}
+                    aria-label={`${palace.earth}宫，天盘${palace.heaven}，${palace.general}${isNoble ? "，贵人宫" : ""}`}
+                    aria-pressed={selectedEarth === palace.earth}
+                    aria-expanded={evidenceOpen && selectedEarth === palace.earth}
+                    aria-controls="heavenly-generals-evidence"
+                    onClick={(event) => selectPalace(palace.earth, event.currentTarget)}
+                    onFocus={(event) => selectPalace(palace.earth, event.currentTarget)}
+                    onKeyDown={(event) => moveFocus(event, index)}
+                  >
+                    <strong>{palace.heaven}</strong>
+                    <span>地盘 {palace.earth}</span>
+                    <b>{palace.general}</b>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="heavenly-generals-review__center">
             <span>贵人落宫</span>
             <strong>天盘{result.nobleHeaven}临地盘{result.nobleEarth}</strong>
             <small>{result.direction === "forward" ? "顺布十二将" : "逆布十二将"}</small>
-          </li>
-        </ul>
+          </div>
+        </div>
       </div>
 
-      <div className="heavenly-generals-review__four-lessons">
+      <div className="heavenly-generals-review__four-lessons" data-heavenly-generals-section="four-lessons">
         <h3>四课天将</h3>
         <ul aria-label="四课天将">
           {fourLessons.lessons.map((lesson) => (
@@ -128,7 +130,7 @@ export function HeavenlyGeneralsReview({
         </ul>
       </div>
 
-      <div className="heavenly-generals-review__three-transmissions">
+      <div className="heavenly-generals-review__three-transmissions" data-heavenly-generals-section="three-transmissions">
         <h3>三传天将</h3>
         <ul aria-label="三传天将">
           {threeTransmissions.transmissions.map((transmission) => (
@@ -144,6 +146,7 @@ export function HeavenlyGeneralsReview({
       <aside
         id="heavenly-generals-evidence"
         className="heavenly-generals-review__evidence"
+        data-heavenly-generals-section="evidence"
         aria-live="polite"
         aria-labelledby="heavenly-generals-evidence-title"
         hidden={!evidenceOpen}

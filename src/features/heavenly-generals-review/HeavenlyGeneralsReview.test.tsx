@@ -41,7 +41,9 @@ describe("HeavenlyGeneralsReview", () => {
     expect(screen.getByText(`昼夜：${generals.dayNight === "day" ? "昼贵" : "夜贵"}`)).toBeVisible();
     const palaces = screen.getByRole("list", { name: "十二天将方盘" });
     const palaceButtons = within(palaces).getAllByRole("button");
+    expect(palaces.children).toHaveLength(12);
     expect(within(palaces).getAllByRole("listitem")).toHaveLength(12);
+    expect(within(palaces).queryByText("贵人落宫", { exact: true })).not.toBeInTheDocument();
     expect(palaceButtons.map((button) => button.getAttribute("data-earth"))).toEqual(VISUAL_EARTH_ORDER);
 
     for (const lesson of fourLessons.lessons) {
@@ -86,6 +88,13 @@ describe("HeavenlyGeneralsReview", () => {
       "heavenly-generals-review__four-lessons",
       "heavenly-generals-review__three-transmissions",
       "heavenly-generals-review__evidence",
+    ]);
+    expect(Array.from(review.children).map((child) => child.getAttribute("data-heavenly-generals-section"))).toEqual([
+      "summary",
+      "plate",
+      "four-lessons",
+      "three-transmissions",
+      "evidence",
     ]);
     const evidence = screen.getByRole("complementary", { name: "巳宫布将证据" });
     for (const phase of ["昼夜", "贵人天盘", "贵人落宫", "布将方向", "十二天将"]) {
