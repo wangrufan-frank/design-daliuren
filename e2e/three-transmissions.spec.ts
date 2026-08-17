@@ -30,6 +30,7 @@ test("reviews three transmissions and returns to its upstream evidence", async (
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await submitReferenceCourse(page);
+  await page.getByRole("button", { name: /三传取法，已完成/ }).click();
 
   await expect(page.getByRole("heading", { name: /九宗门 · 三传取法/ })).toBeVisible();
   const transmissions = page.getByRole("list", { name: "三传" });
@@ -49,6 +50,7 @@ test("390x844 keeps the vertical transmission order without document overflow", 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await submitReferenceCourse(page);
+  await page.getByRole("button", { name: /三传取法，已完成/ }).click();
 
   const transmissions = page.getByRole("list", { name: "三传" });
   await expectVerticalTransmissionOrder(transmissions);

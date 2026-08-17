@@ -1,0 +1,43 @@
+import { expect, test, type Page } from "@playwright/test";
+
+async function submitReferenceCourse(page: Page) {
+  await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("地点").fill("北京");
+  await page.getByLabel("经度").fill("116.4074");
+  await page.getByLabel("纬度").fill("39.9042");
+  await page.getByRole("button", { name: "建立起课上下文" }).click();
+}
+
+test("reviews heavenly generals and returns to upstream evidence", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await submitReferenceCourse(page);
+  await expect(page.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "十二天将方盘" }).locator(":scope > li")).toHaveCount(12);
+  await expect(page.getByText("待天将加临")).toHaveCount(0);
+  await page.getByRole("button", { name: /宫.*贵人/ }).click();
+  await expect(page.getByRole("heading", { name: /宫布将证据/ })).toBeVisible();
+  await page.getByRole("button", { name: "查看三传" }).click();
+  await expect(page.getByRole("heading", { name: /九宗门 · 三传取法/ })).toBeVisible();
+  await page.getByRole("button", { name: /天将排列，已完成/ }).click();
+  await expect(page.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
+});
+
+test("390x844 preserves approved order and has no overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await submitReferenceCourse(page);
+  const order = await page.locator("[data-heavenly-generals-section]").evaluateAll(
+    (nodes) => nodes.map((node) => node.getAttribute("data-heavenly-generals-section")),
+  );
+  expect(order).toEqual(["summary", "plate", "four-lessons", "three-transmissions", "evidence"]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});
+
+test("derives the complete review after the loaded app goes offline", async ({ context, page }) => {
+  await page.goto("/");
+  await context.setOffline(true);
+  await submitReferenceCourse(page);
+  await expect(page.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "十二天将方盘" }).locator(":scope > li")).toHaveCount(12);
+});

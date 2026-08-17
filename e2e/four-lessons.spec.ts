@@ -5,10 +5,10 @@ const VIEWPORTS = [
   { name: "mobile", width: 390, height: 844 },
 ] as const;
 const EXPECTED_VISUAL_LESSONS = [
-  { id: "fourth", label: "四课", upper: "寅", lower: "酉" },
-  { id: "third", label: "三课", upper: "酉", lower: "辰" },
-  { id: "second", label: "二课", upper: "子", lower: "未" },
-  { id: "first", label: "一课", upper: "未", lower: "甲" },
+  { id: "fourth", label: "四课", upper: "寅", lower: "酉", general: "天后" },
+  { id: "third", label: "三课", upper: "酉", lower: "辰", general: "勾陈" },
+  { id: "second", label: "二课", upper: "子", lower: "未", general: "螣蛇" },
+  { id: "first", label: "一课", upper: "未", lower: "甲", general: "天空" },
 ] as const;
 
 async function submitOrdinaryInput(page: Page) {
@@ -61,7 +61,7 @@ for (const viewport of VIEWPORTS) {
     for (const [index, lesson] of EXPECTED_VISUAL_LESSONS.entries()) {
       const card = cards.nth(index);
       await expect(card).toHaveAttribute("data-lesson", lesson.id);
-      await expect(card).toHaveAccessibleName(`${lesson.label}，上神${lesson.upper}，下神${lesson.lower}，天将待加临`);
+      await expect(card).toHaveAccessibleName(`${lesson.label}，上神${lesson.upper}，下神${lesson.lower}，天将${lesson.general}`);
       await expect(card.locator(":scope > *")).toHaveCount(4);
     }
     const cardPositions = await cards.evaluateAll((items) => items.map((item) => {
@@ -106,8 +106,8 @@ for (const viewport of VIEWPORTS) {
     await expect(fourth).toBeFocused();
 
     await expect(page.getByRole("button", { name: "四课生成，已完成" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("button", { name: "三传取法，已完成" })).toHaveAttribute("data-status", "completed");
-    await expect(page.getByText("天将排列", { exact: true })).toHaveAttribute("data-status", "current");
+    await expect(page.getByRole("button", { name: "天将排列，已完成" })).toHaveAttribute("data-status", "completed");
+    await expect(page.getByText("复制结课", { exact: true })).toHaveAttribute("data-status", "current");
     const listOverflow = await list.evaluate((element) => {
       const { left, right } = element.getBoundingClientRect();
       return { clientWidth: element.clientWidth, left, right, scrollWidth: element.scrollWidth };
