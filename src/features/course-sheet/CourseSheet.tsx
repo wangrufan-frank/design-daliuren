@@ -8,6 +8,8 @@ const directionText = { forward: "顺", reverse: "逆" } as const;
 export function CourseSheet({ result }: { result: CourseResult }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const resetTimer = useRef<number | undefined>(undefined);
+  const copyRequest = useRef(0);
+  const mounted = useRef(false);
   const methodText = [
     result.method.method,
     result.method.subtype,
@@ -15,17 +17,32 @@ export function CourseSheet({ result }: { result: CourseResult }) {
   ].filter((value): value is string => Boolean(value)).join(" · ");
 
   async function copyCourse() {
+    const request = ++copyRequest.current;
+    window.clearTimeout(resetTimer.current);
+    resetTimer.current = undefined;
+    setCopyState("idle");
     try {
       await navigator.clipboard.writeText(serializeCourseText(result));
+      if (!mounted.current || request !== copyRequest.current) return;
       setCopyState("copied");
-      window.clearTimeout(resetTimer.current);
-      resetTimer.current = window.setTimeout(() => setCopyState("idle"), 2000);
+      resetTimer.current = window.setTimeout(() => {
+        if (mounted.current && request === copyRequest.current) setCopyState("idle");
+        resetTimer.current = undefined;
+      }, 2000);
     } catch {
-      setCopyState("error");
+      if (mounted.current && request === copyRequest.current) setCopyState("error");
     }
   }
 
-  useEffect(() => () => window.clearTimeout(resetTimer.current), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      copyRequest.current += 1;
+      window.clearTimeout(resetTimer.current);
+      resetTimer.current = undefined;
+    };
+  }, []);
 
   return (
     <article className="course-sheet" aria-label="标准文字课式">
