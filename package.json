@@ -12,6 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "asset:blender": "node scripts/run-blender.mjs",
+    "test:asset-runner": "node --test scripts/run-blender.test.mjs",
     "verify:calendar-sources": "node scripts/verify-calendar-cases.mjs"
   },
   "keywords": [],
