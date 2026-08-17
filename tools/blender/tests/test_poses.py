@@ -65,6 +65,15 @@ def descendant_meshes(root):
     return meshes
 
 
+def source_meshes():
+    return [
+        obj
+        for obj in bpy.data.objects
+        if obj.type == "MESH"
+        and not any(collection.name.startswith("pose-preview/") for collection in obj.users_collection)
+    ]
+
+
 class PoseTest(unittest.TestCase):
     def setUp(self):
         build_graybox()
@@ -159,18 +168,68 @@ class PoseTest(unittest.TestCase):
         self.assertEqual(len(runtime_objects), 28)
         self.assertEqual({obj["node_id"] for obj in runtime_objects}, set(NODE_IDS))
 
+    def test_closed_preview_is_the_only_visible_physical_geometry(self):
+        physical_mesh_count = len(source_meshes())
+
+        build_pose_previews()
+        bpy.context.view_layer.update()
+
+        self.assertTrue(all(obj.hide_viewport and obj.hide_render for obj in source_meshes()))
+        closed = bpy.data.collections["pose-preview/closed"]
+        self.assertTrue(all(not obj.hide_viewport and not obj.hide_render for obj in closed.objects))
+        visible_viewport_meshes = [
+            obj for obj in bpy.data.objects if obj.type == "MESH" and obj.visible_get()
+        ]
+        visible_render_meshes = [
+            obj
+            for obj in bpy.data.objects
+            if obj.type == "MESH"
+            and not obj.hide_render
+            and any(not collection.hide_render for collection in obj.users_collection)
+        ]
+        self.assertEqual(len(visible_viewport_meshes), physical_mesh_count)
+        self.assertEqual(len(visible_render_meshes), physical_mesh_count)
+
+    def test_rebuilding_previews_does_not_leak_or_disable_closed_preview(self):
+        build_pose_previews()
+        first_counts = (len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.collections))
+
+        build_pose_previews()
+
+        self.assertEqual(
+            (len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.collections)),
+            first_counts,
+        )
+        closed = bpy.data.collections["pose-preview/closed"]
+        self.assertTrue(all(not obj.hide_viewport and not obj.hide_render for obj in closed.objects))
+        apply_pose("generals", 5, "reverse")
+        self.assertAlmostEqual(
+            bpy.data.objects["calendar/slip"].location.z
+            - bpy.data.objects["calendar/slip"]["closed_location"][2],
+            0.012,
+        )
+        self.assertTrue(all(obj.hide_viewport and obj.hide_render for obj in source_meshes()))
+
     def test_only_closed_preview_is_enabled_after_save_and_reopen(self):
         build_pose_previews()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "pose-previews.blend"
             bpy.ops.wm.save_as_mainfile(filepath=str(path))
             bpy.ops.wm.open_mainfile(filepath=str(path))
+            self.assertTrue(all(obj.hide_viewport and obj.hide_render for obj in source_meshes()))
             for pose_id in POSE_IDS:
                 collection = bpy.data.collections[f"pose-preview/{pose_id}"]
                 enabled = pose_id == "closed"
                 with self.subTest(pose_id=pose_id):
                     self.assertEqual(collection.hide_viewport, not enabled)
                     self.assertEqual(collection.hide_render, not enabled)
+                    if enabled:
+                        self.assertTrue(
+                            all(
+                                not obj.hide_viewport and not obj.hide_render
+                                for obj in collection.objects
+                            )
+                        )
 
 
 if __name__ == "__main__":

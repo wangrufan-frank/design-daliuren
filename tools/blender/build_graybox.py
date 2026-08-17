@@ -307,6 +307,8 @@ def build_pose_previews():
             preview = source.copy()
             preview.data = source.data
             preview.name = f"preview/{pose_id}/{source.name}"
+            preview.hide_viewport = False
+            preview.hide_render = False
             for key in list(preview.keys()):
                 del preview[key]
             world_matrix = source.matrix_world.copy()
@@ -314,6 +316,9 @@ def build_pose_previews():
             preview.matrix_world = world_matrix
             collection.objects.link(preview)
 
+    for source in physical_meshes:
+        source.hide_viewport = True
+        source.hide_render = True
     apply_pose("closed")
     return tuple(preview_collections)
 
