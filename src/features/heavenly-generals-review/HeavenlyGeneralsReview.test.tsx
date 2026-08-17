@@ -93,4 +93,33 @@ describe("HeavenlyGeneralsReview", () => {
     }
     expect(screen.queryByRole("button", { name: /修正|批准|确认/ })).not.toBeInTheDocument();
   });
+
+  it("navigates to every upstream review from the evidence panel", async () => {
+    const user = userEvent.setup();
+    const onReviewCalendar = vi.fn();
+    const onReviewHeavenEarth = vi.fn();
+    const onReviewFourLessons = vi.fn();
+    const onReviewThreeTransmissions = vi.fn();
+    render(
+      <HeavenlyGeneralsReview
+        result={generals}
+        fourLessons={fourLessons}
+        threeTransmissions={transmissions}
+        onReviewCalendar={onReviewCalendar}
+        onReviewHeavenEarth={onReviewHeavenEarth}
+        onReviewFourLessons={onReviewFourLessons}
+        onReviewThreeTransmissions={onReviewThreeTransmissions}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "查看历法检查" }));
+    await user.click(screen.getByRole("button", { name: "查看天地盘" }));
+    await user.click(screen.getByRole("button", { name: "查看四课" }));
+    await user.click(screen.getByRole("button", { name: "查看三传" }));
+
+    expect(onReviewCalendar).toHaveBeenCalledOnce();
+    expect(onReviewHeavenEarth).toHaveBeenCalledOnce();
+    expect(onReviewFourLessons).toHaveBeenCalledOnce();
+    expect(onReviewThreeTransmissions).toHaveBeenCalledOnce();
+  });
 });

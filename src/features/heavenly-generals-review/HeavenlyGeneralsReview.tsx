@@ -175,6 +175,12 @@ export function HeavenlyGeneralsReview({
             </ol>
           </section>
         ))}
+        <div className="heavenly-generals-review__upstream-actions">
+          <button type="button" onClick={onReviewCalendar}>查看历法检查</button>
+          <button type="button" onClick={onReviewHeavenEarth}>查看天地盘</button>
+          <button type="button" onClick={onReviewFourLessons}>查看四课</button>
+          <button type="button" onClick={onReviewThreeTransmissions}>查看三传</button>
+        </div>
       </aside>
     </section>
   );
