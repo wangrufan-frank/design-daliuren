@@ -65,7 +65,7 @@ export function computeCourse(
       value,
       snapshot: {
         stage: "course",
-        dependsOn: ["four-lessons", "three-transmissions", "heavenly-generals"],
+        dependsOn: ["calendar", "four-lessons", "three-transmissions", "heavenly-generals"],
         ruleId: COURSE_SNAPSHOT_RULE_ID,
         source: courseResultSource([calendar.source, lessons.source, transmissions.source, generals.source]),
         value,

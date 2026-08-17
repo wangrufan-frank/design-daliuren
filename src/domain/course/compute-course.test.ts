@@ -27,7 +27,7 @@ describe("course computation", () => {
     if (!outcome.ok) throw new Error(outcome.error.message);
     expect(outcome.snapshot).toMatchObject({
       stage: "course",
-      dependsOn: ["four-lessons", "three-transmissions", "heavenly-generals"],
+      dependsOn: ["calendar", "four-lessons", "three-transmissions", "heavenly-generals"],
       ruleId: "course/verified-projection-v1",
     });
     expect(isCourseResult(outcome.value)).toBe(true);
