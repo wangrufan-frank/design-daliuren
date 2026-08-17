@@ -7,8 +7,9 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from daliuren_contract import DIMENSIONS
+from daliuren_contract import DIMENSIONS, POSE_IDS
 from geometry import add_beveled_box, add_disc
+from poses import apply_pose
 
 
 GENERAL_KEYS = (
@@ -33,6 +34,9 @@ def clear_scene():
     for mesh in list(bpy.data.meshes):
         if mesh.users == 0:
             bpy.data.meshes.remove(mesh)
+    for collection in list(bpy.data.collections):
+        if collection.name.startswith("pose-preview/"):
+            bpy.data.collections.remove(collection)
 
 
 def configure_scene_units():
@@ -83,6 +87,7 @@ def configure_motion(obj, closed_location, motion_axis, travel_m):
     obj["open_location"] = open_location
     obj["motion_axis"] = motion_axis
     obj["travel_m"] = travel_m
+    obj["closed_rotation_euler"] = tuple(obj.rotation_euler)
 
 
 def add_historical_ring(radius, z):
@@ -262,13 +267,14 @@ def build_graybox():
     earth["fixed"] = True
 
     heaven_diameter, heaven_depth = DIMENSIONS["heaven_plate"]
-    add_disc(
+    heaven = add_disc(
         "plate/heaven",
         heaven_diameter / 2,
         heaven_depth,
         (0.0, 0.0, 0.074),
         0.002,
     )
+    heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
     add_historical_ring(radius=0.145, z=0.087)
     parent_runtime_parts(root)
     add_calendar(root, base_height)
@@ -277,6 +283,39 @@ def build_graybox():
     add_generals(root, base_height)
     add_course_copy_anchors(root)
     return root
+
+
+def build_pose_previews():
+    for collection in list(bpy.data.collections):
+        if collection.name.startswith("pose-preview/"):
+            for obj in list(collection.objects):
+                bpy.data.objects.remove(obj, do_unlink=True)
+            bpy.data.collections.remove(collection)
+
+    physical_meshes = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
+    preview_collections = []
+    for pose_id in POSE_IDS:
+        apply_pose(pose_id)
+        collection = bpy.data.collections.new(f"pose-preview/{pose_id}")
+        bpy.context.scene.collection.children.link(collection)
+        collection["pose_id"] = pose_id
+        collection.hide_viewport = pose_id != "closed"
+        collection.hide_render = pose_id != "closed"
+        preview_collections.append(collection)
+
+        for source in physical_meshes:
+            preview = source.copy()
+            preview.data = source.data
+            preview.name = f"preview/{pose_id}/{source.name}"
+            for key in list(preview.keys()):
+                del preview[key]
+            world_matrix = source.matrix_world.copy()
+            preview.parent = None
+            preview.matrix_world = world_matrix
+            collection.objects.link(preview)
+
+    apply_pose("closed")
+    return tuple(preview_collections)
 
 
 def parse_args(argv):
@@ -288,6 +327,7 @@ def parse_args(argv):
 def main():
     args = parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
     build_graybox()
+    build_pose_previews()
     if args.save:
         output = args.save.resolve()
         output.parent.mkdir(parents=True, exist_ok=True)

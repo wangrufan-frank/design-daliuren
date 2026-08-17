@@ -24,3 +24,12 @@ NODE_IDS = (
 )
 
 POSE_IDS = ("closed", "calendar", "plate", "lessons", "transmissions", "generals")
+
+# Fixed interior keep-out volumes used by the graybox's coarse AABB clearance gate.
+BASE_INTERIOR_COLLISION_BOXES = (
+    ("base/interior-core", (-0.080, -0.080, 0.052), (0.080, 0.080, 0.095)),
+    ("base/interior-north-rail", (-0.035, 0.080, 0.052), (0.035, 0.160, 0.095)),
+    ("base/interior-south-rail", (-0.035, -0.160, 0.052), (0.035, -0.080, 0.095)),
+    ("base/interior-east-rail", (0.080, -0.035, 0.052), (0.160, 0.035, 0.095)),
+    ("base/interior-west-rail", (-0.160, -0.035, 0.052), (-0.080, 0.035, 0.095)),
+)
