@@ -1,5 +1,5 @@
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
-import type { CourseSession, RuleStageId } from "./types";
+import type { CourseSession, HeavenlyStem, RuleStageId } from "./types";
 import {
   CALENDAR_SNAPSHOT_RULE_ID,
   calendarResultSource,
@@ -23,6 +23,12 @@ import {
   matchesThreeTransmissionsInputs,
   threeTransmissionsResultSource,
 } from "../three-transmissions/result-guard";
+import {
+  HEAVENLY_GENERALS_SNAPSHOT_RULE_ID,
+  heavenlyGeneralsResultSource,
+  isHeavenlyGeneralsResult,
+  matchesHeavenlyGeneralsInputs,
+} from "../heavenly-generals/result-guard";
 
 export function validateSession(session: CourseSession): readonly string[] {
   const errors: string[] = [];
@@ -103,6 +109,35 @@ export function validateSession(session: CourseSession): readonly string[] {
           if (!matchesThreeTransmissionsInputs(snapshot.value, plate.value, fourLessons.value)) {
             errors.push("three-transmissions 与生效天地盘或四课不一致");
           }
+        }
+      }
+    }
+    if (stage === "heavenly-generals") {
+      if (!isHeavenlyGeneralsResult(snapshot.value)) {
+        errors.push("heavenly-generals 快照结果无效");
+      } else {
+        if (snapshot.ruleId !== HEAVENLY_GENERALS_SNAPSHOT_RULE_ID) {
+          errors.push("heavenly-generals 快照规则编号无效");
+        }
+        const calendar = session.snapshots.calendar;
+        const plate = session.snapshots["heaven-earth"];
+        const fourLessons = session.snapshots["four-lessons"];
+        const transmissions = session.snapshots["three-transmissions"];
+        if (isCalendarSnapshot(calendar)
+          && plate && isHeavenEarthResult(plate.value)
+          && fourLessons && isFourLessonsResult(fourLessons.value)
+          && transmissions && isThreeTransmissionsResult(transmissions.value)) {
+          const expectedSource = heavenlyGeneralsResultSource(calendar.value, plate.source);
+          if (snapshot.source !== expectedSource) {
+            errors.push(`heavenly-generals 快照来源无效，应为 ${expectedSource}`);
+          }
+          const dayStem = calendar.value.pillars.day.effective[0] as HeavenlyStem;
+          if (!matchesHeavenlyGeneralsInputs(
+            snapshot.value,
+            dayStem,
+            calendar.value.divinationHour.effective,
+            plate.value,
+          )) errors.push("heavenly-generals 与生效日干、占时或天地盘不一致");
         }
       }
     }

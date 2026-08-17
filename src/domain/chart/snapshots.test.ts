@@ -7,6 +7,7 @@ import { isHeavenEarthResult } from "../heaven-earth/result-guard";
 import { deriveFourLessons } from "../four-lessons/policy";
 import type { ThreeTransmissionsSnapshot } from "../three-transmissions/types";
 import { deriveThreeTransmissions } from "../three-transmissions/policy";
+import { deriveHeavenlyGenerals } from "../heavenly-generals/policy";
 
 describe("rule stage metadata", () => {
   it("requires both direct four-lessons dependencies", () => {
@@ -49,6 +50,36 @@ it("rejects a snapshot whose stage does not match its key", () => {
   } as unknown as typeof referenceSession;
 
   expect(validateSession(broken)).toContain("calendar 快照阶段与键不一致: course");
+});
+
+it("accepts the complete real reference session", () => {
+  expect(validateSession(referenceSession)).toEqual([]);
+});
+
+it("rejects forged heavenly-generals metadata", () => {
+  const broken = structuredClone(referenceSession);
+  broken.snapshots["heavenly-generals"]!.ruleId = "heavenly-generals/forged-v1";
+  expect(validateSession(broken)).toContain("heavenly-generals 快照规则编号无效");
+});
+
+it("rejects heavenly generals copied from another plate", () => {
+  const broken = structuredClone(referenceSession);
+  const otherCalendar = structuredClone(referenceSession.snapshots.calendar!.value);
+  otherCalendar.divinationHour.effective = "丑";
+  otherCalendar.divinationHour.source = "manual";
+  const otherPlate = deriveHeavenEarth(otherCalendar);
+  broken.snapshots["heavenly-generals"]!.value = deriveHeavenlyGenerals(
+    "辛",
+    otherCalendar.divinationHour.effective,
+    otherPlate,
+  );
+  expect(validateSession(broken)).toContain("heavenly-generals 与生效日干、占时或天地盘不一致");
+});
+
+it("removes heavenly-generals and course when three transmissions change", () => {
+  const next = invalidateFrom(referenceSession, "three-transmissions");
+  expect(next.snapshots["heavenly-generals"]).toBeUndefined();
+  expect(next.snapshots.course).toBeUndefined();
 });
 
 it.each([

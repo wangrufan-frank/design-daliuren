@@ -1,5 +1,5 @@
 import type { CalendarSnapshot } from "../domain/calendar/types";
-import type { CourseInput, CourseResult, CourseSession, RuleStageId, RuleSnapshot } from "../domain/chart/types";
+import type { CourseInput, CourseResult, CourseSession, HeavenlyStem, RuleStageId, RuleSnapshot } from "../domain/chart/types";
 import { stageDependencies } from "../domain/chart/stages";
 import { deriveHeavenEarth } from "../domain/heaven-earth/policy";
 import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
@@ -8,6 +8,12 @@ import type { FourLessonsSnapshot } from "../domain/four-lessons/types";
 import { deriveThreeTransmissions } from "../domain/three-transmissions/policy";
 import { THREE_TRANSMISSIONS_SNAPSHOT_RULE_ID } from "../domain/three-transmissions/result-guard";
 import type { ThreeTransmissionsSnapshot } from "../domain/three-transmissions/types";
+import { deriveHeavenlyGenerals } from "../domain/heavenly-generals/policy";
+import {
+  HEAVENLY_GENERALS_SNAPSHOT_RULE_ID,
+  heavenlyGeneralsResultSource,
+} from "../domain/heavenly-generals/result-guard";
+import type { HeavenlyGeneralsSnapshot } from "../domain/heavenly-generals/types";
 
 function snapshot<Stage extends RuleStageId>(stage: Stage, value: unknown): RuleSnapshot<unknown, Stage> {
   return { stage, dependsOn: stageDependencies[stage], ruleId: "reference-layout-only", source: "manual", value };
@@ -164,6 +170,18 @@ const threeTransmissionsSnapshot = {
   value: deriveThreeTransmissions(heavenEarthSnapshot.value, fourLessonsSnapshot.value),
 } as const satisfies ThreeTransmissionsSnapshot;
 
+const heavenlyGeneralsSnapshot = {
+  stage: "heavenly-generals",
+  dependsOn: ["calendar", "heaven-earth", "three-transmissions"],
+  ruleId: HEAVENLY_GENERALS_SNAPSHOT_RULE_ID,
+  source: heavenlyGeneralsResultSource(calendarSnapshot.value, heavenEarthSnapshot.source),
+  value: deriveHeavenlyGenerals(
+    calendarSnapshot.value.pillars.day.effective[0] as HeavenlyStem,
+    calendarSnapshot.value.divinationHour.effective,
+    heavenEarthSnapshot.value,
+  ),
+} as const satisfies HeavenlyGeneralsSnapshot;
+
 export const referenceSession: CourseSession = {
   input: referenceInput,
   snapshots: {
@@ -171,7 +189,7 @@ export const referenceSession: CourseSession = {
     "heaven-earth": heavenEarthSnapshot,
     "four-lessons": fourLessonsSnapshot,
     "three-transmissions": threeTransmissionsSnapshot,
-    "heavenly-generals": snapshot("heavenly-generals", { count: 12 }),
+    "heavenly-generals": heavenlyGeneralsSnapshot,
     course: snapshot("course", {
       lessonType: "时课排盘",
       transmissions: [
