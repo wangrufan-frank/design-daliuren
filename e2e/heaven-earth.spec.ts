@@ -172,7 +172,7 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
 
   const rail = page.getByRole("list", { name: "传统规则阶段" });
   const stageButtons = rail.getByRole("button");
-  await expect(stageButtons).toHaveCount(5);
+  await expect(stageButtons).toHaveCount(6);
 
   const resetStyles = await stageButtons.evaluateAll((buttons) => buttons.map((button) => {
     const style = getComputedStyle(button);

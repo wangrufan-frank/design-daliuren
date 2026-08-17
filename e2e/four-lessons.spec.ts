@@ -51,7 +51,7 @@ for (const viewport of VIEWPORTS) {
     await context.setOffline(true);
     isOffline = true;
     await submitOrdinaryInput(page);
-    await page.getByRole("button", { name: "查看四课" }).click();
+    await page.getByRole("button", { name: "四课生成，已完成" }).click();
 
     const review = page.getByRole("region", { name: "四课生成" });
     const list = review.getByRole("list", { name: "四课课体" });
@@ -107,7 +107,7 @@ for (const viewport of VIEWPORTS) {
 
     await expect(page.getByRole("button", { name: "四课生成，已完成" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("button", { name: "天将排列，已完成" })).toHaveAttribute("data-status", "completed");
-    await expect(page.getByText("复制结课", { exact: true })).toHaveAttribute("data-status", "current");
+    await expect(page.getByRole("button", { name: "复制结课，已完成" })).toHaveAttribute("data-status", "completed");
     const listOverflow = await list.evaluate((element) => {
       const { left, right } = element.getBoundingClientRect();
       return { clientWidth: element.clientWidth, left, right, scrollWidth: element.scrollWidth };
