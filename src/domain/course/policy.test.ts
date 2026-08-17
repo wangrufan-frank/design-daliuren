@@ -50,6 +50,12 @@ describe("deriveCourse", () => {
     expect(serializeCourseText(derive())).toBe(serializeCourseText(derive()));
   });
 
+  it("keeps lesson projection keys limited to the public course contract", () => {
+    const result = derive();
+    expect(Object.keys(result.lessons[0]).sort()).toEqual(["general", "id", "label", "lower", "upper"]);
+    expect(result.lessons.every((lesson) => !("lookupEarth" in lesson))).toBe(true);
+  });
+
   it("serializes stable segmented plain text with LF line endings", () => {
     const result = derive();
     const text = serializeCourseText(result);

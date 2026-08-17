@@ -57,7 +57,13 @@ export function deriveCourse(
       lessons: COURSE_LESSON_ORDER.map((id) => {
         const lesson = lessonsById.get(id);
         if (!lesson) throw new CourseProjectionError(`四课结果缺少${id}`);
-        return { ...lesson, general: generalForHeaven(generals, lesson.upper) };
+        return {
+          id: lesson.id,
+          label: lesson.label,
+          upper: lesson.upper,
+          lower: lesson.lower,
+          general: generalForHeaven(generals, lesson.upper),
+        };
       }),
       palaces: COURSE_PALACE_ORDER.map((earth) => {
         const placement = placementsByEarth.get(earth);
