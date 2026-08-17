@@ -3,10 +3,13 @@ import unittest
 from pathlib import Path
 
 import bpy
+from bpy_extras.object_utils import world_to_camera_view
+from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_graybox
+from poses import apply_pose
 from render_graybox_review import build_review_scene
 
 
@@ -104,6 +107,54 @@ class ReviewSceneTest(unittest.TestCase):
         self.assertTrue(
             all("node_id" not in bpy.data.objects[name] for name in CAMERA_NAMES | LIGHT_NAMES)
         )
+
+    def test_mechanism_camera_frames_the_bridge_side_lessons_and_center_plate(self):
+        build_review_scene()
+        apply_pose("generals", plate_offset=5, general_direction="reverse")
+        scene = bpy.context.scene
+        camera = bpy.data.objects["review/mechanism"]
+
+        projected_bounds = {}
+        for object_name in (
+            "transmission/bridge/body",
+            "lesson/third/body",
+            "lesson/second/body",
+            "plate/heaven",
+        ):
+            obj = bpy.data.objects[object_name]
+            coordinates = [
+                world_to_camera_view(scene, camera, obj.matrix_world @ Vector(corner))
+                for corner in obj.bound_box
+            ]
+            self.assertTrue(all(coordinate.z > 0.0 for coordinate in coordinates))
+            projected_bounds[object_name] = (
+                min(coordinate.x for coordinate in coordinates),
+                max(coordinate.x for coordinate in coordinates),
+                min(coordinate.y for coordinate in coordinates),
+                max(coordinate.y for coordinate in coordinates),
+            )
+
+        for object_name in (
+            "transmission/bridge/body",
+            "lesson/third/body",
+            "lesson/second/body",
+        ):
+            minimum_x, maximum_x, minimum_y, maximum_y = projected_bounds[object_name]
+            with self.subTest(object_name=object_name):
+                self.assertGreaterEqual(minimum_x, 0.04)
+                self.assertLessEqual(maximum_x, 0.96)
+                self.assertGreaterEqual(minimum_y, 0.05)
+                self.assertLessEqual(maximum_y, 0.95)
+
+        plate_minimum_x, plate_maximum_x, plate_minimum_y, plate_maximum_y = projected_bounds[
+            "plate/heaven"
+        ]
+        self.assertGreaterEqual(plate_minimum_x, 0.0)
+        self.assertLessEqual(plate_maximum_x, 1.0)
+        self.assertGreaterEqual(plate_minimum_y, 0.0)
+        self.assertLessEqual(plate_maximum_y, 1.0)
+        self.assertGreaterEqual(plate_maximum_x - plate_minimum_x, 0.25)
+        self.assertLessEqual(plate_maximum_x - plate_minimum_x, 0.70)
 
 
 if __name__ == "__main__":

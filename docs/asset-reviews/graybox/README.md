@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | `overall.png` | 左 `closed` / 右 `generals` | 闭合与完全展开的同图对照 |
 | `oblique.png` | `generals` | 四课抽屉、十二将与天地盘层级 |
-| `mechanism.png` | `generals` | 中央盘体、滑动件和机械间隙特写 |
+| `mechanism.png` | `generals` | 正面工程视角：三传桥架、左右课位滑轨与中央盘边缘间隙 |
 | `top.png` | `generals` | 四课、三传、十二将与中心盘的完整平面关系 |
 
 ## 阶段结论
@@ -25,7 +25,7 @@
 | 检查项 | 结论 | 观察 |
 | --- | --- | --- |
 | Silhouette | PASS | `closed` 状态的物理几何保持在方形底座包络内；分屏对照可清楚区分闭合与展开轮廓。 |
-| Mechanism clearance | PASS | `generals` 状态下四课抽屉、三传桥架和十二将升起件未见相互穿插；底座内部碰撞盒另由姿态测试覆盖。 |
+| Mechanism clearance | PASS | 正面工程视图同时显示三传桥架、左右课位滑轨和中央盘边缘，关键接缝均可辨且未见相互穿插；底座内部碰撞盒另由姿态测试覆盖。 |
 | Component hierarchy | PASS | 顶视图可区分中央天地盘、四组双层课位、三枚传位和环形十二将；斜视图补充确认垂直层级。 |
 | Inscription space | PASS | 天盘中央、历史固定环、四课读数面与三传模块均保留连续平面；审阅场景未嵌入动态课例文字。 |
 
