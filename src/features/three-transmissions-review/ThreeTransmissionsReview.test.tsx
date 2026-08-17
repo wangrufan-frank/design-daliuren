@@ -3,10 +3,13 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ThreeTransmissionsResult } from "../../domain/three-transmissions/types";
+import { generalForHeaven } from "../../domain/heavenly-generals/policy";
+import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/types";
 import { referenceSession } from "../../test/reference-session";
 import { ThreeTransmissionsReview } from "./ThreeTransmissionsReview";
 
 const result = referenceSession.snapshots["three-transmissions"]!.value as ThreeTransmissionsResult;
+const generals = referenceSession.snapshots["heavenly-generals"]!.value as HeavenlyGeneralsResult;
 const sheHaiResult = {
   dayPillar: "庚子",
   plateOffset: 2,
@@ -60,6 +63,31 @@ const sheHaiResult = {
 afterEach(cleanup);
 
 describe("ThreeTransmissionsReview", () => {
+  it("uses the supplied heavenly-generals snapshot in every transmission accessible name", () => {
+    render(
+      <ThreeTransmissionsReview
+        result={result}
+        generals={generals}
+        onReviewFourLessons={vi.fn()}
+        onReviewHeavenEarth={vi.fn()}
+      />,
+    );
+
+    for (const transmission of result.transmissions) {
+      expect(screen.getByRole("button", {
+        name: `${transmission.label}，${transmission.branch}，${transmission.relation}，天将${generalForHeaven(generals, transmission.branch)}`,
+      })).toBeVisible();
+    }
+  });
+
+  it("keeps the pre-stage placeholder when no heavenly-generals snapshot is supplied", () => {
+    render(
+      <ThreeTransmissionsReview result={result} onReviewFourLessons={vi.fn()} onReviewHeavenEarth={vi.fn()} />,
+    );
+
+    expect(screen.getAllByText("待天将加临")).toHaveLength(3);
+  });
+
   it("renders the traditional initial-middle-final review structure", () => {
     render(
       <ThreeTransmissionsReview

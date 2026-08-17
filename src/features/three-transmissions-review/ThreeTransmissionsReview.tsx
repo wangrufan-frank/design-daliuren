@@ -1,8 +1,11 @@
 import { useRef, useState } from "react";
 import type { ThreeTransmissionsResult, TransmissionPosition } from "../../domain/three-transmissions/types";
+import { generalForHeaven } from "../../domain/heavenly-generals/policy";
+import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/types";
 
 interface ThreeTransmissionsReviewProps {
   result: ThreeTransmissionsResult;
+  generals?: HeavenlyGeneralsResult;
   onReviewFourLessons: () => void;
   onReviewHeavenEarth: () => void;
 }
@@ -11,6 +14,7 @@ const SHARED_EVIDENCE_PHASES = new Set(["plate", "lessons", "candidates", "selec
 
 export function ThreeTransmissionsReview({
   result,
+  generals,
   onReviewFourLessons,
   onReviewHeavenEarth,
 }: ThreeTransmissionsReviewProps) {
@@ -47,27 +51,30 @@ export function ThreeTransmissionsReview({
       </header>
       <div className="three-transmissions-review__results-region">
         <ol className="three-transmissions-review__transmissions" aria-label="三传">
-          {result.transmissions.map((transmission, index) => (
-            <li key={transmission.position}>
-              <button
-                ref={(button) => { buttonRefs.current[index] = button; }}
-                type="button"
-                className="three-transmissions-review__transmission"
-                data-transmission={transmission.position}
-                aria-pressed={selectedPosition === transmission.position}
-                aria-expanded={evidenceOpen && selectedPosition === transmission.position}
-                aria-controls="three-transmissions-evidence"
-                aria-label={`${transmission.label}，${transmission.branch}，${transmission.relation}，天将待加临`}
-                onClick={(event) => selectTransmission(transmission.position, event.currentTarget)}
-              >
-                <span>待天将加临</span>
-                <strong>{transmission.branch}</strong>
-                <small>{transmission.label}</small>
-                <em>{transmission.relation}</em>
-                <p>{transmission.derivation}</p>
-              </button>
-            </li>
-          ))}
+          {result.transmissions.map((transmission, index) => {
+            const general = generals ? generalForHeaven(generals, transmission.branch) : "待天将加临";
+            return (
+              <li key={transmission.position}>
+                <button
+                  ref={(button) => { buttonRefs.current[index] = button; }}
+                  type="button"
+                  className="three-transmissions-review__transmission"
+                  data-transmission={transmission.position}
+                  aria-pressed={selectedPosition === transmission.position}
+                  aria-expanded={evidenceOpen && selectedPosition === transmission.position}
+                  aria-controls="three-transmissions-evidence"
+                  aria-label={`${transmission.label}，${transmission.branch}，${transmission.relation}，天将${general}`}
+                  onClick={(event) => selectTransmission(transmission.position, event.currentTarget)}
+                >
+                  <span>{general}</span>
+                  <strong>{transmission.branch}</strong>
+                  <small>{transmission.label}</small>
+                  <em>{transmission.relation}</em>
+                  <p>{transmission.derivation}</p>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       </div>
       <aside

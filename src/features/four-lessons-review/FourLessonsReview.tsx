@@ -1,15 +1,18 @@
 import { useRef, useState } from "react";
 import type { FourLessonId, FourLessonsResult } from "../../domain/four-lessons/types";
+import { generalForHeaven } from "../../domain/heavenly-generals/policy";
+import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/types";
 
 const VISUAL_LESSON_ORDER = ["fourth", "third", "second", "first"] as const;
 
 interface FourLessonsReviewProps {
   result: FourLessonsResult;
+  generals?: HeavenlyGeneralsResult;
   onReviewCalendar: () => void;
   onReviewHeavenEarth: () => void;
 }
 
-export function FourLessonsReview({ result, onReviewCalendar, onReviewHeavenEarth }: FourLessonsReviewProps) {
+export function FourLessonsReview({ result, generals, onReviewCalendar, onReviewHeavenEarth }: FourLessonsReviewProps) {
   const [selectedLesson, setSelectedLesson] = useState<FourLessonId>("first");
   const [evidenceOpen, setEvidenceOpen] = useState(true);
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -35,25 +38,28 @@ export function FourLessonsReview({ result, onReviewCalendar, onReviewHeavenEart
       <div className="four-lessons-review__lessons-region">
         <p className="four-lessons-review__orientation">从左至右：四、三、二、一课</p>
         <ul className="four-lessons-review__lessons" aria-label="四课课体">
-          {lessons.map((lesson, index) => (
-            <li key={lesson.id}>
-              <button
-                ref={(button) => { buttonRefs.current[index] = button; }}
-                type="button"
-                className="four-lessons-review__lesson"
-                data-lesson={lesson.id}
-                aria-pressed={selectedLesson === lesson.id}
-                aria-controls="four-lessons-evidence"
-                aria-label={`${lesson.label}，上神${lesson.upper}，下神${lesson.lower.value}，天将待加临`}
-                onClick={(event) => selectLesson(lesson.id, event.currentTarget)}
-              >
-                <span className="four-lessons-review__general">待天将加临</span>
-                <strong>{lesson.upper}</strong>
-                <span className="four-lessons-review__lower">{lesson.lower.value}</span>
-                <small>{lesson.label}</small>
-              </button>
-            </li>
-          ))}
+          {lessons.map((lesson, index) => {
+            const general = generals ? generalForHeaven(generals, lesson.upper) : "待天将加临";
+            return (
+              <li key={lesson.id}>
+                <button
+                  ref={(button) => { buttonRefs.current[index] = button; }}
+                  type="button"
+                  className="four-lessons-review__lesson"
+                  data-lesson={lesson.id}
+                  aria-pressed={selectedLesson === lesson.id}
+                  aria-controls="four-lessons-evidence"
+                  aria-label={`${lesson.label}，上神${lesson.upper}，下神${lesson.lower.value}，天将${general}`}
+                  onClick={(event) => selectLesson(lesson.id, event.currentTarget)}
+                >
+                  <span className="four-lessons-review__general">{general}</span>
+                  <strong>{lesson.upper}</strong>
+                  <span className="four-lessons-review__lower">{lesson.lower.value}</span>
+                  <small>{lesson.label}</small>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
 

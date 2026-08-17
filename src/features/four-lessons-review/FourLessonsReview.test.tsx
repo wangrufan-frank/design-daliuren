@@ -3,14 +3,40 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FourLessonsResult } from "../../domain/four-lessons/types";
+import { generalForHeaven } from "../../domain/heavenly-generals/policy";
+import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/types";
 import { referenceSession } from "../../test/reference-session";
 import { FourLessonsReview } from "./FourLessonsReview";
 
 const result = referenceSession.snapshots["four-lessons"]!.value as FourLessonsResult;
+const generals = referenceSession.snapshots["heavenly-generals"]!.value as HeavenlyGeneralsResult;
 
 afterEach(cleanup);
 
 describe("FourLessonsReview", () => {
+  it("uses the supplied heavenly-generals snapshot in every lesson accessible name", () => {
+    render(
+      <FourLessonsReview
+        result={result}
+        generals={generals}
+        onReviewCalendar={vi.fn()}
+        onReviewHeavenEarth={vi.fn()}
+      />,
+    );
+
+    for (const lesson of result.lessons) {
+      expect(screen.getByRole("button", {
+        name: `${lesson.label}，上神${lesson.upper}，下神${lesson.lower.value}，天将${generalForHeaven(generals, lesson.upper)}`,
+      })).toBeVisible();
+    }
+  });
+
+  it("keeps the pre-stage placeholder when no heavenly-generals snapshot is supplied", () => {
+    render(<FourLessonsReview result={result} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
+
+    expect(screen.getAllByText("待天将加临")).toHaveLength(4);
+  });
+
   it("renders four vertical cards in traditional visual order", () => {
     render(<FourLessonsReview result={result} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
     const list = screen.getByRole("list", { name: "四课课体" });
