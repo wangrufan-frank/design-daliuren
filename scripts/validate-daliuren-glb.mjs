@@ -65,7 +65,10 @@ function validateDynamicProperty(property, contract) {
   const errors = [];
   const name = property.getName?.() || "(unnamed)";
   const extras = property.getExtras?.() ?? {};
-  if ((contract.allowedFixedRoles ?? []).includes(extras.role)) return errors;
+  const isAllowedFixedReference = (contract.allowedFixedReferences ?? []).includes(name)
+    && (contract.allowedFixedRoles ?? []).includes(extras.role)
+    && !Object.hasOwn(extras, "node_id");
+  if (isAllowedFixedReference) return errors;
 
   const forbiddenKeys = new Set(contract.forbiddenDynamicKeys ?? []);
   const patterns = (contract.forbiddenDynamicPatterns ?? []).map(

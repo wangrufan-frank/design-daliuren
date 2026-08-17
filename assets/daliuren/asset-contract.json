@@ -76,6 +76,9 @@
   "allowedFixedRoles": [
     "fixed-historical-inscription"
   ],
+  "allowedFixedReferences": [
+    "reference/historical-ring"
+  ],
   "forbiddenDynamicPatterns": [
     "(?:日干|日支|月将|占时|初传|中传|末传|空亡)[：:][甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]{1,4}$"
   ]

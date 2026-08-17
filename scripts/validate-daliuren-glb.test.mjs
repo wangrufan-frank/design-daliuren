@@ -13,6 +13,7 @@ const BASE_CONTRACT = {
   triangleBudget: { min: 0, max: 100 },
   forbiddenDynamicKeys: ["初传", "courseValue"],
   allowedFixedRoles: ["fixed-historical-inscription"],
+  allowedFixedReferences: ["reference/historical-ring"],
   forbiddenDynamicPatterns: [
     "(?:日干|日支|月将|占时|初传|中传|末传|空亡)[：:][甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]{1,4}$",
   ],
@@ -40,6 +41,7 @@ test("asset contract freezes the 28 runtime ids and six pose ids", () => {
   ]);
   assert.deepEqual(ASSET_CONTRACT.triangleBudget, { min: 7000, max: 10000 });
   assert.deepEqual(ASSET_CONTRACT.allowedFixedRoles, ["fixed-historical-inscription"]);
+  assert.deepEqual(ASSET_CONTRACT.allowedFixedReferences, ["reference/historical-ring"]);
   assert.deepEqual(ASSET_CONTRACT.forbiddenDynamicKeys, [
     "日干", "日支", "月将", "占时", "初传", "中传", "末传", "空亡",
     "dayStem", "dayBranch", "monthGeneral", "divinationHour", "initialTransmission",
@@ -196,16 +198,35 @@ test("rejects structured dynamic fields and formatted values without blocking fi
     { name: "heaven", extras: { node_id: "plate/heaven" } },
   ]);
   const fixedReference = fakeDocument([
+    { name: "root", extras: { node_id: "artifact/root" } },
+    { name: "heaven", extras: { node_id: "plate/heaven" } },
     {
-      name: "reference/example",
+      name: "reference/historical-ring",
       extras: {
-        node_id: "artifact/root",
         role: "fixed-historical-inscription",
         初传: "寅",
         caption: "甲子日例 初传寅位",
       },
     },
+  ]);
+  const runtimeImpostor = fakeDocument([
+    {
+      name: "root",
+      extras: {
+        node_id: "artifact/root",
+        role: "fixed-historical-inscription",
+        初传: "寅",
+      },
+    },
     { name: "heaven", extras: { node_id: "plate/heaven" } },
+  ]);
+  const unknownReference = fakeDocument([
+    { name: "root", extras: { node_id: "artifact/root" } },
+    { name: "heaven", extras: { node_id: "plate/heaven" } },
+    {
+      name: "reference/unapproved",
+      extras: { role: "fixed-historical-inscription", 初传: "寅" },
+    },
   ]);
   const chineseKey = fakeDocument([
     { name: "root", extras: { node_id: "artifact/root", 初传: "寅" } },
@@ -222,6 +243,12 @@ test("rejects structured dynamic fields and formatted values without blocking fi
 
   assert.deepEqual(validateArtifactDocument(fixedLabel, BASE_CONTRACT), []);
   assert.deepEqual(validateArtifactDocument(fixedReference, BASE_CONTRACT), []);
+  assert.deepEqual(validateArtifactDocument(runtimeImpostor, BASE_CONTRACT), [
+    "forbidden dynamic key: root.extras.初传",
+  ]);
+  assert.deepEqual(validateArtifactDocument(unknownReference, BASE_CONTRACT), [
+    "forbidden dynamic key: reference/unapproved.extras.初传",
+  ]);
   assert.deepEqual(validateArtifactDocument(chineseKey, BASE_CONTRACT), [
     "forbidden dynamic key: root.extras.初传",
   ]);
