@@ -15,6 +15,10 @@ import { CourseInputForm } from "../features/course-input/CourseInputForm";
 import { isFourLessonsResult, runFourLessonsStage } from "../domain/four-lessons/compute-four-lessons";
 import type { FourLessonsStageOutcome } from "../domain/four-lessons/types";
 import { FourLessonsReview } from "../features/four-lessons-review/FourLessonsReview";
+import { runHeavenlyGeneralsStage } from "../domain/heavenly-generals/compute-heavenly-generals";
+import { isHeavenlyGeneralsResult } from "../domain/heavenly-generals/result-guard";
+import type { HeavenlyGeneralsStageOutcome } from "../domain/heavenly-generals/types";
+import { HeavenlyGeneralsReview } from "../features/heavenly-generals-review/HeavenlyGeneralsReview";
 import { HeavenEarthReview } from "../features/heaven-earth-review/HeavenEarthReview";
 import { RuleStageRail } from "../features/rule-review/RuleStageRail";
 import { runThreeTransmissionsStage } from "../domain/three-transmissions/compute-three-transmissions";
@@ -25,11 +29,12 @@ import "../styles/tokens.css";
 import "../styles/global.css";
 
 const calendarAdapter = new LunarTypescriptAdapter();
-type ReviewStage = "calendar" | "heaven-earth" | "four-lessons" | "three-transmissions";
+type ReviewStage = "calendar" | "heaven-earth" | "four-lessons" | "three-transmissions" | "heavenly-generals";
 type StageError = CalendarError
   | Extract<HeavenEarthStageOutcome, { ok: false }>["error"]
   | Extract<FourLessonsStageOutcome, { ok: false }>["error"]
-  | Extract<ThreeTransmissionsStageOutcome, { ok: false }>["error"];
+  | Extract<ThreeTransmissionsStageOutcome, { ok: false }>["error"]
+  | Extract<HeavenlyGeneralsStageOutcome, { ok: false }>["error"];
 
 export function App() {
   const [session, setSession] = useState<CourseSession | null>(null);
@@ -41,10 +46,12 @@ export function App() {
   const heavenEarthResult = session?.snapshots["heaven-earth"]?.value;
   const fourLessonsResult = session?.snapshots["four-lessons"]?.value;
   const threeTransmissionsResult = session?.snapshots["three-transmissions"]?.value;
+  const heavenlyGeneralsResult = session?.snapshots["heavenly-generals"]?.value;
   const hasCalendar = isCalendarResult(calendarResult);
   const hasHeavenEarth = isHeavenEarthResult(heavenEarthResult);
   const hasFourLessons = isFourLessonsResult(fourLessonsResult);
   const hasThreeTransmissions = isThreeTransmissionsResult(threeTransmissionsResult);
+  const hasHeavenlyGenerals = isHeavenlyGeneralsResult(heavenlyGeneralsResult);
 
   function replaceFrom(nextSession: CourseSession) {
     const calendarOutcome = runCalendarStage(nextSession, calendarAdapter);
@@ -75,8 +82,15 @@ export function App() {
       setStageError(transmissionsOutcome.error);
       return;
     }
-    setSession(transmissionsOutcome.session);
-    setReviewStage("three-transmissions");
+    const generalsOutcome = runHeavenlyGeneralsStage(transmissionsOutcome.session);
+    if (!generalsOutcome.ok) {
+      setSession(generalsOutcome.session);
+      setReviewStage("three-transmissions");
+      setStageError(generalsOutcome.error);
+      return;
+    }
+    setSession(generalsOutcome.session);
+    setReviewStage("heavenly-generals");
     setStageError(null);
   }
 
@@ -103,7 +117,10 @@ export function App() {
   if (hasHeavenEarth) completed.push("heaven-earth");
   if (hasFourLessons) completed.push("four-lessons");
   if (hasThreeTransmissions) completed.push("three-transmissions");
-  const current: RuleStageId = hasThreeTransmissions
+  if (hasHeavenlyGenerals) completed.push("heavenly-generals");
+  const current: RuleStageId = hasHeavenlyGenerals
+    ? "course"
+    : hasThreeTransmissions
     ? "heavenly-generals"
     : hasFourLessons
       ? "three-transmissions"
@@ -126,15 +143,27 @@ export function App() {
           {inputOpen && <CourseInputForm onSubmit={(input) => replaceFrom({ input, snapshots: {} })} />}
         </aside>
         <section className="app-stage" aria-live="polite">
-          {reviewStage === "three-transmissions" && hasThreeTransmissions ? (
+          {reviewStage === "heavenly-generals" && hasHeavenlyGenerals && hasFourLessons && hasThreeTransmissions ? (
+            <HeavenlyGeneralsReview
+              result={heavenlyGeneralsResult}
+              fourLessons={fourLessonsResult}
+              threeTransmissions={threeTransmissionsResult}
+              onReviewCalendar={() => setReviewStage("calendar")}
+              onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
+              onReviewFourLessons={() => setReviewStage("four-lessons")}
+              onReviewThreeTransmissions={() => setReviewStage("three-transmissions")}
+            />
+          ) : reviewStage === "three-transmissions" && hasThreeTransmissions ? (
             <ThreeTransmissionsReview
               result={threeTransmissionsResult}
+              generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
               onReviewFourLessons={() => setReviewStage("four-lessons")}
               onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
             />
           ) : reviewStage === "four-lessons" && hasFourLessons ? (
             <FourLessonsReview
               result={fourLessonsResult}
+              generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
               onReviewCalendar={() => setReviewStage("calendar")}
               onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
             />
@@ -165,7 +194,7 @@ export function App() {
               current={current}
               selected={hasCalendar ? reviewStage : undefined}
               onSelect={(stage) => {
-                if (stage === "calendar" || stage === "heaven-earth" || stage === "four-lessons" || stage === "three-transmissions") setReviewStage(stage);
+                if (stage === "calendar" || stage === "heaven-earth" || stage === "four-lessons" || stage === "three-transmissions" || stage === "heavenly-generals") setReviewStage(stage);
               }}
             />
           )}

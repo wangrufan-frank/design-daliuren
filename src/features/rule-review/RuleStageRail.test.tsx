@@ -56,3 +56,15 @@ it("keeps completed rail stages keyboard focusable for the scoped focus treatmen
   await user.tab();
   expect(threeTransmissionsStage).toHaveFocus();
 });
+
+it("exposes heavenly generals as a completed snapshot before the course stage", () => {
+  render(
+    <RuleStageRail
+      completed={["calendar", "heaven-earth", "four-lessons", "three-transmissions", "heavenly-generals"]}
+      current="course"
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: /天将排列，已完成/ })).toHaveAttribute("data-status", "completed");
+  expect(screen.getByText("复制结课")).toHaveAttribute("data-status", "current");
+});
