@@ -1,6 +1,9 @@
 import type { CalendarSnapshot } from "../domain/calendar/types";
-import type { CourseInput, CourseResult, CourseSession, HeavenlyStem, RuleStageId, RuleSnapshot } from "../domain/chart/types";
+import type { CourseInput, CourseSession, HeavenlyStem } from "../domain/chart/types";
 import { stageDependencies } from "../domain/chart/stages";
+import { deriveCourse } from "../domain/course/policy";
+import { COURSE_SNAPSHOT_RULE_ID, courseResultSource } from "../domain/course/result-guard";
+import type { CourseSnapshot } from "../domain/course/types";
 import { deriveHeavenEarth } from "../domain/heaven-earth/policy";
 import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
 import { deriveFourLessons, FOUR_LESSONS_RULE_ID } from "../domain/four-lessons/policy";
@@ -14,10 +17,6 @@ import {
   heavenlyGeneralsResultSource,
 } from "../domain/heavenly-generals/result-guard";
 import type { HeavenlyGeneralsSnapshot } from "../domain/heavenly-generals/types";
-
-function snapshot<Stage extends RuleStageId>(stage: Stage, value: unknown): RuleSnapshot<unknown, Stage> {
-  return { stage, dependsOn: stageDependencies[stage], ruleId: "reference-layout-only", source: "manual", value };
-}
 
 const referenceInput: CourseInput = {
   civilDateTime: "2026-08-14T23:57:00",
@@ -182,6 +181,27 @@ const heavenlyGeneralsSnapshot = {
   ),
 } as const satisfies HeavenlyGeneralsSnapshot;
 
+const courseValue = deriveCourse(
+  referenceInput.locationName,
+  calendarSnapshot.value,
+  fourLessonsSnapshot.value,
+  threeTransmissionsSnapshot.value,
+  heavenlyGeneralsSnapshot.value,
+);
+
+const courseSnapshot = {
+  stage: "course",
+  dependsOn: ["calendar", "four-lessons", "three-transmissions", "heavenly-generals"],
+  ruleId: COURSE_SNAPSHOT_RULE_ID,
+  source: courseResultSource([
+    calendarSnapshot.source,
+    fourLessonsSnapshot.source,
+    threeTransmissionsSnapshot.source,
+    heavenlyGeneralsSnapshot.source,
+  ]),
+  value: courseValue,
+} as const satisfies CourseSnapshot;
+
 export const referenceSession: CourseSession = {
   input: referenceInput,
   snapshots: {
@@ -190,28 +210,6 @@ export const referenceSession: CourseSession = {
     "four-lessons": fourLessonsSnapshot,
     "three-transmissions": threeTransmissionsSnapshot,
     "heavenly-generals": heavenlyGeneralsSnapshot,
-    course: snapshot("course", {
-      lessonType: "时课排盘",
-      transmissions: [
-        { label: "初传", value: "甲寅", relation: "妻财", general: "白虎" },
-        { label: "中传", value: "庚申", relation: "兄弟", general: "螣蛇" },
-        { label: "末传", value: "甲寅", relation: "妻财", general: "白虎" },
-      ],
-      lessons: [
-        { label: "四课", upper: "申", lower: "寅", general: "螣蛇" },
-        { label: "三课", upper: "寅", lower: "申", general: "白虎" },
-        { label: "二课", upper: "申", lower: "寅", general: "螣蛇" },
-        { label: "一课", upper: "寅", lower: "庚", general: "白虎" },
-      ],
-      palaces: [
-        { branch: "巳", heaven: "亥", general: "勾陈" }, { branch: "午", heaven: "子", general: "青龙" },
-        { branch: "未", heaven: "丑", general: "天空" }, { branch: "申", heaven: "寅", general: "白虎" },
-        { branch: "酉", heaven: "卯", general: "太常" }, { branch: "戌", heaven: "辰", general: "玄武" },
-        { branch: "亥", heaven: "巳", general: "太阴" }, { branch: "子", heaven: "午", general: "天后" },
-        { branch: "丑", heaven: "未", general: "贵人" }, { branch: "寅", heaven: "申", general: "螣蛇" },
-        { branch: "卯", heaven: "酉", general: "朱雀" }, { branch: "辰", heaven: "戌", general: "六合" },
-      ],
-      auxiliary: { 当前月将: "胜光 午", 驿马: "寅", 格局: "返吟 · 涉害" },
-    } satisfies CourseResult),
+    course: courseSnapshot,
   },
 };

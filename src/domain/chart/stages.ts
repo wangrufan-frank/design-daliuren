@@ -15,5 +15,5 @@ export const stageDependencies: Record<RuleStageId, readonly RuleStageId[]> = {
   "four-lessons": ["calendar", "heaven-earth"],
   "three-transmissions": ["heaven-earth", "four-lessons"],
   "heavenly-generals": ["calendar", "heaven-earth", "three-transmissions"],
-  course: ["four-lessons", "three-transmissions", "heavenly-generals"],
+  course: ["calendar", "four-lessons", "three-transmissions", "heavenly-generals"],
 };

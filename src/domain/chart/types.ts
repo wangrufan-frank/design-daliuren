@@ -50,11 +50,3 @@ export interface CourseSession {
   input: CourseInput;
   snapshots: RuleSnapshots;
 }
-
-export interface CourseResult {
-  lessonType: "时课排盘" | "日课排盘" | "月课排盘";
-  transmissions: readonly { label: "初传" | "中传" | "末传"; value: string; relation: string; general: string }[];
-  lessons: readonly { label: "四课" | "三课" | "二课" | "一课"; upper: string; lower: string; general: string }[];
-  palaces: readonly { branch: EarthlyBranch; heaven: EarthlyBranch; general: string }[];
-  auxiliary: Readonly<Record<string, string>>;
-}

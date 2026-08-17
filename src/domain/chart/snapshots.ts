@@ -31,6 +31,19 @@ import {
   matchesHeavenlyGeneralsInputs,
 } from "../heavenly-generals/result-guard";
 import type { HeavenlyGeneralsSnapshot } from "../heavenly-generals/types";
+import {
+  COURSE_SNAPSHOT_RULE_ID,
+  courseResultSource,
+  isCourseResult,
+  matchesCourseInputs,
+} from "../course/result-guard";
+import type { CourseSnapshot } from "../course/types";
+
+function dependenciesEqual(actual: unknown, expected: readonly RuleStageId[]): boolean {
+  return Array.isArray(actual)
+    && actual.length === expected.length
+    && actual.every((dependency, index) => dependency === expected[index]);
+}
 
 export function isHeavenlyGeneralsSnapshotForCurrentInputs(
   snapshot: RuleSnapshot<unknown, "heavenly-generals"> | undefined,
@@ -40,9 +53,7 @@ export function isHeavenlyGeneralsSnapshotForCurrentInputs(
   const expectedDependencies = stageDependencies["heavenly-generals"];
   if (!snapshot
     || snapshot.stage !== "heavenly-generals"
-    || !Array.isArray(snapshot.dependsOn)
-    || snapshot.dependsOn.length !== expectedDependencies.length
-    || snapshot.dependsOn.some((dependency, index) => dependency !== expectedDependencies[index])
+    || !dependenciesEqual(snapshot.dependsOn, expectedDependencies)
     || snapshot.ruleId !== HEAVENLY_GENERALS_SNAPSHOT_RULE_ID
     || !isCalendarSnapshot(calendar)
     || !plate
@@ -55,6 +66,30 @@ export function isHeavenlyGeneralsSnapshotForCurrentInputs(
     dayStem,
     calendar.value.divinationHour.effective,
     plate.value,
+  );
+}
+
+export function isCourseSnapshotForCurrentInputs(
+  snapshot: RuleSnapshot<unknown, "course"> | undefined,
+  locationName: string | undefined,
+  calendar: CalendarSnapshot | undefined,
+  lessons: RuleSnapshot<unknown, "four-lessons"> | undefined,
+  transmissions: RuleSnapshot<unknown, "three-transmissions"> | undefined,
+  generals: RuleSnapshot<unknown, "heavenly-generals"> | undefined,
+): snapshot is CourseSnapshot {
+  return Boolean(
+    snapshot
+    && locationName !== undefined
+    && snapshot.stage === "course"
+    && dependenciesEqual(snapshot.dependsOn, stageDependencies.course)
+    && snapshot.ruleId === COURSE_SNAPSHOT_RULE_ID
+    && isCalendarSnapshot(calendar)
+    && lessons && isFourLessonsResult(lessons.value)
+    && transmissions && isThreeTransmissionsResult(transmissions.value)
+    && generals && isHeavenlyGeneralsResult(generals.value)
+    && snapshot.source === courseResultSource([calendar.source, lessons.source, transmissions.source, generals.source])
+    && isCourseResult(snapshot.value)
+    && matchesCourseInputs(snapshot.value, locationName, calendar.value, lessons.value, transmissions.value, generals.value)
   );
 }
 
@@ -169,12 +204,43 @@ export function validateSession(session: CourseSession): readonly string[] {
         }
       }
     }
+    if (stage === "course") {
+      if (!isCourseResult(snapshot.value)) {
+        errors.push("course 快照结果无效");
+      } else {
+        if (snapshot.ruleId !== COURSE_SNAPSHOT_RULE_ID) {
+          errors.push("course 快照规则编号无效");
+        }
+        const calendar = session.snapshots.calendar;
+        const lessons = session.snapshots["four-lessons"];
+        const transmissions = session.snapshots["three-transmissions"];
+        const generals = session.snapshots["heavenly-generals"];
+        if (isCalendarSnapshot(calendar)
+          && lessons && isFourLessonsResult(lessons.value)
+          && transmissions && isThreeTransmissionsResult(transmissions.value)
+          && generals && isHeavenlyGeneralsResult(generals.value)) {
+          const expectedSource = courseResultSource([
+            calendar.source,
+            lessons.source,
+            transmissions.source,
+            generals.source,
+          ]);
+          if (snapshot.source !== expectedSource) {
+            errors.push(`course 快照来源无效，应为 ${expectedSource}`);
+          }
+          if (!matchesCourseInputs(
+            snapshot.value,
+            session.input.locationName,
+            calendar.value,
+            lessons.value,
+            transmissions.value,
+            generals.value,
+          )) errors.push("course 与当前起课输入或上游快照不一致");
+        }
+      }
+    }
     const expectedDependencies = stageDependencies[stage];
-    if (
-      !Array.isArray(snapshot.dependsOn)
-      || snapshot.dependsOn.length !== expectedDependencies.length
-      || snapshot.dependsOn.some((dependency, index) => dependency !== expectedDependencies[index])
-    ) {
+    if (!dependenciesEqual(snapshot.dependsOn, expectedDependencies)) {
       errors.push(`${stage} 依赖声明无效，应为 ${expectedDependencies.join(", ")}`);
     }
     for (const dependency of stageDependencies[stage]) {

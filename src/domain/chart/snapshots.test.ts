@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CalendarSnapshot } from "../calendar/types";
 import type { HeavenEarthSnapshot } from "../heaven-earth/types";
 import type { HeavenlyGeneralsSnapshot } from "../heavenly-generals/types";
+import type { CourseResult } from "../course/types";
 import {
   invalidateFrom,
   isHeavenlyGeneralsSnapshotForCurrentInputs,
@@ -61,6 +62,34 @@ it("rejects a snapshot whose stage does not match its key", () => {
 
 it("accepts the complete real reference session", () => {
   expect(validateSession(referenceSession)).toEqual([]);
+});
+
+it("accepts the canonical reference course and exact direct dependencies", () => {
+  expect(referenceSession.snapshots.course?.dependsOn).toEqual([
+    "calendar", "four-lessons", "three-transmissions", "heavenly-generals",
+  ]);
+  expect(validateSession(referenceSession)).toEqual([]);
+});
+
+it("rejects a structurally legal course whose relation no longer matches three transmissions", () => {
+  const snapshot = referenceSession.snapshots.course!;
+  const value = snapshot.value as CourseResult;
+  const tampered = {
+    ...referenceSession,
+    snapshots: {
+      ...referenceSession.snapshots,
+      course: {
+        ...snapshot,
+        value: {
+          ...value,
+          transmissions: value.transmissions.map((item, index) => index === 0
+            ? { ...item, relation: item.relation === "父母" ? "子孙" as const : "父母" as const }
+            : item),
+        },
+      },
+    },
+  };
+  expect(validateSession(tampered)).toContain("course 与当前起课输入或上游快照不一致");
 });
 
 it("rejects forged heavenly-generals metadata", () => {
