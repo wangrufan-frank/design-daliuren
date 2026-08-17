@@ -83,7 +83,7 @@ test("saves and reopens the graybox at the requested path", () => {
       "--background",
       output,
       "--python-expr",
-      "import bpy; assert len(bpy.data.objects) == 48; assert len([obj for obj in bpy.data.objects if 'node_id' in obj]) == 28; assert 'plate/heaven' in bpy.data.objects; assert 'general/queen-of-heaven' in bpy.data.objects; print('SAVED_BLEND_OK')",
+      "import bpy, sys; from pathlib import Path; sys.path.insert(0, str(Path.cwd() / 'tools' / 'blender')); from daliuren_contract import NODE_IDS; ids = [obj['node_id'] for obj in bpy.data.objects if 'node_id' in obj]; assert len(ids) == 28; assert len(set(ids)) == 28; assert set(ids) == set(NODE_IDS); assert 'plate/heaven' in bpy.data.objects; assert 'general/queen-of-heaven' in bpy.data.objects; print('SAVED_BLEND_OK')",
     ]);
     assert.equal(reopen.status, 0, `${reopen.stdout}\n${reopen.stderr}`);
     assert.match(reopen.stdout, /SAVED_BLEND_OK/);

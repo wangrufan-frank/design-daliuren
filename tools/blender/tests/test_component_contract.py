@@ -106,6 +106,7 @@ class ComponentContractTest(unittest.TestCase):
         self.assertEqual({obj["general_key"] for obj in generals}, set(GENERAL_KEYS))
         self.assertEqual(len({obj.name for obj in generals}), 12)
         self.assertEqual(len({obj.data.name for obj in generals}), 1)
+        self.assertEqual(len({obj.data.as_pointer() for obj in generals}), 1)
         self.assertEqual(len({id(obj) for obj in generals}), 12)
         for general in generals:
             self.assertEqual(general.parent, self.root)
@@ -127,6 +128,11 @@ class ComponentContractTest(unittest.TestCase):
             self.assertEqual(len(obj["open_location"]), 3)
             self.assertEqual(len(obj["motion_axis"]), 3)
             self.assertGreater(obj["travel_m"], 0.0)
+            expected_open_location = tuple(
+                closed + axis * obj["travel_m"]
+                for closed, axis in zip(obj["closed_location"], obj["motion_axis"])
+            )
+            self.assertVectorAlmostEqual(obj["open_location"], expected_open_location)
 
     def test_course_copy_anchors_are_logical_empties_under_artifact_root(self):
         for domain in ("lessons", "transmissions", "generals"):
