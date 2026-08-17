@@ -10,9 +10,8 @@ from build_graybox import build_graybox
 
 
 class GrayboxStructureTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.root = build_graybox()
+    def setUp(self):
+        self.root = build_graybox()
 
     def assertVectorAlmostEqual(self, actual, expected):
         self.assertEqual(len(actual), len(expected))
@@ -31,6 +30,7 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertVectorAlmostEqual(base.dimensions, (0.520, 0.520, 0.052))
         self.assertAlmostEqual(base.location.z - base.dimensions.z / 2, 0.0, places=4)
         self.assertAlmostEqual(heaven.dimensions.x, 0.380, places=4)
+        self.assertAlmostEqual(heaven.dimensions.y, 0.380, places=4)
         self.assertAlmostEqual(heaven.dimensions.z, 0.024, places=4)
 
     def test_earth_plate_is_fixed_and_heaven_plate_has_center_pivot(self):
@@ -56,6 +56,31 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertNotIn("Camera", bpy.data.objects)
         self.assertNotIn("Cube", bpy.data.objects)
         self.assertNotIn("Light", bpy.data.objects)
+
+    def test_rebuild_removes_hidden_objects_and_orphan_meshes(self):
+        stale_mesh = bpy.data.meshes.new("stale-mesh")
+        stale = bpy.data.objects["base/body"]
+        stale.hide_set(True)
+        stale.hide_render = True
+
+        self.root = build_graybox()
+
+        self.assertNotIn("base/body.001", bpy.data.objects)
+        self.assertNotIn("stale-mesh", bpy.data.meshes)
+        self.assertEqual(len(bpy.data.objects), 5)
+        self.assertEqual(len(bpy.data.meshes), 4)
+
+    def test_scene_contains_only_task_3_objects(self):
+        self.assertEqual(
+            set(bpy.data.objects.keys()),
+            {
+                "artifact/root",
+                "base/body",
+                "plate/earth",
+                "plate/heaven",
+                "reference/historical-ring",
+            },
+        )
 
 
 if __name__ == "__main__":

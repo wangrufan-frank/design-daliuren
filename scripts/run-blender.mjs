@@ -15,8 +15,16 @@ export function resolveBlenderExecutable(env = process.env, exists = existsSync)
   return found;
 }
 
+export function withPythonExitCode(args) {
+  const separator = args.indexOf("--");
+  const blenderArgs = separator === -1 ? args : args.slice(0, separator);
+  return blenderArgs.includes("--python-exit-code")
+    ? args
+    : ["--python-exit-code", "1", ...args];
+}
+
 export function runBlender(args) {
-  const result = spawnSync(resolveBlenderExecutable(), args, { stdio: "inherit" });
+  const result = spawnSync(resolveBlenderExecutable(), withPythonExitCode(args), { stdio: "inherit" });
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
