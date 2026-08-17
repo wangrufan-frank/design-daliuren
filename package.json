@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "asset:blender": "node scripts/run-blender.mjs",
     "asset:export-graybox": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py",
+    "asset:render-graybox": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/render_graybox_review.py",
     "asset:validate": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-graybox.glb assets/daliuren/asset-contract.json",
     "test:asset-runner": "node --test scripts/run-blender.test.mjs",
     "verify:calendar-sources": "node scripts/verify-calendar-cases.mjs"
