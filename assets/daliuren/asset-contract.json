@@ -36,7 +36,7 @@
     "plate/earth": [0.44, 0.01, 0.44],
     "plate/heaven": [0.38, 0.024, 0.38],
     "calendar/slip": [0.3, 0.012, 0.032],
-    "lesson/first": [0.152, 0.015, 0.1],
+    "lesson/first": [0.152, 0.008, 0.1],
     "transmission/bridge": [0.42, 0.018, 0.048],
     "general/noble": [0.024, 0.014, 0.024]
   },

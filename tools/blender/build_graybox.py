@@ -161,12 +161,19 @@ def add_lessons(root, base_height):
             (0.0, 0.0, 0.0),
         )
         for readout, local_y in (("upper", 0.024), ("lower", -0.024)):
-            add_child_box(
+            closed_location = (0.0, local_y, 0.001)
+            readout_obj = add_child_box(
                 f"{lesson_id}/readout/{readout}",
                 lesson_root,
                 (0.124, 0.034, 0.006),
-                (0.0, local_y, DIMENSIONS["lesson_readout_rise"]),
+                closed_location,
                 0.0008,
+            )
+            readout_obj["closed_location"] = closed_location
+            readout_obj["open_location"] = (
+                closed_location[0],
+                closed_location[1],
+                closed_location[2] + DIMENSIONS["lesson_readout_rise"],
             )
         new_helper_empty(
             f"{lesson_id}/socket/general",
@@ -233,6 +240,14 @@ def add_generals(root, base_height):
             closed_location,
             (0.0, 0.0, 1.0),
             DIMENSIONS["general_rise"],
+        )
+        reverse_slot = (-index) % len(GENERAL_KEYS)
+        reverse_angle = math.radians(90.0 - reverse_slot * 30.0)
+        general["open_location_forward"] = tuple(general["open_location"])
+        general["open_location_reverse"] = (
+            radius * math.cos(reverse_angle),
+            radius * math.sin(reverse_angle),
+            closed_z + DIMENSIONS["general_rise"],
         )
 
 

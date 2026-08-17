@@ -34,6 +34,35 @@ MOVING_ROOT_IDS = (
     "general/yin",
     "general/queen-of-heaven",
 )
+LESSON_KEYS = ("first", "second", "third", "fourth")
+GENERAL_KEYS = (
+    "noble",
+    "snake",
+    "vermilion-bird",
+    "harmony",
+    "hook-array",
+    "azure-dragon",
+    "void",
+    "white-tiger",
+    "constant",
+    "black-tortoise",
+    "yin",
+    "queen-of-heaven",
+)
+GENERAL_SLOT_XY = (
+    (0.0, 0.218),
+    (0.109, 0.188793),
+    (0.188793, 0.109),
+    (0.218, 0.0),
+    (0.188793, -0.109),
+    (0.109, -0.188793),
+    (0.0, -0.218),
+    (-0.109, -0.188793),
+    (-0.188793, -0.109),
+    (-0.218, 0.0),
+    (-0.188793, 0.109),
+    (-0.109, 0.188793),
+)
 
 
 def world_bounds(obj):
@@ -74,6 +103,28 @@ def source_meshes():
     ]
 
 
+def readout_locations():
+    return {
+        f"lesson/{lesson}/readout/{readout}": tuple(
+            bpy.data.objects[f"lesson/{lesson}/readout/{readout}"].location
+        )
+        for lesson in LESSON_KEYS
+        for readout in ("upper", "lower")
+    }
+
+
+def general_world_transforms():
+    return {
+        f"general/{key}": tuple(bpy.data.objects[f"general/{key}"].matrix_world.translation)
+        + tuple(bpy.data.objects[f"general/{key}"].rotation_euler)
+        for key in GENERAL_KEYS
+    }
+
+
+def rounded_vector(values):
+    return tuple(round(float(value), 6) for value in values)
+
+
 class PoseTest(unittest.TestCase):
     def setUp(self):
         build_graybox()
@@ -96,15 +147,84 @@ class PoseTest(unittest.TestCase):
         apply_pose("generals", 7, "forward")
         self.assertEqual(snapshot_transforms(), first)
 
-    def test_general_direction_is_observable_and_deterministic(self):
-        apply_pose("generals", 0, "forward")
-        forward = snapshot_transforms()
-        apply_pose("generals", 0, "reverse")
-        reverse = snapshot_transforms()
-        self.assertNotEqual(forward["general/noble"][5], reverse["general/noble"][5])
-        self.assertAlmostEqual(forward["general/noble"][2], reverse["general/noble"][2])
-        apply_pose("generals", 0, "forward")
-        self.assertEqual(snapshot_transforms(), forward)
+    def test_lesson_readouts_are_flush_when_closed_and_lift_after_lesson_deploys(self):
+        apply_pose("closed")
+        closed = readout_locations()
+        for name, location in closed.items():
+            readout = bpy.data.objects[name]
+            with self.subTest(name=name, pose="closed"):
+                self.assertAlmostEqual(location[2], 0.001)
+                self.assertEqual(
+                    rounded_vector(readout["closed_location"]),
+                    rounded_vector(location),
+                )
+                self.assertAlmostEqual(readout["open_location"][2], 0.009)
+
+        for pose_id in ("lessons", "transmissions", "generals"):
+            apply_pose(pose_id)
+            opened = readout_locations()
+            for name, location in opened.items():
+                with self.subTest(name=name, pose=pose_id):
+                    self.assertAlmostEqual(location[2] - closed[name][2], 0.008)
+                    self.assertEqual(
+                        rounded_vector(location),
+                        rounded_vector(bpy.data.objects[name]["open_location"]),
+                    )
+
+    def test_lesson_readout_lift_has_no_history_dependency(self):
+        apply_pose("closed")
+        closed = readout_locations()
+        apply_pose("generals")
+        first = readout_locations()
+        apply_pose("closed")
+        self.assertEqual(readout_locations(), closed)
+        apply_pose("generals")
+        self.assertEqual(readout_locations(), first)
+
+    def test_general_direction_maps_ids_to_forward_and_reverse_slots(self):
+        apply_pose("closed", general_direction="reverse")
+        closed_reverse = general_world_transforms()
+        apply_pose("closed", general_direction="forward")
+        self.assertEqual(general_world_transforms(), closed_reverse)
+
+        apply_pose("generals", general_direction="forward")
+        forward = general_world_transforms()
+        for index, key in enumerate(GENERAL_KEYS):
+            with self.subTest(direction="forward", key=key):
+                self.assertAlmostEqual(
+                    forward[f"general/{key}"][0], GENERAL_SLOT_XY[index][0], delta=0.000001
+                )
+                self.assertAlmostEqual(
+                    forward[f"general/{key}"][1], GENERAL_SLOT_XY[index][1], delta=0.000001
+                )
+
+        apply_pose("generals", general_direction="reverse")
+        reverse = general_world_transforms()
+        for index, key in enumerate(GENERAL_KEYS):
+            target = GENERAL_SLOT_XY[(-index) % 12]
+            with self.subTest(direction="reverse", key=key):
+                self.assertAlmostEqual(
+                    reverse[f"general/{key}"][0], target[0], delta=0.000001
+                )
+                self.assertAlmostEqual(
+                    reverse[f"general/{key}"][1], target[1], delta=0.000001
+                )
+        self.assertEqual(forward["general/noble"][:2], reverse["general/noble"][:2])
+        self.assertNotEqual(forward["general/snake"][:2], reverse["general/snake"][:2])
+        self.assertNotEqual(
+            forward["general/queen-of-heaven"][:2],
+            reverse["general/queen-of-heaven"][:2],
+        )
+
+    def test_general_slot_mapping_has_no_history_dependency(self):
+        for direction in ("forward", "reverse"):
+            apply_pose("generals", general_direction=direction)
+            first = general_world_transforms()
+            opposite = "reverse" if direction == "forward" else "forward"
+            apply_pose("closed", general_direction=opposite)
+            apply_pose("generals", general_direction=direction)
+            with self.subTest(direction=direction):
+                self.assertEqual(general_world_transforms(), first)
 
     def test_invalid_pose_inputs_fail_before_mutating_the_scene(self):
         apply_pose("closed")

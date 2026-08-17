@@ -61,6 +61,7 @@ class ReviewSceneTest(unittest.TestCase):
         self.assertEqual(scene.render.engine, "BLENDER_EEVEE_NEXT")
         self.assertEqual((scene.render.resolution_x, scene.render.resolution_y), (1920, 1080))
         self.assertEqual(scene.render.resolution_percentage, 100)
+        self.assertEqual(bpy.data.objects["review/ground"].data.name, "review/ground")
         background = scene.world.node_tree.nodes["Background"].inputs["Color"].default_value
         self.assertLessEqual(
             scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value,
@@ -86,6 +87,7 @@ class ReviewSceneTest(unittest.TestCase):
         build_review_scene()
         first_counts = (
             len(bpy.data.objects),
+            len(bpy.data.meshes),
             len(bpy.data.cameras),
             len(bpy.data.lights),
             len(bpy.data.materials),
@@ -96,6 +98,7 @@ class ReviewSceneTest(unittest.TestCase):
         self.assertEqual(
             (
                 len(bpy.data.objects),
+                len(bpy.data.meshes),
                 len(bpy.data.cameras),
                 len(bpy.data.lights),
                 len(bpy.data.materials),

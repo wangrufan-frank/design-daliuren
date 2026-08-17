@@ -15,7 +15,6 @@ POSE_PROGRESS = {
 }
 
 LESSON_IDS = ("lesson/first", "lesson/second", "lesson/third", "lesson/fourth")
-GENERAL_TURN_RADIANS = math.radians(15.0)
 
 
 def _validate_pose_inputs(pose_id, plate_offset, general_direction):
@@ -54,6 +53,14 @@ def set_plate_absolute(progress, plate_offset):
 def set_lessons_absolute(progress):
     for node_id in LESSON_IDS:
         _set_translation_absolute(node_id, progress)
+        for readout in ("upper", "lower"):
+            obj = bpy.data.objects[f"{node_id}/readout/{readout}"]
+            closed = obj["closed_location"]
+            opened = obj["open_location"]
+            obj.location = tuple(
+                closed[coordinate] + (opened[coordinate] - closed[coordinate]) * progress
+                for coordinate in range(3)
+            )
 
 
 def set_transmissions_absolute(progress):
@@ -61,16 +68,28 @@ def set_transmissions_absolute(progress):
 
 
 def set_generals_absolute(progress, general_direction):
-    turn = GENERAL_TURN_RADIANS if general_direction == "forward" else -GENERAL_TURN_RADIANS
     generals = sorted(
         (obj for obj in bpy.data.objects if obj.get("domain") == "general"),
         key=lambda obj: obj["ring_index"],
     )
     for general in generals:
-        _set_translation_absolute(general["node_id"], progress)
-        closed_rotation = general["closed_rotation_euler"]
-        general.rotation_euler = closed_rotation
-        general.rotation_euler.z = closed_rotation[2] + turn * progress
+        index = general["ring_index"]
+        target_index = index if general_direction == "forward" else (-index) % len(generals)
+        target_slot = generals[target_index]
+        if progress:
+            target_xy = target_slot["closed_location"]
+            closed = general["closed_location"]
+            axis = general["motion_axis"]
+            travel = general["travel_m"]
+            general.location = (
+                target_xy[0],
+                target_xy[1],
+                closed[2] + axis[2] * travel * progress,
+            )
+            general.rotation_euler = target_slot["closed_rotation_euler"]
+        else:
+            general.location = general["closed_location"]
+            general.rotation_euler = general["closed_rotation_euler"]
 
 
 def apply_pose(pose_id: str, plate_offset: int = 0, general_direction: str = "forward") -> None:

@@ -112,6 +112,7 @@ def build_review_scene():
     bpy.ops.mesh.primitive_plane_add(size=4.0, location=(0.0, 0.0, -0.004))
     ground = bpy.context.object
     ground.name = "review/ground"
+    ground.data.name = "review/ground"
 
     for obj in bpy.context.scene.objects:
         if obj.type != "MESH":
