@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { invalidateFrom, validateSession } from "./snapshots";
+import type { CalendarSnapshot } from "../calendar/types";
+import type { HeavenEarthSnapshot } from "../heaven-earth/types";
+import type { HeavenlyGeneralsSnapshot } from "../heavenly-generals/types";
+import {
+  invalidateFrom,
+  isHeavenlyGeneralsSnapshotForCurrentInputs,
+  validateSession,
+} from "./snapshots";
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
 import { referenceSession } from "../../test/reference-session";
 import { deriveHeavenEarth } from "../heaven-earth/policy";
@@ -74,6 +81,29 @@ it("rejects heavenly generals copied from another plate", () => {
     otherPlate,
   );
   expect(validateSession(broken)).toContain("heavenly-generals 与生效日干、占时或天地盘不一致");
+});
+
+it("guards a heavenly-generals snapshot against its actual current upstream inputs", () => {
+  const calendar = referenceSession.snapshots.calendar as CalendarSnapshot;
+  const plate = referenceSession.snapshots["heaven-earth"] as HeavenEarthSnapshot;
+  const snapshot = referenceSession.snapshots["heavenly-generals"] as HeavenlyGeneralsSnapshot;
+
+  expect(isHeavenlyGeneralsSnapshotForCurrentInputs(snapshot, calendar, plate)).toBe(true);
+  expect(isHeavenlyGeneralsSnapshotForCurrentInputs({ ...snapshot, stage: "course" } as never, calendar, plate)).toBe(false);
+  expect(isHeavenlyGeneralsSnapshotForCurrentInputs({ ...snapshot, dependsOn: ["calendar", "heaven-earth"] }, calendar, plate)).toBe(false);
+  expect(isHeavenlyGeneralsSnapshotForCurrentInputs({ ...snapshot, ruleId: "heavenly-generals/forged-v1" }, calendar, plate)).toBe(false);
+  expect(isHeavenlyGeneralsSnapshotForCurrentInputs({ ...snapshot, source: "manual" }, calendar, plate)).toBe(false);
+
+  const otherCalendar = structuredClone(calendar.value);
+  otherCalendar.divinationHour.effective = otherCalendar.divinationHour.effective === "子" ? "丑" : "子";
+  otherCalendar.divinationHour.source = "manual";
+  const otherPlate = deriveHeavenEarth(otherCalendar);
+  const otherValue = deriveHeavenlyGenerals(
+    otherCalendar.pillars.day.effective[0] as never,
+    otherCalendar.divinationHour.effective,
+    otherPlate,
+  );
+  expect(isHeavenlyGeneralsSnapshotForCurrentInputs({ ...snapshot, value: otherValue }, calendar, plate)).toBe(false);
 });
 
 it("removes heavenly-generals and course when three transmissions change", () => {
@@ -274,11 +304,13 @@ it("rejects an internally valid heaven-earth plate copied from different calenda
   heavenEarth.value = deriveHeavenEarth(calendar);
   heavenEarth.source = "manual";
 
-  expect(validateSession(broken)).toEqual(expect.arrayContaining([
+  const errors = validateSession(broken);
+  expect(errors).toEqual(expect.arrayContaining([
     "heaven-earth 月将名称与 calendar 生效值不一致",
     "heaven-earth 月将地支与 calendar 生效值不一致",
     "heaven-earth 月将来源与 calendar 来源不一致",
     "heaven-earth 占时地支与 calendar 生效值不一致",
     "heaven-earth 占时来源与 calendar 来源不一致",
   ]));
+  expect(errors).not.toContain("heavenly-generals 快照结果无效");
 });

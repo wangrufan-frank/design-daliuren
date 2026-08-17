@@ -76,6 +76,7 @@ export function HeavenlyGeneralsReview({
           <div><dt>占时</dt><dd>{result.divinationHour}</dd></div>
           <div><dt>昼夜</dt><dd>昼夜：{result.dayNight === "day" ? "昼贵" : "夜贵"}</dd></div>
           <div><dt>贵人</dt><dd>天盘{result.nobleHeaven}临地盘{result.nobleEarth}</dd></div>
+          <div><dt>布将方向</dt><dd>{result.direction === "forward" ? "顺布" : "逆布"}</dd></div>
         </dl>
       </header>
 
@@ -101,9 +102,9 @@ export function HeavenlyGeneralsReview({
                     onFocus={(event) => selectPalace(palace.earth, event.currentTarget)}
                     onKeyDown={(event) => moveFocus(event, index)}
                   >
-                    <strong>{palace.heaven}</strong>
-                    <span>地盘 {palace.earth}</span>
-                    <b>{palace.general}</b>
+                    <strong className="heavenly-generals-review__general">{palace.general}</strong>
+                    <span className="heavenly-generals-review__branch">天盘 {palace.heaven}</span>
+                    <span className="heavenly-generals-review__branch">地盘 {palace.earth}</span>
                   </button>
                 </li>
               );
@@ -169,7 +170,7 @@ export function HeavenlyGeneralsReview({
             <h4>{label}</h4>
             <ol>
               {result.evidence.filter((step) => step.phase === phase).map((step) => (
-                <li key={step.id}>
+                <li key={step.id} data-selected={step.id === selectedPalace.evidenceId}>
                   <span className="heavenly-generals-review__rule-id">{step.ruleId}</span>
                   <p>{step.input}</p>
                   <p>{step.conclusion}</p>

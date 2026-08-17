@@ -28,6 +28,30 @@ function makePlate(offset: number): HeavenEarthResult {
   };
 }
 
+function captureError(run: () => unknown): Error & { kind?: string } {
+  try {
+    run();
+  } catch (error) {
+    if (error instanceof Error) return error;
+    throw error;
+  }
+  throw new Error("expected policy error");
+}
+
+function plateWithInvalidNobleEarth(): HeavenEarthResult {
+  const plate = structuredClone(makePlate(0));
+  const noblePalace = plate.palaces.find(({ heaven }) => heaven === "丑")! as { earth: string };
+  noblePalace.earth = "invalid";
+  return plate;
+}
+
+function noncanonicalPlate(): HeavenEarthResult {
+  const plate = structuredClone(makePlate(0));
+  const palaces = plate.palaces as Array<{ earth: EarthlyBranch; heaven: EarthlyBranch }>;
+  [palaces[2], palaces[3]] = [palaces[3], palaces[2]];
+  return plate;
+}
+
 describe("heavenly generals policy", () => {
   it.each(EXPECTED_NOBLES)("maps %s/%s to noble branch %s", (stem, dayNight, branch) => {
     expect(NOBLE_BRANCHES[stem][dayNight]).toBe(branch);
@@ -52,4 +76,21 @@ describe("heavenly generals policy", () => {
   it.each([["甲", "卯", 0, "丑", "forward"], ["辛", "子", 0, "寅", "forward"], ["甲", "卯", 6, "未", "reverse"], ["辛", "子", 6, "申", "reverse"]] as const)("places %s/%s offset %d from %s in %s", (stem, hour, offset, earth, direction) => expect(deriveHeavenlyGenerals(stem, hour, makePlate(offset))).toMatchObject({ nobleEarth: earth, direction }));
   it("rejects non-unique noble palace", () => { const plate = structuredClone(makePlate(0)); const palaces = plate.palaces as Array<{ earth: EarthlyBranch; heaven: EarthlyBranch }>; palaces[1].heaven = "丑"; palaces[2].heaven = "丑"; expect(() => deriveHeavenlyGenerals("甲", "卯", plate)).toThrow("贵人天盘支丑所临地盘宫不唯一"); });
   it("rejects noncanonical mapping", () => { const plate = structuredClone(makePlate(0)); const palaces = plate.palaces as Array<{ earth: EarthlyBranch; heaven: EarthlyBranch }>; [palaces[2], palaces[3]] = [palaces[3], palaces[2]]; expect(() => deriveHeavenlyGenerals("甲", "卯", plate)).toThrow("天地盘十二支布列无效"); });
+
+  it.each([
+    ["noble-branch-lookup-failed", () => deriveHeavenlyGenerals("invalid" as never, "卯", makePlate(0))],
+    ["noble-palace-not-unique", () => {
+      const plate = structuredClone(makePlate(0));
+      const palaces = plate.palaces as Array<{ earth: EarthlyBranch; heaven: EarthlyBranch }>;
+      palaces[2].heaven = "丑";
+      return deriveHeavenlyGenerals("甲", "卯", plate);
+    }],
+    ["invalid-direction", () => deriveHeavenlyGenerals("甲", "卯", plateWithInvalidNobleEarth())],
+    ["placement-incomplete", () => deriveHeavenlyGenerals("甲", "卯", noncanonicalPlate())],
+  ] as const)("throws a discriminated %s policy error", (kind, run) => {
+    expect(captureError(run)).toMatchObject({
+      name: "HeavenlyGeneralsPolicyError",
+      kind,
+    });
+  });
 });

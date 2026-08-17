@@ -22,7 +22,7 @@ import {
   threeTransmissionsResultSource,
 } from "../three-transmissions/result-guard";
 import type { ThreeTransmissionsSnapshot } from "../three-transmissions/types";
-import { deriveHeavenlyGenerals } from "./policy";
+import { HeavenlyGeneralsPolicyError, deriveHeavenlyGenerals } from "./policy";
 import * as resultGuard from "./result-guard";
 import type {
   HeavenlyGeneralsOutcome,
@@ -122,7 +122,7 @@ export function computeHeavenlyGenerals(
       )) {
       return {
         ok: false,
-        error: { code: "HEAVENLY_GENERALS_RESULT_INCOMPLETE", message: "天将结果不完整" },
+        error: { code: "HEAVENLY_GENERALS_RESULT_GUARD_FAILED", message: "天将结果未通过完整性校验" },
       };
     }
     return {
@@ -137,6 +137,15 @@ export function computeHeavenlyGenerals(
       },
     };
   } catch (cause) {
+    if (cause instanceof HeavenlyGeneralsPolicyError) {
+      const code = {
+        "noble-branch-lookup-failed": "NOBLE_BRANCH_LOOKUP_FAILED",
+        "noble-palace-not-unique": "NOBLE_PALACE_NOT_UNIQUE",
+        "invalid-direction": "INVALID_HEAVENLY_GENERALS_DIRECTION",
+        "placement-incomplete": "HEAVENLY_GENERALS_PLACEMENT_INCOMPLETE",
+      } as const;
+      return { ok: false, error: { code: code[cause.kind], message: cause.message, cause } };
+    }
     return {
       ok: false,
       error: { code: "HEAVENLY_GENERALS_RESULT_INCOMPLETE", message: "天将结果不完整", cause },

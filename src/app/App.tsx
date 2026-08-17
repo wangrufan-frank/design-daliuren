@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LunarTypescriptAdapter } from "../adapters/calendar/lunar-typescript-adapter";
 import type { CourseSession, RuleStageId } from "../domain/chart/types";
+import { isHeavenlyGeneralsSnapshotForCurrentInputs } from "../domain/chart/snapshots";
 import { isCalendarResult, runCalendarStage } from "../domain/calendar/compute-calendar";
 import { resetCalendarCorrection, setCalendarCorrection } from "../domain/calendar/corrections";
 import {
@@ -16,7 +17,6 @@ import { isFourLessonsResult, runFourLessonsStage } from "../domain/four-lessons
 import type { FourLessonsStageOutcome } from "../domain/four-lessons/types";
 import { FourLessonsReview } from "../features/four-lessons-review/FourLessonsReview";
 import { runHeavenlyGeneralsStage } from "../domain/heavenly-generals/compute-heavenly-generals";
-import { isHeavenlyGeneralsResult } from "../domain/heavenly-generals/result-guard";
 import type { HeavenlyGeneralsStageOutcome } from "../domain/heavenly-generals/types";
 import { HeavenlyGeneralsReview } from "../features/heavenly-generals-review/HeavenlyGeneralsReview";
 import { HeavenEarthReview } from "../features/heaven-earth-review/HeavenEarthReview";
@@ -46,12 +46,17 @@ export function App() {
   const heavenEarthResult = session?.snapshots["heaven-earth"]?.value;
   const fourLessonsResult = session?.snapshots["four-lessons"]?.value;
   const threeTransmissionsResult = session?.snapshots["three-transmissions"]?.value;
-  const heavenlyGeneralsResult = session?.snapshots["heavenly-generals"]?.value;
+  const heavenlyGeneralsSnapshot = session?.snapshots["heavenly-generals"];
   const hasCalendar = isCalendarResult(calendarResult);
   const hasHeavenEarth = isHeavenEarthResult(heavenEarthResult);
   const hasFourLessons = isFourLessonsResult(fourLessonsResult);
   const hasThreeTransmissions = isThreeTransmissionsResult(threeTransmissionsResult);
-  const hasHeavenlyGenerals = isHeavenlyGeneralsResult(heavenlyGeneralsResult);
+  const heavenlyGeneralsResult = isHeavenlyGeneralsSnapshotForCurrentInputs(
+    heavenlyGeneralsSnapshot,
+    session?.snapshots.calendar,
+    session?.snapshots["heaven-earth"],
+  ) ? heavenlyGeneralsSnapshot.value : undefined;
+  const hasHeavenlyGenerals = heavenlyGeneralsResult !== undefined;
 
   function replaceFrom(nextSession: CourseSession) {
     const calendarOutcome = runCalendarStage(nextSession, calendarAdapter);

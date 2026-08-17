@@ -3,10 +3,17 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import * as calendarStage from "../domain/calendar/compute-calendar";
+import type { CalendarSnapshot } from "../domain/calendar/types";
 import * as heavenEarthStage from "../domain/heaven-earth/compute-heaven-earth";
+import { deriveHeavenEarth } from "../domain/heaven-earth/policy";
 import type { HeavenEarthSnapshot } from "../domain/heaven-earth/types";
 import * as fourLessonsStage from "../domain/four-lessons/compute-four-lessons";
 import * as heavenlyGeneralsStage from "../domain/heavenly-generals/compute-heavenly-generals";
+import { deriveHeavenlyGenerals } from "../domain/heavenly-generals/policy";
+import {
+  HEAVENLY_GENERALS_SNAPSHOT_RULE_ID,
+  heavenlyGeneralsResultSource,
+} from "../domain/heavenly-generals/result-guard";
 import * as threeTransmissionsStage from "../domain/three-transmissions/compute-three-transmissions";
 import { App } from "./App";
 
@@ -79,6 +86,51 @@ it("runs through heavenly generals and advances the current stage to course", as
   expect(await screen.findByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /天将排列，已完成/ })).toHaveAttribute("data-status", "completed");
   expect(screen.getByText("复制结课", { selector: '[data-status="current"]' })).toBeInTheDocument();
+});
+
+it("does not complete, render, or inject heavenly generals copied from another canonical plate", async () => {
+  vi.spyOn(heavenlyGeneralsStage, "runHeavenlyGeneralsStage").mockImplementationOnce((session) => {
+    const calendar = session.snapshots.calendar as CalendarSnapshot;
+    const actualPlate = session.snapshots["heaven-earth"] as HeavenEarthSnapshot;
+    const otherCalendar = structuredClone(calendar.value);
+    otherCalendar.divinationHour.effective = otherCalendar.divinationHour.effective === "子" ? "丑" : "子";
+    otherCalendar.divinationHour.source = "manual";
+    const otherPlate = deriveHeavenEarth(otherCalendar);
+    const value = deriveHeavenlyGenerals(
+      otherCalendar.pillars.day.effective[0] as never,
+      otherCalendar.divinationHour.effective,
+      otherPlate,
+    );
+    return {
+      ok: true,
+      value,
+      session: {
+        ...session,
+        snapshots: {
+          ...session.snapshots,
+          "heavenly-generals": {
+            stage: "heavenly-generals",
+            dependsOn: ["calendar", "heaven-earth", "three-transmissions"],
+            ruleId: HEAVENLY_GENERALS_SNAPSHOT_RULE_ID,
+            source: heavenlyGeneralsResultSource(calendar.value, actualPlate.source),
+            value,
+          },
+        },
+      },
+    };
+  });
+  render(<App />);
+
+  const user = await submitCourse();
+
+  expect(screen.getByText("天将排列")).toHaveAttribute("data-status", "current");
+  expect(screen.queryByRole("button", { name: /天将排列，已完成/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "贵人起例 · 十二天将布列" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /三传取法，已完成/ }));
+  expect(screen.getAllByText("待天将加临")).toHaveLength(3);
+  await user.click(screen.getByRole("button", { name: "查看四课" }));
+  expect(screen.getAllByText("待天将加临")).toHaveLength(4);
 });
 
 it("navigates from heavenly generals to every completed upstream review without recomputing", async () => {

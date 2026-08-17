@@ -31,6 +31,12 @@ function renderReview() {
   );
 }
 
+function reviewSection(section: string): HTMLElement {
+  const element = document.querySelector<HTMLElement>(`[data-heavenly-generals-section="${section}"]`);
+  if (!element) throw new Error(`expected ${section} review section`);
+  return element;
+}
+
 afterEach(cleanup);
 
 describe("HeavenlyGeneralsReview", () => {
@@ -45,6 +51,16 @@ describe("HeavenlyGeneralsReview", () => {
     expect(within(palaces).getAllByRole("listitem")).toHaveLength(12);
     expect(within(palaces).queryByText("贵人落宫", { exact: true })).not.toBeInTheDocument();
     expect(palaceButtons.map((button) => button.getAttribute("data-earth"))).toEqual(VISUAL_EARTH_ORDER);
+    const firstPlacement = generals.placements.find(({ earth }) => earth === VISUAL_EARTH_ORDER[0])!;
+    const firstPalace = palaceButtons[0];
+    const primaryGeneral = within(firstPalace).getByText(firstPlacement.general);
+    expect(primaryGeneral.tagName).toBe("STRONG");
+    expect(primaryGeneral).toHaveClass("heavenly-generals-review__general");
+    expect(within(firstPalace).getByText(`天盘 ${firstPlacement.heaven}`)).toHaveClass("heavenly-generals-review__branch");
+    expect(within(firstPalace).getByText(`地盘 ${firstPlacement.earth}`)).toHaveClass("heavenly-generals-review__branch");
+
+    const summary = reviewSection("summary");
+    expect(within(summary).getByText(generals.direction === "forward" ? "顺布" : "逆布")).toBeVisible();
 
     for (const lesson of fourLessons.lessons) {
       expect(screen.getByLabelText(new RegExp(`${lesson.label}.*${generalForHeaven(generals, lesson.upper)}`))).toBeVisible();
@@ -52,6 +68,25 @@ describe("HeavenlyGeneralsReview", () => {
     for (const transmission of transmissions.transmissions) {
       expect(screen.getByLabelText(new RegExp(`${transmission.label}.*${generalForHeaven(generals, transmission.branch)}`))).toBeVisible();
     }
+  });
+
+  it("moves the selected placement evidence highlight with palace selection", async () => {
+    renderReview();
+    const user = userEvent.setup();
+    const initialPlacement = generals.placements.find(({ earth }) => earth === "巳")!;
+    const targetPlacement = generals.placements.find(({ earth }) => earth === "申")!;
+    const initialStep = generals.evidence.find(({ id }) => id === initialPlacement.evidenceId)!;
+    const targetStep = generals.evidence.find(({ id }) => id === targetPlacement.evidenceId)!;
+    const initialLedgerItem = screen.getByText(initialStep.conclusion).closest("li");
+    const targetLedgerItem = screen.getByText(targetStep.conclusion).closest("li");
+
+    expect(initialLedgerItem).toHaveAttribute("data-selected", "true");
+    expect(targetLedgerItem).toHaveAttribute("data-selected", "false");
+
+    await user.click(screen.getByRole("button", { name: /申宫/ }));
+
+    expect(initialLedgerItem).toHaveAttribute("data-selected", "false");
+    expect(targetLedgerItem).toHaveAttribute("data-selected", "true");
   });
 
   it("marks the noble palace and returns focus after evidence closes", async () => {

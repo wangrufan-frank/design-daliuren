@@ -4,7 +4,7 @@ import type { CalendarSnapshot } from "../calendar/types";
 import type { CourseSession } from "../chart/types";
 import type { FourLessonsSnapshot } from "../four-lessons/types";
 import type { HeavenEarthSnapshot } from "../heaven-earth/types";
-import { deriveHeavenlyGenerals } from "./policy";
+import * as policy from "./policy";
 import * as resultGuard from "./result-guard";
 import {
   computeHeavenlyGenerals,
@@ -21,7 +21,7 @@ const calendar = referenceSession.snapshots.calendar as CalendarSnapshot;
 const plate = referenceSession.snapshots["heaven-earth"] as HeavenEarthSnapshot;
 const fourLessons = referenceSession.snapshots["four-lessons"] as FourLessonsSnapshot;
 const transmissions = referenceSession.snapshots["three-transmissions"] as never;
-const validValue = deriveHeavenlyGenerals("辛", "子", plate.value);
+const validValue = policy.deriveHeavenlyGenerals("辛", "子", plate.value);
 
 type MutableResult = Omit<HeavenlyGeneralsResult, "placements" | "evidence"> & {
   placements: GeneralPlacement[];
@@ -70,7 +70,7 @@ describe("isHeavenlyGeneralsResult", () => {
         heaven: plate.value.palaces[(index + 1) % 12].heaven,
       })),
     };
-    const noncanonical = deriveHeavenlyGenerals("辛", "子", shiftedPlate);
+    const noncanonical = policy.deriveHeavenlyGenerals("辛", "子", shiftedPlate);
 
     expect(resultGuard.isHeavenlyGeneralsResult(noncanonical)).toBe(true);
     expect(resultGuard.matchesHeavenlyGeneralsInputs(noncanonical, "辛", "子", plate.value)).toBe(false);
@@ -87,6 +87,74 @@ describe("computeHeavenlyGenerals", () => {
       stage: "heavenly-generals",
       dependsOn: ["calendar", "heaven-earth", "three-transmissions"],
       ruleId: resultGuard.HEAVENLY_GENERALS_SNAPSHOT_RULE_ID,
+    });
+  });
+
+  function capturePolicyError(run: () => unknown): Error {
+    try {
+      run();
+    } catch (error) {
+      if (error instanceof Error) return error;
+      throw error;
+    }
+    throw new Error("expected policy error");
+  }
+
+  it.each([
+    {
+      name: "noble branch lookup failure",
+      code: "NOBLE_BRANCH_LOOKUP_FAILED",
+      cause: () => capturePolicyError(() => policy.deriveHeavenlyGenerals("invalid" as never, "子", plate.value)),
+    },
+    {
+      name: "non-unique noble palace",
+      code: "NOBLE_PALACE_NOT_UNIQUE",
+      cause: () => {
+        const broken = structuredClone(plate.value);
+        const nobleHeaven = validValue.nobleHeaven;
+        const other = broken.palaces.find(({ heaven }) => heaven !== nobleHeaven)! as { heaven: string };
+        other.heaven = nobleHeaven;
+        return capturePolicyError(() => policy.deriveHeavenlyGenerals("辛", "子", broken));
+      },
+    },
+    {
+      name: "invalid direction",
+      code: "INVALID_HEAVENLY_GENERALS_DIRECTION",
+      cause: () => {
+        const broken = structuredClone(plate.value);
+        const noblePalace = broken.palaces.find(({ heaven }) => heaven === validValue.nobleHeaven)! as { earth: string };
+        noblePalace.earth = "invalid";
+        return capturePolicyError(() => policy.deriveHeavenlyGenerals("辛", "子", broken));
+      },
+    },
+    {
+      name: "incomplete placement",
+      code: "HEAVENLY_GENERALS_PLACEMENT_INCOMPLETE",
+      cause: () => {
+        const broken = structuredClone(plate.value);
+        const palaces = broken.palaces as Array<{ earth: string; heaven: string }>;
+        [palaces[2], palaces[3]] = [palaces[3], palaces[2]];
+        return capturePolicyError(() => policy.deriveHeavenlyGenerals("辛", "子", broken));
+      },
+    },
+  ] as const)("maps $name to $code", ({ code, cause: makeCause }) => {
+    const cause = makeCause();
+    vi.spyOn(policy, "deriveHeavenlyGenerals").mockImplementationOnce(() => { throw cause; });
+
+    const outcome = computeHeavenlyGenerals(calendar, plate, fourLessons, transmissions);
+
+    expect(outcome).toMatchObject({ ok: false, error: { code, cause } });
+  });
+
+  it("keeps an unexpected thrown cause on the stable fallback", () => {
+    const cause = new Error("unexpected policy failure");
+    vi.spyOn(policy, "deriveHeavenlyGenerals").mockImplementationOnce(() => { throw cause; });
+
+    const outcome = computeHeavenlyGenerals(calendar, plate, fourLessons, transmissions);
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: { code: "HEAVENLY_GENERALS_RESULT_INCOMPLETE", cause },
     });
   });
 });
@@ -134,6 +202,7 @@ describe("runHeavenlyGeneralsStage", () => {
     const outcome = runHeavenlyGeneralsStage(broken);
 
     expect(outcome.ok).toBe(false);
+    expect(outcome).toMatchObject({ error: { code: "INVALID_HEAVENLY_GENERALS_INPUT" } });
     expect(Object.keys(outcome.session.snapshots)).toEqual(expectedKeys);
   });
 
@@ -144,7 +213,7 @@ describe("runHeavenlyGeneralsStage", () => {
 
     expect(outcome).toMatchObject({
       ok: false,
-      error: { code: "HEAVENLY_GENERALS_RESULT_INCOMPLETE" },
+      error: { code: "HEAVENLY_GENERALS_RESULT_GUARD_FAILED" },
     });
     expect(Object.keys(outcome.session.snapshots)).toEqual([
       "calendar", "heaven-earth", "four-lessons", "three-transmissions",

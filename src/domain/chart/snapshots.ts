@@ -1,5 +1,6 @@
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
-import type { CourseSession, HeavenlyStem, RuleStageId } from "./types";
+import type { CourseSession, HeavenlyStem, RuleSnapshot, RuleStageId } from "./types";
+import type { CalendarSnapshot } from "../calendar/types";
 import {
   CALENDAR_SNAPSHOT_RULE_ID,
   calendarResultSource,
@@ -29,6 +30,33 @@ import {
   isHeavenlyGeneralsResult,
   matchesHeavenlyGeneralsInputs,
 } from "../heavenly-generals/result-guard";
+import type { HeavenlyGeneralsSnapshot } from "../heavenly-generals/types";
+
+export function isHeavenlyGeneralsSnapshotForCurrentInputs(
+  snapshot: RuleSnapshot<unknown, "heavenly-generals"> | undefined,
+  calendar: CalendarSnapshot | undefined,
+  plate: RuleSnapshot<unknown, "heaven-earth"> | undefined,
+): snapshot is HeavenlyGeneralsSnapshot {
+  const expectedDependencies = stageDependencies["heavenly-generals"];
+  if (!snapshot
+    || snapshot.stage !== "heavenly-generals"
+    || !Array.isArray(snapshot.dependsOn)
+    || snapshot.dependsOn.length !== expectedDependencies.length
+    || snapshot.dependsOn.some((dependency, index) => dependency !== expectedDependencies[index])
+    || snapshot.ruleId !== HEAVENLY_GENERALS_SNAPSHOT_RULE_ID
+    || !isCalendarSnapshot(calendar)
+    || !plate
+    || !isHeavenEarthResult(plate.value)
+    || snapshot.source !== heavenlyGeneralsResultSource(calendar.value, plate.source)
+    || !isHeavenlyGeneralsResult(snapshot.value)) return false;
+  const dayStem = calendar.value.pillars.day.effective[0] as HeavenlyStem;
+  return matchesHeavenlyGeneralsInputs(
+    snapshot.value,
+    dayStem,
+    calendar.value.divinationHour.effective,
+    plate.value,
+  );
+}
 
 export function validateSession(session: CourseSession): readonly string[] {
   const errors: string[] = [];

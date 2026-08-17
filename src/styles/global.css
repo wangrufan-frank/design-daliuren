@@ -309,10 +309,10 @@ button, input, select { font: inherit; }
 .heavenly-generals-review__plate li:nth-child(11) { grid-column: 1; grid-row: 3; }
 .heavenly-generals-review__plate li:nth-child(12) { grid-column: 1; grid-row: 2; }
 .heavenly-generals-review__palace { display: grid; align-content: center; justify-items: center; gap: 2px; width: 100%; height: 100%; padding: 7px; border: 1px solid var(--patina); border-radius: 0; background: var(--ink); color: var(--ash); cursor: pointer; }
-.heavenly-generals-review__palace strong { font-size: clamp(1.55rem, 4.2vw, 2.7rem); font-weight: 600; line-height: 1; }
-.heavenly-generals-review__palace > span, .heavenly-generals-review__palace b { color: var(--ru-celadon); font-size: clamp(0.66rem, 1.5vw, 0.82rem); font-weight: 500; letter-spacing: 0.08em; }
+.heavenly-generals-review__general { font-size: clamp(1.55rem, 4.2vw, 2.7rem); font-weight: 600; line-height: 1; }
+.heavenly-generals-review__branch { color: var(--ru-celadon); font-size: clamp(0.66rem, 1.5vw, 0.82rem); font-weight: 500; letter-spacing: 0.08em; }
 .heavenly-generals-review__palace[data-noble="true"] { color: var(--old-gold); }
-.heavenly-generals-review__palace[data-noble="true"] b { color: var(--old-gold); }
+.heavenly-generals-review__palace[data-noble="true"] .heavenly-generals-review__general { color: var(--old-gold); }
 .heavenly-generals-review__palace[aria-pressed="true"] { background: var(--dark-bronze); box-shadow: inset 0 0 0 2px var(--ash); }
 .heavenly-generals-review__center { display: grid; position: absolute; inset: 25%; place-content: center; gap: 8px; padding: 14px; border: 1px solid var(--patina); background: var(--dark-bronze); text-align: center; }
 .heavenly-generals-review__center span, .heavenly-generals-review__center small { color: var(--ru-celadon); font-size: 0.72rem; letter-spacing: 0.12em; }
@@ -339,6 +339,7 @@ button, input, select { font: inherit; }
 .heavenly-generals-review__evidence-phase h4 { margin: 0; color: var(--old-gold); font-size: 0.78rem; font-weight: 500; letter-spacing: 0.12em; }
 .heavenly-generals-review__evidence-phase ol { display: grid; gap: 12px; margin: 10px 0 0; padding: 0; list-style: none; }
 .heavenly-generals-review__evidence-phase li { min-width: 0; padding-top: 12px; border-top: 1px solid var(--patina); }
+.heavenly-generals-review__evidence-phase li[data-selected="true"] { padding-inline-start: 12px; border-inline-start: 3px solid var(--old-gold); background: var(--dark-bronze); }
 .heavenly-generals-review__evidence-phase p { margin: 7px 0 0; line-height: 1.65; overflow-wrap: anywhere; }
 .heavenly-generals-review__rule-id { color: var(--ru-celadon); font-size: 0.72rem; overflow-wrap: anywhere; }
 .heavenly-generals-review__upstream-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--patina); }

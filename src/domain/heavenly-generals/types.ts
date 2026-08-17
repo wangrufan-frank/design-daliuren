@@ -12,7 +12,7 @@ export type HeavenlyGeneralsEvidenceStep =
   | (EvidenceBase & { ruleId: "heavenly-generals/direction-v1"; phase: "direction"; details: { nobleEarth: EarthlyBranch; direction: GeneralDirection } })
   | (EvidenceBase & { ruleId: "heavenly-generals/placement-v1"; phase: "placement"; details: { order: number; general: HeavenlyGeneral; previousEarth?: EarthlyBranch; earth: EarthlyBranch; heaven: EarthlyBranch; direction: GeneralDirection } });
 export interface HeavenlyGeneralsResult { dayStem: HeavenlyStem; divinationHour: EarthlyBranch; dayNight: NobleDayNight; nobleHeaven: EarthlyBranch; nobleEarth: EarthlyBranch; direction: GeneralDirection; placements: readonly GeneralPlacement[]; evidence: readonly HeavenlyGeneralsEvidenceStep[]; }
-export type HeavenlyGeneralsErrorCode = "INVALID_HEAVENLY_GENERALS_INPUT" | "NOBLE_BRANCH_LOOKUP_FAILED" | "NOBLE_PALACE_NOT_UNIQUE" | "HEAVENLY_GENERALS_RESULT_INCOMPLETE";
+export type HeavenlyGeneralsErrorCode = "INVALID_HEAVENLY_GENERALS_INPUT" | "NOBLE_BRANCH_LOOKUP_FAILED" | "NOBLE_PALACE_NOT_UNIQUE" | "INVALID_HEAVENLY_GENERALS_DIRECTION" | "HEAVENLY_GENERALS_PLACEMENT_INCOMPLETE" | "HEAVENLY_GENERALS_RESULT_GUARD_FAILED" | "HEAVENLY_GENERALS_RESULT_INCOMPLETE";
 export type HeavenlyGeneralsSnapshot = RuleSnapshot<HeavenlyGeneralsResult, "heavenly-generals">;
 export type HeavenlyGeneralsOutcome = { ok: true; value: HeavenlyGeneralsResult; snapshot: HeavenlyGeneralsSnapshot } | { ok: false; error: { code: HeavenlyGeneralsErrorCode; message: string; cause?: unknown } };
 export type HeavenlyGeneralsStageOutcome = { ok: true; value: HeavenlyGeneralsResult; session: CourseSession } | { ok: false; error: { code: HeavenlyGeneralsErrorCode; message: string; cause?: unknown }; session: CourseSession };
