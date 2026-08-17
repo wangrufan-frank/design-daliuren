@@ -54,8 +54,29 @@
     "max": 10000
   },
   "triangleCountingRule": "sum of triangle primitives across unique glTF mesh definitions",
+  "forbiddenDynamicKeys": [
+    "日干",
+    "日支",
+    "月将",
+    "占时",
+    "初传",
+    "中传",
+    "末传",
+    "空亡",
+    "dayStem",
+    "dayBranch",
+    "monthGeneral",
+    "divinationHour",
+    "initialTransmission",
+    "middleTransmission",
+    "finalTransmission",
+    "voidBranches",
+    "courseValue"
+  ],
+  "allowedFixedRoles": [
+    "fixed-historical-inscription"
+  ],
   "forbiddenDynamicPatterns": [
-    "[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]日",
-    "(?:日干|日支|月将|占时|初传|中传|末传|空亡)[：:]?[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]{1,4}"
+    "(?:日干|日支|月将|占时|初传|中传|末传|空亡)[：:][甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]{1,4}$"
   ]
 }

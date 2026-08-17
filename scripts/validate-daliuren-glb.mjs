@@ -38,17 +38,71 @@ function triangleCount(document) {
   return triangles;
 }
 
-function propertyText(document) {
+function listProperties(document) {
   const root = document.getRoot();
-  const values = [];
+  const properties = [];
+  const seen = new Set();
   for (const method of ROOT_LIST_METHODS) {
     if (typeof root[method] !== "function") continue;
     for (const property of root[method]()) {
-      values.push(property.getName?.() ?? "");
-      values.push(JSON.stringify(property.getExtras?.() ?? {}));
+      if (seen.has(property)) continue;
+      seen.add(property);
+      properties.push(property);
     }
   }
-  return values.join("\n");
+  return properties;
+}
+
+function hasNonEmptyValue(value) {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some(hasNonEmptyValue);
+  if (typeof value === "object") return Object.values(value).some(hasNonEmptyValue);
+  return true;
+}
+
+function validateDynamicProperty(property, contract) {
+  const errors = [];
+  const name = property.getName?.() || "(unnamed)";
+  const extras = property.getExtras?.() ?? {};
+  if ((contract.allowedFixedRoles ?? []).includes(extras.role)) return errors;
+
+  const forbiddenKeys = new Set(contract.forbiddenDynamicKeys ?? []);
+  const patterns = (contract.forbiddenDynamicPatterns ?? []).map(
+    (pattern) => new RegExp(pattern, "u"),
+  );
+  const forbiddenValues = contract.forbiddenDynamicValues ?? [];
+
+  function inspectText(value, path) {
+    for (const forbidden of forbiddenValues) {
+      if (value.includes(forbidden)) {
+        errors.push(`forbidden dynamic value: ${forbidden} at ${path}`);
+      }
+    }
+    for (const pattern of patterns) {
+      const match = pattern.exec(value);
+      if (match) errors.push(`forbidden dynamic value: ${match[0]} at ${path}`);
+    }
+  }
+
+  function inspectValue(value, path) {
+    if (typeof value === "string") inspectText(value, path);
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => inspectValue(item, `${path}[${index}]`));
+    } else if (value && typeof value === "object") {
+      for (const [key, nested] of Object.entries(value)) {
+        const nestedPath = `${path}.${key}`;
+        if (forbiddenKeys.has(key) && hasNonEmptyValue(nested)) {
+          errors.push(`forbidden dynamic key: ${nestedPath}`);
+        }
+        inspectValue(nested, nestedPath);
+      }
+    }
+  }
+
+  inspectText(name, `${name}.name`);
+  inspectValue(extras, `${name}.extras`);
+  return errors;
 }
 
 export function validateArtifactDocument(document, contract) {
@@ -66,6 +120,10 @@ export function validateArtifactDocument(document, contract) {
   }
 
   for (const node of nodes) {
+    const nodeName = node.getName?.() ?? "";
+    if (nodeName.startsWith("preview/") || nodeName.startsWith("pose-preview/")) {
+      errors.push(`preview node name: ${nodeName}`);
+    }
     const nodeId = node.getExtras()?.node_id;
     if (typeof nodeId !== "string") continue;
     if (!expectedIds.has(nodeId)) errors.push(`extra node_id: ${nodeId}`);
@@ -97,13 +155,8 @@ export function validateArtifactDocument(document, contract) {
     errors.push(`triangle budget: expected ${min}..${max}, got ${triangles}`);
   }
 
-  const embeddedText = propertyText(document);
-  for (const value of contract.forbiddenDynamicValues ?? []) {
-    if (embeddedText.includes(value)) errors.push(`forbidden dynamic value: ${value}`);
-  }
-  for (const pattern of contract.forbiddenDynamicPatterns ?? []) {
-    const match = new RegExp(pattern, "u").exec(embeddedText);
-    if (match) errors.push(`forbidden dynamic value: ${match[0]}`);
+  for (const property of listProperties(document)) {
+    errors.push(...validateDynamicProperty(property, contract));
   }
 
   return errors.sort();
@@ -142,6 +195,6 @@ async function main() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await main();
 }
