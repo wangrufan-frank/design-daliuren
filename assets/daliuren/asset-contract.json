@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "nodeIds": [
+    "artifact/root",
+    "base/body",
+    "plate/earth",
+    "plate/heaven",
+    "calendar/slip",
+    "lesson/first",
+    "lesson/second",
+    "lesson/third",
+    "lesson/fourth",
+    "transmission/bridge",
+    "transmission/initial",
+    "transmission/middle",
+    "transmission/final",
+    "general/noble",
+    "general/snake",
+    "general/vermilion-bird",
+    "general/harmony",
+    "general/hook-array",
+    "general/azure-dragon",
+    "general/void",
+    "general/white-tiger",
+    "general/constant",
+    "general/black-tortoise",
+    "general/yin",
+    "general/queen-of-heaven",
+    "anchor/course-copy/lessons",
+    "anchor/course-copy/transmissions",
+    "anchor/course-copy/generals"
+  ],
+  "dimensionAxisOrder": "glTF x,y,z (Y-up)",
+  "dimensionsMeters": {
+    "base/body": [0.52, 0.052, 0.52],
+    "plate/earth": [0.44, 0.01, 0.44],
+    "plate/heaven": [0.38, 0.024, 0.38],
+    "calendar/slip": [0.3, 0.012, 0.032],
+    "lesson/first": [0.152, 0.015, 0.1],
+    "transmission/bridge": [0.42, 0.018, 0.048],
+    "general/noble": [0.024, 0.014, 0.024]
+  },
+  "dimensionToleranceMeters": 0.0005,
+  "poseIds": [
+    "closed",
+    "calendar",
+    "plate",
+    "lessons",
+    "transmissions",
+    "generals"
+  ],
+  "triangleBudget": {
+    "min": 7000,
+    "max": 10000
+  },
+  "triangleCountingRule": "sum of triangle primitives across unique glTF mesh definitions",
+  "forbiddenDynamicPatterns": [
+    "[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]日",
+    "(?:日干|日支|月将|占时|初传|中传|末传|空亡)[：:]?[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]{1,4}"
+  ]
+}
