@@ -36,18 +36,17 @@ MASK_ATTRIBUTES = {
 CONTACT_DETAIL_IDS = {
     "mechanism/heaven-detent",
     "mechanism/lesson-dovetails",
+    "mechanism/lesson-end-stop",
     "mechanism/lesson-general-socket",
+    "mechanism/bridge-stops",
     "mechanism/general-track",
-    "structure/heaven-inlay-bed",
 }
 RECESS_DETAIL_IDS = {
     "structure/base-bottom-seam",
     "structure/base-shell-thickness",
     "mechanism/heaven-bearing",
-    "structure/heaven-support-rib",
     "structure/bronze-celadon-contact-seam",
     "mechanism/general-track",
-    "structure/bridge-support",
 }
 PATINA_DETAIL_IDS = {
     "structure/base-bottom-seam",
@@ -199,7 +198,7 @@ def _build_crackle_group():
     scale = group.nodes.new("ShaderNodeVectorMath")
     scale.name = "Crackle scale"
     scale.operation = "SCALE"
-    scale.inputs[3].default_value = 38.0
+    scale.inputs[3].default_value = 14.0
     voronoi = group.nodes.new("ShaderNodeTexVoronoi")
     voronoi.name = "Irregular glaze cells"
     voronoi.distance = "EUCLIDEAN"
@@ -207,7 +206,7 @@ def _build_crackle_group():
     threshold = group.nodes.new("ShaderNodeMath")
     threshold.name = "Restrained crack width"
     threshold.operation = "LESS_THAN"
-    threshold.inputs[1].default_value = 0.035
+    threshold.inputs[1].default_value = 0.045
     confine = group.nodes.new("ShaderNodeMath")
     confine.name = "Confine cracks to celadon"
     confine.operation = "MULTIPLY"
@@ -304,12 +303,23 @@ def _build_celadon():
     _socket(shader, "Coat Roughness").default_value = 0.28
 
     dirt = _group_node(nodes, "mask_insert_dirt", "Causal insert-boundary dirt", 0.38)
-    crackle = _group_node(nodes, "mask_celadon_crackle", "Celadon-only crackle", 0.22)
+    crackle = _group_node(nodes, "mask_celadon_crackle", "Celadon-only crackle", 0.65)
     dirt_tint = nodes.new("ShaderNodeMixRGB")
     dirt_tint.name = "Boundary dirt tint"
     dirt_tint.inputs[1].default_value = srgb_hex(PALETTE["celadon"])
     dirt_tint.inputs[2].default_value = srgb_hex(PALETTE["patina"])
-    links.new(dirt.outputs["Factor"], dirt_tint.inputs[0])
+    crackle_tint = nodes.new("ShaderNodeMath")
+    crackle_tint.name = "Restrained crackle tint"
+    crackle_tint.operation = "MULTIPLY"
+    crackle_tint.inputs[1].default_value = 0.12
+    combined_tint = nodes.new("ShaderNodeMath")
+    combined_tint.name = "Boundary and crackle tint"
+    combined_tint.operation = "ADD"
+    combined_tint.use_clamp = True
+    links.new(crackle.outputs["Factor"], crackle_tint.inputs[0])
+    links.new(dirt.outputs["Factor"], combined_tint.inputs[0])
+    links.new(crackle_tint.outputs[0], combined_tint.inputs[1])
+    links.new(combined_tint.outputs[0], dirt_tint.inputs[0])
     links.new(dirt_tint.outputs["Color"], _socket(shader, "Base Color"))
 
     roughness = nodes.new("ShaderNodeMapRange")
@@ -332,9 +342,15 @@ def _build_celadon():
     orange_peel.inputs["Roughness"].default_value = 0.38
     bump = nodes.new("ShaderNodeBump")
     bump.name = "Restrained glaze micro-normal"
-    bump.inputs["Strength"].default_value = 0.075
-    bump.inputs["Distance"].default_value = 0.00015
+    bump.inputs["Strength"].default_value = 0.12
+    bump.inputs["Distance"].default_value = 0.00022
+    crackle_bump = nodes.new("ShaderNodeBump")
+    crackle_bump.name = "Shallow crackle groove"
+    crackle_bump.inputs["Strength"].default_value = 0.09
+    crackle_bump.inputs["Distance"].default_value = 0.00006
     links.new(coordinates.outputs["Generated"], orange_peel.inputs["Vector"])
+    links.new(crackle.outputs["Factor"], crackle_bump.inputs["Height"])
+    links.new(crackle_bump.outputs["Normal"], bump.inputs["Normal"])
     links.new(orange_peel.outputs["Fac"], bump.inputs["Height"])
     links.new(bump.outputs["Normal"], _socket(shader, "Normal"))
     return material
@@ -426,6 +442,65 @@ def _attribute_pattern(obj, kind):
     return tuple(result)
 
 
+def _face_mask_values(obj, kind):
+    polygons = tuple(obj.data.polygons)
+    if not polygons:
+        return ()
+    centers = [polygon.center for polygon in polygons]
+    minimum = Vector((min(value[index] for value in centers) for index in range(3)))
+    maximum = Vector((max(value[index] for value in centers) for index in range(3)))
+    radial_values = [math.hypot(center.x, center.y) for center in centers]
+    radial_minimum = min(radial_values)
+    radial_maximum = max(radial_values)
+    detail_id = obj.get("detail_id")
+    result = []
+    for polygon, radial in zip(polygons, radial_values):
+        center = polygon.center
+        normal = polygon.normal
+        x = _normalized_coordinate(center.x, minimum.x, maximum.x)
+        y = _normalized_coordinate(center.y, minimum.y, maximum.y)
+        z = _normalized_coordinate(center.z, minimum.z, maximum.z)
+        edge = max(abs(2.0 * x - 1.0), abs(2.0 * y - 1.0))
+
+        if kind == "contact":
+            if detail_id == "mechanism/heaven-detent":
+                affected = normal.z > 0.30
+                value = 0.72 + 0.28 * max(0.0, normal.z) if affected else 0.0
+            elif detail_id in {"mechanism/general-track", "mechanism/lesson-general-socket"}:
+                if detail_id == "mechanism/lesson-general-socket":
+                    radial_position = _normalized_coordinate(radial, radial_minimum, radial_maximum)
+                    affected = radial_position < 0.48 and normal.z > -0.70
+                else:
+                    affected = normal.z > 0.12
+                value = 0.70 + 0.30 * max(0.0, normal.z) if affected else 0.0
+            elif detail_id == "mechanism/lesson-dovetails":
+                affected = normal.z > 0.08 or (z > 0.48 and abs(normal.y) > 0.30)
+                value = 0.74 + 0.26 * z if affected else 0.0
+            elif detail_id in {"mechanism/lesson-end-stop", "mechanism/bridge-stops"}:
+                affected = edge > 0.72 and abs(normal.z) < 0.90 and z > 0.18
+                value = 0.76 + 0.24 * z if affected else 0.0
+            else:
+                affected = edge > 0.76 and normal.z > -0.35
+                value = 0.68 + 0.32 * max(z, 0.0) if affected else 0.0
+        elif kind == "recess":
+            if detail_id in {"structure/base-bottom-seam", "structure/base-shell-thickness"}:
+                affected = normal.z < -0.20 or (z < 0.16 and abs(normal.z) < 0.96)
+                value = 0.74 + 0.26 * (1.0 - z) if affected else 0.0
+            elif detail_id == "mechanism/heaven-bearing":
+                affected = z < 0.46 and normal.z < 0.72
+                value = 0.72 + 0.28 * (1.0 - z) if affected else 0.0
+            else:
+                affected = normal.z < 0.15
+                value = 0.70 + 0.30 * max(0.0, -normal.z) if affected else 0.0
+        elif kind == "boundary":
+            affected = abs(normal.z) < 0.94
+            value = 0.76 + 0.24 * (1.0 - abs(normal.z)) if affected else 0.0
+        else:
+            raise ValueError(f"Unknown face attribute pattern: {kind}")
+        result.append(max(0.0, min(1.0, value)))
+    return tuple(result)
+
+
 def _set_float_attribute(obj, name, values):
     attribute = obj.data.attributes.get(name)
     if attribute is not None:
@@ -435,6 +510,16 @@ def _set_float_attribute(obj, name, values):
         values = (float(values),) * len(attribute.data)
     if len(values) != len(attribute.data):
         raise RuntimeError(f"Attribute {name} length mismatch on {obj.name}")
+    attribute.data.foreach_set("value", values)
+
+
+def _set_face_attribute(obj, name, values):
+    attribute = obj.data.attributes.get(name)
+    if attribute is not None:
+        obj.data.attributes.remove(attribute)
+    attribute = obj.data.attributes.new(name=name, type="FLOAT", domain="FACE")
+    if len(values) != len(attribute.data):
+        raise RuntimeError(f"Face attribute {name} length mismatch on {obj.name}")
     attribute.data.foreach_set("value", values)
 
 
@@ -462,22 +547,22 @@ def apply_master_materials(root):
 
         detail_id = obj.get("detail_id")
         if obj.name in CONTACT_OBJECTS or detail_id in CONTACT_DETAIL_IDS:
-            _set_float_attribute(
+            _set_face_attribute(
                 obj,
                 MASK_ATTRIBUTES["mask_contact_wear"],
-                _attribute_pattern(obj, "contact"),
+                _face_mask_values(obj, "contact"),
             )
         if detail_id in RECESS_DETAIL_IDS:
-            _set_float_attribute(
+            _set_face_attribute(
                 obj,
                 MASK_ATTRIBUTES["mask_recess_oxidation"],
-                _attribute_pattern(obj, "recess"),
+                _face_mask_values(obj, "recess"),
             )
         if name == "M_Celadon":
-            _set_float_attribute(
+            _set_face_attribute(
                 obj,
                 MASK_ATTRIBUTES["mask_insert_dirt"],
-                _attribute_pattern(obj, "boundary"),
+                _face_mask_values(obj, "boundary"),
             )
             _set_float_attribute(
                 obj,
@@ -566,10 +651,33 @@ def build_material_board_scene():
             _set_float_attribute(sphere, attribute_name, values)
         _set_float_attribute(sphere, "dirt_phase", 0.13 + index * 0.17)
 
-    key_data = bpy.data.lights.new("material-board/key-4300K", "AREA")
-    key_data.energy = 1250.0
-    key_data.shape = "DISK"
-    key_data.size = 4.5
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=128,
+        ring_count=96,
+        radius=0.08,
+        location=(0.0, 0.0, 0.0),
+    )
+    closeup = bpy.context.object
+    closeup.name = "review/celadon-closeup"
+    closeup["review_material"] = "M_Celadon"
+    closeup["review_role"] = "micro-surface-closeup"
+    closeup.data.materials.append(bpy.data.materials["M_Celadon"])
+    bpy.ops.object.shade_smooth()
+    _set_face_attribute(
+        closeup,
+        MASK_ATTRIBUTES["mask_insert_dirt"],
+        (0.0,) * len(closeup.data.polygons),
+    )
+    _set_float_attribute(
+        closeup,
+        MASK_ATTRIBUTES["mask_celadon_crackle"],
+        1.0,
+    )
+    _set_float_attribute(closeup, "dirt_phase", 0.41)
+
+    key_data = bpy.data.lights.new("material-board/key-4300K", "SUN")
+    key_data.energy = 2.8
+    key_data.angle = math.radians(8.0)
     key_data.use_temperature = True
     key_data.temperature = 4300.0
     key = bpy.data.objects.new("material-board/key-4300K", key_data)
@@ -601,6 +709,8 @@ def build_material_board_scene():
     scene.collection.objects.link(camera)
     camera.location = (0.0, -17.2, 5.0)
     _look_at(camera, (0.0, 0.0, 0.7))
+    bpy.context.view_layer.update()
+    closeup.location = camera.matrix_world @ Vector((0.21, 0.10, -1.20))
     scene.camera = camera
 
     bpy.context.view_layer.update()

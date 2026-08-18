@@ -33,7 +33,16 @@
       "specularIorLevel": 0.34,
       "coatWeight": 0.18,
       "coatRoughness": 0.28,
-      "microNormal": "procedural orange peel",
+      "microNormal": {
+        "orangePeelDistanceM": 0.00022,
+        "orangePeelStrength": 0.12,
+        "crackleGrooveDistanceM": 0.00006,
+        "crackleGrooveStrength": 0.09,
+        "crackleCellsPerAxis": 14,
+        "crackleWidthThreshold": 0.045,
+        "crackleMaskStrength": 0.65,
+        "crackleTintFactor": 0.12
+      },
       "maskUse": ["mask_insert_dirt", "mask_celadon_crackle"]
     },
     "M_OldGold": {
@@ -54,18 +63,24 @@
   "masks": {
     "mask_contact_wear": {
       "attribute": "causal_contact_wear",
+      "attributeDomain": "FACE",
+      "cleanValue": 0.0,
       "cause": "repeated touch or sliding contact",
       "allowedSurfaces": ["outer touch edges", "detents", "rails", "insert slots"],
       "effect": "reduce bronze roughness"
     },
     "mask_recess_oxidation": {
       "attribute": "causal_recess_oxidation",
+      "attributeDomain": "FACE",
+      "cleanValue": 0.0,
       "cause": "moisture and dirt retention in sheltered recesses",
       "allowedSurfaces": ["grooves", "underside seams", "bearing roots"],
       "effect": "increase patina coverage and roughness"
     },
     "mask_insert_dirt": {
       "attribute": "causal_insert_boundary",
+      "attributeDomain": "FACE",
+      "cleanValue": 0.0,
       "phaseAttribute": "dirt_phase",
       "cause": "debris trapped at material boundaries",
       "allowedSurfaces": ["bronze/celadon boundaries"],
@@ -97,6 +112,16 @@
     "keyPosition": "left-front-above",
     "transparentBackground": false,
     "ground": "neutral rough plane with contact shadows",
+    "celadonCloseup": {
+      "purpose": "review restrained crackle and orange-peel micro-normal under the shared key",
+      "pixelRegion": [1240, 40, 1840, 520],
+      "minimumProjectedDiameterPx": 420,
+      "material": "M_Celadon",
+      "physicalRadiusM": 0.08,
+      "cameraSpacePositionM": [0.21, 0.10, -1.20],
+      "insertDirtGate": 0.0,
+      "lighting": "shared 4300 K directional key, fill and rim"
+    },
     "sphereOrder": [
       "M_Bronze",
       "M_Patina",

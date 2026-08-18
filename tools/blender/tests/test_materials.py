@@ -93,6 +93,115 @@ class MaterialTest(unittest.TestCase):
         for actual_channel, expected_channel in zip(actual[:3], expected):
             self.assertAlmostEqual(actual_channel, expected_channel, places=6)
 
+    def assertFaceMaskSample(self, object_name, attribute_name, clean_filter, affected_filter):
+        obj = bpy.data.objects[object_name]
+        attribute = obj.data.attributes.get(attribute_name)
+        self.assertIsNotNone(attribute, object_name)
+        self.assertEqual(attribute.domain, "FACE", object_name)
+        clean_faces = [polygon for polygon in obj.data.polygons if clean_filter(polygon)]
+        affected_faces = [polygon for polygon in obj.data.polygons if affected_filter(polygon)]
+        self.assertTrue(clean_faces, f"No clean sample on {object_name}")
+        self.assertTrue(affected_faces, f"No affected sample on {object_name}")
+        clean = max(clean_faces, key=lambda polygon: polygon.area)
+        affected = max(affected_faces, key=lambda polygon: polygon.area)
+        self.assertEqual(attribute.data[clean.index].value, 0.0, object_name)
+        self.assertGreater(attribute.data[affected.index].value, 0.0, object_name)
+
+    def assertCausalFaceMasks(self):
+        contact_holders = [
+            obj for obj in bpy.data.objects if obj.type == "MESH" and "causal_contact_wear" in obj.data.attributes
+        ]
+        recess_holders = [
+            obj for obj in bpy.data.objects if obj.type == "MESH" and "causal_recess_oxidation" in obj.data.attributes
+        ]
+        insert_holders = [
+            obj for obj in bpy.data.objects if obj.type == "MESH" and "causal_insert_boundary" in obj.data.attributes
+        ]
+
+        allowed_contact_details = {
+            "mechanism/heaven-detent",
+            "mechanism/lesson-dovetails",
+            "mechanism/lesson-end-stop",
+            "mechanism/lesson-general-socket",
+            "mechanism/bridge-stops",
+            "mechanism/general-track",
+        }
+        allowed_recess_details = {
+            "structure/base-bottom-seam",
+            "structure/base-shell-thickness",
+            "mechanism/heaven-bearing",
+            "structure/bronze-celadon-contact-seam",
+            "mechanism/general-track",
+        }
+        allowed_contact_objects = {"base/body", "plate/earth", "plate/heaven"}
+
+        for obj in contact_holders:
+            with self.subTest(mask="contact", object=obj.name):
+                self.assertTrue(
+                    obj.name in allowed_contact_objects or obj.get("detail_id") in allowed_contact_details
+                )
+                attribute = obj.data.attributes["causal_contact_wear"]
+                self.assertEqual(attribute.domain, "FACE")
+                values = tuple(item.value for item in attribute.data)
+                self.assertIn(0.0, values)
+                self.assertTrue(any(value > 0.0 for value in values))
+
+        for obj in recess_holders:
+            with self.subTest(mask="recess", object=obj.name):
+                self.assertIn(obj.get("detail_id"), allowed_recess_details)
+                attribute = obj.data.attributes["causal_recess_oxidation"]
+                self.assertEqual(attribute.domain, "FACE")
+                values = tuple(item.value for item in attribute.data)
+                self.assertIn(0.0, values)
+                self.assertTrue(any(value > 0.0 for value in values))
+
+        for obj in insert_holders:
+            with self.subTest(mask="insert", object=obj.name):
+                self.assertEqual(material_name(obj), "M_Celadon")
+                attribute = obj.data.attributes["causal_insert_boundary"]
+                self.assertEqual(attribute.domain, "FACE")
+                values = tuple(item.value for item in attribute.data)
+                self.assertIn(0.0, values)
+                self.assertTrue(any(value > 0.0 for value in values))
+
+        self.assertNotIn(
+            "causal_recess_oxidation",
+            bpy.data.objects["detail/bridge/support-body"].data.attributes,
+        )
+        self.assertNotIn(
+            "causal_recess_oxidation",
+            bpy.data.objects["detail/heaven/support-rib/00"].data.attributes,
+        )
+        self.assertNotIn(
+            "causal_contact_wear",
+            bpy.data.objects["detail/heaven/inlay-bed/00"].data.attributes,
+        )
+
+        self.assertFaceMaskSample(
+            "base/body",
+            "causal_contact_wear",
+            lambda polygon: polygon.normal.z > 0.999 and abs(polygon.center.x) < 0.01 and abs(polygon.center.y) < 0.01,
+            lambda polygon: abs(polygon.normal.z) < 0.01 and max(abs(polygon.center.x), abs(polygon.center.y)) > 0.24,
+        )
+        self.assertFaceMaskSample(
+            "detail/base/removable-bottom",
+            "causal_recess_oxidation",
+            lambda polygon: polygon.normal.z > 0.999,
+            lambda polygon: polygon.normal.z < -0.999,
+        )
+        self.assertFaceMaskSample(
+            "lesson/first/readout/upper",
+            "causal_insert_boundary",
+            lambda polygon: polygon.normal.z > 0.999,
+            lambda polygon: abs(polygon.normal.z) < 0.01,
+        )
+        self.assertFaceMaskSample(
+            "detail/heaven/center-bearing",
+            "causal_recess_oxidation",
+            lambda polygon: polygon.normal.z > 0.999,
+            lambda polygon: polygon.center.z < 0.0 and abs(polygon.normal.z) < 0.95,
+        )
+
     def test_master_materials_use_linear_palette_and_physical_principled_roles(self):
         materials = build_master_materials()
 
@@ -215,6 +324,7 @@ class MaterialTest(unittest.TestCase):
         self.assertTrue(attribute_values(recess, "causal_recess_oxidation"))
         self.assertGreater(len(set(attribute_values(boundary, "causal_insert_boundary"))), 1)
         self.assertGreater(len(set(attribute_values(boundary, "causal_celadon_crackle"))), 1)
+        self.assertCausalFaceMasks()
 
         phases = {}
         for lesson in ("first", "second", "third", "fourth"):
@@ -251,6 +361,7 @@ class MaterialTest(unittest.TestCase):
                 tuple(round(value, 6) for value in bpy.data.objects["plate/heaven"].dimensions),
                 (0.38, 0.38, 0.024),
             )
+            self.assertCausalFaceMasks()
 
     def test_contract_and_material_board_are_complete_and_visually_nonempty(self):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
@@ -264,6 +375,8 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(contract["reviewRender"]["engine"], "CYCLES")
         self.assertEqual(contract["reviewRender"]["keyTemperatureK"], 4300)
         self.assertEqual(contract["reviewRender"]["transparentBackground"], False)
+        self.assertEqual(contract["reviewRender"]["celadonCloseup"]["pixelRegion"], [1240, 40, 1840, 520])
+        self.assertEqual(contract["reviewRender"]["celadonCloseup"]["minimumProjectedDiameterPx"], 420)
         self.assertEqual(contract["reviewRender"]["sphereOrder"], [
             "M_Bronze",
             "M_Patina",
@@ -290,6 +403,63 @@ class MaterialTest(unittest.TestCase):
             self.assertLess(min(sampled_rgb), 0.08)
             self.assertGreater(max(sampled_rgb), 0.55)
             self.assertGreater(math.fsum(sampled_rgb) / len(sampled_rgb), 0.04)
+
+            closeup_rgb = []
+            closeup_gradients = []
+            for display_y in range(40, 520, 4):
+                image_y = height - 1 - display_y
+                for x in range(1240, 1840, 4):
+                    index = (image_y * width + x) * 4
+                    rgb = tuple(pixels[index : index + 3])
+                    closeup_rgb.append(math.fsum(rgb) / 3.0)
+                    next_index = (image_y * width + min(x + 4, width - 1)) * 4
+                    next_luminance = math.fsum(pixels[next_index : next_index + 3]) / 3.0
+                    closeup_gradients.append(abs(next_luminance - closeup_rgb[-1]))
+            self.assertGreater(
+                sum(value > 0.08 for value in closeup_rgb) / len(closeup_rgb),
+                0.35,
+            )
+            self.assertGreater(
+                sum(value > 0.0025 for value in closeup_gradients) / len(closeup_gradients),
+                0.015,
+            )
+
+            micro_gradients = []
+            for display_y in range(120, 350, 2):
+                image_y = height - 1 - display_y
+                for x in range(1420, 1620, 2):
+                    index = (image_y * width + x) * 4
+                    right_index = (image_y * width + x + 2) * 4
+                    down_index = ((image_y - 2) * width + x) * 4
+                    luminance = math.fsum(pixels[index : index + 3]) / 3.0
+                    right = math.fsum(pixels[right_index : right_index + 3]) / 3.0
+                    down = math.fsum(pixels[down_index : down_index + 3]) / 3.0
+                    micro_gradients.extend((abs(right - luminance), abs(down - luminance)))
+            micro_gradients.sort()
+            p95 = micro_gradients[int(len(micro_gradients) * 0.95)]
+            self.assertGreater(p95, 0.008)
+            self.assertLess(p95, 0.04)
+
+            micro_laplacian = []
+            for display_y in range(120, 350, 2):
+                image_y = height - 1 - display_y
+                for x in range(1420, 1620, 2):
+                    def luminance(sample_x, sample_y):
+                        sample_index = (sample_y * width + sample_x) * 4
+                        return math.fsum(pixels[sample_index : sample_index + 3]) / 3.0
+
+                    center = luminance(x, image_y)
+                    neighbors = (
+                        luminance(x - 2, image_y),
+                        luminance(x + 2, image_y),
+                        luminance(x, image_y - 2),
+                        luminance(x, image_y + 2),
+                    )
+                    micro_laplacian.append(abs(center - math.fsum(neighbors) / 4.0))
+            micro_laplacian.sort()
+            laplacian_p95 = micro_laplacian[int(len(micro_laplacian) * 0.95)]
+            self.assertGreater(laplacian_p95, 0.007)
+            self.assertLess(laplacian_p95, 0.03)
         finally:
             bpy.data.images.remove(image)
 
@@ -302,6 +472,19 @@ class MaterialTest(unittest.TestCase):
         key = scene.objects["material-board/key-4300K"]
         self.assertTrue(key.data.use_temperature)
         self.assertEqual(key.data.temperature, 4300.0)
+        closeup = scene.objects["review/celadon-closeup"]
+        closeup_projected = [
+            world_to_camera_view(scene, scene.camera, closeup.matrix_world @ Vector(corner))
+            for corner in closeup.bound_box
+        ]
+        closeup_width = (max(point.x for point in closeup_projected) - min(point.x for point in closeup_projected)) * 1920
+        closeup_height = (max(point.y for point in closeup_projected) - min(point.y for point in closeup_projected)) * 1080
+        self.assertGreaterEqual(closeup_width, 420)
+        self.assertGreaterEqual(closeup_height, 420)
+        self.assertGreater(min(point.x for point in closeup_projected), 0.63)
+        self.assertLess(max(point.x for point in closeup_projected), 0.97)
+        self.assertGreater(min(point.y for point in closeup_projected), 0.50)
+        self.assertLess(max(point.y for point in closeup_projected), 0.98)
         spheres = sorted(
             (obj for obj in scene.objects if obj.name.startswith("review/sphere/")),
             key=lambda obj: obj.name,
