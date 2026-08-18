@@ -1,3 +1,4 @@
+import math
 import sys
 import tempfile
 import unittest
@@ -177,8 +178,7 @@ def evaluated_world_vertices(obj, dependency_graph):
     return vertices
 
 
-def point_inside_solid(tree, point):
-    direction = Vector((1.0, 0.371, 0.127)).normalized()
+def ray_has_odd_surface_crossings(tree, point, direction):
     origin = point.copy()
     remaining = 10.0
     crossings = 0
@@ -195,6 +195,18 @@ def point_inside_solid(tree, point):
     return crossings % 2 == 1
 
 
+def point_inside_solid(tree, point):
+    directions = (
+        Vector((1.0, 0.371, 0.127)).normalized(),
+        Vector((-0.247, 1.0, 0.419)).normalized(),
+        Vector((0.193, -0.337, 1.0)).normalized(),
+    )
+    return sum(
+        ray_has_odd_surface_crossings(tree, point, direction)
+        for direction in directions
+    ) >= 2
+
+
 def meshes_intersect(first, second):
     if not boxes_overlap(world_bounds(first), world_bounds(second)):
         return False
@@ -202,6 +214,31 @@ def meshes_intersect(first, second):
     return bool(
         evaluated_bvh(first, dependency_graph).overlap(
             evaluated_bvh(second, dependency_graph)
+        )
+    )
+
+
+def solid_meshes_intrude(first, second):
+    first_bounds = world_bounds(first)
+    second_bounds = world_bounds(second)
+    if not boxes_overlap(first_bounds, second_bounds):
+        return False
+    dependency_graph = bpy.context.evaluated_depsgraph_get()
+    first_tree = evaluated_bvh(first, dependency_graph)
+    second_tree = evaluated_bvh(second, dependency_graph)
+    if first_tree.overlap(second_tree):
+        return True
+    return (
+        contains(second_bounds, first_bounds)
+        and any(
+            point_inside_solid(second_tree, vertex)
+            for vertex in evaluated_world_vertices(first, dependency_graph)
+        )
+    ) or (
+        contains(first_bounds, second_bounds)
+        and any(
+            point_inside_solid(first_tree, vertex)
+            for vertex in evaluated_world_vertices(second, dependency_graph)
         )
     )
 
@@ -229,15 +266,17 @@ def cross_runtime_collisions():
             if second.name not in trees:
                 trees[second.name] = evaluated_bvh(second, dependency_graph)
             surface_crossing = bool(trees[first.name].overlap(trees[second.name]))
-            first_vertices = evaluated_world_vertices(first, dependency_graph)
-            second_vertices = evaluated_world_vertices(second, dependency_graph)
-            first_inside = any(
+            first_inside = contains(
+                bounds[second.name], bounds[first.name]
+            ) and any(
                 point_inside_solid(trees[second.name], vertex)
-                for vertex in first_vertices[:: max(1, len(first_vertices) // 24)]
+                for vertex in evaluated_world_vertices(first, dependency_graph)
             )
-            second_inside = any(
+            second_inside = contains(
+                bounds[first.name], bounds[second.name]
+            ) and any(
                 point_inside_solid(trees[first.name], vertex)
-                for vertex in second_vertices[:: max(1, len(second_vertices) // 24)]
+                for vertex in evaluated_world_vertices(second, dependency_graph)
             )
             if surface_crossing or first_inside or second_inside:
                 collisions.append((first.name, second.name))
@@ -267,6 +306,42 @@ def descendant_meshes(root):
 class HighDetailGeometryTest(unittest.TestCase):
     def setUp(self):
         self.root = build_graybox()
+
+    def assert_functional_inlays_supported(
+        self, inscriptions, persisted_details, plate, stage
+    ):
+        functional_inlays = sorted(
+            (
+                obj
+                for obj in inscriptions
+                if obj.get("surface_treatment") == "flush-inlay"
+            ),
+            key=lambda obj: (obj["inscription_role"], obj["angular_index"]),
+        )
+        inlay_beds = {
+            obj["detail_index"]: obj
+            for obj in persisted_details
+            if obj.get("detail_id") == "structure/heaven-inlay-bed"
+        }
+        self.assertEqual(len(functional_inlays), 24)
+        self.assertEqual(
+            {obj["inscription_role"] for obj in functional_inlays},
+            {"earth-branch", "mechanical-scale"},
+        )
+        self.assertEqual(set(inlay_beds), set(range(12)))
+        plate_top = world_bounds(plate)[1][2]
+        for inscription in functional_inlays:
+            angular_index = inscription["angular_index"]
+            support = inlay_beds[angular_index]
+            with self.subTest(
+                role=inscription["inscription_role"],
+                angular_index=angular_index,
+                stage=stage,
+            ):
+                self.assertAlmostEqual(
+                    world_bounds(inscription)[1][2], plate_top, places=6
+                )
+                self.assertTrue(meshes_intersect(inscription, support))
 
     def test_upgrade_preserves_every_frozen_runtime_value(self):
         before = runtime_contract_snapshot()
@@ -303,6 +378,32 @@ class HighDetailGeometryTest(unittest.TestCase):
             self.assertEqual(slivers, [])
         finally:
             evaluated.to_mesh_clear()
+
+    def test_detents_keep_small_locking_envelope_and_clear_inlay_structure(self):
+        upgrade_to_high_detail(self.root)
+        rim = details("structure/heaven-bronze-rim")[0]
+        detents = sorted(
+            details("mechanism/heaven-detent"), key=lambda obj: obj["detail_index"]
+        )
+        inlay_beds = sorted(
+            details("structure/heaven-inlay-bed"),
+            key=lambda obj: obj["detail_index"],
+        )
+        self.assertEqual(len(detents), 12)
+        self.assertEqual(len(inlay_beds), 12)
+        for index, (detent, inlay_bed) in enumerate(zip(detents, inlay_beds)):
+            center_radius = math.hypot(detent.location.x, detent.location.y)
+            diameter = max(detent.dimensions.x, detent.dimensions.y)
+            with self.subTest(index=index, check="hand-authored locking envelope"):
+                self.assertGreaterEqual(center_radius, 0.171)
+                self.assertLessEqual(center_radius, 0.175)
+                self.assertGreaterEqual(diameter, 0.004)
+                self.assertLessEqual(diameter, 0.006)
+            with self.subTest(index=index, check="bronze rim clearance"):
+                self.assertFalse(solid_meshes_intrude(detent, rim))
+            with self.subTest(index=index, check="inlay bed clearance"):
+                self.assertFalse(solid_meshes_intrude(detent, inlay_bed))
+                self.assertFalse(solid_meshes_intrude(inlay_bed, rim))
 
     def test_required_structural_and_mechanism_parts_are_owned_real_meshes(self):
         upgrade_to_high_detail(self.root)
@@ -381,6 +482,7 @@ class HighDetailGeometryTest(unittest.TestCase):
                 with self.subTest(detail_id=detail_id, object=obj.name):
                     self.assertLessEqual(detail_top, heaven_top - 0.00015)
 
+        self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.173, 0.030), 0.0112)
         self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.178, 0.030), 0.0112)
         self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.158, 0.030), 0.0112)
         self.assertLessEqual(downward_hit_z(heaven, 0.008, 0.158, 0.030), 0.0114)
@@ -519,36 +621,9 @@ class HighDetailGeometryTest(unittest.TestCase):
                 )
             )
             plate = bpy.data.objects["plate/heaven"]
-            plate_top = world_bounds(plate)[1][2]
-            support_roles = {
-                "earth-branch": "structure/heaven-inlay-bed",
-                "mechanical-scale": "mechanism/heaven-detent",
-            }
-            for role, detail_id in support_roles.items():
-                role_inscriptions = sorted(
-                    (obj for obj in inscriptions if obj["inscription_role"] == role),
-                    key=lambda obj: obj["angular_index"],
-                )
-                role_supports = sorted(
-                    (obj for obj in persisted_details if obj["detail_id"] == detail_id),
-                    key=lambda obj: obj["detail_index"],
-                )
-                self.assertEqual(len(role_inscriptions), 12)
-                self.assertEqual(len(role_supports), 12)
-                for angular_index, (inscription, support) in enumerate(
-                    zip(role_inscriptions, role_supports)
-                ):
-                    with self.subTest(
-                        role=role,
-                        angular_index=angular_index,
-                        stage="reopened-blend",
-                    ):
-                        self.assertEqual(inscription["angular_index"], angular_index)
-                        self.assertEqual(support["detail_index"], angular_index)
-                        self.assertAlmostEqual(
-                            world_bounds(inscription)[1][2], plate_top, places=6
-                        )
-                        self.assertTrue(meshes_intersect(inscription, support))
+            self.assert_functional_inlays_supported(
+                inscriptions, persisted_details, plate, "reopened-blend"
+            )
 
             glb_path = Path(directory) / "daliuren-artifact-master.glb"
             bpy.ops.export_scene.gltf(
@@ -574,6 +649,12 @@ class HighDetailGeometryTest(unittest.TestCase):
             self.assertEqual(
                 tuple(round(value, 6) for value in imported_heaven.dimensions),
                 (0.38, 0.38, 0.024),
+            )
+            self.assert_functional_inlays_supported(
+                imported_inscriptions,
+                imported_details,
+                imported_heaven,
+                "glb-roundtrip",
             )
             evaluated = imported_heaven.evaluated_get(
                 bpy.context.evaluated_depsgraph_get()

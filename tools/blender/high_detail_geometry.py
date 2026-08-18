@@ -287,19 +287,24 @@ def _add_heaven_details():
     )
     for index in range(12):
         angle = math.radians(90.0 - index * 30.0)
-        detent_location = (0.178 * math.cos(angle), 0.178 * math.sin(angle), 0.01115)
+        detent_location = (0.173 * math.cos(angle), 0.173 * math.sin(angle), 0.0108)
         inlay_location = (0.158 * math.cos(angle), 0.158 * math.sin(angle), 0.01135)
+        scale_inlay_location = (
+            0.178 * math.cos(angle),
+            0.178 * math.sin(angle),
+            0.01115,
+        )
         _disc(
             f"detail/heaven/detent/{index:02d}",
             heaven,
             "mechanism/heaven-detent",
             index,
-            0.005,
+            0.0025,
             0.0004,
             detent_location,
             0.00025,
         )
-        _box(
+        inlay_bed = _box(
             f"detail/heaven/inlay-bed/{index:02d}",
             heaven,
             "structure/heaven-inlay-bed",
@@ -309,6 +314,21 @@ def _add_heaven_details():
             rotation_z=angle - math.pi / 2,
             bevel=0.0002,
         )
+        scale_inlay_bed = _box(
+            f"detail/heaven/inlay-bed/{index:02d}/scale-support",
+            heaven,
+            "structure/heaven-inlay-bed",
+            index,
+            (0.005, 0.0028, 0.0004),
+            scale_inlay_location,
+            rotation_z=angle - math.pi / 2,
+            bevel=0.0002,
+        )
+        bpy.ops.object.select_all(action="DESELECT")
+        inlay_bed.select_set(True)
+        scale_inlay_bed.select_set(True)
+        bpy.context.view_layer.objects.active = inlay_bed
+        bpy.ops.object.join()
         _torus(
             f"detail/heaven/contact-seam/{index:02d}",
             heaven,
@@ -323,7 +343,7 @@ def _add_heaven_details():
             _cutter_disc(
                 f"cutter/heaven/detent/{index:02d}",
                 heaven,
-                0.0056,
+                0.0032,
                 0.0023,
                 (detent_location[0], detent_location[1], 0.0114),
             )
@@ -334,6 +354,15 @@ def _add_heaven_details():
                 heaven,
                 (0.021, 0.011, 0.0023),
                 (inlay_location[0], inlay_location[1], 0.0114),
+                angle - math.pi / 2,
+            )
+        )
+        inlay_cutters.append(
+            _cutter_box(
+                f"cutter/heaven/scale-inlay/{index:02d}",
+                heaven,
+                (0.006, 0.0032, 0.0023),
+                (scale_inlay_location[0], scale_inlay_location[1], 0.0114),
                 angle - math.pi / 2,
             )
         )
