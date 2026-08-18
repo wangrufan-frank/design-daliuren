@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from daliuren_contract import DIMENSIONS, POSE_IDS
 from geometry import add_beveled_box, add_disc
+from high_detail_geometry import upgrade_to_high_detail
+from inscriptions import build_fixed_inscriptions
 from poses import apply_pose
 
 
@@ -300,6 +302,15 @@ def build_graybox():
     return root
 
 
+def build_master():
+    root = build_graybox()
+    repository_root = Path(__file__).parents[2]
+    font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
+    build_fixed_inscriptions(bpy.data.objects["plate/heaven"], font_path)
+    upgrade_to_high_detail(root)
+    return root
+
+
 def build_pose_previews():
     for collection in list(bpy.data.collections):
         if collection.name.startswith("pose-preview/"):
@@ -341,18 +352,23 @@ def build_pose_previews():
 def parse_args(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("--save", type=Path)
+    parser.add_argument("--master", action="store_true")
     return parser.parse_args(argv)
 
 
 def main():
     args = parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
-    build_graybox()
-    build_pose_previews()
+    if args.master:
+        build_master()
+    else:
+        build_graybox()
+        build_pose_previews()
     if args.save:
         output = args.save.resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
         bpy.ops.wm.save_as_mainfile(filepath=str(output))
-        print(f"Saved graybox: {output}")
+        label = "master" if args.master else "graybox"
+        print(f"Saved {label}: {output}")
 
 
 if __name__ == "__main__":
