@@ -134,5 +134,457 @@
       "M_OldGold",
       "M_AshText"
     ]
+  },
+  "runtimeTextures": {
+    "schemaVersion": 1,
+    "channels": {
+      "baseColor": "sRGB RGB",
+      "orm": "Non-Color RGB: AO=R, roughness=G, metallic=B",
+      "normal": "Non-Color RGB tangent-space"
+    },
+    "atlasPolicy": {
+      "lod0": "2048x2048 per physical material family",
+      "lod2": "1024x1024 per physical material family",
+      "opaqueAlpha": "omitted",
+      "emissive": "omitted because no runtime highlight assignment consumes it"
+    },
+    "dynamicLabels": {
+      "count": 21,
+      "placeholderMaterial": "M_DynamicLabelPlaceholder",
+      "ids": [
+        "dynamic/calendar",
+        "dynamic/lesson/first",
+        "dynamic/lesson/second",
+        "dynamic/lesson/third",
+        "dynamic/lesson/fourth",
+        "dynamic/transmission/initial",
+        "dynamic/transmission/middle",
+        "dynamic/transmission/final",
+        "dynamic/general/noble",
+        "dynamic/general/snake",
+        "dynamic/general/vermilion-bird",
+        "dynamic/general/harmony",
+        "dynamic/general/hook-array",
+        "dynamic/general/azure-dragon",
+        "dynamic/general/void",
+        "dynamic/general/white-tiger",
+        "dynamic/general/constant",
+        "dynamic/general/black-tortoise",
+        "dynamic/general/yin",
+        "dynamic/general/queen-of-heaven",
+        "dynamic/transmission/method"
+      ],
+      "owners": {
+        "dynamic/calendar": "calendar/slip",
+        "dynamic/lesson/first": "lesson/first",
+        "dynamic/lesson/second": "lesson/second",
+        "dynamic/lesson/third": "lesson/third",
+        "dynamic/lesson/fourth": "lesson/fourth",
+        "dynamic/transmission/initial": "transmission/initial",
+        "dynamic/transmission/middle": "transmission/middle",
+        "dynamic/transmission/final": "transmission/final",
+        "dynamic/general/noble": "general/noble",
+        "dynamic/general/snake": "general/snake",
+        "dynamic/general/vermilion-bird": "general/vermilion-bird",
+        "dynamic/general/harmony": "general/harmony",
+        "dynamic/general/hook-array": "general/hook-array",
+        "dynamic/general/azure-dragon": "general/azure-dragon",
+        "dynamic/general/void": "general/void",
+        "dynamic/general/white-tiger": "general/white-tiger",
+        "dynamic/general/constant": "general/constant",
+        "dynamic/general/black-tortoise": "general/black-tortoise",
+        "dynamic/general/yin": "general/yin",
+        "dynamic/general/queen-of-heaven": "general/queen-of-heaven",
+        "dynamic/transmission/method": "transmission/bridge"
+      },
+      "forbiddenCourseValues": [
+        "2026-08-14T23:57:00",
+        "2026-08-15",
+        "二〇二六年七月初二",
+        "丙午",
+        "丙申",
+        "辛酉",
+        "戊子",
+        "辛",
+        "胜光",
+        "反吟",
+        "重审",
+        "子",
+        "丑",
+        "寅",
+        "卯",
+        "辰",
+        "巳",
+        "午",
+        "未",
+        "申",
+        "酉",
+        "戌",
+        "亥",
+        "贵人",
+        "螣蛇",
+        "朱雀",
+        "六合",
+        "勾陈",
+        "青龙",
+        "天空",
+        "白虎",
+        "太常",
+        "玄武",
+        "太阴",
+        "天后",
+        "初传",
+        "中传",
+        "末传",
+        "父母",
+        "子孙",
+        "官鬼",
+        "妻财",
+        "兄弟",
+        "一课",
+        "二课",
+        "三课",
+        "四课",
+        "庚申"
+      ],
+      "contentRule": "blank geometry only; all course text is supplied at runtime"
+    },
+    "families": {
+      "M_Bronze": {
+        "assignment": "objects whose material_role is M_Bronze",
+        "lod0": {
+          "baseColor": {
+            "file": "lod0/bronze-basecolor.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "e1f62a58583809228f12bb1e60cbaaea802991c94e2118df5d684c8c1a8cf46b"
+          },
+          "orm": {
+            "file": "lod0/bronze-orm.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "14909a74321c869acf8f9251106d1527f225a28d1b50f0d97d8d85a107c889a5"
+          },
+          "normal": {
+            "file": "lod0/bronze-normal.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "9a0590d2dfb152fe1b7d7d9f4b7cee83b9a292a9064b455b7b5e2da781549db2"
+          }
+        },
+        "lod2": {
+          "baseColor": {
+            "file": "lod2/bronze-basecolor.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "20dab367f6c1c4788309317754d8c5e37b144bb4a1f9f98d9bf2662d9e9a665a"
+          },
+          "orm": {
+            "file": "lod2/bronze-orm.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "52d788174d6c02acffa213e662b46c366c5e7b8c1a2e101c5cff6bd8c978b705"
+          },
+          "normal": {
+            "file": "lod2/bronze-normal.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "37652f536c51b3974b1c0fc257e268897e83b09dc72ce58a9f456b04bdd1f47f"
+          }
+        }
+      },
+      "M_Patina": {
+        "assignment": "objects whose material_role is M_Patina",
+        "lod0": {
+          "baseColor": {
+            "file": "lod0/patina-basecolor.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "b0cd5a28ff0c5a6b10fde20aa633ec25ffe5495c833b92d4f30cecdfd10db4a3"
+          },
+          "orm": {
+            "file": "lod0/patina-orm.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "efaf5edcc83e27f197706e15aa9d281df96b0767819bf186ea672aa7e9b18417"
+          },
+          "normal": {
+            "file": "lod0/patina-normal.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "d335a46fe4367b458c39431bcc833bc986d95d41ffb08746eb0d3f04df1e1813"
+          }
+        },
+        "lod2": {
+          "baseColor": {
+            "file": "lod2/patina-basecolor.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "f8bec7b830f1a519e29b9ba28a8da795ac434fc4015a6c587584b9becca83d46"
+          },
+          "orm": {
+            "file": "lod2/patina-orm.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "018c739038c310675182a87aaec4605be56f4bfccf225073b3c3668604c546e9"
+          },
+          "normal": {
+            "file": "lod2/patina-normal.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "2c29f94c2e5cd61b7e271fc2e1e4b754ec12c55d0ba4adefd4186062f9f0d0af"
+          }
+        }
+      },
+      "M_Celadon": {
+        "assignment": "objects whose material_role is M_Celadon",
+        "lod0": {
+          "baseColor": {
+            "file": "lod0/celadon-basecolor.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "889efb0a5e196f03aae6c385e7b5ea365731decf2fff4f0a611f20a465b2420e"
+          },
+          "orm": {
+            "file": "lod0/celadon-orm.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "fd7063200b711c24d008ebce0985ee95261f546dee7de22d9b5571a7f6aaf73a"
+          },
+          "normal": {
+            "file": "lod0/celadon-normal.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "ee7bdb7bc7ca527b3e5ae76394ea3d1917ab651bf4ff456cad7caecc47008ae6"
+          }
+        },
+        "lod2": {
+          "baseColor": {
+            "file": "lod2/celadon-basecolor.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "264f4399513a819d3f0ba83ab8c6da10c78d77ac4d34a84c24afcc6b90262eb0"
+          },
+          "orm": {
+            "file": "lod2/celadon-orm.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "1a31be5f94c671996322a398ee68eed0ffb6e82ec82372b5f32da850ae1b6fda"
+          },
+          "normal": {
+            "file": "lod2/celadon-normal.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "714bcda1f1fdce17bd960a8a3b6db1809cdd24136f723fb1d015c1c6ef4ec76e"
+          }
+        }
+      },
+      "M_OldGold": {
+        "assignment": "objects whose material_role is M_OldGold",
+        "lod0": {
+          "baseColor": {
+            "file": "lod0/oldgold-basecolor.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "11f1c88c6ae20f00bd5bb6394f99d14769c2c083f94778f3bfe765d74d74670f"
+          },
+          "orm": {
+            "file": "lod0/oldgold-orm.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "59b333755d9a6b0ecba8dc1306727d5c59b79692fde14abd5cee052922021786"
+          },
+          "normal": {
+            "file": "lod0/oldgold-normal.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "c96d86cbb9585e83090a14a5a8c887abc8594d55ecb3828cd908f9006b326e25"
+          }
+        },
+        "lod2": {
+          "baseColor": {
+            "file": "lod2/oldgold-basecolor.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "92b010835585752afbeb1e4fd9acf17ba13100fcbaa7a9654f2d8c5034268950"
+          },
+          "orm": {
+            "file": "lod2/oldgold-orm.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "75709338e292d349bdd1b7214158d313662129278b209d154ec26ea149253e13"
+          },
+          "normal": {
+            "file": "lod2/oldgold-normal.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "710367b906e2b61de56c18e295f3b052428ee867677c39d5a106da64fa27a0da"
+          }
+        }
+      },
+      "M_AshText": {
+        "assignment": "objects whose material_role is M_AshText",
+        "lod0": {
+          "baseColor": {
+            "file": "lod0/ashtext-basecolor.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "ff04a72c0f222556dc86a195ced85bdf236a98d667c5e8631ab34b4450b44d9e"
+          },
+          "orm": {
+            "file": "lod0/ashtext-orm.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "3465465eab992263e877285d616af8d7f22ebc93201732a3bb38acce3b1e91d0"
+          },
+          "normal": {
+            "file": "lod0/ashtext-normal.png",
+            "dimensions": [
+              2048,
+              2048
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "50b1ce50f8a7bd4bb4660d56061f393fdb5613a7c97b617cb1fa55c0d1028574"
+          }
+        },
+        "lod2": {
+          "baseColor": {
+            "file": "lod2/ashtext-basecolor.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "sRGB",
+            "sha256": "bc7ae409f24e77f93ff592506e51dac6ca40a82774181addf9da1d622cad595b"
+          },
+          "orm": {
+            "file": "lod2/ashtext-orm.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "9bcf116dca77aaf81d9562e5fc4e3d60a52f491508113a4fb23212aa153fe951"
+          },
+          "normal": {
+            "file": "lod2/ashtext-normal.png",
+            "dimensions": [
+              1024,
+              1024
+            ],
+            "channels": "RGB",
+            "colorSpace": "Non-Color",
+            "sha256": "09eb6fedc631a7cb74d7e688ebc6bc56e6bd6206831cf4f8dd37bc37a33bf7c3"
+          }
+        }
+      }
+    }
   }
 }
