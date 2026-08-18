@@ -11,6 +11,7 @@ from daliuren_contract import DIMENSIONS, POSE_IDS
 from geometry import add_beveled_box, add_disc
 from high_detail_geometry import upgrade_to_high_detail
 from inscriptions import build_fixed_inscriptions
+from materials import apply_master_materials, build_master_materials
 from poses import apply_pose
 
 
@@ -308,6 +309,8 @@ def build_master():
     font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
     build_fixed_inscriptions(bpy.data.objects["plate/heaven"], font_path)
     upgrade_to_high_detail(root)
+    build_master_materials()
+    apply_master_materials(root)
     return root
 
 

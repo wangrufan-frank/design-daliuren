@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "blenderVersion": "4.5.12 LTS",
+  "colorSpace": "sRGB hex converted to scene-linear before Principled inputs",
+  "palette": {
+    "ink": "#121817",
+    "bronze": "#26322F",
+    "patina": "#435C53",
+    "celadon": "#879B92",
+    "ash": "#C2C6BB",
+    "oldGold": "#80704C"
+  },
+  "materials": {
+    "M_Bronze": {
+      "physicalRole": "load-bearing bronze",
+      "baseColor": "#26322F",
+      "metallic": 1.0,
+      "baseRoughness": 0.58,
+      "maskUse": ["mask_contact_wear", "mask_recess_oxidation"]
+    },
+    "M_Patina": {
+      "physicalRole": "oxidized bronze surface variation",
+      "baseColor": "#435C53",
+      "metallic": 1.0,
+      "baseRoughness": 0.72,
+      "maskUse": ["mask_recess_oxidation"]
+    },
+    "M_Celadon": {
+      "physicalRole": "non-load-bearing glazed insert",
+      "baseColor": "#879B92",
+      "metallic": 0.0,
+      "baseRoughness": 0.34,
+      "specularIorLevel": 0.34,
+      "coatWeight": 0.18,
+      "coatRoughness": 0.28,
+      "microNormal": "procedural orange peel",
+      "maskUse": ["mask_insert_dirt", "mask_celadon_crackle"]
+    },
+    "M_OldGold": {
+      "physicalRole": "functional fixed inlay only",
+      "baseColor": "#80704C",
+      "metallic": 1.0,
+      "baseRoughness": 0.38,
+      "assignmentRule": "mechanical-scale inscriptions only"
+    },
+    "M_AshText": {
+      "physicalRole": "readable fixed and historical text",
+      "baseColor": "#C2C6BB",
+      "metallic": 0.0,
+      "baseRoughness": 0.68,
+      "assignmentRule": "fixed inscriptions excluding mechanical-scale"
+    }
+  },
+  "masks": {
+    "mask_contact_wear": {
+      "attribute": "causal_contact_wear",
+      "cause": "repeated touch or sliding contact",
+      "allowedSurfaces": ["outer touch edges", "detents", "rails", "insert slots"],
+      "effect": "reduce bronze roughness"
+    },
+    "mask_recess_oxidation": {
+      "attribute": "causal_recess_oxidation",
+      "cause": "moisture and dirt retention in sheltered recesses",
+      "allowedSurfaces": ["grooves", "underside seams", "bearing roots"],
+      "effect": "increase patina coverage and roughness"
+    },
+    "mask_insert_dirt": {
+      "attribute": "causal_insert_boundary",
+      "phaseAttribute": "dirt_phase",
+      "cause": "debris trapped at material boundaries",
+      "allowedSurfaces": ["bronze/celadon boundaries"],
+      "effect": "localized asymmetric boundary tint"
+    },
+    "mask_celadon_crackle": {
+      "attribute": "causal_celadon_crackle",
+      "cause": "glaze shrinkage",
+      "allowedSurfaces": ["celadon objects and islands"],
+      "effect": "restrained Voronoi distance-to-edge crackle"
+    }
+  },
+  "assignmentRules": {
+    "bronze": "load-bearing structure, joints, rails, locks and mechanisms",
+    "patina": "oxidized bronze seams and sheltered returns",
+    "celadon": "readout inserts, transmissions and heaven-plate insert beds",
+    "oldGold": "functional mechanical-scale inlays only",
+    "ashText": "fixed readable and historical inscriptions only",
+    "dynamicCourseValues": "forbidden"
+  },
+  "reviewRender": {
+    "resolution": [1920, 1080],
+    "engine": "CYCLES",
+    "samples": 64,
+    "denoising": true,
+    "viewTransform": "AgX",
+    "look": "AgX - Medium High Contrast",
+    "keyTemperatureK": 4300,
+    "keyPosition": "left-front-above",
+    "transparentBackground": false,
+    "ground": "neutral rough plane with contact shadows",
+    "sphereOrder": [
+      "M_Bronze",
+      "M_Patina",
+      "M_Celadon",
+      "M_OldGold",
+      "M_AshText"
+    ]
+  }
+}
