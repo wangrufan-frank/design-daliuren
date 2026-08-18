@@ -114,11 +114,15 @@
     "ground": "neutral rough plane with contact shadows",
     "celadonCloseup": {
       "purpose": "review restrained crackle and orange-peel micro-normal under the shared key",
-      "pixelRegion": [1240, 40, 1840, 520],
-      "minimumProjectedDiameterPx": 420,
+      "presentation": "framed inset",
+      "pixelRegion": [790, 2, 1300, 360],
+      "microSampleRegion": [840, 50, 960, 170],
+      "minimumProjectedDiameterPx": 280,
+      "minimumComparisonGapPx": 16,
       "material": "M_Celadon",
       "physicalRadiusM": 0.08,
-      "cameraSpacePositionM": [0.21, 0.10, -1.20],
+      "cameraSpacePositionM": [0.0, 0.1866, -1.69],
+      "label": "CELADON / MICRO",
       "insertDirtGate": 0.0,
       "lighting": "shared 4300 K directional key, fill and rim"
     },

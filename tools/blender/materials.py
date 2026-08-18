@@ -2,7 +2,7 @@ import math
 from pathlib import Path
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
@@ -592,6 +592,62 @@ def _board_ground_material():
     return material
 
 
+def _review_emission_material(name, color, strength):
+    material = bpy.data.materials.new(name)
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    links = material.node_tree.links
+    nodes.clear()
+    output = nodes.new("ShaderNodeOutputMaterial")
+    emission = nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = color
+    emission.inputs["Strength"].default_value = strength
+    links.new(emission.outputs["Emission"], output.inputs["Surface"])
+    return material
+
+
+def _camera_view_size(scene, camera, depth):
+    width = 2.0 * depth * math.tan(camera.data.angle_x * 0.5)
+    height = width * scene.render.resolution_y / scene.render.resolution_x
+    return width, height
+
+
+def _camera_local_from_pixel(scene, camera, x, y, depth):
+    view_width, view_height = _camera_view_size(scene, camera, depth)
+    return Vector(
+        (
+            (x / scene.render.resolution_x - 0.5) * view_width,
+            (0.5 - y / scene.render.resolution_y) * view_height,
+            -depth,
+        )
+    )
+
+
+def _camera_facing_plane(scene, camera, name, pixel_region, depth, material, role):
+    left, top, right, bottom = pixel_region
+    view_width, view_height = _camera_view_size(scene, camera, depth)
+    bpy.ops.mesh.primitive_plane_add(size=2.0)
+    plane = bpy.context.object
+    plane.name = name
+    plane["review_role"] = role
+    plane.data.materials.append(material)
+    plane.parent = camera
+    plane.matrix_parent_inverse = Matrix.Identity(4)
+    plane.location = _camera_local_from_pixel(
+        scene,
+        camera,
+        (left + right) * 0.5,
+        (top + bottom) * 0.5,
+        depth,
+    )
+    plane.scale = (
+        (right - left) / scene.render.resolution_x * view_width * 0.5,
+        (bottom - top) / scene.render.resolution_y * view_height * 0.5,
+        1.0,
+    )
+    return plane
+
+
 def build_material_board_scene():
     scene = bpy.data.scenes.new("material-board")
     bpy.context.window.scene = scene
@@ -660,7 +716,7 @@ def build_material_board_scene():
     closeup = bpy.context.object
     closeup.name = "review/celadon-closeup"
     closeup["review_material"] = "M_Celadon"
-    closeup["review_role"] = "micro-surface-closeup"
+    closeup["review_role"] = "micro-surface-inset"
     closeup.data.materials.append(bpy.data.materials["M_Celadon"])
     bpy.ops.object.shade_smooth()
     _set_face_attribute(
@@ -710,7 +766,59 @@ def build_material_board_scene():
     camera.location = (0.0, -17.2, 5.0)
     _look_at(camera, (0.0, 0.0, 0.7))
     bpy.context.view_layer.update()
-    closeup.location = camera.matrix_world @ Vector((0.21, 0.10, -1.20))
+    inset_region = (790, 2, 1300, 360)
+    frame_material = _review_emission_material(
+        "review/celadon-inset-frame-material",
+        srgb_hex(PALETTE["celadon"]),
+        0.32,
+    )
+    panel_material = _review_emission_material(
+        "review/celadon-inset-panel-material",
+        srgb_hex(PALETTE["ink"]),
+        0.12,
+    )
+    label_material = _review_emission_material(
+        "review/celadon-inset-label-material",
+        srgb_hex(PALETTE["ash"]),
+        0.62,
+    )
+    _camera_facing_plane(
+        scene,
+        camera,
+        "review/celadon-inset-frame",
+        inset_region,
+        2.30,
+        frame_material,
+        "inset-frame",
+    )
+    _camera_facing_plane(
+        scene,
+        camera,
+        "review/celadon-inset-panel",
+        (794, 6, 1296, 356),
+        2.295,
+        panel_material,
+        "inset-panel",
+    )
+    label_curve = bpy.data.curves.new("review/celadon-inset-label", "FONT")
+    label_curve.body = "CELADON  /  MICRO"
+    label_curve.align_x = "LEFT"
+    label_curve.align_y = "TOP"
+    label_curve.size = 0.012
+    label_curve.materials.append(label_material)
+    label = bpy.data.objects.new("review/celadon-inset-label", label_curve)
+    label["review_role"] = "inset-label"
+    scene.collection.objects.link(label)
+    label.parent = camera
+    label.matrix_parent_inverse = Matrix.Identity(4)
+    label.location = _camera_local_from_pixel(scene, camera, 1142, 28, 1.55)
+    closeup.location = camera.matrix_world @ _camera_local_from_pixel(
+        scene,
+        camera,
+        960,
+        175,
+        1.69,
+    )
     scene.camera = camera
 
     bpy.context.view_layer.update()

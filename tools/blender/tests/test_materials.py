@@ -85,6 +85,28 @@ def attribute_values(obj, name):
     return tuple(round(item.value, 6) for item in attribute.data)
 
 
+def projected_display_bounds(scene, obj, width=1920, height=1080):
+    projected = [
+        world_to_camera_view(scene, scene.camera, obj.matrix_world @ Vector(corner))
+        for corner in obj.bound_box
+    ]
+    return (
+        min(point.x for point in projected) * width,
+        (1.0 - max(point.y for point in projected)) * height,
+        max(point.x for point in projected) * width,
+        (1.0 - min(point.y for point in projected)) * height,
+    )
+
+
+def projected_gap(first, second):
+    return max(
+        second[0] - first[2],
+        first[0] - second[2],
+        second[1] - first[3],
+        first[1] - second[3],
+    )
+
+
 class MaterialTest(unittest.TestCase):
     def tearDown(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -375,8 +397,10 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(contract["reviewRender"]["engine"], "CYCLES")
         self.assertEqual(contract["reviewRender"]["keyTemperatureK"], 4300)
         self.assertEqual(contract["reviewRender"]["transparentBackground"], False)
-        self.assertEqual(contract["reviewRender"]["celadonCloseup"]["pixelRegion"], [1240, 40, 1840, 520])
-        self.assertEqual(contract["reviewRender"]["celadonCloseup"]["minimumProjectedDiameterPx"], 420)
+        closeup_contract = contract["reviewRender"]["celadonCloseup"]
+        self.assertGreaterEqual(closeup_contract["minimumProjectedDiameterPx"], 280)
+        micro_region = closeup_contract.get("microSampleRegion")
+        self.assertIsNotNone(micro_region)
         self.assertEqual(contract["reviewRender"]["sphereOrder"], [
             "M_Bronze",
             "M_Patina",
@@ -404,11 +428,12 @@ class MaterialTest(unittest.TestCase):
             self.assertGreater(max(sampled_rgb), 0.55)
             self.assertGreater(math.fsum(sampled_rgb) / len(sampled_rgb), 0.04)
 
+            region_left, region_top, region_right, region_bottom = closeup_contract["pixelRegion"]
             closeup_rgb = []
             closeup_gradients = []
-            for display_y in range(40, 520, 4):
+            for display_y in range(region_top, region_bottom, 4):
                 image_y = height - 1 - display_y
-                for x in range(1240, 1840, 4):
+                for x in range(region_left, region_right, 4):
                     index = (image_y * width + x) * 4
                     rgb = tuple(pixels[index : index + 3])
                     closeup_rgb.append(math.fsum(rgb) / 3.0)
@@ -424,10 +449,11 @@ class MaterialTest(unittest.TestCase):
                 0.015,
             )
 
+            micro_left, micro_top, micro_right, micro_bottom = micro_region
             micro_gradients = []
-            for display_y in range(120, 350, 2):
+            for display_y in range(micro_top, micro_bottom, 2):
                 image_y = height - 1 - display_y
-                for x in range(1420, 1620, 2):
+                for x in range(micro_left, micro_right, 2):
                     index = (image_y * width + x) * 4
                     right_index = (image_y * width + x + 2) * 4
                     down_index = ((image_y - 2) * width + x) * 4
@@ -441,9 +467,9 @@ class MaterialTest(unittest.TestCase):
             self.assertLess(p95, 0.04)
 
             micro_laplacian = []
-            for display_y in range(120, 350, 2):
+            for display_y in range(micro_top, micro_bottom, 2):
                 image_y = height - 1 - display_y
-                for x in range(1420, 1620, 2):
+                for x in range(micro_left, micro_right, 2):
                     def luminance(sample_x, sample_y):
                         sample_index = (sample_y * width + sample_x) * 4
                         return math.fsum(pixels[sample_index : sample_index + 3]) / 3.0
@@ -463,45 +489,78 @@ class MaterialTest(unittest.TestCase):
         finally:
             bpy.data.images.remove(image)
 
-    def test_material_board_camera_contains_all_five_spheres_without_clipping(self):
+    def test_material_board_inset_stays_inside_contract_and_clear_of_comparison_spheres(self):
         from materials import build_material_board_scene
 
         build_master_materials()
         scene = build_material_board_scene()
+        contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+        closeup_contract = contract["reviewRender"]["celadonCloseup"]
+        inset_region = tuple(closeup_contract["pixelRegion"])
+        minimum_gap = closeup_contract.get("minimumComparisonGapPx", 16)
         self.assertEqual(scene.render.engine, "CYCLES")
         key = scene.objects["material-board/key-4300K"]
         self.assertTrue(key.data.use_temperature)
         self.assertEqual(key.data.temperature, 4300.0)
         closeup = scene.objects["review/celadon-closeup"]
-        closeup_projected = [
-            world_to_camera_view(scene, scene.camera, closeup.matrix_world @ Vector(corner))
-            for corner in closeup.bound_box
-        ]
-        closeup_width = (max(point.x for point in closeup_projected) - min(point.x for point in closeup_projected)) * 1920
-        closeup_height = (max(point.y for point in closeup_projected) - min(point.y for point in closeup_projected)) * 1080
-        self.assertGreaterEqual(closeup_width, 420)
-        self.assertGreaterEqual(closeup_height, 420)
-        self.assertGreater(min(point.x for point in closeup_projected), 0.63)
-        self.assertLess(max(point.x for point in closeup_projected), 0.97)
-        self.assertGreater(min(point.y for point in closeup_projected), 0.50)
-        self.assertLess(max(point.y for point in closeup_projected), 0.98)
+        closeup_bounds = projected_display_bounds(scene, closeup)
+        self.assertGreaterEqual(closeup_bounds[2] - closeup_bounds[0], closeup_contract["minimumProjectedDiameterPx"])
+        self.assertGreaterEqual(closeup_bounds[3] - closeup_bounds[1], closeup_contract["minimumProjectedDiameterPx"])
+        for actual, limit, comparison in zip(
+            closeup_bounds,
+            inset_region,
+            (self.assertGreaterEqual, self.assertGreaterEqual, self.assertLessEqual, self.assertLessEqual),
+        ):
+            comparison(actual, limit)
+        micro_region = closeup_contract.get("microSampleRegion")
+        self.assertIsNotNone(micro_region)
+        for actual, limit, comparison in zip(
+            micro_region,
+            closeup_bounds,
+            (self.assertGreaterEqual, self.assertGreaterEqual, self.assertLessEqual, self.assertLessEqual),
+        ):
+            comparison(actual, limit)
         spheres = sorted(
             (obj for obj in scene.objects if obj.name.startswith("review/sphere/")),
             key=lambda obj: obj.name,
         )
         self.assertEqual(len(spheres), 5)
         for sphere in spheres:
-            projected = [
-                world_to_camera_view(scene, scene.camera, sphere.matrix_world @ Vector(corner))
-                for corner in sphere.bound_box
-            ]
+            sphere_bounds = projected_display_bounds(scene, sphere)
             with self.subTest(sphere=sphere.name):
-                self.assertGreater(min(point.x for point in projected), 0.02)
-                self.assertLess(max(point.x for point in projected), 0.98)
-                self.assertGreater(min(point.y for point in projected), 0.04)
-                self.assertLess(max(point.y for point in projected), 0.96)
+                self.assertGreater(sphere_bounds[0], 1920 * 0.02)
+                self.assertLess(sphere_bounds[2], 1920 * 0.98)
+                self.assertGreater(sphere_bounds[1], 1080 * 0.04)
+                self.assertLess(sphere_bounds[3], 1080 * 0.96)
+                self.assertGreaterEqual(projected_gap(inset_region, sphere_bounds), minimum_gap)
+                self.assertGreaterEqual(projected_gap(closeup_bounds, sphere_bounds), minimum_gap)
                 world_corners = [sphere.matrix_world @ Vector(corner) for corner in sphere.bound_box]
                 self.assertAlmostEqual(min(point.z for point in world_corners), 0.0, places=3)
+
+    def test_material_board_celadon_closeup_is_presented_as_a_framed_inset(self):
+        from materials import build_material_board_scene
+
+        build_master_materials()
+        scene = build_material_board_scene()
+        contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+        closeup_contract = contract["reviewRender"]["celadonCloseup"]
+        self.assertEqual(closeup_contract.get("presentation"), "framed inset")
+
+        closeup = scene.objects["review/celadon-closeup"]
+        frame = scene.objects.get("review/celadon-inset-frame")
+        panel = scene.objects.get("review/celadon-inset-panel")
+        label = scene.objects.get("review/celadon-inset-label")
+        self.assertIsNotNone(frame)
+        self.assertIsNotNone(panel)
+        self.assertIsNotNone(label)
+        self.assertEqual(closeup.get("review_role"), "micro-surface-inset")
+        self.assertEqual(frame.get("review_role"), "inset-frame")
+        self.assertEqual(panel.get("review_role"), "inset-panel")
+        self.assertEqual(label.get("review_role"), "inset-label")
+
+        frame_bounds = projected_display_bounds(scene, frame)
+        for actual, expected in zip(frame_bounds, closeup_contract["pixelRegion"]):
+            self.assertAlmostEqual(actual, expected, delta=2.0)
 
 
 if __name__ == "__main__":
