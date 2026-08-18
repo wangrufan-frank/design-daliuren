@@ -123,6 +123,7 @@
       "physicalRadiusM": 0.08,
       "cameraSpacePositionM": [0.0, 0.1866, -1.69],
       "label": "CELADON / MICRO",
+      "labelPaddingPx": 10,
       "insertDirtGate": 0.0,
       "lighting": "shared 4300 K directional key, fill and rim"
     },

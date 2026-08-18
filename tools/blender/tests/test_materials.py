@@ -562,6 +562,23 @@ class MaterialTest(unittest.TestCase):
         for actual, expected in zip(frame_bounds, closeup_contract["pixelRegion"]):
             self.assertAlmostEqual(actual, expected, delta=2.0)
 
+        label_bounds = projected_display_bounds(scene, label)
+        label_padding = closeup_contract.get("labelPaddingPx", 10)
+        padded_region = (
+            closeup_contract["pixelRegion"][0] + label_padding,
+            closeup_contract["pixelRegion"][1] + label_padding,
+            closeup_contract["pixelRegion"][2] - label_padding,
+            closeup_contract["pixelRegion"][3] - label_padding,
+        )
+        for actual, limit, comparison in zip(
+            label_bounds,
+            padded_region,
+            (self.assertGreaterEqual, self.assertGreaterEqual, self.assertLessEqual, self.assertLessEqual),
+        ):
+            comparison(actual, limit)
+        self.assertGreaterEqual(label_bounds[2] - label_bounds[0], 180)
+        self.assertGreaterEqual(label_bounds[3] - label_bounds[1], 14)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[__file__])

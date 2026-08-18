@@ -811,7 +811,7 @@ def build_material_board_scene():
     scene.collection.objects.link(label)
     label.parent = camera
     label.matrix_parent_inverse = Matrix.Identity(4)
-    label.location = _camera_local_from_pixel(scene, camera, 1142, 28, 1.55)
+    label.location = _camera_local_from_pixel(scene, camera, 1052, 12, 1.55)
     closeup.location = camera.matrix_world @ _camera_local_from_pixel(
         scene,
         camera,
