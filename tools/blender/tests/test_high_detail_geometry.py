@@ -168,6 +168,33 @@ def evaluated_bvh(obj, dependency_graph):
     return tree
 
 
+def evaluated_world_vertices(obj, dependency_graph):
+    evaluated = obj.evaluated_get(dependency_graph)
+    mesh = evaluated.to_mesh()
+    matrix = evaluated.matrix_world
+    vertices = [matrix @ vertex.co for vertex in mesh.vertices]
+    evaluated.to_mesh_clear()
+    return vertices
+
+
+def point_inside_solid(tree, point):
+    direction = Vector((1.0, 0.371, 0.127)).normalized()
+    origin = point.copy()
+    remaining = 10.0
+    crossings = 0
+    for _ in range(256):
+        location, _, _, distance = tree.ray_cast(origin, direction, remaining)
+        if location is None:
+            break
+        crossings += 1
+        step = max(distance, 0.0) + 0.0000001
+        origin = origin + direction * step
+        remaining -= step
+        if remaining <= 0:
+            break
+    return crossings % 2 == 1
+
+
 def meshes_intersect(first, second):
     if not boxes_overlap(world_bounds(first), world_bounds(second)):
         return False
@@ -193,15 +220,27 @@ def cross_runtime_collisions():
         for second in meshes[index + 1 :]:
             if moving_group(first) == moving_group(second):
                 continue
+            if not (first.get("detail_id") or second.get("detail_id")):
+                continue
             if not boxes_overlap(bounds[first.name], bounds[second.name]):
                 continue
             if first.name not in trees:
                 trees[first.name] = evaluated_bvh(first, dependency_graph)
             if second.name not in trees:
                 trees[second.name] = evaluated_bvh(second, dependency_graph)
-            if trees[first.name].overlap(trees[second.name]):
-                if first.get("detail_id") or second.get("detail_id"):
-                    collisions.append((first.name, second.name))
+            surface_crossing = bool(trees[first.name].overlap(trees[second.name]))
+            first_vertices = evaluated_world_vertices(first, dependency_graph)
+            second_vertices = evaluated_world_vertices(second, dependency_graph)
+            first_inside = any(
+                point_inside_solid(trees[second.name], vertex)
+                for vertex in first_vertices[:: max(1, len(first_vertices) // 24)]
+            )
+            second_inside = any(
+                point_inside_solid(trees[first.name], vertex)
+                for vertex in second_vertices[:: max(1, len(second_vertices) // 24)]
+            )
+            if surface_crossing or first_inside or second_inside:
+                collisions.append((first.name, second.name))
     return collisions
 
 
@@ -253,6 +292,17 @@ class HighDetailGeometryTest(unittest.TestCase):
                     self.assertGreater(len(evaluated_mesh.vertices), len(obj.data.vertices))
                 finally:
                     obj.evaluated_get(dependency_graph).to_mesh_clear()
+
+    def test_evaluated_heaven_bevel_has_no_sub_micrometric_sliver_faces(self):
+        upgrade_to_high_detail(self.root)
+        heaven = bpy.data.objects["plate/heaven"]
+        evaluated = heaven.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            slivers = [polygon.area for polygon in mesh.polygons if polygon.area < 1e-10]
+            self.assertEqual(slivers, [])
+        finally:
+            evaluated.to_mesh_clear()
 
     def test_required_structural_and_mechanism_parts_are_owned_real_meshes(self):
         upgrade_to_high_detail(self.root)
@@ -331,9 +381,9 @@ class HighDetailGeometryTest(unittest.TestCase):
                 with self.subTest(detail_id=detail_id, object=obj.name):
                     self.assertLessEqual(detail_top, heaven_top - 0.00015)
 
-        self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.173, 0.030), 0.0112)
-        self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.155, 0.030), 0.0112)
-        self.assertLessEqual(downward_hit_z(heaven, 0.008, 0.155, 0.030), 0.0114)
+        self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.178, 0.030), 0.0112)
+        self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.158, 0.030), 0.0112)
+        self.assertLessEqual(downward_hit_z(heaven, 0.008, 0.158, 0.030), 0.0114)
 
     def test_recessed_general_track_is_cut_into_earth_plate(self):
         upgrade_to_high_detail(self.root)
@@ -468,6 +518,74 @@ class HighDetailGeometryTest(unittest.TestCase):
                     {obj.get("inscription_text") for obj in inscriptions}
                 )
             )
+            plate = bpy.data.objects["plate/heaven"]
+            plate_top = world_bounds(plate)[1][2]
+            support_roles = {
+                "earth-branch": "structure/heaven-inlay-bed",
+                "mechanical-scale": "mechanism/heaven-detent",
+            }
+            for role, detail_id in support_roles.items():
+                role_inscriptions = sorted(
+                    (obj for obj in inscriptions if obj["inscription_role"] == role),
+                    key=lambda obj: obj["angular_index"],
+                )
+                role_supports = sorted(
+                    (obj for obj in persisted_details if obj["detail_id"] == detail_id),
+                    key=lambda obj: obj["detail_index"],
+                )
+                self.assertEqual(len(role_inscriptions), 12)
+                self.assertEqual(len(role_supports), 12)
+                for angular_index, (inscription, support) in enumerate(
+                    zip(role_inscriptions, role_supports)
+                ):
+                    with self.subTest(
+                        role=role,
+                        angular_index=angular_index,
+                        stage="reopened-blend",
+                    ):
+                        self.assertEqual(inscription["angular_index"], angular_index)
+                        self.assertEqual(support["detail_index"], angular_index)
+                        self.assertAlmostEqual(
+                            world_bounds(inscription)[1][2], plate_top, places=6
+                        )
+                        self.assertTrue(meshes_intersect(inscription, support))
+
+            glb_path = Path(directory) / "daliuren-artifact-master.glb"
+            bpy.ops.export_scene.gltf(
+                filepath=str(glb_path),
+                export_format="GLB",
+                export_apply=True,
+                export_extras=True,
+                export_animations=False,
+            )
+            bpy.ops.wm.read_factory_settings(use_empty=True)
+            bpy.ops.import_scene.gltf(filepath=str(glb_path))
+            imported_runtime = [obj for obj in bpy.data.objects if "node_id" in obj]
+            imported_details = [obj for obj in bpy.data.objects if "detail_id" in obj]
+            imported_inscriptions = [
+                obj for obj in bpy.data.objects if "inscription_role" in obj
+            ]
+            self.assertEqual(len(imported_runtime), 28)
+            self.assertEqual(len(imported_details), 85)
+            self.assertEqual(len(imported_inscriptions), 71)
+            imported_heaven = next(
+                obj for obj in imported_runtime if obj["node_id"] == "plate/heaven"
+            )
+            self.assertEqual(
+                tuple(round(value, 6) for value in imported_heaven.dimensions),
+                (0.38, 0.38, 0.024),
+            )
+            evaluated = imported_heaven.evaluated_get(
+                bpy.context.evaluated_depsgraph_get()
+            )
+            mesh = evaluated.to_mesh()
+            try:
+                slivers = [
+                    polygon.area for polygon in mesh.polygons if polygon.area < 1e-10
+                ]
+                self.assertEqual(slivers, [])
+            finally:
+                evaluated.to_mesh_clear()
 
     def test_second_upgrade_is_rejected_without_duplicate_geometry_or_modifiers(self):
         upgrade_to_high_detail(self.root)

@@ -203,6 +203,10 @@ def _add_runtime_bevels():
         modifier.width = 0.0005
         modifier.segments = 3
         modifier.limit_method = "ANGLE"
+        if node_id == "plate/heaven":
+            weld = obj.modifiers.new(name="remove bevel slivers", type="WELD")
+            weld.merge_threshold = 0.000002
+            obj.modifiers.new(name="freeze clean export triangles", type="TRIANGULATE")
 
 
 def _add_base_details():
@@ -283,14 +287,14 @@ def _add_heaven_details():
     )
     for index in range(12):
         angle = math.radians(90.0 - index * 30.0)
-        detent_location = (0.173 * math.cos(angle), 0.173 * math.sin(angle), 0.0108)
-        inlay_location = (0.155 * math.cos(angle), 0.155 * math.sin(angle), 0.0108)
+        detent_location = (0.178 * math.cos(angle), 0.178 * math.sin(angle), 0.01115)
+        inlay_location = (0.158 * math.cos(angle), 0.158 * math.sin(angle), 0.01135)
         _disc(
             f"detail/heaven/detent/{index:02d}",
             heaven,
             "mechanism/heaven-detent",
             index,
-            0.0025,
+            0.005,
             0.0004,
             detent_location,
             0.00025,
@@ -312,14 +316,14 @@ def _add_heaven_details():
             index,
             0.008,
             0.0004,
-            (inlay_location[0], inlay_location[1], 0.0109),
+            (inlay_location[0], inlay_location[1], 0.0110),
             32,
         )
         detent_cutters.append(
             _cutter_disc(
                 f"cutter/heaven/detent/{index:02d}",
                 heaven,
-                0.0032,
+                0.0056,
                 0.0023,
                 (detent_location[0], detent_location[1], 0.0114),
             )
