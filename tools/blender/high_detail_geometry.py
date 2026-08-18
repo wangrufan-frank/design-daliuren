@@ -75,11 +75,86 @@ def _torus(
     return _finish_detail(obj, parent, detail_id, index, location)
 
 
+def _cutter_box(name, parent, size, location, rotation_z=0.0):
+    bpy.ops.mesh.primitive_cube_add(location=(0.0, 0.0, 0.0))
+    obj = bpy.context.object
+    obj.name = name
+    obj.dimensions = size
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    obj.parent = parent
+    obj.location = location
+    obj.rotation_euler.z = rotation_z
+    return obj
+
+
+def _cutter_disc(name, parent, radius, depth, location):
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=48,
+        radius=radius,
+        depth=depth,
+        location=(0.0, 0.0, 0.0),
+    )
+    obj = bpy.context.object
+    obj.name = name
+    obj.parent = parent
+    obj.location = location
+    return obj
+
+
+def _cutter_torus(name, parent, major_radius, minor_radius, location, segments=48):
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=major_radius,
+        minor_radius=minor_radius,
+        major_segments=segments,
+        minor_segments=8,
+        location=(0.0, 0.0, 0.0),
+    )
+    obj = bpy.context.object
+    obj.name = name
+    obj.parent = parent
+    obj.location = location
+    return obj
+
+
+def _apply_cutters(target, cutters, label):
+    bpy.ops.object.select_all(action="DESELECT")
+    for cutter in cutters:
+        cutter.select_set(True)
+    bpy.context.view_layer.objects.active = cutters[0]
+    if len(cutters) > 1:
+        bpy.ops.object.join()
+    combined = bpy.context.view_layer.objects.active
+    combined.name = f"cutter/{label}"
+
+    bpy.ops.object.select_all(action="DESELECT")
+    target.select_set(True)
+    bpy.context.view_layer.objects.active = target
+    modifier = target.modifiers.new(name=f"cut {label}", type="BOOLEAN")
+    modifier.operation = "DIFFERENCE"
+    modifier.solver = "EXACT"
+    modifier.object = combined
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+    bpy.data.objects.remove(combined, do_unlink=True)
+
+
+def _readout_bed(name, parent, index):
+    bed_x = -0.065 * parent["motion_axis"][0]
+    return _box(
+        name,
+        parent,
+        "mechanism/lesson-readout-bed",
+        index,
+        (0.004, 0.086, 0.0008),
+        (bed_x, 0.0, 0.0038),
+        bevel=0.00015,
+    )
+
+
 def _dovetail(name, parent, index):
     length = 0.132
     lower_half_width = 0.007
     upper_half_width = 0.0045
-    bottom = 0.0042
+    bottom = 0.0035
     top = 0.0072
     vertices = [
         (-length / 2, -lower_half_width, bottom),
@@ -109,7 +184,7 @@ def _dovetail(name, parent, index):
         parent,
         "mechanism/lesson-dovetails",
         index,
-        (0.0, 0.042, 0.0),
+        (0.0, 0.048, 0.0),
     )
     modifier = obj.modifiers.new(name="rail edge bevel", type="BEVEL")
     modifier.width = 0.00035
@@ -133,10 +208,10 @@ def _add_runtime_bevels():
 def _add_base_details():
     base = bpy.data.objects["base/body"]
     wall_specs = (
-        ((0.488, 0.010, 0.008), (0.0, 0.242, -0.020)),
-        ((0.488, 0.010, 0.008), (0.0, -0.242, -0.020)),
-        ((0.010, 0.468, 0.008), (0.242, 0.0, -0.020)),
-        ((0.010, 0.468, 0.008), (-0.242, 0.0, -0.020)),
+        ((0.488, 0.008, 0.0008), (0.0, 0.256, -0.0260)),
+        ((0.488, 0.008, 0.0008), (0.0, -0.256, -0.0260)),
+        ((0.008, 0.488, 0.0008), (0.256, 0.0, -0.0260)),
+        ((0.008, 0.488, 0.0008), (-0.256, 0.0, -0.0260)),
     )
     for index, (size, location) in enumerate(wall_specs):
         _box(
@@ -146,32 +221,36 @@ def _add_base_details():
             index,
             size,
             location,
+            bevel=0.0002,
         )
     _box(
         "detail/base/removable-bottom",
         base,
         "structure/base-bottom-seam",
         0,
-        (0.484, 0.484, 0.0012),
-        (0.0, 0.0, -0.0252),
-        bevel=0.0002,
+        (0.484, 0.484, 0.0008),
+        (0.0, 0.0, -0.0260),
+        bevel=0.00015,
     )
     for index, (x, y) in enumerate(
-        ((-0.244, -0.244), (-0.244, 0.244), (0.244, -0.244), (0.244, 0.244))
+        ((-0.252, -0.252), (-0.252, 0.252), (0.252, -0.252), (0.252, 0.252))
     ):
         _box(
             f"detail/base/cast-corner/{index:02d}",
             base,
             "structure/base-corner-transition",
             index,
-            (0.020, 0.020, 0.010),
-            (x, y, -0.017),
-            bevel=0.0025,
+            (0.016, 0.016, 0.0012),
+            (x, y, -0.0259),
+            bevel=0.0003,
         )
 
 
 def _add_heaven_details():
     heaven = bpy.data.objects["plate/heaven"]
+    detent_cutters = []
+    inlay_cutters = []
+    seam_cutters = []
     _torus(
         "detail/heaven/bronze-rim",
         heaven,
@@ -204,15 +283,15 @@ def _add_heaven_details():
     )
     for index in range(12):
         angle = math.radians(90.0 - index * 30.0)
-        detent_location = (0.173 * math.cos(angle), 0.173 * math.sin(angle), 0.013)
-        inlay_location = (0.155 * math.cos(angle), 0.155 * math.sin(angle), 0.0124)
+        detent_location = (0.173 * math.cos(angle), 0.173 * math.sin(angle), 0.0108)
+        inlay_location = (0.155 * math.cos(angle), 0.155 * math.sin(angle), 0.0108)
         _disc(
             f"detail/heaven/detent/{index:02d}",
             heaven,
             "mechanism/heaven-detent",
             index,
-            0.003,
-            0.0018,
+            0.0025,
+            0.0004,
             detent_location,
             0.00025,
         )
@@ -221,7 +300,7 @@ def _add_heaven_details():
             heaven,
             "structure/heaven-inlay-bed",
             index,
-            (0.020, 0.010, 0.0006),
+            (0.018, 0.008, 0.0004),
             inlay_location,
             rotation_z=angle - math.pi / 2,
             bevel=0.0002,
@@ -232,10 +311,41 @@ def _add_heaven_details():
             "structure/bronze-celadon-contact-seam",
             index,
             0.008,
-            0.0006,
-            (inlay_location[0], inlay_location[1], 0.0129),
+            0.0004,
+            (inlay_location[0], inlay_location[1], 0.0109),
             32,
         )
+        detent_cutters.append(
+            _cutter_disc(
+                f"cutter/heaven/detent/{index:02d}",
+                heaven,
+                0.0032,
+                0.0023,
+                (detent_location[0], detent_location[1], 0.0114),
+            )
+        )
+        inlay_cutters.append(
+            _cutter_box(
+                f"cutter/heaven/inlay/{index:02d}",
+                heaven,
+                (0.021, 0.011, 0.0023),
+                (inlay_location[0], inlay_location[1], 0.0114),
+                angle - math.pi / 2,
+            )
+        )
+        seam_cutters.append(
+            _cutter_torus(
+                f"cutter/heaven/contact-seam/{index:02d}",
+                heaven,
+                0.008,
+                0.001,
+                (inlay_location[0], inlay_location[1], 0.0114),
+                32,
+            )
+        )
+    _apply_cutters(heaven, detent_cutters, "heaven-detents")
+    _apply_cutters(heaven, inlay_cutters, "heaven-inlay-beds")
+    _apply_cutters(heaven, seam_cutters, "heaven-contact-seams")
 
 
 def _add_lesson_details():
@@ -252,15 +362,7 @@ def _add_lesson_details():
             (stop_x, 0.0, 0.004),
             bevel=0.0006,
         )
-        _box(
-            f"detail/lesson/{lesson}/readout-bed",
-            owner,
-            "mechanism/lesson-readout-bed",
-            index,
-            (0.132, 0.078, 0.0014),
-            (0.0, 0.0, 0.0043),
-            bevel=0.0003,
-        )
+        _readout_bed(f"detail/lesson/{lesson}/readout-bed", owner, index)
         _torus(
             f"detail/lesson/{lesson}/general-socket",
             owner,
@@ -268,7 +370,7 @@ def _add_lesson_details():
             index,
             0.009,
             0.001,
-            (0.058, 0.0, 0.0065),
+            (0.058, 0.0, 0.0042),
             32,
         )
 
@@ -280,8 +382,8 @@ def _add_bridge_details():
         bridge,
         "structure/bridge-support",
         0,
-        (0.404, 0.040, 0.004),
-        (0.0, 0.0, -0.005),
+        (0.404, 0.010, 0.004),
+        (0.0, -0.018, -0.005),
         bevel=0.0006,
     )
     for index, x in enumerate((-0.140, 0.0, 0.140)):
@@ -307,16 +409,25 @@ def _add_bridge_details():
 
 def _add_general_details():
     earth = bpy.data.objects["plate/earth"]
+    track_cutter = _cutter_torus(
+        "cutter/general/recessed-chain-track",
+        earth,
+        0.218,
+        0.0035,
+        (0.0, 0.0, 0.0045),
+        128,
+    )
     _torus(
         "detail/general/recessed-chain-track",
         earth,
         "mechanism/general-track",
         0,
         0.218,
-        0.003,
-        (0.0, 0.0, 0.006),
+        0.002,
+        (0.0, 0.0, 0.0024),
         128,
     )
+    _apply_cutters(earth, [track_cutter], "general-chain-track")
     for index, key in enumerate(GENERAL_KEYS):
         owner = bpy.data.objects[f"general/{key}"]
         _disc(
@@ -324,9 +435,9 @@ def _add_general_details():
             owner,
             "mechanism/general-seal-interface",
             index,
-            0.009,
-            0.0016,
-            (0.0, 0.0, 0.0072),
+            0.003,
+            0.0012,
+            (0.0, -0.008, 0.0067),
             0.0003,
         )
 
@@ -337,11 +448,11 @@ def upgrade_to_high_detail(root):
     if any("detail_id" in obj for obj in bpy.data.objects):
         raise RuntimeError("Artifact is already upgraded to high detail")
 
-    _add_runtime_bevels()
     _add_base_details()
     _add_heaven_details()
     _add_lesson_details()
     _add_bridge_details()
     _add_general_details()
+    _add_runtime_bevels()
     bpy.context.view_layer.update()
     return root

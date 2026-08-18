@@ -1,13 +1,15 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 import bpy
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from build_graybox import build_graybox
+from build_graybox import build_graybox, build_master
 from daliuren_contract import BASE_INTERIOR_COLLISION_BOXES, NODE_IDS
 from high_detail_geometry import upgrade_to_high_detail
 from poses import apply_pose
@@ -62,6 +64,16 @@ MOTION_KEYS = (
     "open_location_forward",
     "open_location_reverse",
 )
+MOVING_RUNTIME_IDS = {
+    "calendar/slip",
+    "lesson/first",
+    "lesson/second",
+    "lesson/third",
+    "lesson/fourth",
+    "transmission/bridge",
+    *(node_id for node_id in NODE_IDS if node_id.startswith("general/")),
+}
+FORBIDDEN_DYNAMIC_TEXT = {"贵人", "初传", "中传", "末传", "父母", "官鬼"}
 
 
 def rounded(values):
@@ -108,6 +120,13 @@ def world_bounds(obj):
     )
 
 
+def local_bounds(obj):
+    return (
+        tuple(min(corner[axis] for corner in obj.bound_box) for axis in range(3)),
+        tuple(max(corner[axis] for corner in obj.bound_box) for axis in range(3)),
+    )
+
+
 def boxes_overlap(first, second):
     first_min, first_max = first
     second_min, second_max = second
@@ -116,6 +135,83 @@ def boxes_overlap(first, second):
         and first_max[axis] > second_min[axis]
         for axis in range(3)
     )
+
+
+def contains(outer, inner, tolerance=0.0000001):
+    outer_min, outer_max = outer
+    inner_min, inner_max = inner
+    return all(
+        inner_min[axis] >= outer_min[axis] - tolerance
+        and inner_max[axis] <= outer_max[axis] + tolerance
+        for axis in range(3)
+    )
+
+
+def moving_group(obj):
+    current = obj
+    while current is not None:
+        node_id = current.get("node_id")
+        if node_id in MOVING_RUNTIME_IDS:
+            return node_id
+        current = current.parent
+    return None
+
+
+def evaluated_bvh(obj, dependency_graph):
+    evaluated = obj.evaluated_get(dependency_graph)
+    mesh = evaluated.to_mesh()
+    matrix = evaluated.matrix_world
+    vertices = [matrix @ vertex.co for vertex in mesh.vertices]
+    polygons = [tuple(polygon.vertices) for polygon in mesh.polygons]
+    tree = BVHTree.FromPolygons(vertices, polygons, all_triangles=False)
+    evaluated.to_mesh_clear()
+    return tree
+
+
+def meshes_intersect(first, second):
+    if not boxes_overlap(world_bounds(first), world_bounds(second)):
+        return False
+    dependency_graph = bpy.context.evaluated_depsgraph_get()
+    return bool(
+        evaluated_bvh(first, dependency_graph).overlap(
+            evaluated_bvh(second, dependency_graph)
+        )
+    )
+
+
+def cross_runtime_collisions():
+    dependency_graph = bpy.context.evaluated_depsgraph_get()
+    meshes = [
+        obj
+        for obj in bpy.context.scene.objects
+        if obj.type == "MESH" and moving_group(obj) is not None
+    ]
+    bounds = {obj.name: world_bounds(obj) for obj in meshes}
+    trees = {}
+    collisions = []
+    for index, first in enumerate(meshes):
+        for second in meshes[index + 1 :]:
+            if moving_group(first) == moving_group(second):
+                continue
+            if not boxes_overlap(bounds[first.name], bounds[second.name]):
+                continue
+            if first.name not in trees:
+                trees[first.name] = evaluated_bvh(first, dependency_graph)
+            if second.name not in trees:
+                trees[second.name] = evaluated_bvh(second, dependency_graph)
+            if trees[first.name].overlap(trees[second.name]):
+                if first.get("detail_id") or second.get("detail_id"):
+                    collisions.append((first.name, second.name))
+    return collisions
+
+
+def downward_hit_z(obj, x, y, start_z):
+    hit, location, _, _ = obj.ray_cast(
+        Vector((x, y, start_z)), Vector((0.0, 0.0, -1.0))
+    )
+    if not hit:
+        raise AssertionError(f"No downward surface hit on {obj.name} at {(x, y)}")
+    return location.z
 
 
 def descendant_meshes(root):
@@ -202,9 +298,54 @@ class HighDetailGeometryTest(unittest.TestCase):
             group = details(detail_id)
             with self.subTest(detail_id=detail_id):
                 self.assertEqual({obj["owner_node_id"] for obj in group}, owners)
-                self.assertEqual(len({obj.as_pointer() for obj in group}), len(group))
+                self.assertEqual(len({obj.data.as_pointer() for obj in group}), len(group))
 
-    def test_lesson_rails_and_stops_break_the_body_silhouette_so_they_are_visible(self):
+    def test_base_shell_seam_and_corner_details_are_exposed_and_attached(self):
+        upgrade_to_high_detail(self.root)
+        base = bpy.data.objects["base/body"]
+        base_box = world_bounds(base)
+
+        for detail_id in (
+            "structure/base-shell-thickness",
+            "structure/base-bottom-seam",
+            "structure/base-corner-transition",
+        ):
+            for obj in details(detail_id):
+                detail_box = world_bounds(obj)
+                with self.subTest(detail_id=detail_id, object=obj.name):
+                    self.assertFalse(contains(base_box, detail_box))
+                    self.assertTrue(boxes_overlap(base_box, detail_box))
+
+    def test_heaven_detents_beds_and_contact_seams_are_cut_below_surface(self):
+        upgrade_to_high_detail(self.root)
+        heaven = bpy.data.objects["plate/heaven"]
+        heaven_top = local_bounds(heaven)[1][2]
+
+        for detail_id in (
+            "mechanism/heaven-detent",
+            "structure/heaven-inlay-bed",
+            "structure/bronze-celadon-contact-seam",
+        ):
+            for obj in details(detail_id):
+                detail_top = obj.location.z + local_bounds(obj)[1][2]
+                with self.subTest(detail_id=detail_id, object=obj.name):
+                    self.assertLessEqual(detail_top, heaven_top - 0.00015)
+
+        self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.173, 0.030), 0.0112)
+        self.assertLessEqual(downward_hit_z(heaven, 0.0, 0.155, 0.030), 0.0112)
+        self.assertLessEqual(downward_hit_z(heaven, 0.008, 0.155, 0.030), 0.0114)
+
+    def test_recessed_general_track_is_cut_into_earth_plate(self):
+        upgrade_to_high_detail(self.root)
+        earth = bpy.data.objects["plate/earth"]
+        earth_top = local_bounds(earth)[1][2]
+        track = details("mechanism/general-track")[0]
+        track_top = track.location.z + local_bounds(track)[1][2]
+
+        self.assertLessEqual(track_top, earth_top - 0.00015)
+        self.assertLessEqual(downward_hit_z(earth, 0.0, 0.218, 0.020), 0.0044)
+
+    def test_lesson_rails_and_sockets_are_attached_and_readout_beds_are_clear(self):
         upgrade_to_high_detail(self.root)
 
         for lesson in ("first", "second", "third", "fourth"):
@@ -219,20 +360,43 @@ class HighDetailGeometryTest(unittest.TestCase):
                 for obj in details("mechanism/lesson-end-stop")
                 if obj["owner_node_id"] == f"lesson/{lesson}"
             )
+            socket = next(
+                obj
+                for obj in details("mechanism/lesson-general-socket")
+                if obj["owner_node_id"] == f"lesson/{lesson}"
+            )
+            bed = next(
+                obj
+                for obj in details("mechanism/lesson-readout-bed")
+                if obj["owner_node_id"] == f"lesson/{lesson}"
+            )
+            body_top = local_axis_bounds(body, 2)[1]
+            rail_bottom, rail_top = local_axis_bounds(rail, 2)
+            socket_bottom, socket_top = local_axis_bounds(socket, 2)
             with self.subTest(lesson=lesson, detail="rail"):
                 self.assertGreater(
                     local_axis_bounds(rail, 1)[1],
-                    local_axis_bounds(body, 1)[1] - 0.002,
+                    local_axis_bounds(body, 1)[1] + 0.002,
                 )
-                self.assertGreater(
-                    local_axis_bounds(rail, 2)[1],
-                    local_axis_bounds(body, 2)[1],
-                )
+                self.assertLess(rail_bottom, body_top)
+                self.assertGreater(rail_top, body_top)
+                self.assertGreaterEqual(body_top - rail_bottom, 0.0003)
             with self.subTest(lesson=lesson, detail="stop"):
                 self.assertGreater(
                     stop.location.z + stop.dimensions.z / 2,
-                    body.location.z + body.dimensions.z / 2,
+                    body_top,
                 )
+            with self.subTest(lesson=lesson, detail="socket"):
+                self.assertLess(socket_bottom, body_top)
+                self.assertGreater(socket_top, body_top)
+                self.assertGreaterEqual(body_top - socket_bottom, 0.0003)
+            for readout in ("upper", "lower"):
+                readout_obj = bpy.data.objects[f"lesson/{lesson}/readout/{readout}"]
+                with self.subTest(lesson=lesson, detail="bed", readout=readout):
+                    self.assertFalse(
+                        boxes_overlap(world_bounds(bed), world_bounds(readout_obj))
+                    )
+                    self.assertFalse(meshes_intersect(bed, readout_obj))
 
     def test_high_detail_closed_envelope_and_deployed_keep_outs_remain_clear(self):
         upgrade_to_high_detail(self.root)
@@ -266,6 +430,44 @@ class HighDetailGeometryTest(unittest.TestCase):
                         self.assertFalse(
                             boxes_overlap(world_bounds(mesh), (minimum, maximum))
                         )
+
+    def test_all_covered_pose_cross_runtime_meshes_are_collision_free(self):
+        upgrade_to_high_detail(self.root)
+
+        cases = (
+            ("closed", "closed", 0, "forward"),
+            ("lessons", "lessons", 0, "forward"),
+            ("transmissions", "transmissions", 0, "forward"),
+            ("generals-forward", "generals", 5, "forward"),
+            ("generals-reverse", "generals", 5, "reverse"),
+        )
+        for label, pose_id, plate_offset, direction in cases:
+            apply_pose(pose_id, plate_offset, direction)
+            bpy.context.view_layer.update()
+            with self.subTest(pose=label):
+                self.assertEqual(cross_runtime_collisions(), [])
+
+    def test_saved_master_reopens_with_frozen_counts_and_no_dynamic_text(self):
+        build_master()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "daliuren-artifact-master.blend"
+            bpy.ops.wm.save_as_mainfile(filepath=str(path))
+            bpy.ops.wm.open_mainfile(filepath=str(path))
+
+            runtime = [obj for obj in bpy.data.objects if "node_id" in obj]
+            persisted_details = [obj for obj in bpy.data.objects if "detail_id" in obj]
+            inscriptions = [
+                obj for obj in bpy.data.objects if "inscription_role" in obj
+            ]
+            self.assertEqual(len(runtime), 28)
+            self.assertEqual({obj["node_id"] for obj in runtime}, set(NODE_IDS))
+            self.assertEqual(len(persisted_details), 85)
+            self.assertEqual(len(inscriptions), 71)
+            self.assertTrue(
+                FORBIDDEN_DYNAMIC_TEXT.isdisjoint(
+                    {obj.get("inscription_text") for obj in inscriptions}
+                )
+            )
 
     def test_second_upgrade_is_rejected_without_duplicate_geometry_or_modifiers(self):
         upgrade_to_high_detail(self.root)
