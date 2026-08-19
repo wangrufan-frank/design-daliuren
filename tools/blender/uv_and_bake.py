@@ -1,5 +1,7 @@
 import argparse
+from array import array
 import copy
+from contextlib import contextmanager
 import hashlib
 import json
 import math
@@ -24,6 +26,13 @@ MATERIAL_FAMILIES = (
     "M_OldGold",
     "M_AshText",
 )
+CAUSAL_ATTRIBUTES = (
+    "causal_contact_wear",
+    "causal_recess_oxidation",
+    "causal_insert_boundary",
+    "causal_celadon_crackle",
+)
+MICRO_TRIANGLE_AREA_MAX = 2.0e-7
 GENERAL_KEYS = (
     "noble",
     "snake",
@@ -38,6 +47,15 @@ GENERAL_KEYS = (
     "yin",
     "queen-of-heaven",
 )
+MOVING_NODE_IDS = {
+    "calendar/slip",
+    "lesson/first",
+    "lesson/second",
+    "lesson/third",
+    "lesson/fourth",
+    "transmission/bridge",
+    *(f"general/{key}" for key in GENERAL_KEYS),
+}
 DYNAMIC_LABEL_OWNERS = {
     "dynamic/calendar": "calendar/slip",
     **{f"dynamic/lesson/{key}": f"lesson/{key}" for key in ("first", "second", "third", "fourth")},
@@ -141,7 +159,7 @@ def _write_rgb_png(path, dimension, pixels, srgb=False):
     compressor = zlib.compressobj(level=9)
     compressed = []
     stride = dimension * 3
-    for y in range(dimension):
+    for y in range(dimension - 1, -1, -1):
         start = y * stride
         block = compressor.compress(b"\x00" + pixels[start : start + stride])
         if block:
@@ -164,6 +182,17 @@ def _slug(family):
     return family.removeprefix("M_").replace("_", "-").lower()
 
 
+def _atlas_layout_sha256(family, atlas_id):
+    digest = hashlib.sha256()
+    for obj in _family_objects(family, atlas_id):
+        digest.update(obj.name.encode("utf-8") + b"\0")
+        layer = obj.data.uv_layers["UVMap"]
+        digest.update(struct.pack("<I", len(layer.data)))
+        for item in layer.data:
+            digest.update(struct.pack("<2d", float(item.uv.x), float(item.uv.y)))
+    return digest.hexdigest()
+
+
 def _principled(material):
     nodes = [node for node in material.node_tree.nodes if node.bl_idname == "ShaderNodeBsdfPrincipled"]
     if len(nodes) != 1:
@@ -174,186 +203,533 @@ def _principled(material):
 def _material_parameters(family):
     material = bpy.data.materials[family]
     shader = _principled(material)
-    parameters = {
+    return {
         "base": tuple(shader.inputs["Base Color"].default_value[:3]),
         "metallic": float(shader.inputs["Metallic"].default_value),
         "roughness": float(shader.inputs["Roughness"].default_value),
     }
-    nodes = material.node_tree.nodes
-    if family == "M_Bronze":
-        parameters.update({
-            "contact_strength": float(nodes["Causal contact polish"].inputs["Strength"].default_value),
-            "recess_strength": float(nodes["Causal recess tint"].inputs["Strength"].default_value),
-            "patina": tuple(nodes["Bronze to recessed patina"].inputs[2].default_value[:3]),
-            "rough_min": float(nodes["Contact-polished roughness"].inputs["To Min"].default_value),
-            "rough_max": float(nodes["Contact-polished roughness"].inputs["To Max"].default_value),
-        })
-    elif family == "M_Patina":
-        parameters.update({
-            "recess_strength": float(nodes["Causal oxidation coverage"].inputs["Strength"].default_value),
-            "rough_min": float(nodes["Oxidation roughness"].inputs["To Min"].default_value),
-            "rough_max": float(nodes["Oxidation roughness"].inputs["To Max"].default_value),
-        })
-    elif family == "M_Celadon":
-        parameters.update({
-            "dirt_strength": float(nodes["Causal insert-boundary dirt"].inputs["Strength"].default_value),
-            "crackle_strength": float(nodes["Celadon-only crackle"].inputs["Strength"].default_value),
-            "patina": tuple(nodes["Boundary dirt tint"].inputs[2].default_value[:3]),
-            "crackle_tint": float(nodes["Restrained crackle tint"].inputs[1].default_value),
-            "rough_min": float(nodes["Crackle roughness response"].inputs["To Min"].default_value),
-            "rough_max": float(nodes["Crackle roughness response"].inputs["To Max"].default_value),
-            "orange_scale": float(nodes["Glaze orange peel"].inputs["Scale"].default_value),
-            "orange_detail": float(nodes["Glaze orange peel"].inputs["Detail"].default_value),
-            "orange_roughness": float(nodes["Glaze orange peel"].inputs["Roughness"].default_value),
-            "normal_strength": float(nodes["Restrained glaze micro-normal"].inputs["Strength"].default_value),
-            "crackle_normal_strength": float(nodes["Shallow crackle groove"].inputs["Strength"].default_value),
-        })
-    return parameters
 
 
-def _attribute_values(mesh, triangle, name):
-    attribute = mesh.attributes.get(name)
-    if attribute is None:
-        return (0.0, 0.0, 0.0)
-    if attribute.domain == "FACE":
-        value = float(attribute.data[triangle.polygon_index].value)
-        return (value, value, value)
-    if attribute.domain == "POINT":
-        return tuple(float(attribute.data[index].value) for index in triangle.vertices)
-    raise RuntimeError(f"Unsupported {name} domain on {mesh.name}: {attribute.domain}")
-
-
-def _interpolate(values, weights):
-    return sum(value * weight for value, weight in zip(values, weights))
-
-
-def _mix(first, second, factor):
-    factor = max(0.0, min(1.0, factor))
-    return tuple(a + (b - a) * factor for a, b in zip(first, second))
-
-
-def _shade_texel(family, parameters, source, weights):
-    contact = _interpolate(source["contact"], weights)
-    recess = _interpolate(source["recess"], weights)
-    boundary = _interpolate(source["boundary"], weights)
-    crackle = _interpolate(source["crackle"], weights)
-    phase = _interpolate(source["phase"], weights)
-    generated = tuple(
-        _interpolate(tuple(value[index] for value in source["generated"]), weights)
-        for index in range(3)
-    )
-
-    base = parameters["base"]
-    roughness = parameters["roughness"]
-    ao = 0.90 + 0.10 * abs(source["normal_z"])
-    normal = (0.0, 0.0, 1.0)
-    if family == "M_Bronze":
-        contact = max(0.0, min(1.0, contact * parameters["contact_strength"]))
-        recess = max(0.0, min(1.0, recess * parameters["recess_strength"]))
-        base = _mix(base, parameters["patina"], recess)
-        roughness = parameters["rough_min"] + (parameters["rough_max"] - parameters["rough_min"]) * contact
-        ao *= 1.0 - 0.20 * recess
-    elif family == "M_Patina":
-        recess = max(0.0, min(1.0, recess * parameters["recess_strength"]))
-        roughness = parameters["rough_min"] + (parameters["rough_max"] - parameters["rough_min"]) * recess
-        ao *= 1.0 - 0.15 * recess
-    elif family == "M_Celadon":
-        boundary = max(0.0, min(1.0, boundary * parameters["dirt_strength"]))
-        crackle = max(0.0, min(1.0, crackle * parameters["crackle_strength"]))
-        tint = min(1.0, boundary + crackle * parameters["crackle_tint"])
-        base = _mix(base, parameters["patina"], tint)
-        roughness = parameters["rough_min"] + (parameters["rough_max"] - parameters["rough_min"]) * crackle
-        ao *= 1.0 - 0.12 * boundary - 0.04 * crackle
-        scale = parameters["orange_scale"]
-        detail = 1.0 + 0.05 * parameters["orange_detail"]
-        attenuation = 1.0 - 0.10 * parameters["orange_roughness"]
-        amplitude = parameters["normal_strength"] * detail * attenuation
-        gx, gy, gz = generated
-        phase_angle = phase * math.tau
-        nx = amplitude * math.sin(scale * (gx + 0.37 * gy) + phase_angle)
-        ny = amplitude * math.sin(scale * (gy + 0.31 * gz) - phase_angle)
-        nx += parameters["crackle_normal_strength"] * (source["crackle"][1] - source["crackle"][0])
-        ny += parameters["crackle_normal_strength"] * (source["crackle"][2] - source["crackle"][0])
-        length = math.sqrt(nx * nx + ny * ny + 1.0)
-        normal = (nx / length, ny / length, 1.0 / length)
-
-    return (
-        _rgb_bytes(base),
-        (
-            _clamp_byte(ao * 255.0),
-            _clamp_byte(roughness * 255.0),
-            _clamp_byte(parameters["metallic"] * 255.0),
-        ),
-        tuple(_clamp_byte(128.0 + value * 127.0) for value in normal),
-    )
-
-
-def _family_buffers(family, dimension):
-    parameters = _material_parameters(family)
-    pixel_count = dimension * dimension
-    base_default = bytes(_rgb_bytes(parameters["base"]))
-    orm_default = bytes((255, _clamp_byte(parameters["roughness"] * 255.0), _clamp_byte(parameters["metallic"] * 255.0)))
-    base = bytearray(base_default * pixel_count)
-    orm = bytearray(orm_default * pixel_count)
-    normal = bytearray(bytes((128, 128, 255)) * pixel_count)
-    objects = {}
+def _family_objects(family, atlas_id=None):
+    representatives = {}
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
-        if obj.get("runtime_texture_family") == family:
-            objects.setdefault(obj.data.as_pointer(), obj)
+        if obj.get("runtime_texture_family") == family and (
+            atlas_id is None or obj.get("runtime_atlas_id") == atlas_id
+        ):
+            representatives.setdefault(obj.data.as_pointer(), obj)
+    return tuple(representatives.values())
 
-    for obj in objects.values():
+
+@contextmanager
+def _joined_bake_proxy(objects):
+    sources = tuple(objects)
+    if not sources:
+        raise RuntimeError("Native bake proxy requires source meshes")
+    atlas_id = sources[0].get("runtime_atlas_id")
+    hidden_sources = tuple(
+        obj
+        for obj in bpy.data.objects
+        if obj.type == "MESH" and (
+            obj.get("runtime_atlas_id") == atlas_id if atlas_id else obj in sources
+        )
+    )
+    visibility = {obj: obj.hide_render for obj in hidden_sources}
+    selected = tuple(obj for obj in bpy.context.selected_objects)
+    active = bpy.context.view_layer.objects.active
+    copies = []
+    copy_mesh_names = []
+    proxy = None
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+        for index, source in enumerate(sources):
+            duplicate = source.copy()
+            duplicate.data = source.data.copy()
+            duplicate.name = f"native-bake-proxy/source/{index}"
+            duplicate.matrix_world = source.matrix_world.copy()
+            duplicate.hide_render = False
+            for name in CAUSAL_ATTRIBUTES:
+                if duplicate.data.attributes.get(name) is None:
+                    duplicate.data.attributes.new(name, "FLOAT", "FACE")
+            bpy.context.scene.collection.objects.link(duplicate)
+            duplicate.select_set(True)
+            copies.append(duplicate)
+            copy_mesh_names.append(duplicate.data.name)
+        bpy.context.view_layer.objects.active = copies[0]
+        if len(copies) > 1:
+            bpy.ops.object.join()
+        proxy = bpy.context.view_layer.objects.active
+        proxy.name = "native-bake-proxy"
+        proxy.hide_render = False
+        for obj in hidden_sources:
+            obj.hide_render = True
+        bpy.context.view_layer.update()
+        yield proxy
+    finally:
+        for obj, state in visibility.items():
+            obj.hide_render = state
+        bpy.ops.object.select_all(action="DESELECT")
+        if proxy is not None and proxy.name in bpy.data.objects:
+            bpy.data.objects.remove(proxy, do_unlink=True)
+        for mesh_name in copy_mesh_names:
+            mesh = bpy.data.meshes.get(mesh_name)
+            if mesh is not None and mesh.users == 0:
+                bpy.data.meshes.remove(mesh)
+        for obj in selected:
+            if obj.name in bpy.data.objects:
+                obj.select_set(True)
+        if active is not None and active.name in bpy.data.objects:
+            bpy.context.view_layer.objects.active = active
+        bpy.context.view_layer.update()
+
+
+@contextmanager
+def _joined_ao_proxy(target):
+    occluders = tuple(sorted((
+        obj for obj in bpy.data.objects
+        if obj.type == "MESH"
+        and obj != target
+        and not obj.hide_render
+        and not obj.get("dynamic_label_id")
+    ), key=lambda obj: obj.name))
+    sources = (target, *occluders)
+    visibility = {obj: obj.hide_render for obj in sources}
+    selected = tuple(bpy.context.selected_objects)
+    active = bpy.context.view_layer.objects.active
+    copies = []
+    copy_mesh_names = []
+    occluder = None
+    try:
+        bpy.ops.object.select_all(action="DESELECT")
+        for index, source in enumerate(sources):
+            duplicate = source.copy()
+            duplicate.data = source.data.copy()
+            duplicate.name = f"native-ao-proxy/source/{index:04d}"
+            duplicate.matrix_world = source.matrix_world.copy()
+            duplicate.hide_render = False
+            if index:
+                layer = duplicate.data.uv_layers.get("UVMap")
+                if layer is None:
+                    layer = duplicate.data.uv_layers.new(name="UVMap")
+                for item in layer.data:
+                    item.uv = (-10.0, -10.0)
+            bpy.context.scene.collection.objects.link(duplicate)
+            duplicate.select_set(True)
+            copies.append(duplicate)
+            copy_mesh_names.append(duplicate.data.name)
+        bpy.context.view_layer.objects.active = copies[0]
+        if len(copies) > 1:
+            bpy.ops.object.join()
+        occluder = bpy.context.view_layer.objects.active
+        occluder.name = "native-ao-proxy"
+        for source in sources:
+            source.hide_render = True
+        bpy.context.view_layer.update()
+        yield occluder
+    finally:
+        for obj, state in visibility.items():
+            obj.hide_render = state
+        bpy.ops.object.select_all(action="DESELECT")
+        if occluder is not None and occluder.name in bpy.data.objects:
+            bpy.data.objects.remove(occluder, do_unlink=True)
+        for mesh_name in copy_mesh_names:
+            mesh = bpy.data.meshes.get(mesh_name)
+            if mesh is not None and mesh.users == 0:
+                bpy.data.meshes.remove(mesh)
+        for obj in selected:
+            if obj.name in bpy.data.objects:
+                obj.select_set(True)
+        if active is not None and active.name in bpy.data.objects:
+            bpy.context.view_layer.objects.active = active
+        bpy.context.view_layer.update()
+
+
+def _native_unique_coverage(objects, dimension):
+    coverage = bytearray(dimension * dimension)
+    for obj in objects:
         mesh = obj.data
         layer = mesh.uv_layers["UVMap"]
-        coordinates = [vertex.co.copy() for vertex in mesh.vertices]
-        minimum = tuple(min(value[index] for value in coordinates) for index in range(3))
-        maximum = tuple(max(value[index] for value in coordinates) for index in range(3))
-        generated = []
-        for coordinate in coordinates:
-            generated.append(tuple(
-                0.5 if maximum[index] - minimum[index] <= 1e-12 else (coordinate[index] - minimum[index]) / (maximum[index] - minimum[index])
-                for index in range(3)
-            ))
         mesh.calc_loop_triangles()
         for triangle in mesh.loop_triangles:
-            uv = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
-            denominator = (
-                (uv[1][1] - uv[2][1]) * (uv[0][0] - uv[2][0])
-                + (uv[2][0] - uv[1][0]) * (uv[0][1] - uv[2][1])
-            )
-            if abs(denominator) <= 1e-16:
+            points = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
+            for x, y in _triangle_pixel_centers(points, dimension):
+                index = y * dimension + x
+                coverage[index] = min(2, coverage[index] + 1)
+    return coverage
+
+
+def _dilate_rgb(pixels, active, dimension, margin):
+    frontier = []
+    for y in range(dimension):
+        row = y * dimension
+        for x in range(dimension):
+            index = row + x
+            if not active[index]:
                 continue
-            source = {
-                "contact": _attribute_values(mesh, triangle, "causal_contact_wear"),
-                "recess": _attribute_values(mesh, triangle, "causal_recess_oxidation"),
-                "boundary": _attribute_values(mesh, triangle, "causal_insert_boundary"),
-                "crackle": _attribute_values(mesh, triangle, "causal_celadon_crackle"),
-                "phase": _attribute_values(mesh, triangle, "dirt_phase"),
-                "generated": tuple(generated[index] for index in triangle.vertices),
-                "normal_z": float(triangle.normal.z),
-            }
-            minimum_x = max(0, int(math.floor(min(value[0] for value in uv) * dimension)))
-            maximum_x = min(dimension, int(math.ceil(max(value[0] for value in uv) * dimension)))
-            minimum_y = max(0, int(math.floor(min(value[1] for value in uv) * dimension)))
-            maximum_y = min(dimension, int(math.ceil(max(value[1] for value in uv) * dimension)))
-            for y in range(minimum_y, maximum_y):
-                v = (y + 0.5) / dimension
-                for x in range(minimum_x, maximum_x):
-                    u = (x + 0.5) / dimension
-                    first = ((uv[1][1] - uv[2][1]) * (u - uv[2][0]) + (uv[2][0] - uv[1][0]) * (v - uv[2][1])) / denominator
-                    second = ((uv[2][1] - uv[0][1]) * (u - uv[2][0]) + (uv[0][0] - uv[2][0]) * (v - uv[2][1])) / denominator
-                    third = 1.0 - first - second
-                    if min(first, second, third) < -1e-9:
-                        continue
-                    base_pixel, orm_pixel, normal_pixel = _shade_texel(
-                        family,
-                        parameters,
-                        source,
-                        (first, second, third),
+            if (
+                (x > 0 and not active[index - 1])
+                or (x + 1 < dimension and not active[index + 1])
+                or (y > 0 and not active[index - dimension])
+                or (y + 1 < dimension and not active[index + dimension])
+            ):
+                frontier.append(index)
+
+    for _step in range(margin):
+        claimed = bytearray(dimension * dimension)
+        additions = []
+        for source in frontier:
+            x = source % dimension
+            y = source // dimension
+            for target in (
+                source - dimension - 1 if x > 0 and y > 0 else -1,
+                source - dimension if y > 0 else -1,
+                source - dimension + 1 if x + 1 < dimension and y > 0 else -1,
+                source - 1 if x > 0 else -1,
+                source + 1 if x + 1 < dimension else -1,
+                source + dimension - 1 if x > 0 and y + 1 < dimension else -1,
+                source + dimension if y + 1 < dimension else -1,
+                source + dimension + 1 if x + 1 < dimension and y + 1 < dimension else -1,
+            ):
+                if target < 0 or active[target] or claimed[target]:
+                    continue
+                claimed[target] = 1
+                additions.append((target, source))
+        frontier = []
+        for target, source in additions:
+            target_offset = target * 3
+            source_offset = source * 3
+            pixels[target_offset : target_offset + 3] = pixels[source_offset : source_offset + 3]
+            active[target] = 1
+            frontier.append(target)
+    return pixels
+
+
+def _stabilize_native_pixels(pixels, coverage, dimension, margin, passes=2):
+    filtered = bytearray(pixels)
+    for _pass in range(passes):
+        source = filtered
+        filtered = bytearray(source)
+        for y in range(1, dimension - 1):
+            row = y * dimension
+            for x in range(1, dimension - 1):
+                index = row + x
+                if coverage[index] != 1:
+                    continue
+                neighbors = [
+                    neighbor
+                    for neighbor in (
+                        index - dimension - 1,
+                        index - dimension,
+                        index - dimension + 1,
+                        index - 1,
+                        index,
+                        index + 1,
+                        index + dimension - 1,
+                        index + dimension,
+                        index + dimension + 1,
                     )
-                    offset = (y * dimension + x) * 3
-                    base[offset : offset + 3] = bytes(base_pixel)
-                    orm[offset : offset + 3] = bytes(orm_pixel)
-                    normal[offset : offset + 3] = bytes(normal_pixel)
+                    if coverage[neighbor] == 1
+                ]
+                neighbors.sort(key=lambda neighbor: source[neighbor * 3])
+                chosen = neighbors[len(neighbors) // 2]
+                filtered[index * 3 : index * 3 + 3] = source[chosen * 3 : chosen * 3 + 3]
+    active = bytearray(1 if value == 1 else 0 for value in coverage)
+    return _dilate_rgb(filtered, active, dimension, margin)
+
+
+def _image_rgb_bytes(image, background, srgb=False, coverage=None, margin=0):
+    values = array("f", [0.0]) * (image.size[0] * image.size[1] * 4)
+    image.pixels.foreach_get(values)
+    result = bytearray(image.size[0] * image.size[1] * 3)
+    active = bytearray(image.size[0] * image.size[1])
+    for source in range(0, len(values), 4):
+        target = source // 4 * 3
+        pixel_index = source // 4
+        if values[source + 3] <= 1e-6 or (coverage is not None and coverage[pixel_index] != 1):
+            result[target : target + 3] = bytes(background)
+        else:
+            active[pixel_index] = 1
+            result[target : target + 3] = bytes(
+                _clamp_byte(
+                    (_linear_to_srgb(values[source + channel]) if srgb else values[source + channel])
+                    * 255.0
+                )
+                for channel in range(3)
+            )
+    return _dilate_rgb(result, active, image.size[0], margin)
+
+
+def _native_bake_channel(
+    family,
+    dimension,
+    bake_type,
+    margin,
+    atlas_id=None,
+    background=(0, 0, 0),
+    srgb=False,
+    objects=None,
+    coverage=None,
+):
+    objects = _family_objects(family, atlas_id) if objects is None else tuple(objects)
+    if not objects:
+        raise RuntimeError(f"No objects assigned to native bake family {family}")
+    materials = tuple(sorted({
+        material
+        for obj in objects
+        for material in obj.data.materials
+        if material is not None
+    }, key=lambda material: material.name))
+    if not materials:
+        raise RuntimeError(f"No materials assigned to native bake family {family}")
+
+    scene = bpy.context.scene
+    previous_engine = scene.render.engine
+    previous_samples = scene.cycles.samples
+    previous_seed = scene.cycles.seed
+    previous_animated_seed = scene.cycles.use_animated_seed
+    previous_sampling_pattern = scene.cycles.sampling_pattern
+    previous_scrambling_distance = scene.cycles.scrambling_distance
+    previous_auto_scrambling = scene.cycles.auto_scrambling_distance
+    previous_adaptive_sampling = scene.cycles.use_adaptive_sampling
+    object_set = set(objects)
+    visibility = {}
+    image = bpy.data.images.new(
+        f"native-bake/{family}/{bake_type}/{dimension}",
+        width=dimension,
+        height=dimension,
+        alpha=True,
+        float_buffer=False,
+    )
+    image.generated_color = (0.0, 0.0, 0.0, 0.0)
+    image.colorspace_settings.name = "Non-Color"
+    nodes = []
+    emission_overrides = []
+    try:
+        for obj in bpy.data.objects:
+            hide_for_channel = (
+                obj.type == "MESH"
+                and obj not in object_set
+                and (bake_type != "AO" or obj.get("dynamic_label_id"))
+            )
+            if hide_for_channel:
+                visibility[obj] = obj.hide_render
+                obj.hide_render = True
+        for material in materials:
+            if not material.use_nodes:
+                material.use_nodes = True
+            node = material.node_tree.nodes.new("ShaderNodeTexImage")
+            node.name = f"Native bake target {bake_type}"
+            node.image = image
+            material.node_tree.nodes.active = node
+            nodes.append((material, node))
+
+            if bake_type == "BASE_COLOR":
+                shader = _principled(material)
+                source = shader.inputs["Base Color"]
+                emission = material.node_tree.nodes.new("ShaderNodeEmission")
+                if source.is_linked:
+                    material.node_tree.links.new(source.links[0].from_socket, emission.inputs["Color"])
+                else:
+                    emission.inputs["Color"].default_value = source.default_value
+                outputs = [
+                    output for output in material.node_tree.nodes
+                    if output.bl_idname == "ShaderNodeOutputMaterial" and output.is_active_output
+                ]
+                saved = []
+                for output in outputs:
+                    surface = output.inputs["Surface"]
+                    saved.append((surface, tuple(link.from_socket for link in surface.links)))
+                    for link in tuple(surface.links):
+                        material.node_tree.links.remove(link)
+                    material.node_tree.links.new(emission.outputs["Emission"], surface)
+                emission_overrides.append((material, emission, saved))
+
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in objects:
+            obj.hide_render = False
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = objects[0]
+        scene.render.engine = "CYCLES"
+        scene.cycles.device = "CPU"
+        scene.cycles.samples = 4
+        scene.cycles.seed = 1
+        scene.cycles.use_animated_seed = False
+        scene.cycles.sampling_pattern = "TABULATED_SOBOL"
+        scene.cycles.scrambling_distance = 0.0
+        scene.cycles.auto_scrambling_distance = False
+        scene.cycles.use_adaptive_sampling = False
+        arguments = {
+            "type": "EMIT" if bake_type == "BASE_COLOR" else bake_type,
+            "target": "IMAGE_TEXTURES",
+            "save_mode": "INTERNAL",
+            "use_clear": True,
+            "use_selected_to_active": False,
+            "margin": 0,
+            "margin_type": "EXTEND",
+            "uv_layer": "UVMap",
+        }
+        if bake_type == "NORMAL":
+            arguments["normal_space"] = "TANGENT"
+        bpy.ops.object.bake(**arguments)
+        if coverage is None:
+            coverage = _native_unique_coverage(objects, dimension)
+        return _image_rgb_bytes(image, background, srgb, coverage, margin)
+    finally:
+        scene.render.engine = previous_engine
+        scene.cycles.samples = previous_samples
+        scene.cycles.seed = previous_seed
+        scene.cycles.use_animated_seed = previous_animated_seed
+        scene.cycles.sampling_pattern = previous_sampling_pattern
+        scene.cycles.scrambling_distance = previous_scrambling_distance
+        scene.cycles.auto_scrambling_distance = previous_auto_scrambling
+        scene.cycles.use_adaptive_sampling = previous_adaptive_sampling
+        for obj, state in visibility.items():
+            obj.hide_render = state
+        for material, emission, saved in emission_overrides:
+            for surface, sources in saved:
+                for link in tuple(surface.links):
+                    material.node_tree.links.remove(link)
+                for source in sources:
+                    material.node_tree.links.new(source, surface)
+            material.node_tree.nodes.remove(emission)
+        for material, node in nodes:
+            material.node_tree.nodes.remove(node)
+        bpy.data.images.remove(image)
+
+
+def _triangle_pixel_centers(points, dimension):
+    denominator = (
+        (points[1][1] - points[2][1]) * (points[0][0] - points[2][0])
+        + (points[2][0] - points[1][0]) * (points[0][1] - points[2][1])
+    )
+    if abs(denominator) <= 1e-16:
+        return
+    minimum_x = max(0, int(math.floor(min(value[0] for value in points) * dimension)))
+    maximum_x = min(dimension, int(math.ceil(max(value[0] for value in points) * dimension)))
+    minimum_y = max(0, int(math.floor(min(value[1] for value in points) * dimension)))
+    maximum_y = min(dimension, int(math.ceil(max(value[1] for value in points) * dimension)))
+    for y in range(minimum_y, maximum_y):
+        v = (y + 0.5) / dimension
+        for x in range(minimum_x, maximum_x):
+            u = (x + 0.5) / dimension
+            first = ((points[1][1] - points[2][1]) * (u - points[2][0]) + (points[2][0] - points[1][0]) * (v - points[2][1])) / denominator
+            second = ((points[2][1] - points[0][1]) * (u - points[2][0]) + (points[0][0] - points[2][0]) * (v - points[2][1])) / denominator
+            if min(first, second, 1.0 - first - second) >= -1e-9:
+                yield x, y
+
+
+def _triangle_has_pixel_center(points, dimension):
+    return next(_triangle_pixel_centers(points, dimension), None) is not None
+
+
+def _object_texel_coverage_failures(obj, dimension, dilation=4, limit=None):
+    failures = []
+    mesh = obj.data
+    layer = mesh.uv_layers["UVMap"]
+    mesh.calc_loop_triangles()
+    occupied = bytearray(dimension * dimension)
+    triangles = []
+    for triangle in mesh.loop_triangles:
+        points = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
+        centers = tuple(_triangle_pixel_centers(points, dimension))
+        for x, y in centers:
+            occupied[y * dimension + x] = 1
+        triangles.append((triangle, points, bool(centers)))
+    for triangle, points, has_center in triangles:
+        if has_center:
+            continue
+        u = sum(point[0] for point in points) / 3.0
+        v = sum(point[1] for point in points) / 3.0
+        center_x = min(dimension - 1, max(0, int(u * dimension)))
+        center_y = min(dimension - 1, max(0, int(v * dimension)))
+        padded = any(
+            occupied[y * dimension + x]
+            for y in range(max(0, center_y - dilation), min(dimension, center_y + dilation + 1))
+            for x in range(max(0, center_x - dilation), min(dimension, center_x + dilation + 1))
+        )
+        if not padded:
+            failures.append((obj.name, triangle.index))
+            if limit is not None and len(failures) >= limit:
+                return failures
+    return failures
+
+
+def _native_texel_coverage_failures(family, dimension, dilation=4, limit=None, atlas_id=None):
+    failures = []
+    for obj in _family_objects(family, atlas_id):
+        remaining = None if limit is None else limit - len(failures)
+        failures.extend(_object_texel_coverage_failures(obj, dimension, dilation, remaining))
+        if limit is not None and len(failures) >= limit:
+            return failures
+    return failures
+
+
+def _validate_native_texel_coverage(family, dimension, atlas_id=None):
+    failures = _native_texel_coverage_failures(family, dimension, atlas_id=atlas_id)
+    failures = [
+        (object_name, triangle_index)
+        for object_name, triangle_index in failures
+        if bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
+        > MICRO_TRIANGLE_AREA_MAX
+    ]
+    if failures:
+        obj_name, triangle_index = failures[0]
+        raise RuntimeError(
+            f"sub-texel UV triangle cannot be baked natively: {obj_name}:{triangle_index} at {dimension}"
+        )
+
+
+def _family_buffers(family, dimension, atlas_id=None):
+    margin = 8
+    _validate_native_texel_coverage(family, dimension, atlas_id)
+    parameters = _material_parameters(family)
+    source_objects = _family_objects(family, atlas_id)
+    coverage = _native_unique_coverage(source_objects, dimension)
+    with _joined_bake_proxy(source_objects) as proxy:
+        proxy_objects = (proxy,)
+        base = _native_bake_channel(
+            family,
+            dimension,
+            "BASE_COLOR",
+            margin,
+            atlas_id,
+            background=_rgb_bytes(parameters["base"]),
+            srgb=True,
+            objects=proxy_objects,
+            coverage=coverage,
+        )
+        with _joined_ao_proxy(proxy_objects[0]) as ao_proxy:
+            ao = _native_bake_channel(
+                family, dimension, "AO", 0, atlas_id,
+                background=(255, 255, 255), objects=(ao_proxy,), coverage=coverage,
+            )
+        ao = _stabilize_native_pixels(ao, coverage, dimension, margin)
+        roughness_value = _clamp_byte(parameters["roughness"] * 255.0)
+        roughness = _native_bake_channel(
+            family,
+            dimension,
+            "ROUGHNESS",
+            margin,
+            atlas_id,
+            background=(roughness_value,) * 3,
+            objects=proxy_objects,
+            coverage=coverage,
+        )
+        normal = _native_bake_channel(
+            family,
+            dimension,
+            "NORMAL",
+            margin,
+            atlas_id,
+            background=(128, 128, 255),
+            objects=proxy_objects,
+            coverage=coverage,
+        )
+    metallic = _clamp_byte(parameters["metallic"] * 255.0)
+    orm = bytearray(dimension * dimension * 3)
+    for offset in range(0, len(orm), 3):
+        orm[offset] = ao[offset]
+        orm[offset + 1] = roughness[offset]
+        orm[offset + 2] = metallic
     return {"baseColor": base, "orm": orm, "normal": normal}
 
 
@@ -418,44 +794,104 @@ def _validate_bake_source():
     }
     if not required_attributes.issubset(attributes):
         raise RuntimeError("Daliuren master causal attributes are incomplete")
-    for family in MATERIAL_FAMILIES:
-        objects = [obj for obj in physical if obj.get("runtime_texture_family") == family]
-        if not objects or any(detect_uv_issues(obj) for obj in objects):
-            raise RuntimeError(f"Daliuren master UV atlas is invalid for {family}")
+    atlas_ids = {obj.get("runtime_atlas_id") for obj in physical}
+    if None in atlas_ids or any(obj.get("runtime_atlas_class") not in {"hero", "moving"} for obj in physical):
+        raise RuntimeError("Daliuren master meshes require explicit runtime atlas ownership")
+    for atlas_id in atlas_ids:
+        objects = [obj for obj in physical if obj.get("runtime_atlas_id") == atlas_id]
+        if any(detect_uv_issues(obj) for obj in objects):
+            raise RuntimeError(f"Daliuren master UV atlas is invalid for {atlas_id}")
         if first_family_uv_overlap(objects) is not None:
-            raise RuntimeError(f"Daliuren master UV atlas overlaps across meshes in {family}")
+            raise RuntimeError(f"Daliuren master UV atlas overlaps across meshes in {atlas_id}")
 
 
-def generate_runtime_textures(texture_root):
+def generate_runtime_textures(texture_root, atlas_ids=None):
     _validate_bake_source()
     texture_root = Path(texture_root)
-    result = {}
-    for family in MATERIAL_FAMILIES:
-        family_result = {"assignment": f"objects whose material_role is {family}"}
-        lod0 = _family_buffers(family, 2048)
+    requested = None if atlas_ids is None else set(atlas_ids)
+    result = {
+        family: {
+            "assignment": f"objects whose runtime_texture_family is {family}",
+            "atlases": {},
+        }
+        for family in MATERIAL_FAMILIES
+    }
+    groups = {}
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or obj.get("dynamic_label_id"):
+            continue
+        atlas_id = obj["runtime_atlas_id"]
+        groups.setdefault(atlas_id, obj)
+    if requested is not None and not requested.issubset(groups):
+        raise ValueError(f"Unknown runtime atlas IDs: {sorted(requested - set(groups))}")
+
+    for atlas_id, sample in sorted(groups.items()):
+        if requested is not None and atlas_id not in requested:
+            continue
+        family = sample["runtime_texture_family"]
+        atlas_class = sample["runtime_atlas_class"]
+        lod0_dimension = 2048 if atlas_class == "moving" else 4096
+        bake_scale = max(
+            obj.get("runtime_bake_scale", 1)
+            for obj in bpy.data.objects
+            if obj.type == "MESH" and obj.get("runtime_atlas_id") == atlas_id
+        )
+        working_dimension = lod0_dimension * bake_scale
+        working = _family_buffers(family, working_dimension, atlas_id)
+        lod0 = working
+        dimension = working_dimension
+        while dimension > lod0_dimension:
+            lod0 = {
+                role: _downsample_two_by_two(pixels, dimension)
+                for role, pixels in lod0.items()
+            }
+            dimension //= 2
         lod_buffers = {
             "lod0": lod0,
-            "lod2": {role: _downsample_two_by_two(pixels, 2048) for role, pixels in lod0.items()},
+            "lod2": {
+                role: _downsample_two_by_two(pixels, lod0_dimension)
+                for role, pixels in lod0.items()
+            },
         }
-        for lod, dimension in (("lod0", 2048), ("lod2", 1024)):
+        partition = atlas_id.split(":", 1)[1].replace("_", "-")
+        atlas_result = {
+            "class": atlas_class,
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [working_dimension, working_dimension],
+            "uvLayoutSha256": _atlas_layout_sha256(family, atlas_id),
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+                "maxSurfaceAreaM2": MICRO_TRIANGLE_AREA_MAX,
+                "fallback": "physical family defaults outside native coverage",
+            },
+        }
+        for lod, output_dimension in (
+            ("lod0", lod0_dimension),
+            ("lod2", lod0_dimension // 2),
+        ):
             maps = {}
             for role, suffix, colorspace in (
                 ("baseColor", "basecolor", "sRGB"),
                 ("orm", "orm", "Non-Color"),
                 ("normal", "normal", "Non-Color"),
             ):
-                relative = Path(lod) / f"{_slug(family)}-{suffix}.png"
+                relative = Path(lod) / f"{_slug(family)}-{partition}-{suffix}.png"
                 path = texture_root / relative
-                _write_rgb_png(path, dimension, lod_buffers[lod][role], srgb=role == "baseColor")
+                _write_rgb_png(
+                    path,
+                    output_dimension,
+                    lod_buffers[lod][role],
+                    srgb=role == "baseColor",
+                )
                 maps[role] = {
                     "file": relative.as_posix(),
-                    "dimensions": [dimension, dimension],
+                    "dimensions": [output_dimension, output_dimension],
                     "channels": "RGB",
                     "colorSpace": colorspace,
                     "sha256": _sha256(path),
                 }
-            family_result[lod] = maps
-        result[family] = family_result
+            atlas_result[lod] = maps
+        result[family]["atlases"][atlas_id] = atlas_result
     return result
 
 
@@ -539,7 +975,7 @@ def _mark_uv_seams(mesh):
     bm = bmesh.new()
     bm.from_mesh(mesh)
     for edge in bm.edges:
-        edge.seam = len(edge.link_faces) != 2 or edge.calc_face_angle(0.0) > 0.001
+        edge.seam = len(edge.link_faces) != 2 or edge.calc_face_angle(0.0) > math.radians(60.0)
     bm.to_mesh(mesh)
     bm.free()
     mesh.update()
@@ -561,17 +997,27 @@ def _seam_unwrap(obj):
         fill_holes=True,
         correct_aspect=True,
         margin_method="SCALED",
-        margin=0.002,
+        margin=0.0,
     )
     bpy.ops.uv.pack_islands(
         udim_source="CLOSEST_UDIM",
         rotate=True,
         scale=True,
-        margin=0.002,
+        margin=0.0,
         shape_method="AABB",
     )
     bpy.ops.object.mode_set(mode="OBJECT")
     obj.select_set(False)
+
+
+def _triangle_island_unwrap(obj):
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    for edge in bm.edges:
+        edge.seam = True
+    bm.to_mesh(obj.data)
+    bm.free()
+    _seam_unwrap(obj)
 
 
 def _largest_triangle_shape_error(obj):
@@ -588,55 +1034,74 @@ def _largest_triangle_shape_error(obj):
     return max(abs(first - second) for first, second in zip(normalized_3d, normalized_uv))
 
 
-def _smart_unwrap(obj):
+def _smart_unwrap(obj, angle_degrees=66.0):
     mesh = obj.data
     while mesh.uv_layers:
         mesh.uv_layers.remove(mesh.uv_layers[0])
     mesh.uv_layers.new(name="UVMap").active_render = True
     _select_all_mesh_uvs(obj)
     bpy.ops.uv.smart_project(
-        angle_limit=math.radians(0.1),
+        angle_limit=math.radians(angle_degrees),
         margin_method="SCALED",
         rotate_method="AXIS_ALIGNED_Y",
-        island_margin=0.008,
+        island_margin=0.0,
         area_weight=0.0,
         correct_aspect=True,
-        scale_to_bounds=True,
+        scale_to_bounds=False,
     )
     bpy.ops.object.mode_set(mode="OBJECT")
     obj.select_set(False)
-    smart_coordinates = [tuple(item.uv) for item in mesh.uv_layers["UVMap"].data]
-    if detect_uv_issues(obj) or _largest_triangle_shape_error(obj) > 0.08:
-        _seam_unwrap(obj)
-        if detect_uv_issues(obj):
-            for item, coordinate in zip(mesh.uv_layers["UVMap"].data, smart_coordinates):
-                item.uv = coordinate
 
 
-def _place_mesh_in_atlas(mesh, index, grid):
-    layer = mesh.uv_layers["UVMap"]
-    coordinates = [tuple(item.uv) for item in layer.data]
-    minimum_x = min(value[0] for value in coordinates)
-    maximum_x = max(value[0] for value in coordinates)
-    minimum_y = min(value[1] for value in coordinates)
-    maximum_y = max(value[1] for value in coordinates)
-    width = maximum_x - minimum_x
-    height = maximum_y - minimum_y
-    if width <= 1e-12 or height <= 1e-12:
-        raise RuntimeError(f"Degenerate unwrap for {mesh.name}")
-    cell = 1.0 / grid
-    padding = cell * 0.08
-    available = cell - 2 * padding
-    scale = min(available / width, available / height)
-    column = index % grid
-    row = index // grid
-    offset_x = column * cell + (cell - width * scale) / 2
-    offset_y = row * cell + (cell - height * scale) / 2
-    for item, (u, v) in zip(layer.data, coordinates):
-        item.uv = (
-            offset_x + (u - minimum_x) * scale,
-            offset_y + (v - minimum_y) * scale,
+def _pack_family_atlas(objects, lod0_dimension):
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.select_all(action="SELECT")
+    bpy.ops.uv.average_islands_scale()
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    metrics = []
+    total_surface = 0.0
+    total_triangles = 0
+    for obj in objects:
+        mesh = obj.data
+        mesh.calc_loop_triangles()
+        surface = sum(polygon.area for polygon in mesh.polygons)
+        triangles = len(mesh.loop_triangles)
+        total_surface += surface
+        total_triangles += triangles
+        metrics.append((obj, surface, triangles))
+    for obj, surface, triangles in metrics:
+        mesh = obj.data
+        layer = mesh.uv_layers["UVMap"]
+        current_area = sum(
+            _triangle_area(tuple(tuple(layer.data[index].uv) for index in triangle.loops))
+            for triangle in mesh.loop_triangles
         )
+        desired_area = 0.25 * surface / total_surface + 0.75 * triangles / total_triangles
+        scale = math.sqrt(desired_area / current_area)
+        for item in layer.data:
+            item.uv *= scale
+
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.select_all(action="SELECT")
+    bpy.ops.uv.pack_islands(
+        udim_source="CLOSEST_UDIM",
+        rotate=True,
+        rotate_method="ANY",
+        scale=True,
+        margin_method="FRACTION",
+        margin=16.0 / lod0_dimension,
+        shape_method="AABB",
+    )
+    bpy.ops.object.mode_set(mode="OBJECT")
+    for obj in objects:
+        obj.select_set(False)
 
 
 def assign_primary_uvs(dynamic_surfaces):
@@ -651,19 +1116,63 @@ def assign_primary_uvs(dynamic_surfaces):
             _clean_mesh_for_uv(mesh)
     for mesh in source_meshes.values():
         _mark_uv_seams(mesh)
-    for family in MATERIAL_FAMILIES:
-        representatives = {}
-        for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
-            if obj.data.as_pointer() in dynamic_pointers:
-                continue
-            if obj.get("material_role") != family:
-                continue
-            representatives.setdefault(obj.data.as_pointer(), obj)
+    atlas_groups = {}
+    for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
+        if obj.data.as_pointer() in dynamic_pointers:
+            continue
+        family = obj.get("material_role")
+        if family not in MATERIAL_FAMILIES:
+            continue
+        current = obj
+        moving = False
+        while current is not None:
+            if current.get("node_id") in MOVING_NODE_IDS:
+                moving = True
+                break
+            current = current.parent
+        atlas_class = "moving" if moving else "hero"
+        if obj.name == "plate/heaven":
+            atlas_id = "M_Bronze:heaven"
+        elif obj.name == "detail/base/removable-bottom":
+            atlas_id = "M_Patina:removable-bottom"
+        elif obj.name == "inscription/historical-month-deity/56":
+            atlas_id = "M_AshText:historical-month"
+        else:
+            atlas_id = f"{family}:{'moving' if moving else 'hero'}"
+        obj["runtime_atlas_id"] = atlas_id
+        obj["runtime_atlas_class"] = atlas_class
+        obj["runtime_bake_scale"] = 1
+        obj["runtime_texture_family"] = family
+        atlas_groups.setdefault((family, atlas_id), {})
+        atlas_groups[(family, atlas_id)].setdefault(obj.data.as_pointer(), obj)
+
+    for (_family, atlas_id), representatives in sorted(atlas_groups.items()):
         objects = tuple(representatives.values())
-        grid = math.ceil(math.sqrt(len(objects)))
-        for index, obj in enumerate(objects):
-            _smart_unwrap(obj)
-            _place_mesh_in_atlas(obj.data, index, grid)
+        for obj in objects:
+            if obj.name == "plate/heaven":
+                _seam_unwrap(obj)
+            else:
+                _smart_unwrap(obj, 66.0)
+        lod0_dimension = 2048 if objects[0]["runtime_atlas_class"] == "moving" else 4096
+        _pack_family_atlas(objects, lod0_dimension)
+        for angle_degrees in (60.0, 45.0, 30.0, 0.1):
+            overlapping = [
+                obj for obj in objects
+                if "triangle-overlap" in detect_uv_issues(obj)
+            ]
+            if not overlapping:
+                break
+            for obj in overlapping:
+                _smart_unwrap(obj, angle_degrees)
+            _pack_family_atlas(objects, lod0_dimension)
+        overlapping = [
+            obj for obj in objects
+            if "triangle-overlap" in detect_uv_issues(obj)
+        ]
+        if overlapping:
+            for obj in overlapping:
+                _triangle_island_unwrap(obj)
+            _pack_family_atlas(objects, lod0_dimension)
 
     for obj in dynamic_surfaces:
         mesh = obj.data
@@ -777,15 +1286,23 @@ def _update_material_contract(contract_path, families):
     source = contract_path.read_text(encoding="utf-8")
     json.loads(source)
     runtime_textures = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "channels": {
             "baseColor": "sRGB RGB",
             "orm": "Non-Color RGB: AO=R, roughness=G, metallic=B",
             "normal": "Non-Color RGB tangent-space",
         },
         "atlasPolicy": {
-            "lod0": "2048x2048 per physical material family",
-            "lod2": "1024x1024 per physical material family",
+            "uvSourceMaster": "assets/daliuren/source/daliuren-artifact-master.blend",
+            "uvAuthoringVersion": "blender-4.5.12/task4-native-atlas-v3",
+            "ownership": "every physical mesh carries runtime_texture_family, runtime_atlas_id and runtime_atlas_class",
+            "partitioning": "material-family atlases are explicitly partitioned by hero/moving surface class; two complex self-overlap risks use named object partitions",
+            "lod0": "4096x4096 hero atlases; 2048x2048 moving atlases",
+            "lod2": "deterministic 2x2 box-filter downsample of LOD0",
+            "bakeEngine": "Blender 4.5.12 native Cycles",
+            "padding": "8 pixels at LOD0; 4 pixels after LOD2 downsample",
+            "coverage": "all triangles above 2e-7 m2 require native texel coverage; smaller microfaces use physical family defaults",
+            "rebakeDeterminism": "frozen artifact file hashes are authoritative; independent probes require exact UV and simple-atlas hashes plus full-atlas bounded complex Cycles variance (at most 1024 edge texels; representative interior texels remain within one byte)",
             "opaqueAlpha": "omitted",
             "emissive": "omitted because no runtime highlight assignment consumes it",
         },

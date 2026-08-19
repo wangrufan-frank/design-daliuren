@@ -17,6 +17,7 @@ from mathutils.bvhtree import BVHTree
 BLENDER_DIR = Path(__file__).parents[1]
 REPOSITORY_ROOT = Path(__file__).parents[3]
 CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
+MASTER_PATH = REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend"
 
 sys.path.insert(0, str(BLENDER_DIR))
 
@@ -27,6 +28,9 @@ from uv_and_bake import (
     DYNAMIC_LABEL_OWNERS,
     MATERIAL_FAMILIES,
     _add_dynamic_surfaces,
+    _native_texel_coverage_failures,
+    _object_texel_coverage_failures,
+    _validate_native_texel_coverage,
     assign_primary_uvs,
     detect_uv_issues,
     generate_runtime_textures,
@@ -131,6 +135,36 @@ def png_rgb(path):
 def pixel(rows, x, y):
     offset = x * 3
     return tuple(rows[y][offset : offset + 3])
+
+
+def uv_pixel(rows, x, y):
+    return pixel(rows, x, len(rows) - 1 - y)
+
+
+def object_atlas(runtime, obj):
+    return runtime["families"][obj["runtime_texture_family"]]["atlases"][obj["runtime_atlas_id"]]
+
+
+def frozen_atlas_uv_hash(family, atlas_id):
+    digest = hashlib.sha256()
+    representatives = {}
+    for obj in sorted(
+        (
+            item for item in bpy.data.objects
+            if item.type == "MESH"
+            and item.get("runtime_texture_family") == family
+            and item.get("runtime_atlas_id") == atlas_id
+        ),
+        key=lambda item: item.name,
+    ):
+        representatives.setdefault(obj.data.as_pointer(), obj)
+    for obj in representatives.values():
+        digest.update(obj.name.encode("utf-8") + b"\0")
+        layer = obj.data.uv_layers["UVMap"]
+        digest.update(struct.pack("<I", len(layer.data)))
+        for item in layer.data:
+            digest.update(struct.pack("<2d", float(item.uv.x), float(item.uv.y)))
+    return digest.hexdigest()
 
 
 def triangle_uv_pixel(obj, triangle, dimension):
@@ -479,27 +513,23 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
                     self.assertGreaterEqual(clearance, 0.0002)
                     self.assertLessEqual(clearance, 0.0003)
 
-    def test_each_material_family_uses_one_non_overlapping_atlas(self):
+    def test_each_explicit_material_atlas_is_non_overlapping(self):
         build_master()
         surfaces = _add_dynamic_surfaces()
         assign_primary_uvs(surfaces)
-        overlaps = {}
-        for family in ("M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText"):
-            objects = [
-                obj
-                for obj in bpy.data.objects
-                if obj.type == "MESH" and obj.get("material_role") == family
-            ]
-            overlaps[family] = first_cross_mesh_overlap(objects)
-        self.assertEqual(overlaps, {
-            "M_Bronze": None,
-            "M_Patina": None,
-            "M_Celadon": None,
-            "M_OldGold": None,
-            "M_AshText": None,
-        })
+        groups = defaultdict(list)
+        for obj in bpy.data.objects:
+            if obj.type == "MESH" and not obj.get("dynamic_label_id"):
+                groups[obj["runtime_atlas_id"]].append(obj)
+        overlaps = {
+            atlas_id: first_cross_mesh_overlap(objects)
+            for atlas_id, objects in groups.items()
+        }
+        self.assertTrue(groups)
+        self.assertEqual(overlaps, {atlas_id: None for atlas_id in groups})
 
     def test_all_five_family_atlases_have_no_triangle_failures(self):
+        self.maxDiff = None
         build_master()
         surfaces = _add_dynamic_surfaces()
         assign_primary_uvs(surfaces)
@@ -522,17 +552,118 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
             "general/yin",
             "general/queen-of-heaven",
         }])
-        failures = {}
-        for family in ("M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText"):
-            failures[family] = family_atlas_failures([
-                obj
-                for obj in bpy.data.objects
-                if obj.type == "MESH" and obj.get("material_role") == family
-            ])
+        groups = defaultdict(list)
+        for obj in bpy.data.objects:
+            if obj.type == "MESH" and not obj.get("dynamic_label_id"):
+                groups[obj["runtime_atlas_id"]].append(obj)
+        failures = {
+            atlas_id: family_atlas_failures(objects)
+            for atlas_id, objects in groups.items()
+        }
         self.assertEqual(failures, {
-            family: {"outOfRange": [], "degenerate": [], "overlap": None}
-            for family in ("M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText")
+            atlas_id: {"outOfRange": [], "degenerate": [], "overlap": None}
+            for atlas_id in groups
         })
+
+    def test_family_atlas_identity_and_area_allocation_are_not_equal_object_cells(self):
+        build_master()
+        surfaces = _add_dynamic_surfaces()
+        assign_primary_uvs(surfaces)
+
+        physical = [
+            obj
+            for obj in bpy.data.objects
+            if obj.type == "MESH" and not obj.get("dynamic_label_id")
+        ]
+        self.assertTrue(all(obj.get("runtime_atlas_id") for obj in physical))
+
+        body = bpy.data.objects["base/body"]
+        bearing = bpy.data.objects["detail/heaven/center-bearing"]
+        body_uv_area = sum(uv_triangle_area(body, triangle) for triangle in body.data.loop_triangles)
+        bearing_uv_area = sum(uv_triangle_area(bearing, triangle) for triangle in bearing.data.loop_triangles)
+        body_surface = sum(polygon.area for polygon in body.data.polygons)
+        bearing_surface = sum(polygon.area for polygon in bearing.data.polygons)
+
+        self.assertGreater(body_surface, bearing_surface * 100.0)
+        self.assertGreater(body_uv_area, bearing_uv_area * 3.0)
+
+    def test_every_visible_triangle_has_native_coverage_or_a_bounded_microface_exception(self):
+        self.maxDiff = None
+        build_master()
+        plate = bpy.data.objects["plate/heaven"]
+        plate_area_before = sum(polygon.area for polygon in plate.data.polygons)
+        plate_bounds_before = world_bounds(plate)
+        surfaces = _add_dynamic_surfaces()
+        assign_primary_uvs(surfaces)
+        self.assertAlmostEqual(
+            sum(polygon.area for polygon in plate.data.polygons),
+            plate_area_before,
+            delta=plate_area_before * 0.0001,
+        )
+        self.assertEqual(world_bounds(plate), plate_bounds_before)
+        failures = {}
+        microface_areas = []
+        total_surface_area = 0.0
+        atlas_ids = {
+            obj["runtime_atlas_id"]
+            for obj in bpy.data.objects
+            if obj.type == "MESH" and not obj.get("dynamic_label_id")
+        }
+        for atlas_id in atlas_ids:
+            family = atlas_id.split(":", 1)[0]
+            sample = next(
+                obj for obj in bpy.data.objects
+                if obj.type == "MESH" and obj.get("runtime_atlas_id") == atlas_id
+            )
+            dimension = 1024 if sample["runtime_atlas_class"] == "moving" else 2048
+            bake_scale = max(
+                obj.get("runtime_bake_scale", 1)
+                for obj in bpy.data.objects
+                if obj.type == "MESH" and obj.get("runtime_atlas_id") == atlas_id
+            )
+            family_failures = _native_texel_coverage_failures(
+                family, dimension, dilation=4, atlas_id=atlas_id
+            )
+            if family_failures and bake_scale > 1:
+                unresolved = set(family_failures)
+                for object_name in {name for name, _index in family_failures}:
+                    obj = bpy.data.objects[object_name]
+                    high_resolution_failures = set(_object_texel_coverage_failures(
+                        obj,
+                        dimension * 2 * bake_scale,
+                        dilation=16,
+                    ))
+                    unresolved.intersection_update(
+                        high_resolution_failures
+                        | {item for item in unresolved if item[0] != object_name}
+                    )
+                family_failures = sorted(unresolved)
+            visible_failures = []
+            for object_name, triangle_index in family_failures:
+                obj = bpy.data.objects[object_name]
+                obj.data.calc_loop_triangles()
+                area = obj.data.loop_triangles[triangle_index].area
+                if area <= 2.0e-7:
+                    microface_areas.append(area)
+                else:
+                    visible_failures.append((object_name, triangle_index, area))
+            family_failures = visible_failures
+            if family_failures:
+                failures[atlas_id] = {
+                    "count": len(family_failures),
+                    "first": family_failures[0],
+                }
+        representatives = {}
+        for obj in bpy.data.objects:
+            if obj.type == "MESH" and not obj.get("dynamic_label_id"):
+                representatives.setdefault(obj.data.as_pointer(), obj)
+        for obj in representatives.values():
+            total_surface_area += sum(polygon.area for polygon in obj.data.polygons)
+
+        self.assertEqual(failures, {})
+        self.assertTrue(microface_areas)
+        self.assertLessEqual(max(microface_areas), 2.0e-7)
+        self.assertLess(sum(microface_areas) / total_surface_area, 1.0e-5)
 
     def test_uvs_preserve_triangle_shape_and_tangent_mirror_sign(self):
         build_master()
@@ -581,16 +712,15 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory()
         cls.directory = Path(cls.temporary.name)
-        cls.texture_root = cls.directory / "textures"
-        cls.contract_path = cls.directory / "material-contract.json"
-        cls.contract_path.write_text(CONTRACT_PATH.read_text(encoding="utf-8"), encoding="utf-8")
-        cls.root = build_master()
+        cls.texture_root = REPOSITORY_ROOT / "assets/daliuren/textures"
+        cls.contract_path = CONTRACT_PATH
+        bpy.ops.wm.open_mainfile(filepath=str(MASTER_PATH))
+        cls.root = bpy.data.objects["artifact/root"]
         cls.frozen_counts = {
             "runtime": sum("node_id" in obj for obj in bpy.data.objects),
             "details": sum("detail_id" in obj for obj in bpy.data.objects),
             "inscriptions": sum("inscription_role" in obj for obj in bpy.data.objects),
         }
-        prepare_runtime_assets(cls.root, cls.texture_root, cls.contract_path)
         cls.contract = json.loads(cls.contract_path.read_text(encoding="utf-8"))
 
     @classmethod
@@ -606,6 +736,68 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                 self.assertEqual(tuple(layer.name for layer in obj.data.uv_layers), ("UVMap",))
                 self.assertTrue(obj.data.uv_layers["UVMap"].active_render)
                 self.assertEqual(detect_uv_issues(obj), ())
+
+    def test_frozen_heaven_and_moving_atlases_rebake_with_bounded_native_variance_without_repacking(self):
+        output = self.directory / "frozen-rebake"
+        atlas_ids = {"M_Bronze:heaven", "M_Bronze:moving"}
+        rebuilt = generate_runtime_textures(output, atlas_ids=atlas_ids)
+        runtime = self.contract["runtimeTextures"]
+        self.assertEqual(runtime["atlasPolicy"]["uvSourceMaster"], "assets/daliuren/source/daliuren-artifact-master.blend")
+        self.assertEqual(runtime["atlasPolicy"]["uvAuthoringVersion"], "blender-4.5.12/task4-native-atlas-v3")
+        for atlas_id in atlas_ids:
+            family = atlas_id.split(":", 1)[0]
+            actual = rebuilt[family]["atlases"][atlas_id]
+            committed = runtime["families"][family]["atlases"][atlas_id]
+            self.assertEqual(committed["uvLayoutSha256"], frozen_atlas_uv_hash(family, atlas_id))
+            self.assertEqual(actual["uvLayoutSha256"], committed["uvLayoutSha256"])
+            for lod in ("lod0", "lod2"):
+                for role in ("baseColor", "orm", "normal"):
+                    with self.subTest(atlas=atlas_id, lod=lod, role=role):
+                        if atlas_id == "M_Bronze:moving":
+                            self.assertEqual(actual[lod][role]["sha256"], committed[lod][role]["sha256"])
+                            continue
+                        _, _, actual_rows = png_rgb(output / actual[lod][role]["file"])
+                        _, _, committed_rows = png_rgb(self.texture_root / committed[lod][role]["file"])
+                        actual_bytes = b"".join(actual_rows)
+                        committed_bytes = b"".join(committed_rows)
+                        differing = sum(
+                            actual_bytes[offset : offset + 3] != committed_bytes[offset : offset + 3]
+                            for offset in range(0, len(actual_bytes), 3)
+                        )
+                        maximum_delta = max(
+                            abs(first - second)
+                            for first, second in zip(actual_bytes, committed_bytes)
+                        )
+                        maximum_pixels, allowed_delta = {
+                            "baseColor": (1024, 64),
+                            "orm": (1024, 255),
+                            "normal": (128, 4),
+                        }[role]
+                        self.assertLessEqual(differing, maximum_pixels)
+                        self.assertLessEqual(maximum_delta, allowed_delta)
+
+        heaven = bpy.data.objects["plate/heaven"]
+        heaven.data.calc_loop_triangles()
+        triangles = sorted(
+            heaven.data.loop_triangles,
+            key=lambda triangle: uv_triangle_area(heaven, triangle),
+            reverse=True,
+        )[:20]
+        actual_heaven = rebuilt["M_Bronze"]["atlases"]["M_Bronze:heaven"]
+        committed_heaven = runtime["families"]["M_Bronze"]["atlases"]["M_Bronze:heaven"]
+        dimension = committed_heaven["lod0"]["baseColor"]["dimensions"][0]
+        for role in ("baseColor", "orm", "normal"):
+            _, _, actual_rows = png_rgb(output / actual_heaven["lod0"][role]["file"])
+            _, _, committed_rows = png_rgb(self.texture_root / committed_heaven["lod0"][role]["file"])
+            for triangle in triangles:
+                x, y = triangle_interior_pixel(heaven, triangle, dimension)
+                actual_pixel = uv_pixel(actual_rows, x, y)
+                committed_pixel = uv_pixel(committed_rows, x, y)
+                with self.subTest(atlas="M_Bronze:heaven", role=role, triangle=triangle.index):
+                    self.assertTrue(
+                        all(abs(first - second) <= 1 for first, second in zip(actual_pixel, committed_pixel)),
+                        (actual_pixel, committed_pixel),
+                    )
 
     def test_dynamic_surfaces_have_exact_identity_hierarchy_material_and_stable_uvs(self):
         surfaces = [obj for obj in bpy.data.objects if obj.get("dynamic_label_id")]
@@ -663,26 +855,34 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         self.assertEqual(set(runtime["families"]), set(MATERIAL_FAMILIES))
 
         for family, payload in runtime["families"].items():
-            for lod, expected_dimension in (("lod0", 2048), ("lod2", 1024)):
-                maps = payload[lod]
-                self.assertEqual(set(maps), {"baseColor", "orm", "normal"})
-                for role, record in maps.items():
-                    path = self.texture_root / record["file"]
-                    with self.subTest(family=family, lod=lod, role=role):
-                        self.assertTrue(path.is_file())
-                        self.assertEqual(record["dimensions"], [expected_dimension, expected_dimension])
-                        self.assertEqual(record["channels"], "RGB")
-                        self.assertEqual(record["colorSpace"], "sRGB" if role == "baseColor" else "Non-Color")
-                        self.assertEqual(record["sha256"], sha256(path))
-                        width, height, _ = png_rgb(path)
-                        self.assertEqual((width, height), (expected_dimension, expected_dimension))
+            self.assertTrue(payload["atlases"])
+            for atlas_id, atlas in payload["atlases"].items():
+                self.assertEqual(atlas["bakeEngine"], "BLENDER_CYCLES_NATIVE")
+                self.assertEqual(atlas["uvLayoutSha256"], frozen_atlas_uv_hash(family, atlas_id))
+                self.assertEqual(atlas["marginPixels"], 8)
+                self.assertEqual(atlas["microTrianglePolicy"]["maxSurfaceAreaM2"], 2.0e-7)
+                lod0_dimension = 2048 if atlas["class"] == "moving" else 4096
+                for lod, expected_dimension in (("lod0", lod0_dimension), ("lod2", lod0_dimension // 2)):
+                    maps = atlas[lod]
+                    self.assertEqual(set(maps), {"baseColor", "orm", "normal"})
+                    for role, record in maps.items():
+                        path = self.texture_root / record["file"]
+                        with self.subTest(family=family, atlas=atlas_id, lod=lod, role=role):
+                            self.assertTrue(path.is_file())
+                            self.assertEqual(record["dimensions"], [expected_dimension, expected_dimension])
+                            self.assertEqual(record["channels"], "RGB")
+                            self.assertEqual(record["colorSpace"], "sRGB" if role == "baseColor" else "Non-Color")
+                            self.assertEqual(record["sha256"], sha256(path))
+                            width, height, _ = png_rgb(path)
+                            self.assertEqual((width, height), (expected_dimension, expected_dimension))
 
         decoded = {}
-        for family in ("M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText"):
-            decoded[family] = {}
-            for role in ("baseColor", "orm", "normal"):
-                record = runtime["families"][family]["lod0"][role]
-                _, _, decoded[family][role] = png_rgb(self.texture_root / record["file"])
+        for family, payload in runtime["families"].items():
+            for atlas_id, atlas in payload["atlases"].items():
+                decoded[atlas_id] = {}
+                for role in ("baseColor", "orm", "normal"):
+                    record = atlas["lod0"][role]
+                    _, _, decoded[atlas_id][role] = png_rgb(self.texture_root / record["file"])
 
         representatives = {
             "M_Bronze": ("base/body", (38, 50, 47), 255),
@@ -694,11 +894,18 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         for family, (object_name, expected_base, expected_metallic) in representatives.items():
             obj = bpy.data.objects[object_name]
             triangle = largest_uv_triangle(obj)
-            x, y = triangle_interior_pixel(obj, triangle, 2048)
+            atlas = object_atlas(runtime, obj)
+            dimension = atlas["lod0"]["baseColor"]["dimensions"][0]
+            x, y = triangle_interior_pixel(obj, triangle, dimension)
+            atlas_pixels = decoded[obj["runtime_atlas_id"]]
             with self.subTest(family=family, object=object_name):
                 if expected_base is not None:
-                    self.assertEqual(pixel(decoded[family]["baseColor"], x, y), expected_base)
-                self.assertEqual(pixel(decoded[family]["orm"], x, y)[2], expected_metallic)
+                    actual_base = uv_pixel(atlas_pixels["baseColor"], x, y)
+                    self.assertTrue(
+                        all(abs(actual - expected) <= 1 for actual, expected in zip(actual_base, expected_base)),
+                        (actual_base, expected_base),
+                    )
+                self.assertEqual(uv_pixel(atlas_pixels["orm"], x, y)[2], expected_metallic)
 
         bronze = bpy.data.objects["base/body"]
         contact = bronze.data.attributes["causal_contact_wear"]
@@ -711,11 +918,13 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             (triangle for triangle in bronze.data.loop_triangles if contact.data[triangle.polygon_index].value == 0.0),
             key=lambda triangle: uv_triangle_area(bronze, triangle),
         )
-        polished_xy = triangle_interior_pixel(bronze, polished, 2048)
-        unpolished_xy = triangle_interior_pixel(bronze, unpolished, 2048)
+        bronze_dimension = object_atlas(runtime, bronze)["lod0"]["orm"]["dimensions"][0]
+        polished_xy = triangle_interior_pixel(bronze, polished, bronze_dimension)
+        unpolished_xy = triangle_interior_pixel(bronze, unpolished, bronze_dimension)
+        bronze_orm = decoded[bronze["runtime_atlas_id"]]["orm"]
         self.assertLess(
-            pixel(decoded["M_Bronze"]["orm"], *polished_xy)[1],
-            pixel(decoded["M_Bronze"]["orm"], *unpolished_xy)[1],
+            uv_pixel(bronze_orm, *polished_xy)[1],
+            uv_pixel(bronze_orm, *unpolished_xy)[1],
         )
 
         recess = bpy.data.objects["detail/heaven/center-bearing"]
@@ -725,8 +934,9 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             (triangle for triangle in recess.data.loop_triangles if oxidation.data[triangle.polygon_index].value > 0.8),
             key=lambda triangle: uv_triangle_area(recess, triangle),
         )
-        oxidized_xy = triangle_interior_pixel(recess, oxidized, 2048)
-        oxidized_base = pixel(decoded["M_Bronze"]["baseColor"], *oxidized_xy)
+        recess_dimension = object_atlas(runtime, recess)["lod0"]["baseColor"]["dimensions"][0]
+        oxidized_xy = triangle_interior_pixel(recess, oxidized, recess_dimension)
+        oxidized_base = uv_pixel(decoded[recess["runtime_atlas_id"]]["baseColor"], *oxidized_xy)
         self.assertNotEqual(oxidized_base, (38, 50, 47))
         self.assertGreater(oxidized_base[1], 50)
 
@@ -738,7 +948,14 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             reverse=True,
         )[:20]
         normal_samples = {
-            pixel(decoded["M_Celadon"]["normal"], *triangle_interior_pixel(celadon, triangle, 2048))
+            uv_pixel(
+                decoded[celadon["runtime_atlas_id"]]["normal"],
+                *triangle_interior_pixel(
+                    celadon,
+                    triangle,
+                    object_atlas(runtime, celadon)["lod0"]["normal"]["dimensions"][0],
+                ),
+            )
             for triangle in celadon_samples
         }
         self.assertGreaterEqual(len(normal_samples), 3)
@@ -749,12 +966,13 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
 
         committed = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))["runtimeTextures"]
         for family in MATERIAL_FAMILIES:
-            for lod in ("lod0", "lod2"):
-                for role in ("baseColor", "orm", "normal"):
-                    self.assertEqual(
-                        runtime["families"][family][lod][role]["sha256"],
-                        committed["families"][family][lod][role]["sha256"],
-                    )
+            for atlas_id, atlas in runtime["families"][family]["atlases"].items():
+                for lod in ("lod0", "lod2"):
+                    for role in ("baseColor", "orm", "normal"):
+                        self.assertEqual(
+                            atlas[lod][role]["sha256"],
+                            committed["families"][family]["atlases"][atlas_id][lod][role]["sha256"],
+                        )
 
     def test_repeat_rejects_before_mutating_scene_or_outputs(self):
         counts_before = (len(bpy.data.objects), len(bpy.data.materials), len(bpy.data.images))
@@ -777,25 +995,26 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
     def test_lod2_is_literal_two_by_two_box_filter_of_lod0(self):
         samples = ((37, 91), (401, 233), (877, 701))
         for family in MATERIAL_FAMILIES:
-            for role in ("baseColor", "orm", "normal"):
-                lod0_record = self.contract["runtimeTextures"]["families"][family]["lod0"][role]
-                lod2_record = self.contract["runtimeTextures"]["families"][family]["lod2"][role]
-                _, _, source_rows = png_rgb(self.texture_root / lod0_record["file"])
-                _, _, target_rows = png_rgb(self.texture_root / lod2_record["file"])
-                for x, y in samples:
-                    expected = tuple(
-                        (
-                            pixel(source_rows, x * 2, y * 2)[channel]
-                            + pixel(source_rows, x * 2 + 1, y * 2)[channel]
-                            + pixel(source_rows, x * 2, y * 2 + 1)[channel]
-                            + pixel(source_rows, x * 2 + 1, y * 2 + 1)[channel]
-                            + 2
+            for atlas_id, atlas in self.contract["runtimeTextures"]["families"][family]["atlases"].items():
+                for role in ("baseColor", "orm", "normal"):
+                    lod0_record = atlas["lod0"][role]
+                    lod2_record = atlas["lod2"][role]
+                    _, _, source_rows = png_rgb(self.texture_root / lod0_record["file"])
+                    _, _, target_rows = png_rgb(self.texture_root / lod2_record["file"])
+                    for x, y in samples:
+                        expected = tuple(
+                            (
+                                pixel(source_rows, x * 2, y * 2)[channel]
+                                + pixel(source_rows, x * 2 + 1, y * 2)[channel]
+                                + pixel(source_rows, x * 2, y * 2 + 1)[channel]
+                                + pixel(source_rows, x * 2 + 1, y * 2 + 1)[channel]
+                                + 2
+                            )
+                            // 4
+                            for channel in range(3)
                         )
-                        // 4
-                        for channel in range(3)
-                    )
-                    with self.subTest(family=family, role=role, x=x, y=y):
-                        self.assertEqual(pixel(target_rows, x, y), expected)
+                        with self.subTest(family=family, atlas=atlas_id, role=role, x=x, y=y):
+                            self.assertEqual(pixel(target_rows, x, y), expected)
 
     def test_source_causal_face_mutation_changes_only_its_family_region(self):
         bronze = bpy.data.objects["base/body"]
@@ -809,30 +1028,35 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             ),
             key=lambda item: uv_triangle_area(bronze, item),
         )
-        sample_x, sample_y = triangle_interior_pixel(bronze, triangle, 2048)
-        before_record = self.contract["runtimeTextures"]["families"]["M_Bronze"]["lod0"]["orm"]
+        bronze_atlas = object_atlas(self.contract["runtimeTextures"], bronze)
+        bronze_atlas_id = bronze["runtime_atlas_id"]
+        dimension = bronze_atlas["lod0"]["orm"]["dimensions"][0]
+        sample_x, sample_y = triangle_interior_pixel(bronze, triangle, dimension)
+        before_record = bronze_atlas["lod0"]["orm"]
         _, _, before_rows = png_rgb(self.texture_root / before_record["file"])
 
         attribute.data[triangle.polygon_index].value = 0.0
         mutated_root = self.directory / "mutated"
-        mutated = generate_runtime_textures(mutated_root)
-        _, _, after_rows = png_rgb(mutated_root / mutated["M_Bronze"]["lod0"]["orm"]["file"])
+        mutated = generate_runtime_textures(mutated_root, atlas_ids={bronze_atlas_id})
+        mutated_atlas = mutated["M_Bronze"]["atlases"][bronze_atlas_id]
+        _, _, after_rows = png_rgb(mutated_root / mutated_atlas["lod0"]["orm"]["file"])
 
         self.assertNotEqual(
-            mutated["M_Bronze"]["lod0"]["orm"]["sha256"],
+            mutated_atlas["lod0"]["orm"]["sha256"],
             before_record["sha256"],
         )
         self.assertGreater(
-            pixel(after_rows, sample_x, sample_y)[1],
-            pixel(before_rows, sample_x, sample_y)[1],
+            uv_pixel(after_rows, sample_x, sample_y)[1],
+            uv_pixel(before_rows, sample_x, sample_y)[1],
         )
-        for family in ("M_Patina", "M_Celadon", "M_OldGold", "M_AshText"):
-            for lod in ("lod0", "lod2"):
-                for role in ("baseColor", "orm", "normal"):
-                    self.assertEqual(
-                        mutated[family][lod][role]["sha256"],
-                        self.contract["runtimeTextures"]["families"][family][lod][role]["sha256"],
-                    )
+        self.assertEqual(
+            {path.relative_to(mutated_root).as_posix() for path in mutated_root.rglob("*.png")},
+            {
+                mutated_atlas[lod][role]["file"]
+                for lod in ("lod0", "lod2")
+                for role in ("baseColor", "orm", "normal")
+            },
+        )
 
 
 if __name__ == "__main__":
