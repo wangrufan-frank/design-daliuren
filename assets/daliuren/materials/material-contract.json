@@ -197,56 +197,74 @@
         "dynamic/general/queen-of-heaven": "general/queen-of-heaven",
         "dynamic/transmission/method": "transmission/bridge"
       },
-      "forbiddenCourseValues": [
-        "2026-08-14T23:57:00",
-        "2026-08-15",
-        "二〇二六年七月初二",
-        "丙午",
-        "丙申",
-        "辛酉",
-        "戊子",
-        "辛",
-        "胜光",
-        "反吟",
-        "重审",
-        "子",
-        "丑",
-        "寅",
-        "卯",
-        "辰",
-        "巳",
-        "午",
-        "未",
-        "申",
-        "酉",
-        "戌",
-        "亥",
-        "贵人",
-        "螣蛇",
-        "朱雀",
-        "六合",
-        "勾陈",
-        "青龙",
-        "天空",
-        "白虎",
-        "太常",
-        "玄武",
-        "太阴",
-        "天后",
-        "初传",
-        "中传",
-        "末传",
-        "父母",
-        "子孙",
-        "官鬼",
-        "妻财",
-        "兄弟",
-        "一课",
-        "二课",
-        "三课",
-        "四课",
-        "庚申"
-      ],
+      "courseValuePolicy": {
+        "scope": "dynamic-label-payload-and-bake-inputs-only",
+        "scanTargets": [
+          "21 dynamic label surfaces",
+          "runtime dynamic label payload fields"
+        ],
+        "fields": {
+          "calendar": [
+            "2026-08-14T23:57:00",
+            "2026-08-15",
+            "二〇二六年七月初二",
+            "丙午",
+            "丙申",
+            "辛酉",
+            "戊子",
+            "辛",
+            "庚申"
+          ],
+          "lessons": [
+            "一课",
+            "二课",
+            "三课",
+            "四课",
+            "子",
+            "丑",
+            "寅",
+            "卯",
+            "辰",
+            "巳",
+            "午",
+            "未",
+            "申",
+            "酉",
+            "戌",
+            "亥",
+            "胜光"
+          ],
+          "transmissions": [
+            "初传",
+            "中传",
+            "末传",
+            "父母",
+            "子孙",
+            "官鬼",
+            "妻财",
+            "兄弟"
+          ],
+          "generals": [
+            "贵人",
+            "螣蛇",
+            "朱雀",
+            "六合",
+            "勾陈",
+            "青龙",
+            "天空",
+            "白虎",
+            "太常",
+            "玄武",
+            "太阴",
+            "天后"
+          ],
+          "method": [
+            "反吟",
+            "重审"
+          ]
+        },
+        "fixedInscriptionPolicy": "fixed Task 1 inscriptions remain legal, including twelve earth branches and 胜光"
+      },
       "contentRule": "blank geometry only; all course text is supplied at runtime"
     },
     "families": {
@@ -261,7 +279,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "e1f62a58583809228f12bb1e60cbaaea802991c94e2118df5d684c8c1a8cf46b"
+            "sha256": "e08b39c770cd2fc3d639b56c6e9a51026be25e1e31b4f666f86870cad9792573"
           },
           "orm": {
             "file": "lod0/bronze-orm.png",
@@ -271,7 +289,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "14909a74321c869acf8f9251106d1527f225a28d1b50f0d97d8d85a107c889a5"
+            "sha256": "b3d125a4a29484349d4e7f99423979fa59d4553af66e314b5b15711d66004400"
           },
           "normal": {
             "file": "lod0/bronze-normal.png",
@@ -281,7 +299,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "9a0590d2dfb152fe1b7d7d9f4b7cee83b9a292a9064b455b7b5e2da781549db2"
+            "sha256": "979259d2d1739cb0267fae890e38f118bc319204b818c12d5de0af424719e5c8"
           }
         },
         "lod2": {
@@ -293,7 +311,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "20dab367f6c1c4788309317754d8c5e37b144bb4a1f9f98d9bf2662d9e9a665a"
+            "sha256": "e6d46c4dd57b496d29f9bfeacd738fa18bd634b8e9acf718984721cd5c92039e"
           },
           "orm": {
             "file": "lod2/bronze-orm.png",
@@ -303,7 +321,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "52d788174d6c02acffa213e662b46c366c5e7b8c1a2e101c5cff6bd8c978b705"
+            "sha256": "d6759b1a33ec225a4eafc8c415c2a88796dcc304e977959eae577ceba8617a31"
           },
           "normal": {
             "file": "lod2/bronze-normal.png",
@@ -313,7 +331,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "37652f536c51b3974b1c0fc257e268897e83b09dc72ce58a9f456b04bdd1f47f"
+            "sha256": "2f783ab82c440d892706ae80d21f22b1f41113a2c82cecc5b686a8ed8527e2fc"
           }
         }
       },
@@ -328,7 +346,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "b0cd5a28ff0c5a6b10fde20aa633ec25ffe5495c833b92d4f30cecdfd10db4a3"
+            "sha256": "e18731787d1393a26171c99a246021eccc7fdd7025f4ef5a7e38741ea8809d22"
           },
           "orm": {
             "file": "lod0/patina-orm.png",
@@ -338,7 +356,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "efaf5edcc83e27f197706e15aa9d281df96b0767819bf186ea672aa7e9b18417"
+            "sha256": "656c84d436a5c79453ddba1cd1c85070237d6bb5c073cdcd21e7839cc3036a8c"
           },
           "normal": {
             "file": "lod0/patina-normal.png",
@@ -348,7 +366,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "d335a46fe4367b458c39431bcc833bc986d95d41ffb08746eb0d3f04df1e1813"
+            "sha256": "979259d2d1739cb0267fae890e38f118bc319204b818c12d5de0af424719e5c8"
           }
         },
         "lod2": {
@@ -360,7 +378,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "f8bec7b830f1a519e29b9ba28a8da795ac434fc4015a6c587584b9becca83d46"
+            "sha256": "0ccb85ca715db8208a34a032b6276a5a1e0b9bdf3313f8e728211ab726036359"
           },
           "orm": {
             "file": "lod2/patina-orm.png",
@@ -370,7 +388,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "018c739038c310675182a87aaec4605be56f4bfccf225073b3c3668604c546e9"
+            "sha256": "f201feecfad20deaf1aab01d61917805d99705765c5abb5b1ae3f1a8e59c4121"
           },
           "normal": {
             "file": "lod2/patina-normal.png",
@@ -380,7 +398,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "2c29f94c2e5cd61b7e271fc2e1e4b754ec12c55d0ba4adefd4186062f9f0d0af"
+            "sha256": "2f783ab82c440d892706ae80d21f22b1f41113a2c82cecc5b686a8ed8527e2fc"
           }
         }
       },
@@ -395,7 +413,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "889efb0a5e196f03aae6c385e7b5ea365731decf2fff4f0a611f20a465b2420e"
+            "sha256": "80814e0d4ca2314bf2a024550ce114e32bee44ef8920ed0d344418f4577a1ebc"
           },
           "orm": {
             "file": "lod0/celadon-orm.png",
@@ -405,7 +423,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "fd7063200b711c24d008ebce0985ee95261f546dee7de22d9b5571a7f6aaf73a"
+            "sha256": "94bb2b5ba064d406eb0aecca394b562da6ac104d7ecc09a7b4c993e9a64e3478"
           },
           "normal": {
             "file": "lod0/celadon-normal.png",
@@ -415,7 +433,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "ee7bdb7bc7ca527b3e5ae76394ea3d1917ab651bf4ff456cad7caecc47008ae6"
+            "sha256": "0ee4351a5fb621a2fd8abb46138c94a266f8e005cf3f2901ea111592aedab5d6"
           }
         },
         "lod2": {
@@ -427,7 +445,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "264f4399513a819d3f0ba83ab8c6da10c78d77ac4d34a84c24afcc6b90262eb0"
+            "sha256": "f8c1b8d6335fb15d7feb20ab330c066e31c15260289058c486871a5448a5500c"
           },
           "orm": {
             "file": "lod2/celadon-orm.png",
@@ -437,7 +455,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "1a31be5f94c671996322a398ee68eed0ffb6e82ec82372b5f32da850ae1b6fda"
+            "sha256": "dd9d13eca00e3393756bc0ef8a8ea67c221503f773049c9607045694defbbea5"
           },
           "normal": {
             "file": "lod2/celadon-normal.png",
@@ -447,7 +465,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "714bcda1f1fdce17bd960a8a3b6db1809cdd24136f723fb1d015c1c6ef4ec76e"
+            "sha256": "a8c1e3beeace569c51b0711ecdba0378ea12d6d6d5296f7bc7058fea6d1e1537"
           }
         }
       },
@@ -462,7 +480,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "11f1c88c6ae20f00bd5bb6394f99d14769c2c083f94778f3bfe765d74d74670f"
+            "sha256": "469bbe963268e10cf20adb21df42f4fb9fb2c08865c31b50d6e468f51aef7e70"
           },
           "orm": {
             "file": "lod0/oldgold-orm.png",
@@ -472,7 +490,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "59b333755d9a6b0ecba8dc1306727d5c59b79692fde14abd5cee052922021786"
+            "sha256": "2d28a8c74991ce5ba8a70a68ecf59ada6a4e90e14c19f339292b5d0e4355caf5"
           },
           "normal": {
             "file": "lod0/oldgold-normal.png",
@@ -482,7 +500,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "c96d86cbb9585e83090a14a5a8c887abc8594d55ecb3828cd908f9006b326e25"
+            "sha256": "979259d2d1739cb0267fae890e38f118bc319204b818c12d5de0af424719e5c8"
           }
         },
         "lod2": {
@@ -494,7 +512,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "92b010835585752afbeb1e4fd9acf17ba13100fcbaa7a9654f2d8c5034268950"
+            "sha256": "724a4bf6fd1b95a9790365e6ec01d4180cb3f6bcc1ffb88aa954b11168f82ea5"
           },
           "orm": {
             "file": "lod2/oldgold-orm.png",
@@ -504,7 +522,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "75709338e292d349bdd1b7214158d313662129278b209d154ec26ea149253e13"
+            "sha256": "dc747481c69d1f7fde0806267a93a1adb6dcf1f418bcb4b16c1c55fcbb8a24c6"
           },
           "normal": {
             "file": "lod2/oldgold-normal.png",
@@ -514,7 +532,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "710367b906e2b61de56c18e295f3b052428ee867677c39d5a106da64fa27a0da"
+            "sha256": "2f783ab82c440d892706ae80d21f22b1f41113a2c82cecc5b686a8ed8527e2fc"
           }
         }
       },
@@ -529,7 +547,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "ff04a72c0f222556dc86a195ced85bdf236a98d667c5e8631ab34b4450b44d9e"
+            "sha256": "c386b1f914cfc6cf10b9ce70a92e7145911dd5db473a534e60d262ac06f9702b"
           },
           "orm": {
             "file": "lod0/ashtext-orm.png",
@@ -539,7 +557,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "3465465eab992263e877285d616af8d7f22ebc93201732a3bb38acce3b1e91d0"
+            "sha256": "20323daaec4c7d8b12a495a64cb8ae7350864fc83541477e924455ee1a2c2d40"
           },
           "normal": {
             "file": "lod0/ashtext-normal.png",
@@ -549,7 +567,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "50b1ce50f8a7bd4bb4660d56061f393fdb5613a7c97b617cb1fa55c0d1028574"
+            "sha256": "979259d2d1739cb0267fae890e38f118bc319204b818c12d5de0af424719e5c8"
           }
         },
         "lod2": {
@@ -561,7 +579,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "sRGB",
-            "sha256": "bc7ae409f24e77f93ff592506e51dac6ca40a82774181addf9da1d622cad595b"
+            "sha256": "21a14874b046cafcae2b3e8c100071d810e14ce9258c466d94ce9747c4d34714"
           },
           "orm": {
             "file": "lod2/ashtext-orm.png",
@@ -571,7 +589,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "9bcf116dca77aaf81d9562e5fc4e3d60a52f491508113a4fb23212aa153fe951"
+            "sha256": "1777eb73a8a24b92d8f8f3e932bc36063a3f095d76ef8e69432a303a2b98073a"
           },
           "normal": {
             "file": "lod2/ashtext-normal.png",
@@ -581,7 +599,7 @@
             ],
             "channels": "RGB",
             "colorSpace": "Non-Color",
-            "sha256": "09eb6fedc631a7cb74d7e688ebc6bc56e6bd6206831cf4f8dd37bc37a33bf7c3"
+            "sha256": "2f783ab82c440d892706ae80d21f22b1f41113a2c82cecc5b686a8ed8527e2fc"
           }
         }
       }
