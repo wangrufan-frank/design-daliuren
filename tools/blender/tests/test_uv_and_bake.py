@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 import zlib
+from array import array
 from collections import defaultdict
 from pathlib import Path
 
@@ -201,6 +202,127 @@ def triangle_interior_pixel(obj, triangle, dimension):
     if best is None:
         raise AssertionError(f"Triangle {obj.name}:{triangle.index} covers no pixel center")
     return best[1], best[2]
+
+
+def independent_triangle_pixel_centers(points, dimension):
+    denominator = (
+        (points[1][1] - points[2][1]) * (points[0][0] - points[2][0])
+        + (points[2][0] - points[1][0]) * (points[0][1] - points[2][1])
+    )
+    minimum_x = max(0, int(math.floor(min(point[0] for point in points) * dimension)))
+    maximum_x = min(dimension, int(math.ceil(max(point[0] for point in points) * dimension)))
+    minimum_y = max(0, int(math.floor(min(point[1] for point in points) * dimension)))
+    maximum_y = min(dimension, int(math.ceil(max(point[1] for point in points) * dimension)))
+    for y in range(minimum_y, maximum_y):
+        v = (y + 0.5) / dimension
+        for x in range(minimum_x, maximum_x):
+            u = (x + 0.5) / dimension
+            first = ((points[1][1] - points[2][1]) * (u - points[2][0]) + (points[2][0] - points[1][0]) * (v - points[2][1])) / denominator
+            second = ((points[2][1] - points[0][1]) * (u - points[2][0]) + (points[0][0] - points[2][0]) * (v - points[2][1])) / denominator
+            if min(first, second, 1.0 - first - second) >= -1e-9:
+                yield x, y
+
+
+def independent_atlas_owner_and_edge_distance(atlas_id, dimension, edge_band):
+    representatives = {}
+    for obj in sorted(
+        (
+            item for item in bpy.data.objects
+            if item.type == "MESH" and item.get("runtime_atlas_id") == atlas_id
+        ),
+        key=lambda item: item.name,
+    ):
+        representatives.setdefault(obj.data.as_pointer(), obj)
+    owners = array("I", [0]) * (dimension * dimension)
+    expected_owners = set()
+    owner_max_triangle_area = {}
+    owner_centers = defaultdict(list)
+    next_owner = 1
+    for obj in representatives.values():
+        mesh = obj.data
+        layer = mesh.uv_layers["UVMap"]
+        mesh.calc_loop_triangles()
+        parents = list(range(len(mesh.loop_triangles)))
+
+        def find(index):
+            while parents[index] != index:
+                parents[index] = parents[parents[index]]
+                index = parents[index]
+            return index
+
+        edge_triangles = {}
+        for triangle in mesh.loop_triangles:
+            for first, second in ((0, 1), (1, 2), (2, 0)):
+                vertices = (triangle.vertices[first], triangle.vertices[second])
+                loops = (triangle.loops[first], triangle.loops[second])
+                uv_edge = tuple(sorted(
+                    (vertex, round(layer.data[loop].uv.x, 10), round(layer.data[loop].uv.y, 10))
+                    for vertex, loop in zip(vertices, loops)
+                ))
+                key = (tuple(sorted(vertices)), uv_edge)
+                if key in edge_triangles:
+                    root = find(triangle.index)
+                    other = find(edge_triangles[key])
+                    if root != other:
+                        parents[other] = root
+                else:
+                    edge_triangles[key] = triangle.index
+        roots = {}
+        for triangle in mesh.loop_triangles:
+            root = find(triangle.index)
+            owner = roots.setdefault(root, next_owner + len(roots))
+            expected_owners.add(owner)
+            owner_max_triangle_area[owner] = max(
+                owner_max_triangle_area.get(owner, 0.0), triangle.area
+            )
+            points = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
+            center_x = min(dimension - 1, max(0, int(sum(point[0] for point in points) / 3 * dimension)))
+            center_y = min(dimension - 1, max(0, int(sum(point[1] for point in points) / 3 * dimension)))
+            owner_centers[owner].append(center_y * dimension + center_x)
+            for x, y in independent_triangle_pixel_centers(points, dimension):
+                index = y * dimension + x
+                if owners[index] not in (0, owner):
+                    raise AssertionError(f"Independent owner overlap at {atlas_id} {x},{y}")
+                owners[index] = owner
+        next_owner += len(roots)
+
+    edge_distance = bytearray([255]) * (dimension * dimension)
+    frontier = []
+    for y in range(dimension):
+        for x in range(dimension):
+            index = y * dimension + x
+            owner = owners[index]
+            if owner and any(
+                owners[neighbor] != owner
+                for neighbor in (
+                    index - 1 if x else index,
+                    index + 1 if x + 1 < dimension else index,
+                    index - dimension if y else index,
+                    index + dimension if y + 1 < dimension else index,
+                )
+            ):
+                edge_distance[index] = 0
+                frontier.append(index)
+    observed_owners = set(owners)
+    observed_owners.discard(0)
+    for owner in expected_owners - observed_owners:
+        for index in owner_centers[owner]:
+            if edge_distance[index] == 255:
+                edge_distance[index] = 0
+                frontier.append(index)
+    for distance in range(1, edge_band + 1):
+        following = []
+        for source in frontier:
+            x = source % dimension
+            y = source // dimension
+            for target_y in range(max(0, y - 1), min(dimension, y + 2)):
+                for target_x in range(max(0, x - 1), min(dimension, x + 2)):
+                    target = target_y * dimension + target_x
+                    if edge_distance[target] == 255:
+                        edge_distance[target] = distance
+                        following.append(target)
+        frontier = following
+    return owners, edge_distance, expected_owners, owner_max_triangle_area
 
 
 def largest_uv_triangle(obj, predicate=lambda triangle: True):
@@ -405,6 +527,28 @@ class UVDetectionTest(unittest.TestCase):
         self.assertIn("triangle-overlap", detect_uv_issues(overlap))
         self.assertIn("degenerate-triangle", detect_uv_issues(degenerate))
         self.assertIn("out-of-range", detect_uv_issues(out_of_range))
+
+    def test_texel_coverage_does_not_borrow_padding_from_a_neighboring_uv_island(self):
+        obj = self._mesh(
+            "coverage-owner",
+            (
+                (0, 0, 0), (1, 0, 0), (0, 1, 0),
+                (2, 0, 0), (3, 0, 0), (2, 1, 0),
+            ),
+            ((0, 1, 2), (3, 4, 5)),
+            (
+                (0.40, 0.40), (0.48, 0.40), (0.40, 0.48),
+                (0.4850, 0.4850), (0.4900, 0.4850), (0.4850, 0.4900),
+            ),
+        )
+        obj.data.calc_loop_triangles()
+        self.assertAlmostEqual(obj.data.loop_triangles[0].area, 0.5)
+        self.assertAlmostEqual(obj.data.loop_triangles[1].area, 0.5)
+
+        self.assertEqual(
+            _object_texel_coverage_failures(obj, 64, dilation=4),
+            [("coverage-owner", 1)],
+        )
 
     def test_dynamic_course_value_policy_is_split_by_runtime_field(self):
         expected_fields = {"calendar", "lessons", "transmissions", "generals", "method"}
@@ -742,6 +886,28 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         atlas_ids = {"M_Bronze:heaven", "M_Bronze:moving"}
         rebuilt = generate_runtime_textures(output, atlas_ids=atlas_ids)
         runtime = self.contract["runtimeTextures"]
+        heaven_record = runtime["families"]["M_Bronze"]["atlases"]["M_Bronze:heaven"]
+        edge_masks = {}
+        for lod, padding, filter_footprint in (("lod0", 8, 0), ("lod2", 4, 1)):
+            edge_band = padding + filter_footprint
+            dimension = heaven_record[lod]["baseColor"]["dimensions"][0]
+            owners, distances, expected_owners, owner_max_triangle_area = independent_atlas_owner_and_edge_distance(
+                "M_Bronze:heaven", dimension, edge_band
+            )
+            observed_owners = set(owners)
+            observed_owners.discard(0)
+            missing_owners = expected_owners - observed_owners
+            self.assertTrue(all(
+                owner_max_triangle_area[owner] <= 2.0e-7 for owner in missing_owners
+            ), {
+                owner: owner_max_triangle_area[owner] for owner in missing_owners
+            })
+            print(
+                f"OWNER_MASK {lod} islands={len(expected_owners)} represented={len(observed_owners)} "
+                f"microface_exceptions={sorted(missing_owners)} padding={padding} "
+                f"downsample_footprint={filter_footprint} edge_band={edge_band}"
+            )
+            edge_masks[lod] = (dimension, edge_band, owners, distances, expected_owners)
         self.assertEqual(runtime["atlasPolicy"]["uvSourceMaster"], "assets/daliuren/source/daliuren-artifact-master.blend")
         self.assertEqual(runtime["atlasPolicy"]["uvAuthoringVersion"], "blender-4.5.12/task4-native-atlas-v3")
         for atlas_id in atlas_ids:
@@ -760,14 +926,16 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                         _, _, committed_rows = png_rgb(self.texture_root / committed[lod][role]["file"])
                         actual_bytes = b"".join(actual_rows)
                         committed_bytes = b"".join(committed_rows)
-                        differing = sum(
-                            actual_bytes[offset : offset + 3] != committed_bytes[offset : offset + 3]
+                        differing_pixels = [
+                            offset // 3
                             for offset in range(0, len(actual_bytes), 3)
-                        )
-                        maximum_delta = max(
+                            if actual_bytes[offset : offset + 3] != committed_bytes[offset : offset + 3]
+                        ]
+                        differing = len(differing_pixels)
+                        maximum_delta = max((
                             abs(first - second)
                             for first, second in zip(actual_bytes, committed_bytes)
-                        )
+                        ), default=0)
                         maximum_pixels, allowed_delta = {
                             "baseColor": (1024, 64),
                             "orm": (1024, 255),
@@ -775,6 +943,51 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                         }[role]
                         self.assertLessEqual(differing, maximum_pixels)
                         self.assertLessEqual(maximum_delta, allowed_delta)
+                        dimension, edge_band, _owners, distances, _expected = edge_masks[lod]
+                        uv_indices = [
+                            (dimension - 1 - index // dimension) * dimension + index % dimension
+                            for index in differing_pixels
+                        ]
+                        outside_band = [index for index in uv_indices if distances[index] > edge_band]
+                        distribution = defaultdict(int)
+                        for index in uv_indices:
+                            distribution[distances[index]] += 1
+                        coordinates = [
+                            (index % dimension, index // dimension)
+                            for index in differing_pixels[:12]
+                        ]
+                        print(
+                            f"EDGE_DIFF {lod} {role} count={differing} max_delta={maximum_delta} "
+                            f"distance_distribution={dict(sorted(distribution.items()))} coords={coordinates}"
+                        )
+                        self.assertEqual(outside_band, [], coordinates)
+
+        for lod in ("lod0", "lod2"):
+            dimension, edge_band, owners, distances, expected_owners = edge_masks[lod]
+            interior_samples = {}
+            for index, owner in enumerate(owners):
+                if owner and distances[index] > edge_band:
+                    interior_samples.setdefault(owner, index)
+            self.assertTrue(interior_samples)
+            print(
+                f"INTERIOR_SAMPLES {lod} islands={len(expected_owners)} "
+                f"with_interior={len(interior_samples)}"
+            )
+            actual_atlas = rebuilt["M_Bronze"]["atlases"]["M_Bronze:heaven"]
+            committed_atlas = runtime["families"]["M_Bronze"]["atlases"]["M_Bronze:heaven"]
+            for role in ("baseColor", "orm", "normal"):
+                _, _, actual_rows = png_rgb(output / actual_atlas[lod][role]["file"])
+                _, _, committed_rows = png_rgb(self.texture_root / committed_atlas[lod][role]["file"])
+                for owner, index in interior_samples.items():
+                    x = index % dimension
+                    y = index // dimension
+                    actual_pixel = uv_pixel(actual_rows, x, y)
+                    committed_pixel = uv_pixel(committed_rows, x, y)
+                    with self.subTest(atlas="M_Bronze:heaven", lod=lod, role=role, owner=owner):
+                        self.assertTrue(
+                            all(abs(first - second) <= 1 for first, second in zip(actual_pixel, committed_pixel)),
+                            (x, y, actual_pixel, committed_pixel),
+                        )
 
         heaven = bpy.data.objects["plate/heaven"]
         heaven.data.calc_loop_triangles()

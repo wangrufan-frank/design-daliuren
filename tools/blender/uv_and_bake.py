@@ -344,20 +344,37 @@ def _joined_ao_proxy(target):
 
 
 def _native_unique_coverage(objects, dimension):
+    return _native_island_coverage(objects, dimension)[0]
+
+
+def _native_island_coverage(objects, dimension):
     coverage = bytearray(dimension * dimension)
+    owners = array("I", [0]) * (dimension * dimension)
+    next_owner = 1
     for obj in objects:
         mesh = obj.data
         layer = mesh.uv_layers["UVMap"]
         mesh.calc_loop_triangles()
+        island_ids = _triangle_uv_island_ids(mesh, layer)
+        owner_ids = {
+            island_id: next_owner + offset
+            for offset, island_id in enumerate(sorted(set(island_ids.values())))
+        }
+        next_owner += len(owner_ids)
         for triangle in mesh.loop_triangles:
             points = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
+            owner = owner_ids[island_ids[triangle.index]]
             for x, y in _triangle_pixel_centers(points, dimension):
                 index = y * dimension + x
                 coverage[index] = min(2, coverage[index] + 1)
-    return coverage
+                if owners[index] in (0, owner):
+                    owners[index] = owner
+                else:
+                    owners[index] = 0xFFFFFFFF
+    return coverage, owners
 
 
-def _dilate_rgb(pixels, active, dimension, margin):
+def _dilate_rgb(pixels, active, dimension, margin, owners=None):
     frontier = []
     for y in range(dimension):
         row = y * dimension
@@ -373,6 +390,7 @@ def _dilate_rgb(pixels, active, dimension, margin):
             ):
                 frontier.append(index)
 
+    blocked = bytearray(dimension * dimension)
     for _step in range(margin):
         claimed = bytearray(dimension * dimension)
         additions = []
@@ -389,12 +407,23 @@ def _dilate_rgb(pixels, active, dimension, margin):
                 source + dimension if y + 1 < dimension else -1,
                 source + dimension + 1 if x + 1 < dimension and y + 1 < dimension else -1,
             ):
-                if target < 0 or active[target] or claimed[target]:
+                if target < 0 or active[target] or blocked[target]:
                     continue
-                claimed[target] = 1
-                additions.append((target, source))
+                if not claimed[target]:
+                    claimed[target] = 1
+                    additions.append((target, source))
+                    if owners is not None:
+                        owners[target] = owners[source]
+                elif owners is not None:
+                    if owners[target] != owners[source]:
+                        claimed[target] = 2
         frontier = []
         for target, source in additions:
+            if claimed[target] == 2:
+                blocked[target] = 1
+                if owners is not None:
+                    owners[target] = 0xFFFFFFFF
+                continue
             target_offset = target * 3
             source_offset = source * 3
             pixels[target_offset : target_offset + 3] = pixels[source_offset : source_offset + 3]
@@ -403,7 +432,7 @@ def _dilate_rgb(pixels, active, dimension, margin):
     return pixels
 
 
-def _stabilize_native_pixels(pixels, coverage, dimension, margin, passes=2):
+def _stabilize_native_pixels(pixels, coverage, dimension, margin, passes=2, owners=None):
     filtered = bytearray(pixels)
     for _pass in range(passes):
         source = filtered
@@ -428,15 +457,67 @@ def _stabilize_native_pixels(pixels, coverage, dimension, margin, passes=2):
                         index + dimension + 1,
                     )
                     if coverage[neighbor] == 1
+                    and (owners is None or owners[neighbor] == owners[index])
                 ]
                 neighbors.sort(key=lambda neighbor: source[neighbor * 3])
                 chosen = neighbors[len(neighbors) // 2]
                 filtered[index * 3 : index * 3 + 3] = source[chosen * 3 : chosen * 3 + 3]
+    if owners is not None:
+        edge_band = bytearray(dimension * dimension)
+        frontier = []
+        for y in range(dimension):
+            row = y * dimension
+            for x in range(dimension):
+                index = row + x
+                if coverage[index] != 1:
+                    continue
+                owner = owners[index]
+                if any(
+                    coverage[neighbor] != 1 or owners[neighbor] != owner
+                    for neighbor in (
+                        index - 1 if x else index,
+                        index + 1 if x + 1 < dimension else index,
+                        index - dimension if y else index,
+                        index + dimension if y + 1 < dimension else index,
+                    )
+                ):
+                    edge_band[index] = 1
+                    frontier.append(index)
+        for _distance in range(margin):
+            following = []
+            for source_index in frontier:
+                x = source_index % dimension
+                y = source_index // dimension
+                owner = owners[source_index]
+                for target_y in range(max(0, y - 1), min(dimension, y + 2)):
+                    for target_x in range(max(0, x - 1), min(dimension, x + 2)):
+                        target = target_y * dimension + target_x
+                        if (
+                            not edge_band[target]
+                            and coverage[target] == 1
+                            and owners[target] == owner
+                        ):
+                            edge_band[target] = 1
+                            following.append(target)
+            frontier = following
+        owner_totals = {}
+        for index, owner in enumerate(owners):
+            if coverage[index] == 1:
+                total, count = owner_totals.get(owner, (0, 0))
+                owner_totals[owner] = (total + filtered[index * 3], count + 1)
+        stable_values = {
+            owner: min(255, ((total // count + 32) // 64) * 64)
+            for owner, (total, count) in owner_totals.items()
+        }
+        for index, owner in enumerate(owners):
+            if coverage[index] == 1 and not edge_band[index]:
+                value = stable_values[owner]
+                filtered[index * 3 : index * 3 + 3] = bytes((value, value, value))
     active = bytearray(1 if value == 1 else 0 for value in coverage)
-    return _dilate_rgb(filtered, active, dimension, margin)
+    return _dilate_rgb(filtered, active, dimension, margin, owners)
 
 
-def _image_rgb_bytes(image, background, srgb=False, coverage=None, margin=0):
+def _image_rgb_bytes(image, background, srgb=False, coverage=None, margin=0, owners=None):
     values = array("f", [0.0]) * (image.size[0] * image.size[1] * 4)
     image.pixels.foreach_get(values)
     result = bytearray(image.size[0] * image.size[1] * 3)
@@ -455,7 +536,7 @@ def _image_rgb_bytes(image, background, srgb=False, coverage=None, margin=0):
                 )
                 for channel in range(3)
             )
-    return _dilate_rgb(result, active, image.size[0], margin)
+    return _dilate_rgb(result, active, image.size[0], margin, owners)
 
 
 def _native_bake_channel(
@@ -468,6 +549,7 @@ def _native_bake_channel(
     srgb=False,
     objects=None,
     coverage=None,
+    owners=None,
 ):
     objects = _family_objects(family, atlas_id) if objects is None else tuple(objects)
     if not objects:
@@ -571,8 +653,8 @@ def _native_bake_channel(
             arguments["normal_space"] = "TANGENT"
         bpy.ops.object.bake(**arguments)
         if coverage is None:
-            coverage = _native_unique_coverage(objects, dimension)
-        return _image_rgb_bytes(image, background, srgb, coverage, margin)
+            coverage, owners = _native_island_coverage(objects, dimension)
+        return _image_rgb_bytes(image, background, srgb, coverage, margin, owners)
     finally:
         scene.render.engine = previous_engine
         scene.cycles.samples = previous_samples
@@ -621,18 +703,66 @@ def _triangle_has_pixel_center(points, dimension):
     return next(_triangle_pixel_centers(points, dimension), None) is not None
 
 
+def _triangle_uv_island_ids(mesh, layer):
+    mesh.calc_loop_triangles()
+    parents = list(range(len(mesh.loop_triangles)))
+
+    def find(index):
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(first, second):
+        first = find(first)
+        second = find(second)
+        if first != second:
+            parents[second] = first
+
+    uv_edges = {}
+    for triangle in mesh.loop_triangles:
+        for first, second in ((0, 1), (1, 2), (2, 0)):
+            vertices = (triangle.vertices[first], triangle.vertices[second])
+            loops = (triangle.loops[first], triangle.loops[second])
+            endpoints = tuple(sorted(
+                (
+                    vertex,
+                    round(float(layer.data[loop].uv.x), 10),
+                    round(float(layer.data[loop].uv.y), 10),
+                )
+                for vertex, loop in zip(vertices, loops)
+            ))
+            key = (tuple(sorted(vertices)), endpoints)
+            if key in uv_edges:
+                union(triangle.index, uv_edges[key])
+            else:
+                uv_edges[key] = triangle.index
+    roots = {}
+    result = {}
+    for triangle in mesh.loop_triangles:
+        root = find(triangle.index)
+        result[triangle.index] = roots.setdefault(root, len(roots) + 1)
+    return result
+
+
 def _object_texel_coverage_failures(obj, dimension, dilation=4, limit=None):
     failures = []
     mesh = obj.data
     layer = mesh.uv_layers["UVMap"]
     mesh.calc_loop_triangles()
-    occupied = bytearray(dimension * dimension)
+    island_ids = _triangle_uv_island_ids(mesh, layer)
+    owners = array("I", [0]) * (dimension * dimension)
     triangles = []
     for triangle in mesh.loop_triangles:
         points = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
         centers = tuple(_triangle_pixel_centers(points, dimension))
         for x, y in centers:
-            occupied[y * dimension + x] = 1
+            index = y * dimension + x
+            island_id = island_ids[triangle.index]
+            if owners[index] in (0, island_id):
+                owners[index] = island_id
+            else:
+                owners[index] = 0xFFFFFFFF
         triangles.append((triangle, points, bool(centers)))
     for triangle, points, has_center in triangles:
         if has_center:
@@ -641,8 +771,9 @@ def _object_texel_coverage_failures(obj, dimension, dilation=4, limit=None):
         v = sum(point[1] for point in points) / 3.0
         center_x = min(dimension - 1, max(0, int(u * dimension)))
         center_y = min(dimension - 1, max(0, int(v * dimension)))
+        island_id = island_ids[triangle.index]
         padded = any(
-            occupied[y * dimension + x]
+            owners[y * dimension + x] == island_id
             for y in range(max(0, center_y - dilation), min(dimension, center_y + dilation + 1))
             for x in range(max(0, center_x - dilation), min(dimension, center_x + dilation + 1))
         )
@@ -683,7 +814,7 @@ def _family_buffers(family, dimension, atlas_id=None):
     _validate_native_texel_coverage(family, dimension, atlas_id)
     parameters = _material_parameters(family)
     source_objects = _family_objects(family, atlas_id)
-    coverage = _native_unique_coverage(source_objects, dimension)
+    coverage, owners = _native_island_coverage(source_objects, dimension)
     with _joined_bake_proxy(source_objects) as proxy:
         proxy_objects = (proxy,)
         base = _native_bake_channel(
@@ -696,13 +827,17 @@ def _family_buffers(family, dimension, atlas_id=None):
             srgb=True,
             objects=proxy_objects,
             coverage=coverage,
+            owners=array("I", owners),
         )
         with _joined_ao_proxy(proxy_objects[0]) as ao_proxy:
             ao = _native_bake_channel(
                 family, dimension, "AO", 0, atlas_id,
                 background=(255, 255, 255), objects=(ao_proxy,), coverage=coverage,
+                owners=array("I", owners),
             )
-        ao = _stabilize_native_pixels(ao, coverage, dimension, margin)
+        ao = _stabilize_native_pixels(
+            ao, coverage, dimension, margin, owners=array("I", owners)
+        )
         roughness_value = _clamp_byte(parameters["roughness"] * 255.0)
         roughness = _native_bake_channel(
             family,
@@ -713,6 +848,7 @@ def _family_buffers(family, dimension, atlas_id=None):
             background=(roughness_value,) * 3,
             objects=proxy_objects,
             coverage=coverage,
+            owners=array("I", owners),
         )
         normal = _native_bake_channel(
             family,
@@ -723,6 +859,7 @@ def _family_buffers(family, dimension, atlas_id=None):
             background=(128, 128, 255),
             objects=proxy_objects,
             coverage=coverage,
+            owners=array("I", owners),
         )
     metallic = _clamp_byte(parameters["metallic"] * 255.0)
     orm = bytearray(dimension * dimension * 3)

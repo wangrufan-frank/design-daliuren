@@ -9,7 +9,13 @@ import bpy
 BLENDER_DIR = Path(__file__).parents[1]
 sys.path.insert(0, str(BLENDER_DIR))
 
-from uv_and_bake import _family_buffers, _joined_bake_proxy, _native_bake_channel
+from uv_and_bake import (
+    _downsample_two_by_two,
+    _family_buffers,
+    _joined_bake_proxy,
+    _native_bake_channel,
+    _native_island_coverage,
+)
 
 
 def make_material(with_bump=False):
@@ -231,6 +237,48 @@ class NativeCyclesBakeTest(unittest.TestCase):
 
         self.assertNotEqual(inside, (128, 128, 255))
         self.assertLess(max(abs(first - second) for first, second in zip(inside, outside)), 8)
+
+    def test_adjacent_high_contrast_islands_keep_owned_padding_at_lod0_and_lod2(self):
+        left_material = make_material()
+        left_material.name = "fixture/red"
+        right_material = make_material()
+        right_material.name = "fixture/blue"
+        for material, color in (
+            (left_material, (1.0, 0.0, 0.0, 1.0)),
+            (right_material, (0.0, 0.0, 1.0, 1.0)),
+        ):
+            shader = next(
+                node for node in material.node_tree.nodes
+                if node.bl_idname == "ShaderNodeBsdfPrincipled"
+            )
+            shader.inputs["Base Color"].default_value = color
+        left = quad("fixture/red-island", -1.0, (8 / 64, 16 / 64, 16 / 64, 48 / 64), left_material)
+        right = quad("fixture/blue-island", 1.0, (32 / 64, 16 / 64, 40 / 64, 48 / 64), right_material)
+        coverage, owners = _native_island_coverage((left, right), 64)
+        source_x = [x for x in range(64) if coverage[32 * 64 + x] == 1]
+        left_edge = max(x for x in source_x if x < 24)
+        right_edge = min(x for x in source_x if x > 24)
+        self.assertEqual(right_edge - left_edge, 17)
+
+        lod0 = _native_bake_channel(
+            "M_AshText",
+            64,
+            "BASE_COLOR",
+            8,
+            background=(0, 0, 0),
+            srgb=True,
+            objects=(left, right),
+            coverage=coverage,
+            owners=owners,
+        )
+        red = (255, 0, 0)
+        blue = (0, 0, 255)
+        self.assertTrue(all(channel_pixel(lod0, 64, x, 32) == red for x in range(16, 24)))
+        self.assertTrue(all(channel_pixel(lod0, 64, x, 32) == blue for x in range(24, 32)))
+
+        lod2 = _downsample_two_by_two(lod0, 64)
+        self.assertTrue(all(channel_pixel(lod2, 32, x, 16) == red for x in range(8, 12)))
+        self.assertTrue(all(channel_pixel(lod2, 32, x, 16) == blue for x in range(12, 16)))
 
 
 if __name__ == "__main__":
