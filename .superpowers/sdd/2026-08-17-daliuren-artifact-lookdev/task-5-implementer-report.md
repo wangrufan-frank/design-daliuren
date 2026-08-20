@@ -30,7 +30,7 @@ The parent-agent ruling allowed the minimal modification of `scripts/validate-da
    - GREEN after the minimal validator extension: 12 tests passed.
 6. Asset/package contract:
    - RED: the asset contract had no LOD profiles; package scripts and the pinned CLI declaration were absent.
-   - GREEN: explicit LOD profiles, runtime validation contract, export/validation scripts, and `@gltf-transform/cli: 4.4.2` declaration are present.
+   - GREEN: explicit LOD profiles, runtime validation contract, and export/validation scripts are present. The unavailable CLI declaration was withdrawn after verification showed it could not be reflected in the lockfile.
 7. Final bounds and graybox compatibility:
    - RED: final details expanded six component hierarchy bounds beyond graybox-only component dimensions; a first runtime validator version also applied final KTX rules to graybox.
    - GREEN: LOD profiles validate the final scene bounds while the no-LOD path preserves the old component checks. Actual graybox validation reports 0 errors.
@@ -54,7 +54,7 @@ The parent-agent ruling allowed the minimal modification of `scripts/validate-da
 - `scripts/validate-daliuren-glb.mjs` and `.test.mjs`
   - Adds LOD profile selection and final runtime checks while retaining graybox semantics.
 - `package.json`
-  - Adds three export commands, combined export/validation commands, graybox validation alias, and the exact CLI pin.
+  - Adds three export commands, combined export/validation commands, and a graybox validation alias. The exact CLI remains in the continuation install command below until registry access is restored.
 - `package-lock.json`
   - Not updated: all allowed installation attempts ended in registry connection timeout before npm could resolve or mechanically update the lockfile.
 - `public/models/daliuren/daliuren-artifact-lod{0,1,2}.glb`
@@ -140,5 +140,5 @@ npm run asset:validate
 ## Concerns
 
 1. The three checked-in GLBs are not KTX2-compressed and therefore do not yet contain `KHR_texture_basisu`; `gltf-transform inspect` and final three-asset validator success remain blocked.
-2. `package.json` declares the exact `@gltf-transform/cli` version, but `package-lock.json` is unchanged because npm never completed dependency resolution. A clean `npm ci` will require the install command above to succeed and mechanically update the lockfile.
+2. The unavailable `@gltf-transform/cli` declaration was withdrawn from `package.json` to keep it consistent with the unchanged lockfile. After registry access returns, the exact install command above must succeed and mechanically update both files before compression.
 3. Blender reports a sampler warning for the shared ORM image feeding metallic/roughness and occlusion. Exported material/image structure and all current tests pass; KTX2 `inspect` remains the final confirmation after the CLI is available.

@@ -319,8 +319,7 @@ test("asset contract declares final LOD budgets and runtime texture validation",
   assert.equal(Object.keys(ASSET_CONTRACT.runtimeAssets.dynamicLabelOwners).length, 21);
 });
 
-test("package pins the LOD export, validation and compression toolchain", () => {
-  assert.equal(PACKAGE.devDependencies["@gltf-transform/cli"], "4.4.2");
+test("package exposes the LOD export and validation toolchain", () => {
   assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod0/);
   assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod1/);
   assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod2/);
