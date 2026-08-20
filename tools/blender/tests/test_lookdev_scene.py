@@ -19,6 +19,7 @@ from render_lookdev_review import (
     CAMERA_NAMES,
     REVIEW_OUTPUTS,
     build_lookdev_scene,
+    configure_material_closeup,
     write_review_manifest,
 )
 
@@ -79,9 +80,12 @@ class LookdevSceneTest(unittest.TestCase):
 
     def test_material_closeup_frames_four_materials_and_a_physical_seam(self):
         build_lookdev_scene()
+        configure_material_closeup()
 
         scene = bpy.context.scene
         camera = bpy.data.objects["camera/material-closeup"]
+        self.assertLessEqual(scene.view_settings.exposure, -1.0)
+        self.assertLessEqual(bpy.data.objects["light/key"].data.energy, 30.0)
         evidence = {
             "detail/heaven/detent/03": "M_Bronze",
             "detail/heaven/contact-seam/03": "M_Patina",

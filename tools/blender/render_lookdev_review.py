@@ -25,7 +25,7 @@ REVIEW_OUTPUTS = (
 CAMERAS = {
     "camera/overall": ((0.78, -0.96, 0.68), (0.0, 0.0, 0.055), 58.0),
     "camera/oblique": ((-0.72, -0.82, 0.40), (0.0, -0.01, 0.055), 62.0),
-    "camera/material-closeup": ((0.27, -0.18, 0.19), (0.155, 0.0, 0.085), 70.0),
+    "camera/material-closeup": ((0.22, -0.105, 0.175), (0.153, 0.0, 0.085), 70.0),
     "camera/rotation-evidence": ((0.75, -0.94, 0.63), (0.0, 0.0, 0.065), 62.0),
 }
 CAMERA_NAMES = tuple(CAMERAS)
@@ -198,6 +198,25 @@ def build_lookdev_scene():
     return bpy.context.scene
 
 
+def configure_material_closeup():
+    scene = bpy.context.scene
+    state = (
+        scene.view_settings.exposure,
+        *(bpy.data.objects[name].data.energy for name in ("light/key", "light/fill", "light/rim")),
+    )
+    scene.view_settings.exposure = -1.0
+    bpy.data.objects["light/key"].data.energy = 30.0
+    bpy.data.objects["light/fill"].data.energy = 9.0
+    bpy.data.objects["light/rim"].data.energy = 16.0
+    return state
+
+
+def _restore_material_closeup(state):
+    bpy.context.scene.view_settings.exposure = state[0]
+    for name, energy in zip(("light/key", "light/fill", "light/rim"), state[1:]):
+        bpy.data.objects[name].data.energy = energy
+
+
 def _render(camera_name, output_path, width=2560, height=1440):
     scene = bpy.context.scene
     scene.camera = bpy.data.objects[camera_name]
@@ -350,7 +369,11 @@ def render_lookdev_images(output_dir=None):
     _render("camera/oblique", output_dir / "oblique.png")
 
     apply_pose("plate", plate_offset=0)
-    _render("camera/material-closeup", output_dir / "material-closeup.png")
+    closeup_state = configure_material_closeup()
+    try:
+        _render("camera/material-closeup", output_dir / "material-closeup.png")
+    finally:
+        _restore_material_closeup(closeup_state)
 
     with tempfile.TemporaryDirectory(prefix="daliuren-lookdev-") as temporary:
         temporary = Path(temporary)
