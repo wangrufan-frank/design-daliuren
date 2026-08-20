@@ -432,7 +432,7 @@ def _dilate_rgb(pixels, active, dimension, margin, owners=None):
     return pixels
 
 
-def _stabilize_native_pixels(pixels, coverage, dimension, margin, passes=2, owners=None):
+def _stabilize_native_pixels(pixels, coverage, dimension, margin, passes=4, owners=None):
     filtered = bytearray(pixels)
     for _pass in range(passes):
         source = filtered
@@ -462,57 +462,6 @@ def _stabilize_native_pixels(pixels, coverage, dimension, margin, passes=2, owne
                 neighbors.sort(key=lambda neighbor: source[neighbor * 3])
                 chosen = neighbors[len(neighbors) // 2]
                 filtered[index * 3 : index * 3 + 3] = source[chosen * 3 : chosen * 3 + 3]
-    if owners is not None:
-        edge_band = bytearray(dimension * dimension)
-        frontier = []
-        for y in range(dimension):
-            row = y * dimension
-            for x in range(dimension):
-                index = row + x
-                if coverage[index] != 1:
-                    continue
-                owner = owners[index]
-                if any(
-                    coverage[neighbor] != 1 or owners[neighbor] != owner
-                    for neighbor in (
-                        index - 1 if x else index,
-                        index + 1 if x + 1 < dimension else index,
-                        index - dimension if y else index,
-                        index + dimension if y + 1 < dimension else index,
-                    )
-                ):
-                    edge_band[index] = 1
-                    frontier.append(index)
-        for _distance in range(margin):
-            following = []
-            for source_index in frontier:
-                x = source_index % dimension
-                y = source_index // dimension
-                owner = owners[source_index]
-                for target_y in range(max(0, y - 1), min(dimension, y + 2)):
-                    for target_x in range(max(0, x - 1), min(dimension, x + 2)):
-                        target = target_y * dimension + target_x
-                        if (
-                            not edge_band[target]
-                            and coverage[target] == 1
-                            and owners[target] == owner
-                        ):
-                            edge_band[target] = 1
-                            following.append(target)
-            frontier = following
-        owner_totals = {}
-        for index, owner in enumerate(owners):
-            if coverage[index] == 1:
-                total, count = owner_totals.get(owner, (0, 0))
-                owner_totals[owner] = (total + filtered[index * 3], count + 1)
-        stable_values = {
-            owner: min(255, ((total // count + 32) // 64) * 64)
-            for owner, (total, count) in owner_totals.items()
-        }
-        for index, owner in enumerate(owners):
-            if coverage[index] == 1 and not edge_band[index]:
-                value = stable_values[owner]
-                filtered[index * 3 : index * 3 + 3] = bytes((value, value, value))
     active = bytearray(1 if value == 1 else 0 for value in coverage)
     return _dilate_rgb(filtered, active, dimension, margin, owners)
 

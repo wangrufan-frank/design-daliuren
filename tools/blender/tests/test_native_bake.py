@@ -114,6 +114,59 @@ class NativeCyclesBakeTest(unittest.TestCase):
         self.assertLess(recessed_ao, exposed_ao - 20)
         self.assertEqual({exposed.name, recessed.name}, {"fixture/exposed", "fixture/recessed"})
 
+    def test_single_continuous_uv_island_preserves_spatial_geometric_ao(self):
+        material = make_material()
+        surface = mesh_object(
+            "fixture/continuous-surface",
+            (
+                (-1.0, -0.5, 0.0),
+                (0.0, -0.5, 0.0),
+                (1.0, -0.5, 0.0),
+                (-1.0, 0.5, 0.0),
+                (0.0, 0.5, 0.0),
+                (1.0, 0.5, 0.0),
+            ),
+            ((0, 1, 4, 3), (1, 2, 5, 4)),
+            (
+                (0.1, 0.2),
+                (0.5, 0.2),
+                (0.5, 0.8),
+                (0.1, 0.8),
+                (0.5, 0.2),
+                (0.9, 0.2),
+                (0.9, 0.8),
+                (0.5, 0.8),
+            ),
+            material,
+            "M_AshText",
+        )
+        wall_material = bpy.data.materials.new("fixture/continuous-occluder")
+        for index, vertices in enumerate((
+            ((0.0, -0.5, 0.0), (0.0, -0.5, 0.8), (1.0, -0.5, 0.8), (1.0, -0.5, 0.0)),
+            ((1.0, -0.5, 0.0), (1.0, -0.5, 0.8), (1.0, 0.5, 0.8), (1.0, 0.5, 0.0)),
+            ((1.0, 0.5, 0.0), (1.0, 0.5, 0.8), (0.0, 0.5, 0.8), (0.0, 0.5, 0.0)),
+        )):
+            mesh_object(
+                f"fixture/continuous-wall/{index}",
+                vertices,
+                ((0, 1, 2, 3),),
+                ((0, 0),) * 4,
+                wall_material,
+            )
+
+        coverage, owners = _native_island_coverage((surface,), 64)
+        exposed_index = 32 * 64 + 19
+        recessed_index = 32 * 64 + 45
+        self.assertEqual(coverage[exposed_index], 1)
+        self.assertEqual(coverage[recessed_index], 1)
+        self.assertEqual(owners[exposed_index], owners[recessed_index])
+
+        orm = _family_buffers("M_AshText", 64)["orm"]
+        exposed_ao = channel_pixel(orm, 64, 19, 32)[0]
+        recessed_ao = channel_pixel(orm, 64, 45, 32)[0]
+
+        self.assertLess(recessed_ao, exposed_ao - 20, (exposed_ao, recessed_ao))
+
     def test_joined_proxy_preserves_world_geometry_uv_materials_and_causal_attributes_then_cleans_up(self):
         material = make_material()
         first = quad("fixture/proxy-a", 0.0, (0.1, 0.1, 0.4, 0.4), material)

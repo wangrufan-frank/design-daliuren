@@ -301,7 +301,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "sRGB",
-                "sha256": "bd41861ebfc6e3c1e2a7ab62655910c0dc7731f37b04400d3d1fb4965a798761"
+                "sha256": "ab15807ddf5d0b2c26f3d55a8af69d86d82995f2b035fa8379889aabb187294a"
               },
               "orm": {
                 "file": "lod0/bronze-heaven-orm.png",
@@ -311,7 +311,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "6a58e9eab6e302fca184723b08822f9d9c0fbc13e4d532701908e91dff0ad808"
+                "sha256": "9a988c26f7afd6fb568d97c9dc7163aab463ef4f40223eda471a035f46b1d309"
               },
               "normal": {
                 "file": "lod0/bronze-heaven-normal.png",
@@ -333,7 +333,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "sRGB",
-                "sha256": "857c24d606f249bea9ea2b61074906d15c858a281550eb11be601430ffae4b5a"
+                "sha256": "65e96e7b9e10ef59e119091e6159f3d1a5789bf91651a2820307ed639adfe542"
               },
               "orm": {
                 "file": "lod2/bronze-heaven-orm.png",
@@ -343,7 +343,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "9bb676b03dd6637fcab16860daec09cce542c9088d3cb5353681f92eb18a1f1c"
+                "sha256": "3475f15344dc30f8e2e354fd9da9c3ebac3f2ee463a8c7ae9012d1cc80ac4c2b"
               },
               "normal": {
                 "file": "lod2/bronze-heaven-normal.png",
@@ -389,7 +389,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "68a3f131723273dddbefbfceb43cf98f6612e82e4294c911fd06ff4338474e6c"
+                "sha256": "811f79e82a0a6e6113685d48224d99cb901f2794bf0ac8ef224920ef52872188"
               },
               "normal": {
                 "file": "lod0/bronze-hero-normal.png",
@@ -399,7 +399,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "0ff2a60c69914af2fc966c44e0feefc3f42117e5cb5271c6e66d5d3cc29934dc"
+                "sha256": "d46e9b8ccfba387cdac623ed93feb65054015c43e780d2c6afe0f1f1c478ea26"
               }
             },
             "lod2": {
@@ -421,7 +421,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "046d02e7304edadb5f47a3daeb720208fd7b775fa3456d5a411f8cc4393b2af3"
+                "sha256": "eca05ed4150389fad4a5898397702d2aa721cddb7f33c32560fc1887e0e9c771"
               },
               "normal": {
                 "file": "lod2/bronze-hero-normal.png",
@@ -431,7 +431,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "02db5be3a9b633a43e6d80724fc94852954eee87f3dd4afa0d650252e4c89d6a"
+                "sha256": "a7c4c3ef223d2f3186ab2cae1f29cc6f0a52a998f39486b61c8a1d653c449d99"
               }
             }
           },
@@ -467,7 +467,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "72d28c06f9234820571f8398efa9312132758e19181433c9345716a63762080d"
+                "sha256": "11494777ed8c72acffec6e45fa339a69a302f11fe6e56e05482f5176363ef7d1"
               },
               "normal": {
                 "file": "lod0/bronze-moving-normal.png",
@@ -499,7 +499,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "f6949c0d5f208fae34830f829c8746c2dae36b6e3ada5bd483303b2125486cdb"
+                "sha256": "8c75446a1b68d4a121262144de6a74accb2e78eedc5002bdf3a05021ad26dc07"
               },
               "normal": {
                 "file": "lod2/bronze-moving-normal.png",
@@ -550,7 +550,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "02ee1138c7e9b4576a84359d122ff5b2019aa79fe492191f831bc82201558b03"
+                "sha256": "1b6f1db99cd3fb44bb1c9bf9a1310c00c54850c9c4b24531fde23576e48de53d"
               },
               "normal": {
                 "file": "lod0/patina-hero-normal.png",
@@ -582,7 +582,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "174e853c5820d9e968574fa427ff3ee88016f85a9fab3ade4ca3434481de51aa"
+                "sha256": "1d582049e5f95f864c4ada5b418f3ba7e6cb23fdf62bf0d830f55291205db5b6"
               },
               "normal": {
                 "file": "lod2/patina-hero-normal.png",
@@ -628,7 +628,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "af1ea1a359b38122611b885a10bcaf90ba501d4f2571309b4d4c82e596dc4fba"
+                "sha256": "9c4f7008b18ca94f57108775cd429bb9543820fdec73d13e8e66562fec6a577f"
               },
               "normal": {
                 "file": "lod0/patina-removable-bottom-normal.png",
@@ -660,7 +660,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "e7a8d1effe1171b2989a65653a52f98477476eab241fb45e070a91e901837e8e"
+                "sha256": "8aacf1abd9624eaf0b337b67998e82a03304bc2e1334bba54672b167dd20d351"
               },
               "normal": {
                 "file": "lod2/patina-removable-bottom-normal.png",
@@ -711,7 +711,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "ff64874ab99941d73a647150c0f3f5d776c12f78337be9ab48cbb2532f62ca99"
+                "sha256": "e42d2cce5d29af9b583288aa98dcd5c95b750bf21c247c45463c7bd6bdf5e623"
               },
               "normal": {
                 "file": "lod0/celadon-hero-normal.png",
@@ -743,7 +743,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "ea1db57edfdc2ebae952f8064990217a44f464dd375e27c5db23969992ff1674"
+                "sha256": "876c752c147775176eb2c6cd3f34968d4ac832c6b4cf038071f435fa964b1cc4"
               },
               "normal": {
                 "file": "lod2/celadon-hero-normal.png",
@@ -789,7 +789,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "0630513ae1bf0a5283774a17755e83e980728ebc9cdefcd1ecd1b1d90ba81024"
+                "sha256": "7143b8feee6a01ba84887a2ecbc33bec750857fc11df8c3e0e9311679ac90445"
               },
               "normal": {
                 "file": "lod0/celadon-moving-normal.png",
@@ -821,7 +821,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "5d3da3fc2591a74b2190e6219ab72e24324b90a73984be7ce8148bff971177fe"
+                "sha256": "4387309531e9faa37e7a69986d44427ee38e94f4c35b85e8a93fae0807eb2284"
               },
               "normal": {
                 "file": "lod2/celadon-moving-normal.png",
@@ -872,7 +872,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "7f9a7b0ff34a3525fa71fd98af160abd5c350fa23ee3caf9043e77ac7ac458c7"
+                "sha256": "57eb41a51f31285643977f7fd43293f1b37590b4716ebda0165a2b1482d1a963"
               },
               "normal": {
                 "file": "lod0/oldgold-hero-normal.png",
@@ -904,7 +904,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "89f7292334d1cfb7b6afba42ef3b29f3c1e8224e42329a1ec8c990bae06a2207"
+                "sha256": "b7bed740ab85277b988ff946fee96d0007a552ba208b76b7ba5d73b0053b100b"
               },
               "normal": {
                 "file": "lod2/oldgold-hero-normal.png",
@@ -955,7 +955,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "8a91b12ffead798940813933c2a8fe297ff0784213facf96f39e358502427696"
+                "sha256": "4ac65d89f1787369e83968c2518613823cdeba02eb41ec93bb95d6d92dab8de3"
               },
               "normal": {
                 "file": "lod0/ashtext-hero-normal.png",
@@ -987,7 +987,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "2dc2cf83e872ef755d3b496c54fc48868cd5b0dadd9328917982708ea8d41868"
+                "sha256": "4347219624ceb424eea68f5ea5ea4af6486c0daffc9c11f56d36fbe1e7688ce4"
               },
               "normal": {
                 "file": "lod2/ashtext-hero-normal.png",
