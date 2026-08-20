@@ -19,6 +19,7 @@
     "asset:export-lod2": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py -- --lod 2",
     "asset:export-lods": "npm run asset:export-lod0 && npm run asset:export-lod1 && npm run asset:export-lod2",
     "asset:render-graybox": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/render_graybox_review.py",
+    "asset:render-lookdev": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/render_lookdev_review.py",
     "asset:validate-graybox": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-graybox.glb assets/daliuren/asset-contract.json",
     "asset:validate": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod0.glb assets/daliuren/asset-contract.json && node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod1.glb assets/daliuren/asset-contract.json && node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod2.glb assets/daliuren/asset-contract.json",
     "test:asset-runner": "node --test scripts/run-blender.test.mjs",
