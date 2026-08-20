@@ -19,8 +19,33 @@ const BASE_CONTRACT = {
   ],
 };
 
+const LOD_CONTRACT = {
+  ...BASE_CONTRACT,
+  lods: {
+    lod2: {
+      triangleBudget: { min: 0, max: 3 },
+      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      textureMaxDimensions: {
+        hero: [2048, 2048],
+        moving: [1024, 1024],
+      },
+    },
+  },
+  runtimeAssets: {
+    materialFamilies: ["M_Bronze", "M_Celadon"],
+    dynamicLabelOwners: {
+      "dynamic/calendar": "artifact/root",
+      "dynamic/heaven": "plate/heaven",
+    },
+    requiredTextureExtension: "KHR_texture_basisu",
+  },
+};
+
 const ASSET_CONTRACT = JSON.parse(
   await readFile(new URL("../assets/daliuren/asset-contract.json", import.meta.url), "utf8"),
+);
+const PACKAGE = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
 
 test("asset contract freezes the 28 runtime ids and six pose ids", () => {
@@ -61,7 +86,14 @@ function fakeMesh(name, primitives) {
   };
 }
 
-function fakeDocument(nodes, { sceneCount = 1, meshes } = {}) {
+function fakeDocument(nodes, {
+  sceneCount = 1,
+  sceneBounds,
+  meshes,
+  materials = [],
+  textures = [],
+  extensionsUsed = [],
+} = {}) {
   const properties = nodes.map(({ name, extras = {}, bounds, triangles = 0, mesh }) => {
     const nodeMesh = mesh ?? (triangles
       ? fakeMesh(`${name}/mesh`, [{ mode: 4, count: triangles * 3 }])
@@ -76,6 +108,7 @@ function fakeDocument(nodes, { sceneCount = 1, meshes } = {}) {
   const scenes = Array.from({ length: sceneCount }, (_, index) => ({
     getName: () => `scene-${index}`,
     getExtras: () => ({}),
+    getBounds: sceneBounds ? () => sceneBounds : undefined,
   }));
 
   return {
@@ -86,12 +119,51 @@ function fakeDocument(nodes, { sceneCount = 1, meshes } = {}) {
       listAnimations: () => [],
       listBuffers: () => [],
       listCameras: () => [],
-      listMaterials: () => [],
+      listMaterials: () => materials.map(({ name, family }) => ({
+        getName: () => name,
+        getExtras: () => family ? { material_family: family } : {},
+      })),
       listMeshes: () => meshes ?? properties.map((node) => node.getMesh()).filter(Boolean),
       listSkins: () => [],
-      listTextures: () => [],
+      listTextures: () => textures.map(({ name, mimeType = "image/ktx2", size }) => ({
+        getName: () => name,
+        getExtras: () => ({}),
+        getMimeType: () => mimeType,
+        getSize: () => size,
+      })),
+      listExtensionsUsed: () => extensionsUsed.map((extensionName) => ({ extensionName })),
     }),
   };
+}
+
+function validLodDocument(overrides = {}) {
+  const nodes = overrides.nodes ?? [
+    { name: "root", extras: { node_id: "artifact/root" } },
+    { name: "heaven", extras: { node_id: "plate/heaven" }, triangles: 3 },
+    {
+      name: "surface/dynamic/calendar",
+      extras: { dynamic_label_id: "dynamic/calendar", owner_node_id: "artifact/root" },
+    },
+    {
+      name: "surface/dynamic/heaven",
+      extras: { dynamic_label_id: "dynamic/heaven", owner_node_id: "plate/heaven" },
+    },
+  ];
+  return fakeDocument(nodes, {
+    sceneBounds: overrides.sceneBounds ?? {
+      min: [-0.26, 0, -0.26],
+      max: [0.26, 0.0905, 0.26],
+    },
+    materials: overrides.materials ?? [
+      { name: "bronze", family: "M_Bronze" },
+      { name: "celadon", family: "M_Celadon" },
+    ],
+    textures: overrides.textures ?? [
+      { name: "bronze-hero-basecolor", size: [2048, 2048] },
+      { name: "celadon-moving-normal", size: [1024, 1024] },
+    ],
+    extensionsUsed: overrides.extensionsUsed ?? ["KHR_texture_basisu"],
+  });
 }
 
 test("reports missing nodes and duplicate runtime ids", () => {
@@ -150,6 +222,127 @@ test("reports triangle counts below and above the declared budget", () => {
   ]);
   assert.deepEqual(validateArtifactDocument(fakeDocument(nodes(11)), contract), [
     "triangle budget: expected 5..10, got 11",
+  ]);
+});
+
+test("uses the selected LOD budget without changing the graybox budget", () => {
+  const fourTriangles = fakeDocument([
+    { name: "root", extras: { node_id: "artifact/root" } },
+    { name: "heaven", extras: { node_id: "plate/heaven" }, triangles: 4 },
+  ], {
+    sceneBounds: { min: [-0.26, 0, -0.26], max: [0.26, 0.0905, 0.26] },
+  });
+
+  assert.deepEqual(validateArtifactDocument(fourTriangles, BASE_CONTRACT), []);
+  assert.deepEqual(validateArtifactDocument(fourTriangles, LOD_CONTRACT), []);
+  assert.ok(validateArtifactDocument(validLodDocument(), LOD_CONTRACT, { lodId: "lod2" }).length === 0);
+  assert.deepEqual(
+    validateArtifactDocument(fourTriangles, LOD_CONTRACT, { lodId: "lod2" }),
+    [
+      "dynamic label missing: dynamic/calendar",
+      "dynamic label missing: dynamic/heaven",
+      "material family missing: M_Bronze",
+      "material family missing: M_Celadon",
+      "required extension missing: KHR_texture_basisu",
+      "triangle budget: expected 0..3, got 4",
+    ],
+  );
+});
+
+test("validates runtime material families and dynamic label owner extras", () => {
+  const invalid = validLodDocument({
+    nodes: [
+      { name: "root", extras: { node_id: "artifact/root" } },
+      { name: "heaven", extras: { node_id: "plate/heaven" }, triangles: 3 },
+      {
+        name: "surface/duplicate-a",
+        extras: { dynamic_label_id: "dynamic/calendar", owner_node_id: "plate/heaven" },
+      },
+      {
+        name: "surface/duplicate-b",
+        extras: { dynamic_label_id: "dynamic/calendar", owner_node_id: "artifact/root" },
+      },
+    ],
+    materials: [
+      { name: "bronze", family: "M_Bronze" },
+      { name: "unknown", family: "M_Unknown" },
+    ],
+  });
+
+  assert.deepEqual(validateArtifactDocument(invalid, LOD_CONTRACT, { lodId: "lod2" }), [
+    "dynamic label duplicate: dynamic/calendar",
+    "dynamic label missing: dynamic/heaven",
+    "dynamic label owner mismatch: dynamic/calendar expected artifact/root, got plate/heaven",
+    "material family missing: M_Celadon",
+    "material family unexpected: M_Unknown",
+  ]);
+});
+
+test("validates final LOD scene bounds instead of graybox component bounds", () => {
+  const invalid = validLodDocument({
+    sceneBounds: {
+      min: [-0.26, 0, -0.26],
+      max: [0.26, 0.11, 0.26],
+    },
+  });
+
+  assert.deepEqual(validateArtifactDocument(invalid, LOD_CONTRACT, { lodId: "lod2" }), [
+    "scene bounds mismatch: y expected 0.0905 ± 0.01, got 0.11",
+  ]);
+});
+
+test("asset contract declares final LOD budgets and runtime texture validation", () => {
+  assert.deepEqual(ASSET_CONTRACT.lods, {
+    lod0: {
+      file: "public/models/daliuren/daliuren-artifact-lod0.glb",
+      triangleBudget: { min: 1, max: 300000 },
+      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
+    },
+    lod1: {
+      file: "public/models/daliuren/daliuren-artifact-lod1.glb",
+      triangleBudget: { min: 1, max: 300000 },
+      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
+    },
+    lod2: {
+      file: "public/models/daliuren/daliuren-artifact-lod2.glb",
+      triangleBudget: { min: 1, max: 80000 },
+      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      textureMaxDimensions: { hero: [2048, 2048], moving: [1024, 1024] },
+    },
+  });
+  assert.deepEqual(ASSET_CONTRACT.runtimeAssets.materialFamilies, [
+    "M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText",
+  ]);
+  assert.equal(ASSET_CONTRACT.runtimeAssets.requiredTextureExtension, "KHR_texture_basisu");
+  assert.equal(Object.keys(ASSET_CONTRACT.runtimeAssets.dynamicLabelOwners).length, 21);
+});
+
+test("package pins the LOD export, validation and compression toolchain", () => {
+  assert.equal(PACKAGE.devDependencies["@gltf-transform/cli"], "4.4.2");
+  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod0/);
+  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod1/);
+  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod2/);
+  assert.match(PACKAGE.scripts["asset:validate"], /daliuren-artifact-lod0\.glb/);
+  assert.match(PACKAGE.scripts["asset:validate"], /daliuren-artifact-lod1\.glb/);
+  assert.match(PACKAGE.scripts["asset:validate"], /daliuren-artifact-lod2\.glb/);
+});
+
+test("requires BasisU textures within the selected LOD dimensions", () => {
+  const invalid = validLodDocument({
+    textures: [
+      { name: "bronze-hero-basecolor", mimeType: "image/png", size: [4096, 2048] },
+      { name: "celadon-moving-normal", size: [2048, 1024] },
+    ],
+    extensionsUsed: [],
+  });
+
+  assert.deepEqual(validateArtifactDocument(invalid, LOD_CONTRACT, { lodId: "lod2" }), [
+    "required extension missing: KHR_texture_basisu",
+    "texture dimensions: bronze-hero-basecolor expected <= 2048x2048, got 4096x2048",
+    "texture dimensions: celadon-moving-normal expected <= 1024x1024, got 2048x1024",
+    "texture mime type: bronze-hero-basecolor expected image/ktx2, got image/png",
   ]);
 });
 

@@ -1,0 +1,187 @@
+import json
+from pathlib import Path
+
+import bpy
+
+
+REPOSITORY_ROOT = Path(__file__).parents[2]
+MASTER_PATH = REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend"
+MATERIAL_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
+TEXTURE_ROOT = REPOSITORY_ROOT / "assets/daliuren/textures"
+SOURCE_MARKER = "daliuren_lod_source"
+
+
+def _source_objects():
+    source = tuple(obj for obj in bpy.context.scene.objects if obj.get(SOURCE_MARKER))
+    if source:
+        return source
+
+    bpy.ops.wm.open_mainfile(filepath=str(MASTER_PATH))
+    source = tuple(bpy.context.scene.objects)
+    for obj in source:
+        obj[SOURCE_MARKER] = True
+    return source
+
+
+def _duplicate_collection(level):
+    source = _source_objects()
+    collection = bpy.data.collections.new(f"daliuren-artifact-lod{level}")
+    collection["lod_level"] = level
+    bpy.context.scene.collection.children.link(collection)
+
+    copies = {}
+    for obj in source:
+        duplicate = obj.copy()
+        if obj.data is not None:
+            duplicate.data = obj.data.copy()
+        duplicate.name = f"lod{level}/{obj.name}"
+        duplicate.pop(SOURCE_MARKER, None)
+        duplicate["lod_level"] = level
+        collection.objects.link(duplicate)
+        copies[obj] = duplicate
+
+    for source_obj, duplicate in copies.items():
+        duplicate.parent = copies.get(source_obj.parent)
+    return collection
+
+
+def _set_bevel_segments(obj, segments):
+    for modifier in obj.modifiers:
+        if modifier.type == "BEVEL":
+            modifier.segments = min(modifier.segments, segments)
+
+
+def _decimate(obj, ratio):
+    if obj.type != "MESH" or len(obj.data.loop_triangles) < 100:
+        return
+    modifier = obj.modifiers.new(name="LOD triangle reduction", type="DECIMATE")
+    modifier.ratio = ratio
+    modifier.use_collapse_triangulate = True
+
+
+def _reduce_lod(collection, level):
+    for obj in collection.all_objects:
+        if obj.type != "MESH" or obj.get("dynamic_label_id"):
+            continue
+
+        if level == 1:
+            _set_bevel_segments(obj, 2)
+        else:
+            _set_bevel_segments(obj, 1)
+
+        if obj.get("inscription_role"):
+            continue
+
+        detail_id = obj.get("detail_id")
+        if level == 1:
+            if obj.get("node_id") or detail_id in {
+                "mechanism/general-seal-interface",
+                "mechanism/heaven-bearing",
+                "mechanism/heaven-detent",
+                "mechanism/general-track",
+                "mechanism/lesson-general-socket",
+                "structure/bronze-celadon-contact-seam",
+                "structure/heaven-bronze-rim",
+            }:
+                _decimate(obj, 0.65)
+        elif obj.get("node_id"):
+            _decimate(obj, 0.25)
+        elif detail_id in {
+            "mechanism/general-seal-interface",
+            "mechanism/heaven-bearing",
+            "mechanism/heaven-detent",
+            "mechanism/general-track",
+            "mechanism/lesson-general-socket",
+            "structure/bronze-celadon-contact-seam",
+            "structure/heaven-bronze-rim",
+        }:
+            _decimate(obj, 0.2)
+
+
+def _gltf_material_output_group():
+    group = bpy.data.node_groups.get("glTF Material Output")
+    if group is None:
+        group = bpy.data.node_groups.new("glTF Material Output", "ShaderNodeTree")
+        group.interface.new_socket(
+            name="Occlusion",
+            in_out="INPUT",
+            socket_type="NodeSocketFloat",
+        )
+    return group
+
+
+def _runtime_material(atlas_id, family, texture_lod, atlas):
+    name = f"RT_{texture_lod}_{atlas_id.replace(':', '_')}"
+    material = bpy.data.materials.get(name)
+    if material is not None:
+        return material
+
+    material = bpy.data.materials.new(name)
+    material["material_family"] = family
+    material["runtime_atlas_id"] = atlas_id
+    material["runtime_texture_lod"] = texture_lod
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    nodes.clear()
+    links = material.node_tree.links
+
+    output = nodes.new("ShaderNodeOutputMaterial")
+    principled = nodes.new("ShaderNodeBsdfPrincipled")
+    links.new(principled.outputs["BSDF"], output.inputs["Surface"])
+
+    images = {}
+    for role in ("baseColor", "orm", "normal"):
+        record = atlas[texture_lod][role]
+        path = TEXTURE_ROOT / record["file"]
+        image = bpy.data.images.load(str(path), check_existing=True)
+        image.colorspace_settings.name = "sRGB" if role == "baseColor" else "Non-Color"
+        node = nodes.new("ShaderNodeTexImage")
+        node.name = role
+        node.label = role
+        node.image = image
+        images[role] = node
+
+    links.new(images["baseColor"].outputs["Color"], principled.inputs["Base Color"])
+    orm = nodes.new("ShaderNodeSeparateColor")
+    links.new(images["orm"].outputs["Color"], orm.inputs["Color"])
+    links.new(orm.outputs["Green"], principled.inputs["Roughness"])
+    links.new(orm.outputs["Blue"], principled.inputs["Metallic"])
+
+    normal = nodes.new("ShaderNodeNormalMap")
+    links.new(images["normal"].outputs["Color"], normal.inputs["Color"])
+    links.new(normal.outputs["Normal"], principled.inputs["Normal"])
+
+    gltf_output = nodes.new("ShaderNodeGroup")
+    gltf_output.node_tree = _gltf_material_output_group()
+    links.new(orm.outputs["Red"], gltf_output.inputs["Occlusion"])
+    return material
+
+
+def _bind_runtime_textures(collection, level):
+    contract = json.loads(MATERIAL_CONTRACT_PATH.read_text(encoding="utf-8"))
+    runtime = contract["runtimeTextures"]
+    texture_lod = "lod2" if level == 2 else "lod0"
+    materials = {}
+    for obj in collection.all_objects:
+        if obj.type != "MESH" or obj.get("dynamic_label_id"):
+            continue
+        family = obj["runtime_texture_family"]
+        atlas_id = obj["runtime_atlas_id"]
+        atlas = runtime["families"][family]["atlases"][atlas_id]
+        material = materials.setdefault(
+            atlas_id,
+            _runtime_material(atlas_id, family, texture_lod, atlas),
+        )
+        obj.data.materials.clear()
+        obj.data.materials.append(material)
+
+
+def build_lod(level: int) -> bpy.types.Collection:
+    if level not in {0, 1, 2}:
+        raise ValueError(f"LOD level must be 0, 1 or 2, got {level}")
+    collection = _duplicate_collection(level)
+    if level:
+        _reduce_lod(collection, level)
+    _bind_runtime_textures(collection, level)
+    bpy.context.view_layer.update()
+    return collection
