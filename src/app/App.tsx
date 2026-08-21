@@ -31,6 +31,8 @@ import { ThreeTransmissionsReview } from "../features/three-transmissions-review
 import { runCourseStage } from "../domain/course/compute-course";
 import type { CourseStageOutcome } from "../domain/course/types";
 import { CourseSheet } from "../features/course-sheet/CourseSheet";
+import { CourseExperience } from "../features/course-experience/CourseExperience";
+import type { ArtifactSourceResults } from "../features/artifact-scene/model/types";
 import "../styles/tokens.css";
 import "../styles/global.css";
 
@@ -74,6 +76,22 @@ export function App() {
     session?.snapshots["heavenly-generals"],
   ) ? courseSnapshot.value : undefined;
   const hasCourse = courseResult !== undefined;
+  let artifactSource: ArtifactSourceResults | undefined;
+  if (hasCalendar
+    && hasHeavenEarth
+    && hasFourLessons
+    && hasThreeTransmissions
+    && hasHeavenlyGenerals
+    && hasCourse) {
+    artifactSource = {
+      calendar: calendarResult,
+      plate: heavenEarthResult,
+      lessons: fourLessonsResult,
+      transmissions: threeTransmissionsResult,
+      generals: heavenlyGeneralsResult,
+      course: courseResult,
+    };
+  }
 
   function replaceFrom(nextSession: CourseSession) {
     const calendarOutcome = runCalendarStage(nextSession, calendarAdapter);
@@ -176,7 +194,9 @@ export function App() {
         </aside>
         <section className="app-stage" aria-live="polite">
           {reviewStage === "course" && hasCourse ? (
-            <CourseSheet result={courseResult} />
+            artifactSource
+              ? <CourseExperience source={artifactSource} />
+              : <CourseSheet result={courseResult} />
           ) : reviewStage === "heavenly-generals" && hasHeavenlyGenerals && hasFourLessons && hasThreeTransmissions ? (
             <HeavenlyGeneralsReview
               result={heavenlyGeneralsResult}
