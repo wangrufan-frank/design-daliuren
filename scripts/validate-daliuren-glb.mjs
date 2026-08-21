@@ -108,7 +108,85 @@ function validateDynamicProperty(property, contract) {
   return errors;
 }
 
-export function validateArtifactDocument(document, contract) {
+function extensionName(extension) {
+  return extension.extensionName ?? extension.constructor?.EXTENSION_NAME ?? "";
+}
+
+function validateRuntimeAssets(document, contract, lodProfile) {
+  const errors = [];
+  const root = document.getRoot();
+  const runtime = contract.runtimeAssets;
+  if (!runtime || !lodProfile) return errors;
+
+  const expectedFamilies = new Set(runtime.materialFamilies ?? []);
+  const actualFamilies = new Set(
+    root.listMaterials()
+      .map((material) => material.getExtras?.()?.material_family)
+      .filter((family) => typeof family === "string"),
+  );
+  for (const family of expectedFamilies) {
+    if (!actualFamilies.has(family)) errors.push(`material family missing: ${family}`);
+  }
+  for (const family of actualFamilies) {
+    if (!expectedFamilies.has(family)) errors.push(`material family unexpected: ${family}`);
+  }
+
+  const expectedLabels = runtime.dynamicLabelOwners ?? {};
+  const labelCounts = new Map();
+  for (const node of root.listNodes()) {
+    const extras = node.getExtras?.() ?? {};
+    const dynamicId = extras.dynamic_label_id;
+    if (typeof dynamicId !== "string") continue;
+    labelCounts.set(dynamicId, (labelCounts.get(dynamicId) ?? 0) + 1);
+    if (!Object.hasOwn(expectedLabels, dynamicId)) {
+      errors.push(`dynamic label unexpected: ${dynamicId}`);
+      continue;
+    }
+    if (extras.owner_node_id !== expectedLabels[dynamicId]) {
+      errors.push(
+        `dynamic label owner mismatch: ${dynamicId} expected ${expectedLabels[dynamicId]}, got ${extras.owner_node_id ?? "(missing)"}`,
+      );
+    }
+  }
+  for (const dynamicId of Object.keys(expectedLabels)) {
+    const count = labelCounts.get(dynamicId) ?? 0;
+    if (count === 0) errors.push(`dynamic label missing: ${dynamicId}`);
+    if (count > 1) errors.push(`dynamic label duplicate: ${dynamicId}`);
+  }
+
+  const requiredExtension = runtime.requiredTextureExtension;
+  const usedExtensions = new Set(
+    (root.listExtensionsUsed?.() ?? []).map(extensionName),
+  );
+  if (requiredExtension && !usedExtensions.has(requiredExtension)) {
+    errors.push(`required extension missing: ${requiredExtension}`);
+  }
+
+  const limits = lodProfile?.textureMaxDimensions;
+  for (const texture of root.listTextures()) {
+    const name = texture.getName?.() || "(unnamed)";
+    const mimeType = texture.getMimeType?.() || "(missing)";
+    if (requiredExtension && mimeType !== "image/ktx2") {
+      errors.push(`texture mime type: ${name} expected image/ktx2, got ${mimeType}`);
+    }
+    if (!limits) continue;
+    const atlasClass = name.includes("-moving-") ? "moving" : "hero";
+    const maximum = limits[atlasClass];
+    const size = texture.getSize?.();
+    if (
+      maximum
+      && size
+      && (size[0] > maximum[0] || size[1] > maximum[1])
+    ) {
+      errors.push(
+        `texture dimensions: ${name} expected <= ${maximum[0]}x${maximum[1]}, got ${size[0]}x${size[1]}`,
+      );
+    }
+  }
+  return errors;
+}
+
+export function validateArtifactDocument(document, contract, { lodId } = {}) {
   const errors = [];
   const root = document.getRoot();
   const nodes = root.listNodes();
@@ -137,26 +215,43 @@ export function validateArtifactDocument(document, contract) {
     if (!nodesById.has(nodeId)) errors.push(`missing node_id: ${nodeId}`);
   }
 
+  const lodProfile = lodId ? contract.lods?.[lodId] : undefined;
+  if (lodId && !lodProfile) errors.push(`LOD profile missing: ${lodId}`);
   const tolerance = contract.dimensionToleranceMeters;
-  for (const [nodeId, expected] of Object.entries(contract.dimensionsMeters)) {
-    const node = nodesById.get(nodeId);
-    if (!node) continue;
-    const bounds = nodeBounds(node);
+  if (lodProfile?.sceneBoundsMeters && root.listScenes()[0]) {
+    const expected = lodProfile.sceneBoundsMeters;
+    const bounds = nodeBounds(root.listScenes()[0]);
     const actual = bounds.min.map((minimum, axis) => bounds.max[axis] - minimum);
     for (let axis = 0; axis < 3; axis += 1) {
       if (!Number.isFinite(actual[axis]) || Math.abs(actual[axis] - expected[axis]) > tolerance) {
         errors.push(
-          `dimension mismatch: ${nodeId}.${"xyz"[axis]} expected ${formatNumber(expected[axis])} ± ${formatNumber(tolerance)}, got ${formatNumber(actual[axis])}`,
+          `scene bounds mismatch: ${"xyz"[axis]} expected ${formatNumber(expected[axis])} ± ${formatNumber(tolerance)}, got ${formatNumber(actual[axis])}`,
         );
+      }
+    }
+  } else {
+    for (const [nodeId, expected] of Object.entries(contract.dimensionsMeters)) {
+      const node = nodesById.get(nodeId);
+      if (!node) continue;
+      const bounds = nodeBounds(node);
+      const actual = bounds.min.map((minimum, axis) => bounds.max[axis] - minimum);
+      for (let axis = 0; axis < 3; axis += 1) {
+        if (!Number.isFinite(actual[axis]) || Math.abs(actual[axis] - expected[axis]) > tolerance) {
+          errors.push(
+            `dimension mismatch: ${nodeId}.${"xyz"[axis]} expected ${formatNumber(expected[axis])} ± ${formatNumber(tolerance)}, got ${formatNumber(actual[axis])}`,
+          );
+        }
       }
     }
   }
 
   const triangles = triangleCount(document);
-  const { min, max } = contract.triangleBudget;
+  const { min, max } = lodProfile?.triangleBudget ?? contract.triangleBudget;
   if (triangles < min || triangles > max) {
     errors.push(`triangle budget: expected ${min}..${max}, got ${triangles}`);
   }
+
+  errors.push(...validateRuntimeAssets(document, contract, lodProfile));
 
   for (const property of listProperties(document)) {
     errors.push(...validateDynamicProperty(property, contract));
@@ -177,7 +272,7 @@ export function summarizeArtifactDocument(document) {
 }
 
 async function main() {
-  const [glbPath, contractPath] = process.argv.slice(2);
+  const [glbPath, contractPath, requestedLodId] = process.argv.slice(2);
   if (!glbPath || !contractPath) {
     console.error("usage: node scripts/validate-daliuren-glb.mjs <asset.glb> <contract.json>");
     process.exitCode = 1;
@@ -185,8 +280,19 @@ async function main() {
   }
 
   const contract = JSON.parse(await readFile(contractPath, "utf8"));
-  const document = await new NodeIO().read(glbPath);
-  const errors = validateArtifactDocument(document, contract);
+  const normalizedPath = glbPath.replaceAll("\\", "/");
+  const lodId = requestedLodId ?? Object.entries(contract.lods ?? {}).find(
+    ([, profile]) => normalizedPath.endsWith(profile.file),
+  )?.[0];
+  const io = new NodeIO();
+  try {
+    const extensions = await import("@gltf-transform/extensions");
+    io.registerExtensions(extensions.KHRONOS_EXTENSIONS);
+  } catch (error) {
+    if (error?.code !== "ERR_MODULE_NOT_FOUND") throw error;
+  }
+  const document = await io.read(glbPath);
+  const errors = validateArtifactDocument(document, contract, { lodId });
   const summary = summarizeArtifactDocument(document);
   console.log(`nodes=${summary.nodeCount}`);
   console.log(`triangles=${summary.triangles}`);

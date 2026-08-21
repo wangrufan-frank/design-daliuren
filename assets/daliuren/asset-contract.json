@@ -54,6 +54,68 @@
     "max": 10000
   },
   "triangleCountingRule": "sum of triangle primitives across unique glTF mesh definitions",
+  "lods": {
+    "lod0": {
+      "file": "public/models/daliuren/daliuren-artifact-lod0.glb",
+      "triangleBudget": { "min": 1, "max": 300000 },
+      "sceneBoundsMeters": [0.52, 0.0905, 0.52],
+      "textureMaxDimensions": {
+        "hero": [4096, 4096],
+        "moving": [2048, 2048]
+      }
+    },
+    "lod1": {
+      "file": "public/models/daliuren/daliuren-artifact-lod1.glb",
+      "triangleBudget": { "min": 1, "max": 300000 },
+      "sceneBoundsMeters": [0.52, 0.0905, 0.52],
+      "textureMaxDimensions": {
+        "hero": [4096, 4096],
+        "moving": [2048, 2048]
+      }
+    },
+    "lod2": {
+      "file": "public/models/daliuren/daliuren-artifact-lod2.glb",
+      "triangleBudget": { "min": 1, "max": 80000 },
+      "sceneBoundsMeters": [0.52, 0.0905, 0.52],
+      "textureMaxDimensions": {
+        "hero": [2048, 2048],
+        "moving": [1024, 1024]
+      }
+    }
+  },
+  "runtimeAssets": {
+    "materialFamilies": [
+      "M_Bronze",
+      "M_Patina",
+      "M_Celadon",
+      "M_OldGold",
+      "M_AshText"
+    ],
+    "requiredTextureExtension": "KHR_texture_basisu",
+    "dynamicLabelOwners": {
+      "dynamic/calendar": "calendar/slip",
+      "dynamic/lesson/first": "lesson/first",
+      "dynamic/lesson/second": "lesson/second",
+      "dynamic/lesson/third": "lesson/third",
+      "dynamic/lesson/fourth": "lesson/fourth",
+      "dynamic/transmission/initial": "transmission/initial",
+      "dynamic/transmission/middle": "transmission/middle",
+      "dynamic/transmission/final": "transmission/final",
+      "dynamic/general/noble": "general/noble",
+      "dynamic/general/snake": "general/snake",
+      "dynamic/general/vermilion-bird": "general/vermilion-bird",
+      "dynamic/general/harmony": "general/harmony",
+      "dynamic/general/hook-array": "general/hook-array",
+      "dynamic/general/azure-dragon": "general/azure-dragon",
+      "dynamic/general/void": "general/void",
+      "dynamic/general/white-tiger": "general/white-tiger",
+      "dynamic/general/constant": "general/constant",
+      "dynamic/general/black-tortoise": "general/black-tortoise",
+      "dynamic/general/yin": "general/yin",
+      "dynamic/general/queen-of-heaven": "general/queen-of-heaven",
+      "dynamic/transmission/method": "transmission/bridge"
+    }
+  },
   "forbiddenDynamicKeys": [
     "日干",
     "日支",

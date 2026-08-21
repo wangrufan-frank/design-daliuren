@@ -1,0 +1,1086 @@
+{
+  "schemaVersion": 1,
+  "blenderVersion": "4.5.12 LTS",
+  "colorSpace": "sRGB hex converted to scene-linear before Principled inputs",
+  "palette": {
+    "ink": "#121817",
+    "bronze": "#26322F",
+    "patina": "#435C53",
+    "celadon": "#879B92",
+    "ash": "#C2C6BB",
+    "oldGold": "#80704C"
+  },
+  "materials": {
+    "M_Bronze": {
+      "physicalRole": "load-bearing bronze",
+      "baseColor": "#26322F",
+      "metallic": 1.0,
+      "baseRoughness": 0.58,
+      "maskUse": ["mask_contact_wear", "mask_recess_oxidation"]
+    },
+    "M_Patina": {
+      "physicalRole": "oxidized bronze surface variation",
+      "baseColor": "#435C53",
+      "metallic": 1.0,
+      "baseRoughness": 0.72,
+      "maskUse": ["mask_recess_oxidation"]
+    },
+    "M_Celadon": {
+      "physicalRole": "non-load-bearing glazed insert",
+      "baseColor": "#879B92",
+      "metallic": 0.0,
+      "baseRoughness": 0.34,
+      "specularIorLevel": 0.34,
+      "coatWeight": 0.18,
+      "coatRoughness": 0.28,
+      "microNormal": {
+        "orangePeelDistanceM": 0.00022,
+        "orangePeelStrength": 0.12,
+        "crackleGrooveDistanceM": 0.00006,
+        "crackleGrooveStrength": 0.09,
+        "crackleCellsPerAxis": 14,
+        "crackleWidthThreshold": 0.045,
+        "crackleMaskStrength": 0.65,
+        "crackleTintFactor": 0.12
+      },
+      "maskUse": ["mask_insert_dirt", "mask_celadon_crackle"]
+    },
+    "M_OldGold": {
+      "physicalRole": "functional fixed inlay only",
+      "baseColor": "#80704C",
+      "metallic": 1.0,
+      "baseRoughness": 0.38,
+      "assignmentRule": "mechanical-scale inscriptions only"
+    },
+    "M_AshText": {
+      "physicalRole": "readable fixed and historical text",
+      "baseColor": "#C2C6BB",
+      "metallic": 0.0,
+      "baseRoughness": 0.68,
+      "assignmentRule": "fixed inscriptions excluding mechanical-scale"
+    }
+  },
+  "masks": {
+    "mask_contact_wear": {
+      "attribute": "causal_contact_wear",
+      "attributeDomain": "FACE",
+      "cleanValue": 0.0,
+      "cause": "repeated touch or sliding contact",
+      "allowedSurfaces": ["outer touch edges", "detents", "rails", "insert slots"],
+      "effect": "reduce bronze roughness"
+    },
+    "mask_recess_oxidation": {
+      "attribute": "causal_recess_oxidation",
+      "attributeDomain": "FACE",
+      "cleanValue": 0.0,
+      "cause": "moisture and dirt retention in sheltered recesses",
+      "allowedSurfaces": ["grooves", "underside seams", "bearing roots"],
+      "effect": "increase patina coverage and roughness"
+    },
+    "mask_insert_dirt": {
+      "attribute": "causal_insert_boundary",
+      "attributeDomain": "FACE",
+      "cleanValue": 0.0,
+      "phaseAttribute": "dirt_phase",
+      "cause": "debris trapped at material boundaries",
+      "allowedSurfaces": ["bronze/celadon boundaries"],
+      "effect": "localized asymmetric boundary tint"
+    },
+    "mask_celadon_crackle": {
+      "attribute": "causal_celadon_crackle",
+      "cause": "glaze shrinkage",
+      "allowedSurfaces": ["celadon objects and islands"],
+      "effect": "restrained Voronoi distance-to-edge crackle"
+    }
+  },
+  "assignmentRules": {
+    "bronze": "load-bearing structure, joints, rails, locks and mechanisms",
+    "patina": "oxidized bronze seams and sheltered returns",
+    "celadon": "readout inserts, transmissions and heaven-plate insert beds",
+    "oldGold": "functional mechanical-scale inlays only",
+    "ashText": "fixed readable and historical inscriptions only",
+    "dynamicCourseValues": "forbidden"
+  },
+  "reviewRender": {
+    "resolution": [1920, 1080],
+    "engine": "CYCLES",
+    "samples": 64,
+    "denoising": true,
+    "viewTransform": "AgX",
+    "look": "AgX - Medium High Contrast",
+    "keyTemperatureK": 4300,
+    "keyPosition": "left-front-above",
+    "transparentBackground": false,
+    "ground": "neutral rough plane with contact shadows",
+    "celadonCloseup": {
+      "purpose": "review restrained crackle and orange-peel micro-normal under the shared key",
+      "presentation": "framed inset",
+      "pixelRegion": [790, 2, 1300, 360],
+      "microSampleRegion": [840, 50, 960, 170],
+      "minimumProjectedDiameterPx": 280,
+      "minimumComparisonGapPx": 16,
+      "material": "M_Celadon",
+      "physicalRadiusM": 0.08,
+      "cameraSpacePositionM": [0.0, 0.1866, -1.69],
+      "label": "CELADON / MICRO",
+      "labelPaddingPx": 10,
+      "insertDirtGate": 0.0,
+      "lighting": "shared 4300 K directional key, fill and rim"
+    },
+    "sphereOrder": [
+      "M_Bronze",
+      "M_Patina",
+      "M_Celadon",
+      "M_OldGold",
+      "M_AshText"
+    ]
+  },
+  "runtimeTextures": {
+    "schemaVersion": 2,
+    "channels": {
+      "baseColor": "sRGB RGB",
+      "orm": "Non-Color RGB: AO=R, roughness=G, metallic=B",
+      "normal": "Non-Color RGB tangent-space"
+    },
+    "atlasPolicy": {
+      "uvSourceMaster": "assets/daliuren/source/daliuren-artifact-master.blend",
+      "uvAuthoringVersion": "blender-4.5.12/task4-native-atlas-v3",
+      "ownership": "every physical mesh carries runtime_texture_family, runtime_atlas_id and runtime_atlas_class",
+      "partitioning": "material-family atlases are explicitly partitioned by hero/moving surface class; two complex self-overlap risks use named object partitions",
+      "lod0": "4096x4096 hero atlases; 2048x2048 moving atlases",
+      "lod2": "deterministic 2x2 box-filter downsample of LOD0",
+      "bakeEngine": "Blender 4.5.12 native Cycles",
+      "padding": "8 pixels at LOD0; 4 pixels after LOD2 downsample",
+      "coverage": "all triangles above 2e-7 m2 require native texel coverage; smaller microfaces use physical family defaults",
+      "rebakeDeterminism": "frozen artifact file hashes are authoritative; independent probes require exact UV and simple-atlas hashes plus full-atlas bounded complex Cycles variance (at most 1024 edge texels; representative interior texels remain within one byte)",
+      "opaqueAlpha": "omitted",
+      "emissive": "omitted because no runtime highlight assignment consumes it"
+    },
+    "dynamicLabels": {
+      "count": 21,
+      "placeholderMaterial": "M_DynamicLabelPlaceholder",
+      "ids": [
+        "dynamic/calendar",
+        "dynamic/lesson/first",
+        "dynamic/lesson/second",
+        "dynamic/lesson/third",
+        "dynamic/lesson/fourth",
+        "dynamic/transmission/initial",
+        "dynamic/transmission/middle",
+        "dynamic/transmission/final",
+        "dynamic/general/noble",
+        "dynamic/general/snake",
+        "dynamic/general/vermilion-bird",
+        "dynamic/general/harmony",
+        "dynamic/general/hook-array",
+        "dynamic/general/azure-dragon",
+        "dynamic/general/void",
+        "dynamic/general/white-tiger",
+        "dynamic/general/constant",
+        "dynamic/general/black-tortoise",
+        "dynamic/general/yin",
+        "dynamic/general/queen-of-heaven",
+        "dynamic/transmission/method"
+      ],
+      "owners": {
+        "dynamic/calendar": "calendar/slip",
+        "dynamic/lesson/first": "lesson/first",
+        "dynamic/lesson/second": "lesson/second",
+        "dynamic/lesson/third": "lesson/third",
+        "dynamic/lesson/fourth": "lesson/fourth",
+        "dynamic/transmission/initial": "transmission/initial",
+        "dynamic/transmission/middle": "transmission/middle",
+        "dynamic/transmission/final": "transmission/final",
+        "dynamic/general/noble": "general/noble",
+        "dynamic/general/snake": "general/snake",
+        "dynamic/general/vermilion-bird": "general/vermilion-bird",
+        "dynamic/general/harmony": "general/harmony",
+        "dynamic/general/hook-array": "general/hook-array",
+        "dynamic/general/azure-dragon": "general/azure-dragon",
+        "dynamic/general/void": "general/void",
+        "dynamic/general/white-tiger": "general/white-tiger",
+        "dynamic/general/constant": "general/constant",
+        "dynamic/general/black-tortoise": "general/black-tortoise",
+        "dynamic/general/yin": "general/yin",
+        "dynamic/general/queen-of-heaven": "general/queen-of-heaven",
+        "dynamic/transmission/method": "transmission/bridge"
+      },
+      "courseValuePolicy": {
+        "scope": "dynamic-label-payload-and-bake-inputs-only",
+        "scanTargets": [
+          "21 dynamic label surfaces",
+          "runtime dynamic label payload fields"
+        ],
+        "fields": {
+          "calendar": [
+            "2026-08-14T23:57:00",
+            "2026-08-15",
+            "二〇二六年七月初二",
+            "丙午",
+            "丙申",
+            "辛酉",
+            "戊子",
+            "辛",
+            "庚申"
+          ],
+          "lessons": [
+            "一课",
+            "二课",
+            "三课",
+            "四课",
+            "子",
+            "丑",
+            "寅",
+            "卯",
+            "辰",
+            "巳",
+            "午",
+            "未",
+            "申",
+            "酉",
+            "戌",
+            "亥",
+            "胜光"
+          ],
+          "transmissions": [
+            "初传",
+            "中传",
+            "末传",
+            "父母",
+            "子孙",
+            "官鬼",
+            "妻财",
+            "兄弟"
+          ],
+          "generals": [
+            "贵人",
+            "螣蛇",
+            "朱雀",
+            "六合",
+            "勾陈",
+            "青龙",
+            "天空",
+            "白虎",
+            "太常",
+            "玄武",
+            "太阴",
+            "天后"
+          ],
+          "method": [
+            "反吟",
+            "重审"
+          ]
+        },
+        "fixedInscriptionPolicy": "fixed Task 1 inscriptions remain legal, including twelve earth branches and 胜光"
+      },
+      "contentRule": "blank geometry only; all course text is supplied at runtime"
+    },
+    "families": {
+      "M_Bronze": {
+        "assignment": "objects whose runtime_texture_family is M_Bronze",
+        "atlases": {
+          "M_Bronze:heaven": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "7e6dc399157ba1dcad3b50c7a44c9fafcc01b8d5e3084f374fa1a13d64235a11",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/bronze-heaven-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "ab15807ddf5d0b2c26f3d55a8af69d86d82995f2b035fa8379889aabb187294a"
+              },
+              "orm": {
+                "file": "lod0/bronze-heaven-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "9a988c26f7afd6fb568d97c9dc7163aab463ef4f40223eda471a035f46b1d309"
+              },
+              "normal": {
+                "file": "lod0/bronze-heaven-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "c41f3bd18c78c22946de3dd90528fbddf66f6529c99400f890ff79a47e5d227f"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/bronze-heaven-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "65e96e7b9e10ef59e119091e6159f3d1a5789bf91651a2820307ed639adfe542"
+              },
+              "orm": {
+                "file": "lod2/bronze-heaven-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "3475f15344dc30f8e2e354fd9da9c3ebac3f2ee463a8c7ae9012d1cc80ac4c2b"
+              },
+              "normal": {
+                "file": "lod2/bronze-heaven-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "6092a6405afbafef766da74f57468f4b857de5157e0911bea7ee7134f9dfe7f8"
+              }
+            }
+          },
+          "M_Bronze:hero": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "517ac9f7173fbd8d84ad10a1cf00d8669dc667c9ae712518e3127d28ada16db6",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/bronze-hero-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "81406397a3b835eebe11cbc70441882b23c1ab53d83c172cb10c06aa6bf539d9"
+              },
+              "orm": {
+                "file": "lod0/bronze-hero-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "811f79e82a0a6e6113685d48224d99cb901f2794bf0ac8ef224920ef52872188"
+              },
+              "normal": {
+                "file": "lod0/bronze-hero-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "d46e9b8ccfba387cdac623ed93feb65054015c43e780d2c6afe0f1f1c478ea26"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/bronze-hero-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "3f70570affff881a13f3fd4c3ac23f326627c77d972710d438d6912ba3a2c757"
+              },
+              "orm": {
+                "file": "lod2/bronze-hero-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "eca05ed4150389fad4a5898397702d2aa721cddb7f33c32560fc1887e0e9c771"
+              },
+              "normal": {
+                "file": "lod2/bronze-hero-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "a7c4c3ef223d2f3186ab2cae1f29cc6f0a52a998f39486b61c8a1d653c449d99"
+              }
+            }
+          },
+          "M_Bronze:moving": {
+            "class": "moving",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              2048,
+              2048
+            ],
+            "uvLayoutSha256": "f105866ab9aac6ae33f85d890199a6a6d0b2d7d4cf022452b0ab7bafbf51e60a",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/bronze-moving-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "8ca5f9cc11b7d30a1bd28689aa948fc5fbe41ef77b3f662b41aa209f14e102e0"
+              },
+              "orm": {
+                "file": "lod0/bronze-moving-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "11494777ed8c72acffec6e45fa339a69a302f11fe6e56e05482f5176363ef7d1"
+              },
+              "normal": {
+                "file": "lod0/bronze-moving-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "979259d2d1739cb0267fae890e38f118bc319204b818c12d5de0af424719e5c8"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/bronze-moving-basecolor.png",
+                "dimensions": [
+                  1024,
+                  1024
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "9ed8fd365d8288afbb56c2a740d8a769c89e125233da362155d62c1c2b34ceb1"
+              },
+              "orm": {
+                "file": "lod2/bronze-moving-orm.png",
+                "dimensions": [
+                  1024,
+                  1024
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "8c75446a1b68d4a121262144de6a74accb2e78eedc5002bdf3a05021ad26dc07"
+              },
+              "normal": {
+                "file": "lod2/bronze-moving-normal.png",
+                "dimensions": [
+                  1024,
+                  1024
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "2f783ab82c440d892706ae80d21f22b1f41113a2c82cecc5b686a8ed8527e2fc"
+              }
+            }
+          }
+        }
+      },
+      "M_Patina": {
+        "assignment": "objects whose runtime_texture_family is M_Patina",
+        "atlases": {
+          "M_Patina:hero": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "11a58c0fa0ef429efea50ab0736551be3709df83c1e423c6376271788470aee0",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/patina-hero-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "2e865d3086dca8ee69dbd1bcccb1be4946a65fe63a6e462dc0e3d9a473df88a6"
+              },
+              "orm": {
+                "file": "lod0/patina-hero-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "1b6f1db99cd3fb44bb1c9bf9a1310c00c54850c9c4b24531fde23576e48de53d"
+              },
+              "normal": {
+                "file": "lod0/patina-hero-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "a2f2cc7e94b454e0b29352755212fc54c3cbe184f29d01964c10650438cb14a8"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/patina-hero-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "bf21754fa53f8f036c0943679033c3ccbe3b3209a1f33d379f37bb6879578277"
+              },
+              "orm": {
+                "file": "lod2/patina-hero-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "1d582049e5f95f864c4ada5b418f3ba7e6cb23fdf62bf0d830f55291205db5b6"
+              },
+              "normal": {
+                "file": "lod2/patina-hero-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "979259d2d1739cb0267fae890e38f118bc319204b818c12d5de0af424719e5c8"
+              }
+            }
+          },
+          "M_Patina:removable-bottom": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "f58f683ac92d2a78bd623f1e3e74dbdddbae4dbb3c203a8873f9299688125382",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/patina-removable-bottom-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "e7f663001bc9afa67030a4d59a2c0da3046160ab77e49fa564f5fba5edffc400"
+              },
+              "orm": {
+                "file": "lod0/patina-removable-bottom-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "9c4f7008b18ca94f57108775cd429bb9543820fdec73d13e8e66562fec6a577f"
+              },
+              "normal": {
+                "file": "lod0/patina-removable-bottom-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "a2f2cc7e94b454e0b29352755212fc54c3cbe184f29d01964c10650438cb14a8"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/patina-removable-bottom-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "f3d020ce7beeadcad051388faf989135562cbcbb33502fa5bd19113c06b97f04"
+              },
+              "orm": {
+                "file": "lod2/patina-removable-bottom-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "8aacf1abd9624eaf0b337b67998e82a03304bc2e1334bba54672b167dd20d351"
+              },
+              "normal": {
+                "file": "lod2/patina-removable-bottom-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "979259d2d1739cb0267fae890e38f118bc319204b818c12d5de0af424719e5c8"
+              }
+            }
+          }
+        }
+      },
+      "M_Celadon": {
+        "assignment": "objects whose runtime_texture_family is M_Celadon",
+        "atlases": {
+          "M_Celadon:hero": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "a9a0de277fc616f4774466188839907b16eac2b3cfac074f6dd3ed7ae6174c6b",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/celadon-hero-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "adfaccc8fb1e90dec872984bc46d176eb6b697c0000564c9c3c46afacf9a490e"
+              },
+              "orm": {
+                "file": "lod0/celadon-hero-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "e42d2cce5d29af9b583288aa98dcd5c95b750bf21c247c45463c7bd6bdf5e623"
+              },
+              "normal": {
+                "file": "lod0/celadon-hero-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "0f685c98dbb7c6c816b5557b85f180ce492c87a2d45e2dd1e377ae0c59fe2d89"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/celadon-hero-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "56edd6194327ed63bbf3e3a64c9b655dfb72f428498153cb168633281fec4fd9"
+              },
+              "orm": {
+                "file": "lod2/celadon-hero-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "876c752c147775176eb2c6cd3f34968d4ac832c6b4cf038071f435fa964b1cc4"
+              },
+              "normal": {
+                "file": "lod2/celadon-hero-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "55d571bcb2dbc1000bad7d5c1e3d52e35ffc34ffae5982bba44d4fdb15badeda"
+              }
+            }
+          },
+          "M_Celadon:moving": {
+            "class": "moving",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              2048,
+              2048
+            ],
+            "uvLayoutSha256": "fb9766c4764a23a64fe6cfa57f2e3dad6a45d939f159fb2b51a18ad4ed0cfccb",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/celadon-moving-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "eaf6b39cc0878e99b78fee3bcf543e0b226b9645195016a086a0b90b9bf4fbfa"
+              },
+              "orm": {
+                "file": "lod0/celadon-moving-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "7143b8feee6a01ba84887a2ecbc33bec750857fc11df8c3e0e9311679ac90445"
+              },
+              "normal": {
+                "file": "lod0/celadon-moving-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "ae97d9cb369ba1a85a5b21a5fc033af031af09df64acd3f0b02e9a4d242aed74"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/celadon-moving-basecolor.png",
+                "dimensions": [
+                  1024,
+                  1024
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "8eff6a1721402d57789917bad0ebfe6a984f0ae705283221e5aebd795da7d214"
+              },
+              "orm": {
+                "file": "lod2/celadon-moving-orm.png",
+                "dimensions": [
+                  1024,
+                  1024
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "4387309531e9faa37e7a69986d44427ee38e94f4c35b85e8a93fae0807eb2284"
+              },
+              "normal": {
+                "file": "lod2/celadon-moving-normal.png",
+                "dimensions": [
+                  1024,
+                  1024
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "69f2a224bbb4b3011c3ecc0eeee552462413ddd518d76245eaa2cea1530119a1"
+              }
+            }
+          }
+        }
+      },
+      "M_OldGold": {
+        "assignment": "objects whose runtime_texture_family is M_OldGold",
+        "atlases": {
+          "M_OldGold:hero": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "c12ea11b2d0bed21355abb98bc4be7abe58fad4f65deb88be2f31170c63c54a5",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/oldgold-hero-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "006b698c7232703f29db49bbc37e49a97ac3f1e3fb0414a6d9ea26cc7bbdabef"
+              },
+              "orm": {
+                "file": "lod0/oldgold-hero-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "57eb41a51f31285643977f7fd43293f1b37590b4716ebda0165a2b1482d1a963"
+              },
+              "normal": {
+                "file": "lod0/oldgold-hero-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "91fdaaba80c62dd3dba1899cd1017edae2d27c200459616f937203956db398da"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/oldgold-hero-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "cc88f9a5970b31603066aa854d68d3d1acee79569aa52b0ca2f02fb43026937b"
+              },
+              "orm": {
+                "file": "lod2/oldgold-hero-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "b7bed740ab85277b988ff946fee96d0007a552ba208b76b7ba5d73b0053b100b"
+              },
+              "normal": {
+                "file": "lod2/oldgold-hero-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "c5b98352fae6c31f89fed13039f084f194c0b3c689dac31a813ad5e45bde40e8"
+              }
+            }
+          }
+        }
+      },
+      "M_AshText": {
+        "assignment": "objects whose runtime_texture_family is M_AshText",
+        "atlases": {
+          "M_AshText:hero": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "3887ba02502ec138499716e63a258b94b5a31c9d43fc2e2ea12c6d9f381421c2",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/ashtext-hero-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "8a0d173998e4dfc7ad7586b4445e5a07c7fe5730fecee060a4117a99b28f3216"
+              },
+              "orm": {
+                "file": "lod0/ashtext-hero-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "4ac65d89f1787369e83968c2518613823cdeba02eb41ec93bb95d6d92dab8de3"
+              },
+              "normal": {
+                "file": "lod0/ashtext-hero-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "4253111cd95222c4fda125932ab854c7b86b6af69693533c22a57aaba0e94eed"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/ashtext-hero-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "b41027094956441e96b0fc60ad8480d5813df4740cf07dfc602fe3f487f67b3a"
+              },
+              "orm": {
+                "file": "lod2/ashtext-hero-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "4347219624ceb424eea68f5ea5ea4af6486c0daffc9c11f56d36fbe1e7688ce4"
+              },
+              "normal": {
+                "file": "lod2/ashtext-hero-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "8497d45971527b5ac2ba58407af3f726a9b4a558be7d105005228d7eb6130538"
+              }
+            }
+          },
+          "M_AshText:historical-month": {
+            "class": "hero",
+            "bakeEngine": "BLENDER_CYCLES_NATIVE",
+            "workingDimensions": [
+              4096,
+              4096
+            ],
+            "uvLayoutSha256": "00ee7879d52b7fde11d49cb282b6a24368fad8ad0894d2ddc9e8a561da1f31ec",
+            "marginPixels": 8,
+            "microTrianglePolicy": {
+              "maxSurfaceAreaM2": 2e-07,
+              "fallback": "physical family defaults outside native coverage"
+            },
+            "lod0": {
+              "baseColor": {
+                "file": "lod0/ashtext-historical-month-basecolor.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "da11a4bfc6212531699e07e596c6221e314aa02a4fc07941b6f30f87441d60c7"
+              },
+              "orm": {
+                "file": "lod0/ashtext-historical-month-orm.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "b7efb229a6ecb50f15a5ba1a11dd77d3e46ae4485bbec3ef7aba5d26461a0381"
+              },
+              "normal": {
+                "file": "lod0/ashtext-historical-month-normal.png",
+                "dimensions": [
+                  4096,
+                  4096
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "c7c7bb5fdab81890e08a4e65d2acf92e278752c2c616eeb8d27289b3bec17d57"
+              }
+            },
+            "lod2": {
+              "baseColor": {
+                "file": "lod2/ashtext-historical-month-basecolor.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "sRGB",
+                "sha256": "99bef81a78ef3c5e5788b38af701158ddfc1c0257db614ab02d37a68a557b825"
+              },
+              "orm": {
+                "file": "lod2/ashtext-historical-month-orm.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "2140a47c609da9b8d6731f1ac6eddff5b509520a188245a770d89e1590b0dbbf"
+              },
+              "normal": {
+                "file": "lod2/ashtext-historical-month-normal.png",
+                "dimensions": [
+                  2048,
+                  2048
+                ],
+                "channels": "RGB",
+                "colorSpace": "Non-Color",
+                "sha256": "69aea1d6f5e2198d8bf9f7b8ee2d7e73d0be70c0ddc49730a71649b06df15fd0"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -43,6 +43,7 @@ async function submitReferenceCourse(page: Page) {
   await page.getByLabel("经度").fill("116.4074");
   await page.getByLabel("纬度").fill("39.9042");
   await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "文字课式", exact: true }).click();
 }
 
 test("renders, copies, and navigates the completed standard course", async ({ context, page }) => {
@@ -61,6 +62,7 @@ test("renders, copies, and navigates the completed standard course", async ({ co
   await page.getByRole("button", { name: "天将排列，已完成" }).click();
   await expect(page.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
   await page.getByRole("button", { name: "复制结课，已完成" }).click();
+  await page.getByRole("button", { name: "文字课式", exact: true }).click();
   await expect(page.getByRole("article", { name: "标准文字课式" })).toBeVisible();
 });
 

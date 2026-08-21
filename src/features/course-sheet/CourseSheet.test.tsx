@@ -2,7 +2,6 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-// @ts-expect-error Vitest executes this test in Node and provides the builtin at runtime.
 import { readFileSync } from "node:fs";
 import type { CourseResult } from "../../domain/course/types";
 import { serializeCourseText } from "../../domain/course/policy";

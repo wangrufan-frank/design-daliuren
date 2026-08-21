@@ -12,10 +12,19 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "benchmark:artifact": "node scripts/benchmark-artifact.mjs",
     "asset:blender": "node scripts/run-blender.mjs",
     "asset:export-graybox": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py",
+    "asset:export-lod0": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py -- --lod 0",
+    "asset:export-lod1": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py -- --lod 1",
+    "asset:export-lod2": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py -- --lod 2",
+    "asset:export-lods": "npm run asset:export-lod0 && npm run asset:export-lod1 && npm run asset:export-lod2",
     "asset:render-graybox": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/render_graybox_review.py",
-    "asset:validate": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-graybox.glb assets/daliuren/asset-contract.json",
+    "asset:render-lookdev": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/render_lookdev_review.py",
+    "asset:validate-graybox": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-graybox.glb assets/daliuren/asset-contract.json",
+    "asset:validate": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod0.glb assets/daliuren/asset-contract.json && node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod1.glb assets/daliuren/asset-contract.json && node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod2.glb assets/daliuren/asset-contract.json",
+    "asset:copy-basis": "node scripts/copy-three-basis.mjs",
+    "postinstall": "npm run asset:copy-basis",
     "test:asset-runner": "node --test scripts/run-blender.test.mjs",
     "verify:calendar-sources": "node scripts/verify-calendar-cases.mjs"
   },
@@ -27,9 +36,11 @@
   "dependencies": {
     "lunar-typescript": "1.8.6",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "three": "0.185.1"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "4.4.2",
     "@gltf-transform/core": "4.4.2",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -37,6 +48,7 @@
     "@testing-library/user-event": "^14.6.4",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/three": "0.185.0",
     "@vitejs/plugin-react": "^4.7.0",
     "astronomy-engine": "2.1.19",
     "jsdom": "^26.1.0",

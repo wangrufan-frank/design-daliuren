@@ -86,6 +86,14 @@ button, input, select { font: inherit; }
 .app-stage { display: grid; align-content: center; min-height: 390px; padding: clamp(24px, 6vw, 72px); border: 1px solid var(--patina); background: linear-gradient(135deg, var(--dark-bronze), var(--ink) 72%); }
 .app-stage > h2 { margin: 0; color: var(--ru-celadon); font-size: clamp(1.5rem, 3vw, 2.5rem); font-weight: 600; letter-spacing: 0.12em; }
 .app-stage > p { max-width: 24rem; margin: 14px 0 0; line-height: 1.8; }
+.course-experience { display: grid; width: 100%; min-width: 0; }
+.course-experience__stage, .course-experience__modes { grid-area: 1 / 1; }
+.course-experience__stage { min-width: 0; }
+.course-experience__modes { display: flex; z-index: 2; align-self: start; justify-self: end; gap: 1px; margin: 12px; padding: 4px; border: 1px solid var(--patina); background: color-mix(in srgb, var(--ink) 92%, transparent); }
+.course-experience__modes button { min-height: 44px; padding: 8px 13px; border: 0; border-radius: 0; background: transparent; color: var(--ru-celadon); cursor: pointer; }
+.course-experience__modes button[aria-pressed="true"] { background: var(--ru-celadon); color: var(--ink); }
+.course-experience__modes button:focus-visible { outline-color: var(--ash); outline-offset: -2px; }
+.course-experience .artifact-experience__viewport { min-height: clamp(520px, 52vw, 680px); }
 .rule-stage-rail { margin: 16px 0 0; padding: 0; list-style: none; border-left: 1px solid var(--patina); }
 .rule-stage-rail li { position: relative; padding: 0 0 18px 20px; }
 .rule-stage-rail li::before { position: absolute; top: 0.35em; left: -5px; width: 8px; height: 8px; border: 1px solid var(--patina); border-radius: 50%; background: var(--ink); content: ""; }
@@ -97,6 +105,14 @@ button, input, select { font: inherit; }
 .rule-stage-rail li:has([data-status="completed"])::before { border-color: var(--ru-celadon); background: var(--ru-celadon); }
 .rule-stage-rail [data-status="current"] { color: var(--ru-celadon); font-weight: 700; }
 .rule-stage-rail li:has([data-status="current"])::before { border-color: var(--ru-celadon); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ru-celadon) 20%, transparent); }
+
+@media (max-width: 820px) {
+  .course-experience { grid-template-rows: minmax(0, auto) auto; }
+  .course-experience__stage { grid-area: 1 / 1; }
+  .course-experience__modes { grid-area: 2 / 1; position: static; justify-self: stretch; margin: 12px 0 0; }
+  .course-experience__modes button { flex: 1; }
+  .course-experience .artifact-experience__viewport { min-height: 340px; }
+}
 
 .calendar-review { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 0.36fr); border-block: 1px solid var(--patina); }
 .calendar-review__header, .calendar-review__time-band { grid-column: 1 / -1; }

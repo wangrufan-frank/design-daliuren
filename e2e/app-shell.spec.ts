@@ -44,6 +44,10 @@ function isNonLocalNetworkUrl(url: string) {
     && !["127.0.0.1", "localhost", "::1", "[::1]"].includes(target.hostname);
 }
 
+function isArtifactAssetUrl(url: string) {
+  return /^\/models\/daliuren\/daliuren-artifact-lod[0-2]\.glb$/.test(new URL(url).pathname);
+}
+
 async function expectNoUnimplementedResult(page: Page) {
   const stage = page.locator(".app-stage");
   const downstreamName = /四课生成|三传取法|天将排列|复制结课/;
@@ -305,7 +309,7 @@ for (const viewport of VIEWPORTS) {
     const nonLocalRequests = requestUrls.filter(isNonLocalNetworkUrl);
     const nonLocalWebsockets = websocketUrls.filter(isNonLocalNetworkUrl);
     expect(nonLocalRequests).toEqual([]);
-    expect(offlineRequestUrls).toEqual([]);
+    expect(offlineRequestUrls.filter((url) => !isArtifactAssetUrl(url))).toEqual([]);
     expect({
       nonLocalWebsockets,
       offlineSentFrames,

@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as calendarStage from "../domain/calendar/compute-calendar";
 import type { CalendarSnapshot } from "../domain/calendar/types";
 import * as courseStage from "../domain/course/compute-course";
@@ -17,6 +17,26 @@ import {
 } from "../domain/heavenly-generals/result-guard";
 import * as threeTransmissionsStage from "../domain/three-transmissions/compute-three-transmissions";
 import { App } from "./App";
+
+const artifactLoader = vi.hoisted(() => ({
+  createRenderer: vi.fn(),
+  loadArtifact: vi.fn(),
+}));
+
+vi.mock("../features/artifact-scene/three/load-artifact", () => ({
+  createArtifactRenderer: (...args: unknown[]) => artifactLoader.createRenderer(...args),
+  loadArtifact: (...args: unknown[]) => artifactLoader.loadArtifact(...args),
+}));
+
+beforeEach(() => {
+  artifactLoader.createRenderer.mockReset();
+  artifactLoader.loadArtifact.mockReset();
+  artifactLoader.createRenderer.mockImplementation((canvas: HTMLCanvasElement) => ({
+    domElement: canvas,
+    dispose: vi.fn(),
+  }));
+  artifactLoader.loadArtifact.mockReturnValue(new Promise(() => undefined));
+});
 
 afterEach(() => {
   cleanup();
@@ -79,11 +99,14 @@ it("runs the real offline stages through three transmissions, then navigates pri
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
-it("generates and selects the real course after heavenly generals", async () => {
+it("opens the three-dimensional experience only for the complete guarded bundle", async () => {
   render(<App />);
 
-  await submitCourse();
+  const user = await submitCourse();
 
+  expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
+  expect(screen.getByRole("button", { name: "三维推演" })).toHaveAttribute("aria-pressed", "true");
+  await user.click(screen.getByRole("button", { name: "文字课式" }));
   expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
   for (const name of ["历法与月将", "天地盘加临", "四课生成", "三传取法", "天将排列", "复制结课"]) {
     expect(screen.getByRole("button", { name: `${name}，已完成` })).toBeVisible();
@@ -101,8 +124,49 @@ it("returns to heavenly generals and back to the completed course without recomp
   await user.click(screen.getByRole("button", { name: "天将排列，已完成" }));
   expect(screen.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "复制结课，已完成" }));
-  expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+  expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
   expect(runCourse).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the completed text course usable when the guarded artifact bundle is incomplete", async () => {
+  const runCourse = courseStage.runCourseStage;
+  vi.spyOn(courseStage, "runCourseStage").mockImplementation((session) => {
+    const outcome = runCourse(session);
+    if (!outcome.ok) return outcome;
+    const plate = outcome.session.snapshots["heaven-earth"] as HeavenEarthSnapshot;
+    return {
+      ...outcome,
+      session: {
+        ...outcome.session,
+        snapshots: {
+          ...outcome.session.snapshots,
+          "heaven-earth": {
+            ...plate,
+            value: { ...plate.value, palaces: plate.value.palaces.slice(1) },
+          },
+        },
+      },
+    };
+  });
+  render(<App />);
+
+  await submitCourse();
+
+  expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
+});
+
+it("escapes from artifact loading failure to the ordinary text course", async () => {
+  artifactLoader.loadArtifact.mockRejectedValueOnce(new Error("missing GLB"));
+  render(<App />);
+  const user = await submitCourse();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("三维器物无法加载");
+  await user.click(screen.getByRole("button", { name: "查看文字课式" }));
+
+  expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
 });
 
 it("keeps five valid upstream stages when final course projection fails", async () => {
@@ -128,15 +192,18 @@ it("replaces the completed course after a day-pillar correction and reset", asyn
   render(<App />);
   const user = await submitCourse();
 
+  await user.click(screen.getByRole("button", { name: "文字课式" }));
   expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("甲辰");
   await openCalendarReview(user);
   await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
   await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
+  await user.click(screen.getByRole("button", { name: "文字课式" }));
   expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("乙巳");
 
   await openCalendarReview(user);
   await user.click(screen.getByRole("button", { name: /日柱.*有效 乙巳.*人工修正/ }));
   await user.click(screen.getByRole("button", { name: "恢复日柱自动值" }));
+  await user.click(screen.getByRole("button", { name: "文字课式" }));
   expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("甲辰");
 });
 

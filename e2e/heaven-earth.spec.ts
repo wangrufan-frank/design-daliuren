@@ -38,6 +38,10 @@ function isNonLocalNetworkUrl(url: string) {
     && !["127.0.0.1", "localhost", "::1", "[::1]"].includes(target.hostname);
 }
 
+function isArtifactAssetUrl(url: string) {
+  return /^\/models\/daliuren\/daliuren-artifact-lod[0-2]\.glb$/.test(new URL(url).pathname);
+}
+
 for (const viewport of VIEWPORTS) {
   test(`${viewport.name} reviews every derived palace offline and rebuilds after a calendar correction`, async ({ context, page }) => {
     const requestUrls: string[] = [];
@@ -116,7 +120,7 @@ for (const viewport of VIEWPORTS) {
     await expectNoHorizontalOverflow(page);
 
     expect(requestUrls.filter(isNonLocalNetworkUrl)).toEqual([]);
-    expect(offlineRequestUrls).toEqual([]);
+    expect(offlineRequestUrls.filter((url) => !isArtifactAssetUrl(url))).toEqual([]);
     expect(websocketUrls.filter(isNonLocalNetworkUrl)).toEqual([]);
     expect({ offlineSentFrames, offlineWebsocketUrls }).toEqual({
       offlineSentFrames: [],
