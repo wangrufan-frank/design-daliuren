@@ -54,9 +54,9 @@ Manual inspection at native `2560 x 1440` on 2026-08-21:
 | Artifact | SHA-256 |
 | --- | --- |
 | `assets/daliuren/source/daliuren-artifact-master.blend` | `78cadcfcf27c97bbe62831124c3daa5a2397c9fdde4613bb685143ed3186ba0e` |
-| `public/models/daliuren/daliuren-artifact-lod0.glb` | `f11c44864d44054d34c285cbbb4b96e47c8bb279269730c4cf7097e252bf6366` |
-| `public/models/daliuren/daliuren-artifact-lod1.glb` | `52b9b23fab2b833720f2d6895d23f1241718b8f40b39c73cb2dc50b97051c994` |
-| `public/models/daliuren/daliuren-artifact-lod2.glb` | `2245aa3d6f9525b3654c33a11bcfa87b632780c50967aac60de5d0548ef45083` |
+| `public/models/daliuren/daliuren-artifact-lod0.glb` | `d000bd05b1279a42bc8dc4d4e710764c542d34bd9833d0445bef799903824482` |
+| `public/models/daliuren/daliuren-artifact-lod1.glb` | `c064776cae6ee4bda122d12e9f45b711365868cbc161551fd132b60d981894ce` |
+| `public/models/daliuren/daliuren-artifact-lod2.glb` | `74ebd8afa572fdec0f217e77c441c4dabf26d12b765e89104020bec4b8166a2a` |
 | `docs/asset-reviews/lookdev/overall.png` | `2c30496395e26a9f9b264e75e7f9ff086f00b6559ed5ec14af556a903dac754f` |
 | `docs/asset-reviews/lookdev/oblique.png` | `5336b978517950f6a0491be52ee0e202d0ac6873cfe67a5dd23b70ef727fd723` |
 | `docs/asset-reviews/lookdev/material-closeup.png` | `c586559cc761e827da8e6946df624533e63896f45368f89b2b03715314a18d82` |

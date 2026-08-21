@@ -6,7 +6,7 @@ Branch: `codex/daliuren-artifact-lookdev`
 
 ## Status
 
-Task 5 is implemented through deterministic LOD construction, frozen-texture binding, three final-path GLB exports, LOD-aware validation, and regression coverage. KTX2 compression and the resulting final validator/`inspect` passes are externally blocked because the pinned CLI cannot be downloaded from this machine. The committed GLBs are therefore the verified PNG-embedded inputs for the required UASTC -> ETC1S pass, not KTX2-compressed deliverables.
+Task 5 is complete: deterministic LOD construction, frozen-texture binding, three final-path GLB exports, KTX2 compression, LOD-aware validation, and regression coverage are implemented. The committed GLBs use UASTC for normal/occlusion/metallic-roughness textures and ETC1S for base-color/emissive textures, with `KHR_texture_basisu` required.
 
 The parent-agent ruling allowed the minimal modification of `scripts/validate-daliuren-glb.mjs` and `scripts/validate-daliuren-glb.test.mjs`. The Task 5 brief omitted those files while requiring the project validator itself to enforce LOD budgets, material families, dynamic surfaces/extras, `KHR_texture_basisu`, and texture dimensions. Cost: two additional existing files are modified; the validator retains the original graybox behavior.
 
@@ -103,42 +103,16 @@ SHA-256:
 - `git diff --check`
   - Exit 0; only Git's existing LF-to-CRLF checkout warnings.
 
-## KTX2 blocker and exact continuation
+## KTX2 completion
 
-Local source checks found no `gltf-transform` executable in `Get-Command`, `where.exe`, npm global root (`F:\Claude\npm-global\node_modules`), the workspace, Codex package directories, or npm cache. Installation attempts:
-
-1. Official registry in the default sandbox: exit 1, `ETIMEDOUT 11.18.0.98:443`.
-2. Official registry with approved external network: exit 1, same timeout.
-3. `https://registry.npmmirror.com`: exit 1, `ETIMEDOUT 11.18.0.99:443`.
-4. Final official-registry retry with approved external network: exit 1, same timeout.
-
-Required install command:
-
-```powershell
-npm install --save-dev @gltf-transform/cli@4.4.2 --registry=https://registry.npmjs.org
-```
-
-After connectivity is restored, run the brief's two-stage compression for each level. Use temporary outputs so the verified PNG GLB remains the input until both stages succeed:
-
-```powershell
-0..2 | ForEach-Object {
-  $input = "public/models/daliuren/daliuren-artifact-lod$_.glb"
-  $uastc = Join-Path $env:TEMP "daliuren-artifact-lod$_.uastc.glb"
-  $ktx2 = Join-Path $env:TEMP "daliuren-artifact-lod$_.ktx2.glb"
-  npx gltf-transform uastc $input $uastc --slots "{normalTexture,occlusionTexture,metallicRoughnessTexture}" --level 4 --rdo --rdo-lambda 4 --zstd 18
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  npx gltf-transform etc1s $uastc $ktx2 --slots "{baseColorTexture,emissiveTexture}" --quality 255
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  Move-Item -Force -LiteralPath $ktx2 -Destination $input
-}
-npx gltf-transform inspect public/models/daliuren/daliuren-artifact-lod0.glb
-npx gltf-transform inspect public/models/daliuren/daliuren-artifact-lod1.glb
-npx gltf-transform inspect public/models/daliuren/daliuren-artifact-lod2.glb
-npm run asset:validate
-```
+- Installed and pinned `@gltf-transform/cli@4.4.2`; `package.json` and `package-lock.json` are consistent.
+- Used Khronos KTX-Software 4.4.2 from the checksum-verified official Windows package.
+- Compressed each LOD through temporary UASTC and ETC1S outputs before replacing the final assets.
+- `gltf-transform inspect` reports `KHR_texture_basisu` in both `extensionsUsed` and `extensionsRequired`, with KTX2 MIME for all 30 images.
+- Final sizes are 26,200,872 bytes (LOD0), 24,437,884 bytes (LOD1), and 11,582,128 bytes (LOD2).
+- `npm run asset:validate` reports 0 errors for all three assets.
 
 ## Concerns
 
-1. The three checked-in GLBs are not KTX2-compressed and therefore do not yet contain `KHR_texture_basisu`; `gltf-transform inspect` and final three-asset validator success remain blocked.
-2. The unavailable `@gltf-transform/cli` declaration was withdrawn from `package.json` to keep it consistent with the unchanged lockfile. After registry access returns, the exact install command above must succeed and mechanically update both files before compression.
-3. Blender reports a sampler warning for the shared ORM image feeding metallic/roughness and occlusion. Exported material/image structure and all current tests pass; KTX2 `inspect` remains the final confirmation after the CLI is available.
+1. Blender reports a sampler warning for the shared ORM image feeding metallic/roughness and occlusion. Exported material/image structure, KTX2 inspection, and all current tests pass.
+2. The npm install reported two high-severity audit findings in the development dependency tree; no automatic dependency rewrite was applied.
