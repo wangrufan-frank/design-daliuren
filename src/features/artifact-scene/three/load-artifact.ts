@@ -45,10 +45,11 @@ export async function loadArtifact(
   renderer: THREE.WebGLRenderer,
   loader: ArtifactLoader = new GLTFLoader(),
 ): Promise<LoadedArtifact> {
-  const ktx2Loader = new KTX2Loader().setTranscoderPath("/three/basis/").detectSupport(renderer);
-  loader.setKTX2Loader?.(ktx2Loader);
+  const ktx2Loader = new KTX2Loader();
 
   try {
+    ktx2Loader.setTranscoderPath("/three/basis/").detectSupport(renderer);
+    loader.setKTX2Loader?.(ktx2Loader);
     const gltf = await loader.loadAsync(url);
     return {
       root: gltf.scene,

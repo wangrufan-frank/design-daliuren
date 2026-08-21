@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { REQUIRED_NODE_IDS } from "../model/asset-contract";
 import { disposeArtifact } from "./dispose-artifact";
 import { indexArtifactNodes, loadArtifact } from "./load-artifact";
@@ -9,11 +9,15 @@ const ktx2Loaders = vi.hoisted(() => [] as Array<{
   detectSupport: ReturnType<typeof vi.fn>;
   dispose: ReturnType<typeof vi.fn>;
 }>);
+const ktx2SetupFailure = vi.hoisted(() => ({ cause: undefined as Error | undefined }));
 
 vi.mock("three/examples/jsm/loaders/KTX2Loader.js", () => ({
   KTX2Loader: class {
     readonly setTranscoderPath = vi.fn().mockReturnThis();
-    readonly detectSupport = vi.fn().mockReturnThis();
+    readonly detectSupport = vi.fn(() => {
+      if (ktx2SetupFailure.cause) throw ktx2SetupFailure.cause;
+      return this;
+    });
     readonly dispose = vi.fn();
 
     constructor() {
@@ -21,6 +25,10 @@ vi.mock("three/examples/jsm/loaders/KTX2Loader.js", () => ({
     }
   },
 }));
+
+afterEach(() => {
+  ktx2SetupFailure.cause = undefined;
+});
 
 function node(id: string) {
   const object = new THREE.Group();
@@ -85,6 +93,32 @@ describe("artifact loader", () => {
     await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer, loader))
       .rejects.toMatchObject({ cause });
 
+    expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
+  });
+
+  it("disposes KTX2 support and preserves the cause when support detection fails", async () => {
+    ktx2Loaders.length = 0;
+    const cause = new Error("unsupported renderer");
+    ktx2SetupFailure.cause = cause;
+
+    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer))
+      .rejects.toMatchObject({ cause });
+
+    expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
+  });
+
+  it("disposes KTX2 support and preserves the cause when GLTF setup fails", async () => {
+    ktx2Loaders.length = 0;
+    const cause = new Error("GLTF setup failed");
+    const loader = {
+      loadAsync: vi.fn(),
+      setKTX2Loader: vi.fn(() => { throw cause; }),
+    };
+
+    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer, loader))
+      .rejects.toMatchObject({ cause });
+
+    expect(loader.loadAsync).not.toHaveBeenCalled();
     expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
   });
 
