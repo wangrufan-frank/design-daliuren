@@ -26,6 +26,8 @@ const mocks = {
   controllers: [] as ControllerDouble[],
   createRenderer: vi.fn(),
   loadArtifact: vi.fn(),
+  disposeArtifact: vi.fn(),
+  evaluateArtifactPose: vi.fn(),
   onControllerCreate: undefined as ((controller: ControllerDouble) => void) | undefined,
 };
 let ArtifactExperience: typeof import("./ArtifactExperience")["ArtifactExperience"];
@@ -34,6 +36,9 @@ beforeAll(async () => {
   vi.doMock("./three/load-artifact", () => ({
     createArtifactRenderer: (...args: unknown[]) => mocks.createRenderer(...args),
     loadArtifact: (...args: unknown[]) => mocks.loadArtifact(...args),
+  }));
+  vi.doMock("./three/dispose-artifact", () => ({
+    disposeArtifact: (...args: unknown[]) => mocks.disposeArtifact(...args),
   }));
   vi.doMock("./three/ArtifactSceneController", () => ({
     ArtifactSceneController: class {
@@ -52,12 +57,20 @@ beforeAll(async () => {
       }
     },
   }));
+  const timeline = await vi.importActual<typeof import("./timeline/evaluate-pose")>("./timeline/evaluate-pose");
+  mocks.evaluateArtifactPose.mockImplementation(timeline.evaluateArtifactPose);
+  vi.doMock("./timeline/evaluate-pose", () => ({
+    ...timeline,
+    evaluateArtifactPose: (...args: Parameters<typeof timeline.evaluateArtifactPose>) => mocks.evaluateArtifactPose(...args),
+  }));
   ({ ArtifactExperience } = await import("./ArtifactExperience"));
 });
 
 afterAll(() => {
   vi.doUnmock("./three/load-artifact");
+  vi.doUnmock("./three/dispose-artifact");
   vi.doUnmock("./three/ArtifactSceneController");
+  vi.doUnmock("./timeline/evaluate-pose");
 });
 
 const referenceSourceResults: ArtifactSourceResults = {
@@ -123,6 +136,8 @@ beforeEach(() => {
   mocks.onControllerCreate = undefined;
   mocks.createRenderer.mockReset();
   mocks.loadArtifact.mockReset();
+  mocks.disposeArtifact.mockReset();
+  mocks.evaluateArtifactPose.mockClear();
   mocks.createRenderer.mockImplementation((canvas: HTMLCanvasElement) => ({
     domElement: canvas,
     dispose: vi.fn(),
@@ -139,6 +154,18 @@ afterEach(() => {
 });
 
 describe("ArtifactExperience", () => {
+  it("keeps the text-course escape accessible while the artifact is loading", async () => {
+    mocks.loadArtifact.mockReturnValue(new Promise(() => undefined));
+    const onShowCourse = vi.fn();
+    const user = userEvent.setup();
+
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={onShowCourse} />);
+    expect(screen.getByRole("status")).toHaveTextContent("正在加载三维器物");
+    await user.click(screen.getByRole("button", { name: "查看文字课式" }));
+
+    expect(onShowCourse).toHaveBeenCalledOnce();
+  });
+
   it("shows loading, then exposes deterministic controls and the text-course escape", async () => {
     let resolveLoad!: (artifact: ReturnType<typeof resolvedArtifact>) => void;
     mocks.loadArtifact.mockReturnValue(new Promise((resolve) => { resolveLoad = resolve; }));
@@ -181,6 +208,24 @@ describe("ArtifactExperience", () => {
     expect(latestController().dispose).toHaveBeenCalledOnce();
   });
 
+  it("routes post-ownership setup failures through controller disposal exactly once", async () => {
+    const renderer = { domElement: document.createElement("canvas"), dispose: vi.fn() };
+    mocks.createRenderer.mockReturnValue(renderer);
+    mocks.onControllerCreate = (controller) => {
+      controller.resize.mockImplementation(() => { throw new Error("resize failed"); });
+    };
+
+    const { unmount } = render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+
+    expect(await screen.findByRole("alert")).toBeVisible();
+    expect(latestController().dispose).toHaveBeenCalledOnce();
+    expect(mocks.disposeArtifact).not.toHaveBeenCalled();
+    expect(renderer.dispose).not.toHaveBeenCalled();
+    unmount();
+    expect(latestController().dispose).toHaveBeenCalledOnce();
+    expect(mocks.disposeArtifact).not.toHaveBeenCalled();
+  });
+
   it("cancels its single frame loop and disposes the controller exactly once on unmount", async () => {
     const { unmount } = render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
@@ -209,13 +254,22 @@ describe("ArtifactExperience", () => {
     }));
   });
 
-  it("stops auto camera when scene reports user control", async () => {
+  it("stops camera requests without stopping mechanism playback when scene reports user control", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
     render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
 
     act(() => latestController().callbacks.onUserControlStart());
 
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-auto-camera", "false");
+    expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({ cameraOrbitRequested: false }));
+    frames.step(100);
+    frames.step(250);
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("150");
+    expect(screen.getByRole("button", { name: "暂停推演" })).toBeVisible();
+    expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({ cameraOrbitRequested: false }));
   });
 
   it("clamps playback at the exact duration and returns to the play label", async () => {
@@ -230,6 +284,20 @@ describe("ArtifactExperience", () => {
 
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("12500");
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
+  });
+
+  it("rounds fractional frame accumulation before exposing and evaluating timeline time", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+
+    frames.step(100.2);
+    frames.step(110.8);
+
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("11");
+    expect(mocks.evaluateArtifactPose).toHaveBeenLastCalledWith(expect.anything(), 11, false);
   });
 
   it("passes reduced motion to pose evaluation, disables auto camera, and keeps semantic labels", async () => {

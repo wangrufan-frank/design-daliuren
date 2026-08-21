@@ -73,6 +73,8 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
   const reducedMotionRef = useRef(reducedMotion);
   const playingRef = useRef(false);
   const timeRef = useRef(0);
+  const accumulatedTimeRef = useRef(0);
+  const autoCameraRef = useRef(!reducedMotion);
   const frameRef = useRef<number | undefined>(undefined);
   const lastFrameRef = useRef<number | undefined>(undefined);
   const userControlledRef = useRef(false);
@@ -85,7 +87,10 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
   const applyAt = useCallback((nextTime: number) => {
     const controller = controllerRef.current;
     if (!controller) return;
-    const pose = evaluateArtifactPose(displayStateRef.current, nextTime, reducedMotionRef.current);
+    const evaluatedPose = evaluateArtifactPose(displayStateRef.current, nextTime, reducedMotionRef.current);
+    const pose = evaluatedPose.cameraOrbitRequested === autoCameraRef.current
+      ? evaluatedPose
+      : { ...evaluatedPose, cameraOrbitRequested: autoCameraRef.current };
     controller.applyPose(pose);
     if (observableBuild()) setCurrentPoseHash(poseHash(pose));
   }, []);
@@ -95,17 +100,6 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     setPlaying(false);
   }, []);
 
-  const fail = useCallback(() => {
-    stopPlayback();
-    if (frameRef.current !== undefined) {
-      cancelAnimationFrame(frameRef.current);
-      frameRef.current = undefined;
-    }
-    controllerRef.current?.dispose();
-    controllerRef.current = undefined;
-    setStatus("error");
-  }, [stopPlayback]);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -113,11 +107,30 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     let rendererDisposed = false;
     let rendererOwnedByController = false;
     let loadedArtifact: LoadedArtifact | undefined;
+    let ownedController: ArtifactSceneController | undefined;
     const renderer = createArtifactRenderer(canvas);
     const disposeRenderer = () => {
       if (rendererDisposed || rendererOwnedByController) return;
       rendererDisposed = true;
       renderer.dispose();
+    };
+    const disposeOwnedController = () => {
+      if (!ownedController) return false;
+      const controller = ownedController;
+      ownedController = undefined;
+      if (controllerRef.current === controller) controllerRef.current = undefined;
+      controller.dispose();
+      loadedArtifact = undefined;
+      rendererOwnedByController = false;
+      rendererDisposed = true;
+      return true;
+    };
+    const failExperience = () => {
+      stopPlayback();
+      if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
+      frameRef.current = undefined;
+      disposeOwnedController();
+      if (!inactive) setStatus("error");
     };
 
     const frame = (timestamp: number) => {
@@ -128,10 +141,17 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       const previous = lastFrameRef.current ?? timestamp;
       lastFrameRef.current = timestamp;
       if (playingRef.current) {
-        const nextTime = Math.min(ARTIFACT_DURATION_MS, timeRef.current + Math.max(0, timestamp - previous));
+        accumulatedTimeRef.current = Math.min(
+          ARTIFACT_DURATION_MS,
+          accumulatedTimeRef.current + Math.max(0, timestamp - previous),
+        );
+        const nextTime = Math.min(ARTIFACT_DURATION_MS, Math.round(accumulatedTimeRef.current));
         timeRef.current = nextTime;
         setTimeMs(nextTime);
-        if (nextTime === ARTIFACT_DURATION_MS) stopPlayback();
+        if (nextTime === ARTIFACT_DURATION_MS) {
+          accumulatedTimeRef.current = ARTIFACT_DURATION_MS;
+          stopPlayback();
+        }
       }
       applyAt(timeRef.current);
       controller.render();
@@ -151,11 +171,14 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       const controller = new ArtifactSceneController(renderer, artifact, {
         onUserControlStart: () => {
           userControlledRef.current = true;
+          autoCameraRef.current = false;
           setAutoCamera(false);
+          applyAt(timeRef.current);
         },
-        onContextLost: fail,
-        onError: fail,
+        onContextLost: failExperience,
+        onError: failExperience,
       });
+      ownedController = controller;
       controllerRef.current = controller;
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
@@ -166,8 +189,11 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       setStatus("ready");
       frameRef.current = requestAnimationFrame(frame);
     }).catch(() => {
-      if (loadedArtifact) disposeArtifact(loadedArtifact.root);
-      disposeRenderer();
+      if (!disposeOwnedController()) {
+        if (loadedArtifact) disposeArtifact(loadedArtifact.root);
+        loadedArtifact = undefined;
+        disposeRenderer();
+      }
       if (!inactive) setStatus("error");
     });
 
@@ -175,15 +201,15 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       inactive = true;
       if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
       frameRef.current = undefined;
-      controllerRef.current?.dispose();
-      controllerRef.current = undefined;
+      disposeOwnedController();
       disposeRenderer();
     };
-  }, [applyAt, fail, stopPlayback]);
+  }, [applyAt, stopPlayback]);
 
   useEffect(() => {
     displayStateRef.current = displayState;
     timeRef.current = 0;
+    accumulatedTimeRef.current = 0;
     lastFrameRef.current = undefined;
     setTimeMs(0);
     stopPlayback();
@@ -195,13 +221,15 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
 
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
-    setAutoCamera(!reducedMotion && !userControlledRef.current);
+    autoCameraRef.current = !reducedMotion && !userControlledRef.current;
+    setAutoCamera(autoCameraRef.current);
     applyAt(timeRef.current);
   }, [applyAt, reducedMotion]);
 
   const seek = (nextTime: number) => {
     const clamped = Math.round(Math.min(ARTIFACT_DURATION_MS, Math.max(0, nextTime)));
     timeRef.current = clamped;
+    accumulatedTimeRef.current = clamped;
     lastFrameRef.current = undefined;
     setTimeMs(clamped);
     stopPlayback();
@@ -239,6 +267,11 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
         <canvas ref={canvasRef} aria-label="大六壬三维器物" />
         {status === "loading" && <p className="artifact-experience__loading" role="status">正在加载三维器物</p>}
       </div>
+      {status === "loading" && (
+        <div className="artifact-experience__loading-actions">
+          <button type="button" onClick={onShowCourse}>查看文字课式</button>
+        </div>
+      )}
       {status === "ready" && (
         <>
           <AccessibleFacts state={displayState} />
