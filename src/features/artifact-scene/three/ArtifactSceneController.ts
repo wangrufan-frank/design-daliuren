@@ -204,9 +204,9 @@ export class ArtifactSceneController {
       if (!object) continue;
       const targetSlot = delta.targetEarth ? this.generalSlots.get(delta.targetEarth) : undefined;
       if (targetSlot) {
-        object.position.copy(targetSlot.position);
+        object.position.x = targetSlot.position.x;
+        object.position.y = targetSlot.position.y;
         object.quaternion.copy(targetSlot.quaternion);
-        object.scale.copy(targetSlot.scale);
       }
       object.position.add(new THREE.Vector3(delta.translationX, delta.translationY, delta.translationZ));
       object.rotateZ(delta.rotationZ);

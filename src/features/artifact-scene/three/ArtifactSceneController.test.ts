@@ -218,9 +218,9 @@ describe("ArtifactSceneController", () => {
     generalNodes[0].position.set(999, 999, 999);
     controller.applyPose(generalPose("卯"));
 
-    expect(firstPosition).toEqual([30, 60, 90.007]);
+    expect(firstPosition).toEqual([30, 60, 0.007]);
     expect(firstQuaternion).toEqual(targetQuaternion);
-    expect(firstScale).toEqual([4, 4, 4]);
+    expect(firstScale).toEqual([1, 1, 1]);
     expect(generalNodes[0].position.toArray()).toEqual(firstPosition);
     expect(generalNodes[0].quaternion.toArray()).toEqual(firstQuaternion);
     expect(generalNodes[0].scale.toArray()).toEqual(firstScale);
