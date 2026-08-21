@@ -1,0 +1,211 @@
+.artifact-experience {
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--patina);
+  background: var(--ink);
+  color: var(--ash);
+}
+
+.artifact-experience__viewport {
+  display: grid;
+  position: relative;
+  min-height: clamp(360px, 52vw, 680px);
+  overflow: hidden;
+  background: var(--dark-bronze);
+}
+
+.artifact-experience__viewport canvas {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+}
+
+.artifact-experience__loading {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  margin: 0;
+  color: var(--ru-celadon);
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  transform: translate(-50%, -50%);
+}
+
+.artifact-timeline {
+  display: grid;
+  grid-template-columns: auto minmax(280px, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  padding: 16px;
+  border-top: 1px solid var(--patina);
+  background: var(--ink);
+}
+
+.artifact-timeline__transport,
+.artifact-timeline__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.artifact-timeline button,
+.artifact-experience--fallback button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--patina);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ash);
+  cursor: pointer;
+}
+
+.artifact-timeline button:hover,
+.artifact-experience--fallback button:hover {
+  border-color: var(--ru-celadon);
+  color: var(--ru-celadon);
+}
+
+.artifact-timeline button:focus-visible,
+.artifact-timeline input:focus-visible,
+.artifact-experience--fallback button:focus-visible {
+  outline: 2px solid var(--ash);
+  outline-offset: 3px;
+}
+
+.artifact-timeline__scale {
+  min-width: 0;
+}
+
+.artifact-timeline__readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+  color: var(--ru-celadon);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+}
+
+.artifact-timeline__readout output {
+  color: var(--old-gold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.artifact-timeline input[type="range"] {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+.artifact-timeline input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  border: 0;
+  background: var(--patina);
+}
+
+.artifact-timeline input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 8px;
+  height: 18px;
+  margin-top: -8px;
+  border: 1px solid var(--old-gold);
+  border-radius: 0;
+  background: var(--ink);
+}
+
+.artifact-timeline input[type="range"]::-moz-range-track {
+  height: 2px;
+  border: 0;
+  background: var(--patina);
+}
+
+.artifact-timeline input[type="range"]::-moz-range-thumb {
+  width: 8px;
+  height: 18px;
+  border: 1px solid var(--old-gold);
+  border-radius: 0;
+  background: var(--ink);
+}
+
+.artifact-timeline__stages {
+  position: relative;
+  height: 26px;
+  margin-inline: 4px;
+  border-top: 1px solid var(--dark-bronze);
+}
+
+.artifact-timeline__stages span {
+  position: absolute;
+  left: var(--stage-position);
+  top: 0;
+  color: var(--ru-celadon);
+  font-size: 0.62rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.artifact-timeline__stages span:first-child { transform: none; }
+.artifact-timeline__stages span:last-child { transform: translateX(-100%); }
+.artifact-timeline__stages i { display: block; width: 1px; height: 8px; margin: 0 auto 4px; background: var(--patina); }
+.artifact-timeline__stages b { font-weight: 400; }
+
+.artifact-experience--fallback {
+  place-items: center;
+  gap: 14px;
+  min-height: 320px;
+  padding: 32px;
+  text-align: center;
+}
+
+.artifact-experience--fallback [role="alert"] {
+  margin: 0;
+  color: var(--error);
+}
+
+.artifact-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 920px) {
+  .artifact-timeline {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .artifact-timeline__scale { order: -1; }
+  .artifact-timeline__transport,
+  .artifact-timeline__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .artifact-timeline__transport button:first-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 520px) {
+  .artifact-experience__viewport { min-height: 340px; }
+  .artifact-timeline { padding: 14px 10px; }
+  .artifact-timeline__stages b { font-size: 0.56rem; letter-spacing: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artifact-experience *,
+  .artifact-experience *::before,
+  .artifact-experience *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
