@@ -72,3 +72,18 @@ it("keeps the text course and copy action usable when artifact loading fails", a
   expect(screen.getByLabelText("标准文字课式")).toBeVisible();
   expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
 });
+
+it("keeps the text course and copy action usable when WebGL renderer creation fails", async () => {
+  artifactLoader.createRenderer.mockImplementationOnce(() => {
+    throw new Error("WebGL unavailable");
+  });
+  const user = userEvent.setup();
+  render(<CourseExperience source={source} />);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("三维器物无法加载");
+  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "查看文字课式" }));
+
+  expect(screen.getByLabelText("标准文字课式")).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+});

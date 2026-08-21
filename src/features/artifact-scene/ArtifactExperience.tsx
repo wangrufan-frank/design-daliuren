@@ -108,7 +108,13 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     let rendererOwnedByController = false;
     let loadedArtifact: LoadedArtifact | undefined;
     let ownedController: ArtifactSceneController | undefined;
-    const renderer = createArtifactRenderer(canvas);
+    let renderer: ReturnType<typeof createArtifactRenderer>;
+    try {
+      renderer = createArtifactRenderer(canvas);
+    } catch {
+      setStatus("error");
+      return;
+    }
     const disposeRenderer = () => {
       if (rendererDisposed || rendererOwnedByController) return;
       rendererDisposed = true;
