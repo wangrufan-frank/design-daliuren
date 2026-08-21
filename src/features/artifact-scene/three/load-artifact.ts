@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { REQUIRED_NODE_IDS } from "../model/asset-contract";
+import { disposeArtifact } from "./dispose-artifact";
 
 export interface LoadedArtifact {
   root: THREE.Object3D;
@@ -51,9 +52,16 @@ export async function loadArtifact(
     ktx2Loader.setTranscoderPath("/three/basis/").detectSupport(renderer);
     loader.setKTX2Loader?.(ktx2Loader);
     const gltf = await loader.loadAsync(url);
+    let nodes: ReadonlyMap<string, THREE.Object3D>;
+    try {
+      nodes = indexArtifactNodes(gltf.scene, REQUIRED_NODE_IDS);
+    } catch (cause) {
+      disposeArtifact(gltf.scene);
+      throw cause;
+    }
     return {
       root: gltf.scene,
-      nodes: indexArtifactNodes(gltf.scene, REQUIRED_NODE_IDS),
+      nodes,
       animations: gltf.animations,
       url,
     };

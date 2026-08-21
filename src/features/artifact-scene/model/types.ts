@@ -20,11 +20,12 @@ export interface ArtifactDisplayState {
     pillars: readonly [string, string, string, string];
     monthBuild: EarthlyBranch;
     monthGeneral: string;
+    monthGeneralBranch: EarthlyBranch;
     divinationHour: EarthlyBranch;
     manualFields: readonly string[];
   };
   plate: { offset: number; palaces: readonly { earth: EarthlyBranch; heaven: EarthlyBranch }[] };
-  lessons: CourseResult["lessons"];
+  lessons: readonly (CourseResult["lessons"][number] & { lookupEarth: EarthlyBranch })[];
   transmissions: CourseResult["transmissions"];
   methodLabel: string;
   generals: HeavenlyGeneralsResult["placements"];

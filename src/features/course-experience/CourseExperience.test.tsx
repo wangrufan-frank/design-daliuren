@@ -58,7 +58,10 @@ it("opens the three-dimensional experience for a complete guarded bundle and swi
 
   expect(screen.getByRole("button", { name: "三维推演" })).toHaveAttribute("aria-pressed", "false");
   expect(screen.getByRole("button", { name: "文字课式" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByLabelText("标准文字课式")).toBeVisible();
+  const textCourse = screen.getByLabelText("标准文字课式");
+  expect(textCourse).toBeVisible();
+  expect(textCourse).toHaveTextContent("胜光午");
+  expect(textCourse).toHaveTextContent("夜贵寅");
 });
 
 it("keeps the text course and copy action usable when artifact loading fails", async () => {
@@ -86,4 +89,22 @@ it("keeps the text course and copy action usable when WebGL renderer creation fa
 
   expect(screen.getByLabelText("标准文字课式")).toBeVisible();
   expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+});
+
+it("opens the ordinary text course when structurally valid artifact facts are inconsistent", () => {
+  const inconsistent: ArtifactSourceResults = {
+    ...source,
+    course: {
+      ...source.course,
+      transmissions: source.course.transmissions.map((item, index) => index === 0
+        ? { ...item, branch: item.branch === "子" ? "丑" : "子" }
+        : item),
+    },
+  };
+
+  render(<CourseExperience source={inconsistent} />);
+
+  expect(screen.getByLabelText("标准文字课式")).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
 });

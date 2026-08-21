@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessWebglRenderer } from "./benchmark-artifact-policy.mjs";
+import * as policy from "./benchmark-artifact-policy.mjs";
+
+const { assessWebglRenderer } = policy;
+
+test("uses the contracted viewport LOD for the desktop hardware profile", () => {
+  assert.deepEqual(policy.ARTIFACT_BENCHMARK_PROFILES?.[0], {
+    name: "desktop",
+    viewport: { width: 1920, height: 1080 },
+    dpr: 1,
+    lod: 0,
+    thresholdFps: 60,
+  });
+});
 
 test("accepts a recognized hardware WebGL renderer", () => {
   assert.deepEqual(

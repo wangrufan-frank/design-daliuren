@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { chromium } from "playwright";
 import { build, preview } from "vite";
-import { assessWebglRenderer } from "./benchmark-artifact-policy.mjs";
+import { ARTIFACT_BENCHMARK_PROFILES, assessWebglRenderer } from "./benchmark-artifact-policy.mjs";
 
 const FRAME_SAMPLE_COUNT = 300;
 const FRAME_SAMPLE_TIMEOUT_MS = 30_000;
@@ -12,10 +12,7 @@ const BROWSER_CHANNEL = "chrome";
 const HOST = "127.0.0.1";
 const PORT = 4174;
 const OUTPUT_PATH = path.resolve("docs/asset-reviews/runtime/benchmark.json");
-const PROFILES = [
-  { name: "desktop", viewport: { width: 1920, height: 1080 }, dpr: 1, lod: 1, thresholdFps: 60 },
-  { name: "mobile", viewport: { width: 390, height: 844 }, dpr: 3, lod: 2, thresholdFps: 30 },
-];
+const PROFILES = ARTIFACT_BENCHMARK_PROFILES;
 
 function percentile(sorted, fraction) {
   return sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)];

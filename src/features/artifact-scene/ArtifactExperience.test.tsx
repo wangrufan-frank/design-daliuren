@@ -9,6 +9,7 @@ import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/type
 import type { HeavenEarthResult } from "../../domain/heaven-earth/types";
 import type { ThreeTransmissionsResult } from "../../domain/three-transmissions/types";
 import type { ArtifactSourceResults } from "./model/types";
+import type { ArtifactPose } from "./timeline/types";
 import { referenceSession } from "../../test/reference-session";
 import { useReducedMotion } from "./use-reduced-motion";
 
@@ -22,6 +23,24 @@ interface ControllerDouble {
   dispose: any;
 }
 
+function appliedStateFromPose(pose: ArtifactPose) {
+  return {
+    nodes: Object.fromEntries(Object.entries(pose.nodes).map(([id, value]) => [id, {
+      position: [value.translationX, value.translationY, value.translationZ],
+      quaternion: [0, 0, 0, 1],
+      scale: [1, 1, 1],
+    }])),
+    copy: {
+      lessons: { ...pose.copy.lessons },
+      transmissions: { ...pose.copy.transmissions },
+      generals: { ...pose.copy.generals },
+    },
+    generalDirection: pose.generalDirection,
+    generalSequence: [...pose.generalSequence],
+    cameraOrbitRequested: pose.cameraOrbitRequested,
+  };
+}
+
 const mocks = {
   controllers: [] as ControllerDouble[],
   createRenderer: vi.fn(),
@@ -30,6 +49,20 @@ const mocks = {
   evaluateArtifactPose: vi.fn(),
   onControllerCreate: undefined as ((controller: ControllerDouble) => void) | undefined,
 };
+const resizeObservers: TestResizeObserver[] = [];
+
+class TestResizeObserver {
+  readonly observe = vi.fn();
+  readonly disconnect = vi.fn();
+
+  constructor(private readonly callback: ResizeObserverCallback) {
+    resizeObservers.push(this);
+  }
+
+  trigger() {
+    this.callback([], this as unknown as ResizeObserver);
+  }
+}
 let ArtifactExperience: typeof import("./ArtifactExperience")["ArtifactExperience"];
 
 beforeAll(async () => {
@@ -45,7 +78,7 @@ beforeAll(async () => {
       callbacks: { onUserControlStart(): void; onContextLost(): void; onError(error: unknown): void };
       resize = vi.fn();
       setDisplayState = vi.fn();
-      applyPose = vi.fn();
+      applyPose = vi.fn((pose: ArtifactPose) => appliedStateFromPose(pose));
       resetCamera = vi.fn();
       render = vi.fn();
       dispose = vi.fn();
@@ -138,6 +171,7 @@ beforeEach(() => {
   mocks.loadArtifact.mockReset();
   mocks.disposeArtifact.mockReset();
   mocks.evaluateArtifactPose.mockClear();
+  resizeObservers.length = 0;
   mocks.createRenderer.mockImplementation((canvas: HTMLCanvasElement) => ({
     domElement: canvas,
     dispose: vi.fn(),
@@ -145,6 +179,7 @@ beforeEach(() => {
   mocks.loadArtifact.mockResolvedValue(resolvedArtifact());
   installMatchMedia();
   installAnimationFrames();
+  vi.stubGlobal("ResizeObserver", TestResizeObserver);
 });
 
 afterEach(() => {
@@ -313,6 +348,62 @@ describe("ArtifactExperience", () => {
     expect(screen.getByTestId("artifact-accessible-facts")).toHaveTextContent("贵人");
   });
 
+  it("preserves exact month-general, lesson lookup, and noble timing facts for assistive text", async () => {
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+
+    const facts = await screen.findByTestId("artifact-accessible-facts");
+    expect(facts).toHaveTextContent("月将 胜光午");
+    expect(facts).toHaveTextContent("四课");
+    expect(facts).toHaveTextContent("查地盘 卯");
+    expect(facts).toHaveTextContent("夜贵寅");
+  });
+
+  it("selects the initial LOD from viewport width instead of canvas width", async () => {
+    vi.stubGlobal("innerWidth", 1920);
+    vi.stubGlobal("devicePixelRatio", 1);
+    vi.spyOn(HTMLCanvasElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 800, height: 560, x: 0, y: 0, top: 0, right: 800, bottom: 560, left: 0,
+      toJSON: () => ({}),
+    });
+
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    expect(mocks.loadArtifact).toHaveBeenCalledWith(
+      "/models/daliuren/daliuren-artifact-lod0.glb",
+      expect.anything(),
+    );
+  });
+
+  it("resizes from current bounds and DPR when ResizeObserver reports a change", async () => {
+    let width = 800;
+    let height = 560;
+    vi.spyOn(HTMLCanvasElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
+      width, height, x: 0, y: 0, top: 0, right: width, bottom: height, left: 0,
+      toJSON: () => ({}),
+    }));
+    vi.stubGlobal("devicePixelRatio", 1);
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    width = 940;
+    height = 620;
+    vi.stubGlobal("devicePixelRatio", 2);
+
+    act(() => resizeObservers[0].trigger());
+
+    expect(latestController().resize).toHaveBeenLastCalledWith(940, 620, 2);
+  });
+
+  it("disconnects its ResizeObserver during teardown", async () => {
+    const { unmount } = render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    const observer = resizeObservers[0];
+
+    unmount();
+
+    expect(observer.disconnect).toHaveBeenCalledOnce();
+  });
+
   it("publishes deterministic pose hashes and frame samples only outside production", async () => {
     const frames = installAnimationFrames();
     const observer = vi.fn();
@@ -329,6 +420,23 @@ describe("ArtifactExperience", () => {
     frames.step(16);
     expect(observer).toHaveBeenCalledWith(16);
     delete window.__artifactFrameObserver;
+  });
+
+  it("publishes source-line diagnostics from controller-applied state", async () => {
+    mocks.onControllerCreate = (controller) => {
+      controller.applyPose.mockImplementation((pose: ArtifactPose) => ({
+        ...appliedStateFromPose(pose),
+        copy: {
+          ...pose.copy,
+          lessons: { opacity: 0.4, sourceLineProgress: 0.5, sourceLineOpacity: 0.25 },
+        },
+      }));
+    };
+
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "active");
   });
 
   it("omits pose hashes and frame sampling in production", async () => {

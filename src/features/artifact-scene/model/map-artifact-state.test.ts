@@ -25,16 +25,32 @@ it("copies every visible fact without recomputing", () => {
     pillars: ["丙午", "丙申", "辛酉", "戊子"],
     monthBuild: "申",
     monthGeneral: "胜光",
+    monthGeneralBranch: "午",
     divinationHour: "子",
     manualFields: [],
   });
   expect(state.plate.offset).toBe(6);
   expect(state.plate.palaces).toEqual(referenceSourceResults.plate.palaces);
-  expect(state.lessons).toEqual(referenceSourceResults.course.lessons);
+  expect(state.lessons.map(({ lookupEarth: _lookupEarth, ...lesson }) => lesson)).toEqual(
+    referenceSourceResults.course.lessons,
+  );
   expect(state.transmissions).toEqual(referenceSourceResults.course.transmissions);
   expect(state.methodLabel).toBe("反吟 · 重审");
   expect(state.generals).toEqual(referenceSourceResults.generals.placements);
   expect(state.noble).toEqual(referenceSourceResults.course.noble);
+});
+
+it("preserves the exact month-general branch, lesson lookup palaces, and noble day or night", () => {
+  const state = mapArtifactState(referenceSourceResults);
+
+  expect(state.calendar.monthGeneralBranch).toBe("午");
+  expect(state.lessons.map((lesson) => [lesson.label, lesson.lookupEarth])).toEqual([
+    ["四课", "卯"],
+    ["三课", "酉"],
+    ["二课", "辰"],
+    ["一课", "戌"],
+  ]);
+  expect(state.noble.dayNight).toBe("night");
 });
 
 it("rejects inconsistent course facts instead of choosing one source", () => {

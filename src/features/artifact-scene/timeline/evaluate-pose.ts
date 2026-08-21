@@ -49,7 +49,12 @@ export function evaluateArtifactPose(
   const plate = stageProgress(time, STAGES.plate, reducedMotion);
   const lessons = stageProgress(time, STAGES.lessons, reducedMotion);
   const transmissions = stageProgress(time, STAGES.transmissions, reducedMotion);
-  const generals = stageProgress(time, STAGES.generals, reducedMotion);
+  const generalSequence = [...state.generals]
+    .sort((first, second) => first.order - second.order)
+    .map((placement) => GENERAL_NODE_IDS[placement.general]);
+  if (state.noble.direction === "reverse") generalSequence.reverse();
+  const generalSequenceIndexes = new Map(generalSequence.map((id, index) => [id, index]));
+  const generalStepMs = (STAGES.generals[1] - STAGES.generals[0]) / generalSequence.length;
   const nodes: Record<string, ArtifactNodePose> = {
     "calendar/slip": node({ translationZ: 0.012 * calendar }),
     "plate/heaven": node({ rotationZ: state.plate.offset * Math.PI / 6 * plate }),
@@ -59,13 +64,18 @@ export function evaluateArtifactPose(
     nodes[`lesson/${lesson}`] = node({ translationX: LESSON_TRAVEL_X[lesson] * lessons });
   });
   state.generals.forEach((placement) => {
-    nodes[GENERAL_NODE_IDS[placement.general]] = node({ translationZ: 0.007 * generals, targetEarth: placement.earth });
+    const id = GENERAL_NODE_IDS[placement.general];
+    const sequenceIndex = generalSequenceIndexes.get(id) ?? 0;
+    const stage = [
+      STAGES.generals[0] + sequenceIndex * generalStepMs,
+      STAGES.generals[0] + (sequenceIndex + 1) * generalStepMs,
+    ] as const;
+    nodes[id] = node({
+      translationZ: 0.007 * stageProgress(time, stage, reducedMotion),
+      targetEarth: placement.earth,
+    });
   });
   const copy = copyPose(time, reducedMotion);
-  const generalSequence = [...state.generals]
-    .sort((first, second) => first.order - second.order)
-    .map((placement) => GENERAL_NODE_IDS[placement.general]);
-  if (state.noble.direction === "reverse") generalSequence.reverse();
   return {
     nodes,
     copy: { lessons: { ...copy }, transmissions: { ...copy }, generals: { ...copy } },

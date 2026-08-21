@@ -16,18 +16,30 @@ async function expectTextFallback(page: Page) {
   await expect(page.getByRole("button", { name: "复制课式" })).toBeEnabled();
 }
 
+async function expectArtifactReady(page: Page) {
+  const timeline = page.getByRole("slider", { name: "推演时间轴" });
+  await expect(timeline).toBeVisible({ timeout: 15_000 });
+  return timeline;
+}
+
 test("model labels and text course use the same verified facts", async ({ page }) => {
   await completeReferenceCourse(page);
   await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
+  await expectArtifactReady(page);
   const facts = page.getByTestId("artifact-accessible-facts");
   await expect(facts).toContainText("初传");
   await expect(facts).toContainText("贵人");
+  await expect(facts).toContainText("月将 神后子");
+  await expect(facts).toContainText("四课 天后 寅/酉；查地盘 酉");
+  await expect(facts).toContainText("贵人 昼贵丑；落申宫；逆布");
   const labels = await facts.textContent();
 
   await page.getByRole("button", { name: "文字课式", exact: true }).click();
   const textCourse = page.getByLabel("标准文字课式");
   await expect(textCourse).toContainText("初传");
   await expect(textCourse).toContainText("贵人");
+  await expect(textCourse).toContainText("神后子");
+  await expect(textCourse).toContainText("昼贵丑");
   expect(labels).toContain("初传");
   expect(labels).toContain("贵人");
 });
@@ -35,8 +47,7 @@ test("model labels and text course use the same verified facts", async ({ page }
 test("absolute seeking is repeatable and a real pointer drag disables auto camera", async ({ page }) => {
   await completeReferenceCourse(page);
   const experience = page.getByTestId("artifact-experience");
-  const timeline = page.getByRole("slider", { name: "推演时间轴" });
-  await expect(timeline).toBeVisible();
+  const timeline = await expectArtifactReady(page);
 
   await timeline.fill("8450");
   await expect(experience).toHaveAttribute("data-pose-hash", /\S+/);
@@ -61,6 +72,7 @@ test("reduced motion retains final facts and disables source lines", async ({ pa
   await page.emulateMedia({ reducedMotion: "reduce" });
   await completeReferenceCourse(page);
   const experience = page.getByTestId("artifact-experience");
+  await expectArtifactReady(page);
   const facts = page.getByTestId("artifact-accessible-facts");
   await expect(facts).toContainText("初传");
   await expect(facts).toContainText("中传");
@@ -80,7 +92,7 @@ test("a GLB 404 falls back to the existing text course", async ({ page }) => {
 test("WebGL context loss falls back to the existing text course", async ({ page }) => {
   await completeReferenceCourse(page);
   const canvas = page.getByLabel("大六壬三维器物");
-  await expect(page.getByRole("slider", { name: "推演时间轴" })).toBeVisible();
+  await expectArtifactReady(page);
   const canceled = await canvas.evaluate((element) => {
     const event = new Event("webglcontextlost", { bubbles: true, cancelable: true });
     element.dispatchEvent(event);

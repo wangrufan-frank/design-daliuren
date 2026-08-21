@@ -96,6 +96,25 @@ describe("artifact loader", () => {
     expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
   });
 
+  it("disposes a successfully loaded scene when runtime-node indexing fails", async () => {
+    ktx2Loaders.length = 0;
+    const root = artifactRoot();
+    root.remove(root.children.find((child) => child.userData.node_id === "plate/heaven")!);
+    const geometry = new THREE.BoxGeometry();
+    const material = new THREE.MeshStandardMaterial();
+    const geometryDispose = vi.spyOn(geometry, "dispose");
+    const materialDispose = vi.spyOn(material, "dispose");
+    root.add(new THREE.Mesh(geometry, material));
+    const loader = { loadAsync: vi.fn().mockResolvedValue({ scene: root, animations: [] }) };
+
+    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer, loader))
+      .rejects.toThrow(/missing plate\/heaven/);
+
+    expect(geometryDispose).toHaveBeenCalledOnce();
+    expect(materialDispose).toHaveBeenCalledOnce();
+    expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
+  });
+
   it("disposes KTX2 support and preserves the cause when support detection fails", async () => {
     ktx2Loaders.length = 0;
     const cause = new Error("unsupported renderer");

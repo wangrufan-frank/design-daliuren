@@ -4,7 +4,7 @@ import { mapArtifactState } from "./model/map-artifact-state";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
 import type { ArtifactPose } from "./timeline/types";
-import { ArtifactSceneController } from "./three/ArtifactSceneController";
+import { ArtifactSceneController, type ArtifactAppliedState } from "./three/ArtifactSceneController";
 import { disposeArtifact } from "./three/dispose-artifact";
 import { createArtifactRenderer, loadArtifact } from "./three/load-artifact";
 import type { LoadedArtifact } from "./three/load-artifact";
@@ -35,15 +35,17 @@ interface ArtifactExperienceProps {
 type ExperienceStatus = "loading" | "ready" | "error";
 
 const observableBuild = () => !import.meta.env.PROD || import.meta.env.VITE_ARTIFACT_BENCHMARK === "1";
+const dayNightText = { day: "昼", night: "夜" } as const;
+const directionText = { forward: "顺", reverse: "逆" } as const;
 
-function poseHash(pose: ArtifactPose): string {
+function poseHash(state: ArtifactAppliedState): string {
   const values: number[] = [];
-  Object.keys(pose.nodes).sort().forEach((id) => {
-    const node = pose.nodes[id];
-    values.push(node.translationX, node.translationY, node.translationZ, node.rotationZ);
+  Object.keys(state.nodes).sort().forEach((id) => {
+    const node = state.nodes[id];
+    values.push(...node.position, ...node.quaternion, ...node.scale);
   });
   (["lessons", "transmissions", "generals"] as const).forEach((key) => {
-    const copy = pose.copy[key];
+    const copy = state.copy[key];
     values.push(copy.opacity, copy.sourceLineProgress, copy.sourceLineOpacity);
   });
   let hash = 2_166_136_261;
@@ -57,10 +59,11 @@ function poseHash(pose: ArtifactPose): string {
 function AccessibleFacts({ state }: { state: ArtifactDisplayState }) {
   return (
     <ul className="artifact-visually-hidden" data-testid="artifact-accessible-facts">
-      <li>{`四柱 ${state.calendar.pillars.join("、")}；月建 ${state.calendar.monthBuild}；月将 ${state.calendar.monthGeneral}；占时 ${state.calendar.divinationHour}`}</li>
-      {state.lessons.map((lesson) => <li key={lesson.id}>{`${lesson.label} ${lesson.general} ${lesson.upper}/${lesson.lower.value}`}</li>)}
+      <li>{`四柱 ${state.calendar.pillars.join("、")}；月建 ${state.calendar.monthBuild}；月将 ${state.calendar.monthGeneral}${state.calendar.monthGeneralBranch}；占时 ${state.calendar.divinationHour}`}</li>
+      {state.lessons.map((lesson) => <li key={lesson.id}>{`${lesson.label} ${lesson.general} ${lesson.upper}/${lesson.lower.value}；查地盘 ${lesson.lookupEarth}`}</li>)}
       {state.transmissions.map((item) => <li key={item.position}>{`${item.label} ${item.general} ${item.branch} ${item.relation}`}</li>)}
       {state.generals.map((item) => <li key={item.general}>{`${item.general} ${item.heaven}/${item.earth}`}</li>)}
+      <li>{`贵人 ${dayNightText[state.noble.dayNight]}贵${state.noble.nobleHeaven}；落${state.noble.nobleEarth}宫；${directionText[state.noble.direction]}布`}</li>
     </ul>
   );
 }
@@ -93,10 +96,10 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     const pose = evaluatedPose.cameraOrbitRequested === autoCameraRef.current
       ? evaluatedPose
       : { ...evaluatedPose, cameraOrbitRequested: autoCameraRef.current };
-    controller.applyPose(pose);
+    const appliedState = controller.applyPose(pose);
     if (observableBuild()) {
-      setCurrentPoseHash(poseHash(pose));
-      setSourceLinesActive(Object.values(pose.copy).some(
+      setCurrentPoseHash(poseHash(appliedState));
+      setSourceLinesActive(Object.values(appliedState.copy).some(
         (copy) => copy.sourceLineProgress > 0 || copy.sourceLineOpacity > 0,
       ));
     }
@@ -113,6 +116,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     let inactive = false;
     let rendererDisposed = false;
     let rendererOwnedByController = false;
+    let resizeObserverDisconnected = false;
     let loadedArtifact: LoadedArtifact | undefined;
     let ownedController: ArtifactSceneController | undefined;
     let renderer: ReturnType<typeof createArtifactRenderer>;
@@ -127,6 +131,25 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       rendererDisposed = true;
       renderer.dispose();
     };
+    const resizeController = () => {
+      const controller = ownedController;
+      if (!controller) return;
+      const bounds = canvas.getBoundingClientRect();
+      controller.resize(
+        bounds.width || window.innerWidth,
+        bounds.height || 560,
+        window.devicePixelRatio || 1,
+      );
+    };
+    const resizeObserver = typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(resizeController);
+    resizeObserver?.observe(canvas);
+    const disconnectResizeObserver = () => {
+      if (resizeObserverDisconnected) return;
+      resizeObserverDisconnected = true;
+      resizeObserver?.disconnect();
+    };
     const disposeOwnedController = () => {
       if (!ownedController) return false;
       const controller = ownedController;
@@ -140,6 +163,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     };
     const failExperience = () => {
       stopPlayback();
+      disconnectResizeObserver();
       if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
       frameRef.current = undefined;
       disposeOwnedController();
@@ -171,9 +195,8 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       if (controllerRef.current) frameRef.current = requestAnimationFrame(frame);
     };
 
-    const width = canvas.getBoundingClientRect().width || window.innerWidth;
     const dpr = window.devicePixelRatio || 1;
-    const lod = selectArtifactLod(width, dpr);
+    const lod = selectArtifactLod(window.innerWidth, dpr);
     void loadArtifact(ARTIFACT_ASSET_URLS[lod], renderer).then((artifact) => {
       loadedArtifact = artifact;
       if (inactive) {
@@ -196,12 +219,12 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
       if (controllerRef.current !== controller) return;
-      const bounds = canvas.getBoundingClientRect();
-      controller.resize(bounds.width || window.innerWidth, bounds.height || 560, dpr);
+      resizeController();
       applyAt(timeRef.current);
       setStatus("ready");
       frameRef.current = requestAnimationFrame(frame);
     }).catch(() => {
+      disconnectResizeObserver();
       if (!disposeOwnedController()) {
         if (loadedArtifact) disposeArtifact(loadedArtifact.root);
         loadedArtifact = undefined;
@@ -212,6 +235,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
 
     return () => {
       inactive = true;
+      disconnectResizeObserver();
       if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
       frameRef.current = undefined;
       disposeOwnedController();
@@ -259,6 +283,10 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     playingRef.current = true;
     setPlaying(true);
   };
+  const observabilityAttributes = observableBuild() ? {
+    "data-pose-hash": currentPoseHash,
+    "data-source-lines": sourceLinesActive ? "active" : "disabled",
+  } : {};
 
   if (status === "error") {
     return (
@@ -274,8 +302,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       className="artifact-experience"
       data-testid="artifact-experience"
       data-auto-camera={String(autoCamera)}
-      data-pose-hash={observableBuild() ? currentPoseHash : undefined}
-      data-source-lines={observableBuild() ? (sourceLinesActive ? "active" : "disabled") : undefined}
+      {...observabilityAttributes}
     >
       <div className="artifact-experience__viewport">
         <canvas ref={canvasRef} aria-label="大六壬三维器物" />

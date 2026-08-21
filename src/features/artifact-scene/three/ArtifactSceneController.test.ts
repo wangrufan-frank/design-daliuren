@@ -22,6 +22,7 @@ class TestControls {
   readonly target = new THREE.Vector3();
   readonly update = vi.fn();
   readonly dispose = vi.fn();
+  autoRotate = false;
   private readonly listeners = new Set<() => void>();
 
   addEventListener(_type: "start", listener: () => void) { this.listeners.add(listener); }
@@ -61,11 +62,32 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
     root.add(general);
     return general;
   });
+  const lessonNodes = ["first", "second", "third", "fourth"].map((id, index) => {
+    const lesson = node(`lesson/${id}`);
+    lesson.position.set(-0.2 + index * 0.04, 0.04, 0.1);
+    root.add(lesson);
+    return lesson;
+  });
+  const transmissionNodes = ["initial", "middle", "final"].map((id, index) => {
+    const transmission = node(`transmission/${id}`);
+    transmission.position.set(-0.08 + index * 0.08, 0.03, -0.18);
+    root.add(transmission);
+    return transmission;
+  });
+  const copyAnchors = ["lessons", "transmissions", "generals"].map((id, index) => {
+    const anchor = node(`anchor/course-copy/${id}`);
+    anchor.position.set(-0.2 + index * 0.2, 0.2, -0.28);
+    root.add(anchor);
+    return anchor;
+  });
   const artifact: LoadedArtifact = {
     root,
     nodes: new Map([
       ["calendar/slip", movingNode],
       ...generalNodeIds.map((id, index) => [id, generalNodes[index]] as const),
+      ...lessonNodes.map((lesson, index) => [`lesson/${["first", "second", "third", "fourth"][index]}`, lesson] as const),
+      ...transmissionNodes.map((transmission, index) => [`transmission/${["initial", "middle", "final"][index]}`, transmission] as const),
+      ...copyAnchors.map((anchor, index) => [`anchor/course-copy/${["lessons", "transmissions", "generals"][index]}`, anchor] as const),
     ]),
     animations: [],
     url: "/artifact.glb",
@@ -138,6 +160,7 @@ const displayState = {
     pillars: ["甲子", "乙丑", "丙寅", "丁卯"],
     monthBuild: "寅",
     monthGeneral: "登明",
+    monthGeneralBranch: "亥",
     divinationHour: "卯",
     manualFields: ["monthGeneral"],
   },
@@ -164,7 +187,7 @@ const allDynamicIds = [
 const completeDisplayState = {
   ...displayState,
   lessons: ["first", "second", "third", "fourth"].map((id, index) => ({
-    id, label: `${index + 1}课`, upper: "寅", lower: { kind: "branch", value: "卯" }, general: "贵人",
+    id, label: `${index + 1}课`, upper: "寅", lower: { kind: "branch", value: "卯" }, lookupEarth: "子", general: "贵人",
   })),
   transmissions: ["initial", "middle", "final"].map((position, index) => ({
     position, label: ["初传", "中传", "末传"][index], branch: "辰", relation: "父母", general: "贵人",
@@ -203,6 +226,76 @@ describe("ArtifactSceneController", () => {
     expect(movingNode.quaternion.toArray()).toEqual(firstQuaternion);
     expect(movingNode.scale.toArray()).toEqual([2, 3, 4]);
     expect(baseQuaternion.equals(movingNode.quaternion)).toBe(false);
+  });
+
+  it("applies copy opacity and source-line progress to owned scene objects", () => {
+    const { controller, renderer } = fixture(allDynamicIds);
+    controller.setDisplayState(completeDisplayState);
+    const nextPose = pose(0, 0);
+    nextPose.copy = {
+      lessons: { opacity: 0.65, sourceLineProgress: 0.4, sourceLineOpacity: 0.25 },
+      transmissions: { opacity: 0.5, sourceLineProgress: 0.3, sourceLineOpacity: 0.2 },
+      generals: { opacity: 0.75, sourceLineProgress: 0.6, sourceLineOpacity: 0.35 },
+    };
+
+    const applied = controller.applyPose(nextPose);
+    controller.render();
+
+    const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
+    const copy = scene.getObjectByName("artifact-copy-lessons") as THREE.Mesh;
+    const sourceLine = scene.getObjectByName("artifact-source-line-lessons") as THREE.Line;
+    expect((copy.material as THREE.MeshBasicMaterial).opacity).toBeCloseTo(0.65);
+    expect((sourceLine.material as THREE.LineBasicMaterial).opacity).toBeCloseTo(0.25);
+    expect(sourceLine.geometry.getAttribute("position").getX(1)).not.toBe(
+      sourceLine.geometry.getAttribute("position").getX(0),
+    );
+    expect(applied.copy.lessons.opacity).toBeCloseTo(0.65);
+    expect(applied.copy.lessons.sourceLineProgress).toBeCloseTo(0.4);
+    expect(applied.copy.lessons.sourceLineOpacity).toBeCloseTo(0.25);
+  });
+
+  it("applies general ordering, direction, and automatic-camera intent to the scene", () => {
+    const { controller, controls, renderer } = fixture();
+    const nextPose = pose(0, 0);
+    nextPose.generalSequence = ["general/noble", "general/snake", "general/vermilion-bird"];
+    nextPose.generalDirection = "reverse";
+    nextPose.cameraOrbitRequested = true;
+    nextPose.nodes = {
+      "general/noble": { translationX: 0, translationY: 0, translationZ: 0.007, rotationZ: 0 },
+      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
+      "general/vermilion-bird": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
+    };
+
+    const applied = controller.applyPose(nextPose);
+    controller.render();
+
+    const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
+    const direction = scene.getObjectByName("artifact-general-direction") as THREE.Line;
+    expect(direction.userData.sequence).toEqual(nextPose.generalSequence);
+    expect(direction.userData.direction).toBe("reverse");
+    expect(direction.visible).toBe(true);
+    expect(controls.autoRotate).toBe(true);
+    expect(applied).toMatchObject({
+      generalDirection: "reverse",
+      generalSequence: nextPose.generalSequence,
+      cameraOrbitRequested: true,
+    });
+  });
+
+  it("hides the general-direction path before deployment begins", () => {
+    const { controller, renderer } = fixture();
+    const nextPose = pose(0, 0);
+    nextPose.generalSequence = ["general/noble", "general/snake"];
+    nextPose.nodes = {
+      "general/noble": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
+      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
+    };
+
+    controller.applyPose(nextPose);
+    controller.render();
+
+    const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
+    expect(scene.getObjectByName("artifact-general-direction")).toHaveProperty("visible", false);
   });
 
   it("selects general destination palaces from frozen slots without pose history", () => {
@@ -254,6 +347,16 @@ describe("ArtifactSceneController", () => {
     expect(canvasContext.fillText).toHaveBeenCalledWith("✎", expect.any(Number), expect.any(Number));
     expect(canvasContext.fillText).toHaveBeenCalledWith("◆", expect.any(Number), expect.any(Number));
     expect(canvasContext.fillText).toHaveBeenCalledWith("↺", expect.any(Number), expect.any(Number));
+    expect(canvasContext.fillText).toHaveBeenCalledWith(
+      "月建寅　月将登明亥　占时卯　昼贵丑",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(canvasContext.fillText).toHaveBeenCalledWith(
+      "贵人　寅/卯　查地盘子",
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 
   it("focuses a runtime node and restores the initial camera target", () => {
@@ -305,6 +408,11 @@ describe("ArtifactSceneController", () => {
     const materialDispose = vi.spyOn(material, "dispose");
 
     controller.setDisplayState(displayState);
+    controller.render();
+    const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
+    const copy = scene.getObjectByName("artifact-copy-lessons") as THREE.Mesh;
+    const copyGeometryDispose = vi.spyOn(copy.geometry, "dispose");
+    const copyMaterialDispose = vi.spyOn(copy.material as THREE.Material, "dispose");
     controller.dispose();
     controller.dispose();
     canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
@@ -313,6 +421,8 @@ describe("ArtifactSceneController", () => {
     expect(renderer.dispose).toHaveBeenCalledOnce();
     expect(geometryDispose).toHaveBeenCalledOnce();
     expect(materialDispose).toHaveBeenCalledOnce();
+    expect(copyGeometryDispose).toHaveBeenCalledOnce();
+    expect(copyMaterialDispose).toHaveBeenCalledOnce();
     expect(callbacks.onContextLost).not.toHaveBeenCalled();
   });
 });

@@ -158,11 +158,16 @@ export function mapArtifactState(source: ArtifactSourceResults): ArtifactDisplay
       ]) as ArtifactDisplayState["calendar"]["pillars"],
       monthBuild: calendar.monthBuild,
       monthGeneral: calendar.monthGeneral.effective.name,
+      monthGeneralBranch: calendar.monthGeneral.effective.branch,
       divinationHour: calendar.divinationHour.effective,
       manualFields: Object.freeze([...manualFields]),
     },
     plate: { offset: plate.offset, palaces: Object.freeze(plate.palaces.map((palace) => ({ ...palace }))) },
-    lessons: Object.freeze(course.lessons.map((lesson) => ({ ...lesson, lower: { ...lesson.lower } }))) as CourseResult["lessons"],
+    lessons: Object.freeze(course.lessons.map((lesson) => ({
+      ...lesson,
+      lower: { ...lesson.lower },
+      lookupEarth: source.lessons.lessons.find((upstream) => upstream.id === lesson.id)!.lookupEarth,
+    }))),
     transmissions: Object.freeze(course.transmissions.map((item) => ({ ...item }))) as CourseResult["transmissions"],
     methodLabel: [transmissions.method, transmissions.subtype, transmissions.variants.length ? transmissions.variants.join("/") : undefined]
       .filter((value): value is string => Boolean(value)).join(" · "),

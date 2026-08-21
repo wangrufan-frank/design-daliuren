@@ -3,7 +3,7 @@ import type { ArtifactDisplayState } from "../model/types";
 import { ARTIFACT_DURATION_MS, evaluateArtifactPose } from "./evaluate-pose";
 
 const referenceState: ArtifactDisplayState = {
-  calendar: { pillars: ["丙午", "丙申", "辛酉", "戊子"], monthBuild: "申", monthGeneral: "胜光", divinationHour: "子", manualFields: [] },
+  calendar: { pillars: ["丙午", "丙申", "辛酉", "戊子"], monthBuild: "申", monthGeneral: "胜光", monthGeneralBranch: "午", divinationHour: "子", manualFields: [] },
   plate: { offset: 6, palaces: ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"].map((earth) => ({ earth, heaven: earth })) as ArtifactDisplayState["plate"]["palaces"] },
   lessons: [] as unknown as ArtifactDisplayState["lessons"],
   transmissions: [] as unknown as ArtifactDisplayState["transmissions"],
@@ -38,7 +38,7 @@ it.each([
   [-1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [600, 0.006, 0, 0, 0, 0], [1_200, 0.012, 0, 0, 0, 0],
   [2_200, 0.012, 3, 0, 0, 0], [3_200, 0.012, 6, 0, 0, 0], [4_300, 0.012, 6, 0.046, 0, 0],
   [5_400, 0.012, 6, 0.092, 0, 0], [6_500, 0.012, 6, 0.092, -0.059, 0], [7_600, 0.012, 6, 0.092, -0.118, 0],
-  [8_950, 0.012, 6, 0.092, -0.118, 0.0035], [10_300, 0.012, 6, 0.092, -0.118, 0.007], [11_400, 0.012, 6, 0.092, -0.118, 0.007],
+  [8_950, 0.012, 6, 0.092, -0.118, 0.007], [10_300, 0.012, 6, 0.092, -0.118, 0.007], [11_400, 0.012, 6, 0.092, -0.118, 0.007],
   [12_500, 0.012, 6, 0.092, -0.118, 0.007], [12_501, 0.012, 6, 0.092, -0.118, 0.007],
 ])("clamps and evaluates the stage boundaries at %d ms", (timeMs, slip, plate, lesson, bridge, general) => {
   const pose = evaluateArtifactPose(referenceState, timeMs, false);
@@ -60,6 +60,20 @@ it("uses each general earth palace independently from deployment order and direc
     "general/white-tiger", "general/void", "general/azure-dragon", "general/hook-array",
     "general/harmony", "general/vermilion-bird", "general/snake", "general/noble",
   ]);
+});
+
+it("places generals one at a time in the requested directional sequence", () => {
+  const forward = evaluateArtifactPose(referenceState, 7_825, false);
+  const reverse = evaluateArtifactPose(
+    { ...referenceState, noble: { ...referenceState.noble, direction: "reverse" } },
+    7_825,
+    false,
+  );
+
+  expect(forward.nodes["general/noble"].translationZ).toBeCloseTo(0.007);
+  expect(forward.nodes["general/snake"].translationZ).toBe(0);
+  expect(reverse.nodes["general/queen-of-heaven"].translationZ).toBeCloseTo(0.007);
+  expect(reverse.nodes["general/yin"].translationZ).toBe(0);
 });
 
 it("snaps reduced motion stages, fades source lines briefly, and retains final copy", () => {
