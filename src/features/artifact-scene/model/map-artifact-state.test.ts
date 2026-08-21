@@ -51,6 +51,54 @@ it("rejects inconsistent course facts instead of choosing one source", () => {
   expect(() => mapArtifactState(broken)).toThrow(/course transmission initial does not match upstream/);
 });
 
+it("rejects calendar and plate facts that disagree with their represented upstream links", () => {
+  expect(() => mapArtifactState({
+    ...referenceSourceResults,
+    plate: { ...referenceSourceResults.plate, offset: referenceSourceResults.plate.offset + 1 },
+  })).toThrow(/plate offset does not match transmissions/);
+
+  expect(() => mapArtifactState({
+    ...referenceSourceResults,
+    course: {
+      ...referenceSourceResults.course,
+      context: { ...referenceSourceResults.course.context, divinationHour: "丑" },
+    },
+    calendar: {
+      ...referenceSourceResults.calendar,
+      divinationHour: { ...referenceSourceResults.calendar.divinationHour, effective: "丑" },
+    },
+  })).toThrow(/calendar divination hour does not match plate/);
+});
+
+it.each([
+  ["lesson IDs", {
+    ...referenceSourceResults.course,
+    lessons: [
+      referenceSourceResults.course.lessons[0],
+      referenceSourceResults.course.lessons[0],
+      ...referenceSourceResults.course.lessons.slice(2),
+    ],
+  }, /course lesson IDs do not match upstream/],
+  ["transmission positions", {
+    ...referenceSourceResults.course,
+    transmissions: [
+      referenceSourceResults.course.transmissions[0],
+      referenceSourceResults.course.transmissions[0],
+      referenceSourceResults.course.transmissions[2],
+    ],
+  }, /course transmission positions do not match upstream/],
+  ["palace earth branches", {
+    ...referenceSourceResults.course,
+    palaces: [
+      referenceSourceResults.course.palaces[0],
+      referenceSourceResults.course.palaces[0],
+      ...referenceSourceResults.course.palaces.slice(2),
+    ],
+  }, /course palace earth branches do not match upstream/],
+] as const)("rejects duplicate course %s", (_name, course, expectedError) => {
+  expect(() => mapArtifactState({ ...referenceSourceResults, course })).toThrow(expectedError);
+});
+
 it("reports every manual calendar field and preserves all twelve palaces, four lessons, three transmissions, and generals", () => {
   const calendar: CalendarResult = {
     ...referenceSourceResults.calendar,
@@ -74,4 +122,12 @@ it("reports every manual calendar field and preserves all twelve palaces, four l
   expect(state.transmissions).toHaveLength(3);
   expect(state.generals).toHaveLength(12);
   expect(state.generals).toEqual(referenceSourceResults.generals.placements);
+  [
+    state.calendar.pillars,
+    state.calendar.manualFields,
+    state.plate.palaces,
+    state.lessons,
+    state.transmissions,
+    state.generals,
+  ].forEach((value) => expect(Object.isFrozen(value)).toBe(true));
 });

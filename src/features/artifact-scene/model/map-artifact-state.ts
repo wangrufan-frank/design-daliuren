@@ -12,6 +12,15 @@ function assertEqual(actual: unknown, expected: unknown, message: string): void 
   if (actual !== expected) throw new Error(message);
 }
 
+function assertKeysMatch(actual: readonly string[], expected: readonly string[], message: string): void {
+  const actualKeys = new Set(actual);
+  const expectedKeys = new Set(expected);
+  if (actual.length !== expected.length
+    || actualKeys.size !== actual.length
+    || expectedKeys.size !== expected.length
+    || actual.some((key) => !expectedKeys.has(key))) throw new Error(message);
+}
+
 function generalForHeaven(placements: readonly GeneralPlacement[], heaven: string): GeneralPlacement {
   const placement = placements.find((item) => item.heaven === heaven);
   if (!placement) throw new Error(`upstream general placement missing heaven ${heaven}`);
@@ -59,12 +68,24 @@ function assertCourseMatchesUpstream(source: ArtifactSourceResults): void {
     throw new Error("course method does not match upstream");
   }
 
-  assertEqual(source.course.lessons.length, source.lessons.lessons.length, "course lessons do not match upstream");
+  assertKeysMatch(
+    source.course.lessons.map((item) => item.id),
+    source.lessons.lessons.map((item) => item.id),
+    "course lesson IDs do not match upstream",
+  );
   source.course.lessons.forEach((item) => assertCourseLessonMatches(item, lessonsById.get(item.id), source.generals.placements));
-  assertEqual(source.course.transmissions.length, source.transmissions.transmissions.length, "course transmissions do not match upstream");
+  assertKeysMatch(
+    source.course.transmissions.map((item) => item.position),
+    source.transmissions.transmissions.map((item) => item.position),
+    "course transmission positions do not match upstream",
+  );
   source.course.transmissions.forEach((item) => assertCourseTransmissionMatches(item, transmissionsByPosition.get(item.position), source.generals.placements));
 
-  assertEqual(source.course.palaces.length, source.generals.placements.length, "course palaces do not match upstream");
+  assertKeysMatch(
+    source.course.palaces.map((item) => item.earth),
+    source.generals.placements.map((item) => item.earth),
+    "course palace earth branches do not match upstream",
+  );
   source.course.palaces.forEach((palace) => {
     const placement = placementsByEarth.get(palace.earth);
     if (!placement || palace.heaven !== placement.heaven || palace.general !== placement.general || palace.noble !== (palace.earth === source.generals.nobleEarth)) {
@@ -79,7 +100,47 @@ function assertCourseMatchesUpstream(source: ArtifactSourceResults): void {
   }
 }
 
+function assertCalendarAndPlateMatch(source: ArtifactSourceResults): void {
+  const { calendar, course, generals, lessons, plate, transmissions } = source;
+  const context = course.context;
+  const pillars = calendar.pillars;
+  if (context.civilDateTime !== calendar.civilDateTime
+    || context.effectiveGanzhiDate !== calendar.effectiveGanzhiDate
+    || context.pillars.year !== pillars.year.effective
+    || context.pillars.month !== pillars.month.effective
+    || context.pillars.day !== pillars.day.effective
+    || context.pillars.hour !== pillars.hour.effective
+    || context.monthBuild !== calendar.monthBuild
+    || context.monthGeneral.name !== calendar.monthGeneral.effective.name
+    || context.monthGeneral.branch !== calendar.monthGeneral.effective.branch
+    || context.divinationHour !== calendar.divinationHour.effective) {
+    throw new Error("course calendar context does not match upstream");
+  }
+  assertEqual(calendar.pillars.day.effective, lessons.dayPillar, "calendar day pillar does not match lessons");
+  assertEqual(calendar.pillars.day.effective, transmissions.dayPillar, "calendar day pillar does not match transmissions");
+  assertEqual(calendar.pillars.day.effective[0], generals.dayStem, "calendar day stem does not match generals");
+  assertEqual(calendar.monthGeneral.effective.name, plate.monthGeneral.name, "calendar month general does not match plate");
+  assertEqual(calendar.monthGeneral.effective.branch, plate.monthGeneral.branch, "calendar month general does not match plate");
+  assertEqual(calendar.divinationHour.effective, plate.divinationHour.branch, "calendar divination hour does not match plate");
+  assertEqual(calendar.divinationHour.effective, generals.divinationHour, "calendar divination hour does not match generals");
+  assertEqual(plate.offset, transmissions.plateOffset, "plate offset does not match transmissions");
+
+  const palacesByEarth = new Map(plate.palaces.map((item) => [item.earth, item]));
+  lessons.lessons.forEach((lesson) => {
+    assertEqual(palacesByEarth.get(lesson.lookupEarth)?.heaven, lesson.upper, `plate palace ${lesson.lookupEarth} does not match lesson ${lesson.id}`);
+  });
+  assertKeysMatch(
+    generals.placements.map((item) => item.earth),
+    plate.palaces.map((item) => item.earth),
+    "general placement earth branches do not match plate",
+  );
+  generals.placements.forEach((placement) => {
+    assertEqual(palacesByEarth.get(placement.earth)?.heaven, placement.heaven, `general placement ${placement.earth} does not match plate`);
+  });
+}
+
 export function mapArtifactState(source: ArtifactSourceResults): ArtifactDisplayState {
+  assertCalendarAndPlateMatch(source);
   assertCourseMatchesUpstream(source);
   const { calendar, plate, course, generals, transmissions } = source;
   const manualFields = calendarFields.filter((field) => {
