@@ -321,7 +321,9 @@ describe("ArtifactExperience", () => {
     await screen.findByRole("slider", { name: "推演时间轴" });
 
     const firstHash = screen.getByTestId("artifact-experience").getAttribute("data-pose-hash");
-    fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "8450" } });
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "disabled");
+    fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "11400" } });
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "active");
     fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "0" } });
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-pose-hash", firstHash);
     frames.step(16);

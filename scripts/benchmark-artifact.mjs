@@ -4,8 +4,10 @@ import path from "node:path";
 import process from "node:process";
 import { chromium } from "playwright";
 import { build, preview } from "vite";
+import { assessWebglRenderer } from "./benchmark-artifact-policy.mjs";
 
 const FRAME_SAMPLE_COUNT = 300;
+const FRAME_SAMPLE_TIMEOUT_MS = 30_000;
 const BROWSER_CHANNEL = "chrome";
 const HOST = "127.0.0.1";
 const PORT = 4174;
@@ -85,19 +87,28 @@ async function sampleProfile(browser, baseURL, profile) {
       || Math.abs(runtime.dpr - profile.dpr) > 1e-6) {
       throw new Error(`${profile.name} runtime profile mismatch: ${JSON.stringify(runtime)}`);
     }
+    const rendererAssessment = assessWebglRenderer(runtime.webglRenderer);
+    if (!rendererAssessment.accepted) {
+      throw new Error(`${profile.name} ${rendererAssessment.reason}: ${runtime.webglRenderer}`);
+    }
 
-    const frameTimes = await page.evaluate((sampleCount) => new Promise((resolve) => {
+    const frameTimes = await page.evaluate(({ sampleCount, timeoutMs }) => new Promise((resolve, reject) => {
       const samples = [];
       let previousTimestamp;
+      const timer = window.setTimeout(() => {
+        delete window.__artifactFrameObserver;
+        reject(new Error(`Timed out after ${timeoutMs} ms with ${samples.length}/${sampleCount} frame samples`));
+      }, timeoutMs);
       window.__artifactFrameObserver = (timestamp) => {
         if (previousTimestamp !== undefined) samples.push(timestamp - previousTimestamp);
         previousTimestamp = timestamp;
         if (samples.length === sampleCount) {
+          window.clearTimeout(timer);
           delete window.__artifactFrameObserver;
           resolve(samples);
         }
       };
-    }), FRAME_SAMPLE_COUNT);
+    }), { sampleCount: FRAME_SAMPLE_COUNT, timeoutMs: FRAME_SAMPLE_TIMEOUT_MS });
 
     const expectedGlb = `/models/daliuren/daliuren-artifact-lod${profile.lod}.glb`;
     if (requestedGlb !== expectedGlb) {
@@ -116,12 +127,13 @@ async function sampleProfile(browser, baseURL, profile) {
       glbBytes,
       canvasPixels: runtime.canvasPixels,
       webglRenderer: runtime.webglRenderer,
+      hardwareRenderer: rendererAssessment.accepted,
       medianFrameTimeMs: round(medianFrameTimeMs),
       p95FrameTimeMs: round(percentile(sorted, 0.95)),
       medianFps: round(medianFps),
       sampleCount: frameTimes.length,
       thresholdFps: profile.thresholdFps,
-      passes: medianFps >= profile.thresholdFps,
+      passes: rendererAssessment.accepted && medianFps >= profile.thresholdFps,
     };
   } finally {
     await context.close();

@@ -44,6 +44,8 @@ test("absolute seeking is repeatable and a real pointer drag disables auto camer
   await timeline.fill("0");
   await timeline.fill("8450");
   await expect(experience).toHaveAttribute("data-pose-hash", firstPoseHash!);
+  await timeline.fill("11400");
+  await expect(experience).toHaveAttribute("data-source-lines", "active");
 
   const canvas = page.getByLabel("大六壬三维器物");
   const bounds = await canvas.boundingBox();
@@ -65,6 +67,7 @@ test("reduced motion retains final facts and disables source lines", async ({ pa
   await expect(facts).toContainText("末传");
   await expect(facts).toContainText("贵人");
   await expect(experience).toHaveAttribute("data-auto-camera", "false");
+  await page.getByRole("slider", { name: "推演时间轴" }).fill("11400");
   await expect(experience).toHaveAttribute("data-source-lines", "disabled");
 });
 

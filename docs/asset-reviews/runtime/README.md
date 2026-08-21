@@ -16,6 +16,8 @@ These hashes were rechecked locally with `Get-FileHash -Algorithm SHA256` and ma
 
 Each profile was loaded from an isolated benchmark build served by a Vite preview server owned by the benchmark script. The final `12,500 ms` pose was reached before exactly `300` frame intervals were collected through the benchmark-only frame observer.
 
+Renderer acceptance is a separate gate from FPS: empty, unavailable, unknown, SwiftShader, llvmpipe and other software renderer markers are rejected before sampling can be recorded as passing. Both recorded profiles report `hardwareRenderer: true` for the NVIDIA/D3D11 renderer. Frame collection has a `30,000 ms` timeout that removes the observer and reaches owned-resource cleanup on failure.
+
 | Profile | Viewport / DPR | Canvas pixels | Selected asset | Median frame | p95 frame | Median FPS / threshold | Result |
 | --- | --- | --- | --- | ---: | ---: | ---: | --- |
 | desktop | `1920 x 1080` / `1` | `725 x 680` | LOD1 / `24,437,884` bytes | `4.2 ms` | `4.3 ms` | `238.0952 / 60` | PASS |
@@ -27,7 +29,7 @@ Each profile was loaded from an isolated benchmark build served by a Vite previe
 
 - Model semantic labels and the standard text course both retained `初传` and `贵人`; the semantic list is generated from `ArtifactDisplayState`, never WebGL pixel readback.
 - Seeking `8450 -> 0 -> 8450` reproduced the same development pose hash, and a real pointer drag changed `data-auto-camera` to `false`.
-- Emulated reduced motion retained `初传 / 中传 / 末传 / 贵人`, disabled auto camera, and reported source lines disabled.
+- At the same meaningful `11,400 ms` copy stage, normal motion reported active source lines while emulated reduced motion reported them disabled; the diagnostic is derived from the current pose's source-line progress/opacity fields. Reduced motion also retained `初传 / 中传 / 末传 / 贵人` and disabled auto camera.
 - A real routed GLB `404` reached the existing text course and enabled copy action without another course submission.
 - A cancelable `webglcontextlost` event was prevented and reached the same text/copy fallback without another course submission.
 

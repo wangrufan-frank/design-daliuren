@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-21T11:33:24.861Z",
+  "generatedAt": "2026-08-21T11:47:05.555Z",
   "browser": {
     "name": "Google Chrome",
     "channel": "chrome",
@@ -22,6 +22,7 @@
         "height": 680
       },
       "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D59) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "hardwareRenderer": true,
       "medianFrameTimeMs": 4.2,
       "p95FrameTimeMs": 4.3,
       "medianFps": 238.0952,
@@ -44,6 +45,7 @@
         "height": 1020
       },
       "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D59) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "hardwareRenderer": true,
       "medianFrameTimeMs": 4.2,
       "p95FrameTimeMs": 4.3,
       "medianFps": 238.0952,

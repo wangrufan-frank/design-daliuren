@@ -84,6 +84,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
   const [playing, setPlaying] = useState(false);
   const [autoCamera, setAutoCamera] = useState(!reducedMotion);
   const [currentPoseHash, setCurrentPoseHash] = useState<string | undefined>(undefined);
+  const [sourceLinesActive, setSourceLinesActive] = useState(false);
 
   const applyAt = useCallback((nextTime: number) => {
     const controller = controllerRef.current;
@@ -93,7 +94,12 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       ? evaluatedPose
       : { ...evaluatedPose, cameraOrbitRequested: autoCameraRef.current };
     controller.applyPose(pose);
-    if (observableBuild()) setCurrentPoseHash(poseHash(pose));
+    if (observableBuild()) {
+      setCurrentPoseHash(poseHash(pose));
+      setSourceLinesActive(Object.values(pose.copy).some(
+        (copy) => copy.sourceLineProgress > 0 || copy.sourceLineOpacity > 0,
+      ));
+    }
   }, []);
 
   const stopPlayback = useCallback(() => {
@@ -269,7 +275,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       data-testid="artifact-experience"
       data-auto-camera={String(autoCamera)}
       data-pose-hash={observableBuild() ? currentPoseHash : undefined}
-      data-source-lines={observableBuild() ? "disabled" : undefined}
+      data-source-lines={observableBuild() ? (sourceLinesActive ? "active" : "disabled") : undefined}
     >
       <div className="artifact-experience__viewport">
         <canvas ref={canvasRef} aria-label="大六壬三维器物" />
