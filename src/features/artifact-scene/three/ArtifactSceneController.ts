@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
+import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
 import type { ArtifactPose } from "../timeline/types";
 import { disposeArtifact } from "./dispose-artifact";
@@ -54,6 +56,11 @@ const GENERAL_DYNAMIC_IDS = {
   太阴: "dynamic/general/yin",
   天后: "dynamic/general/queen-of-heaven",
 } as const;
+const GENERAL_SLOT_NODE_IDS = [
+  "general/noble", "general/snake", "general/vermilion-bird", "general/harmony",
+  "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
+  "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
+] as const;
 
 const LABEL_SIZE = { width: 512, height: 256 } as const;
 const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
@@ -67,6 +74,7 @@ export class ArtifactSceneController {
   private readonly camera = new THREE.PerspectiveCamera(38, 1, 0.01, 20);
   private readonly controls: ControlsLike;
   private readonly baseTransforms = new Map<string, BaseTransform>();
+  private readonly generalSlots = new Map<EarthlyBranch, BaseTransform>();
   private readonly labelBindings = new Map<string, LabelBinding>();
   private readonly labels: LabelTextureCache;
   private readonly initialCameraPosition = new THREE.Vector3(0.56, 0.44, 0.56);
@@ -115,6 +123,10 @@ export class ArtifactSceneController {
         scale: object.scale.clone(),
       });
     }
+    EARTHLY_BRANCHES.forEach((earth, index) => {
+      const transform = this.baseTransforms.get(GENERAL_SLOT_NODE_IDS[index]);
+      if (transform) this.generalSlots.set(earth, transform);
+    });
 
     artifact.root.traverse((object) => {
       const dynamicId = object.userData.dynamic_label_id;
@@ -190,6 +202,12 @@ export class ArtifactSceneController {
     for (const [id, delta] of Object.entries(pose.nodes)) {
       const object = this.artifact.nodes.get(id);
       if (!object) continue;
+      const targetSlot = delta.targetEarth ? this.generalSlots.get(delta.targetEarth) : undefined;
+      if (targetSlot) {
+        object.position.copy(targetSlot.position);
+        object.quaternion.copy(targetSlot.quaternion);
+        object.scale.copy(targetSlot.scale);
+      }
       object.position.add(new THREE.Vector3(delta.translationX, delta.translationY, delta.translationZ));
       object.rotateZ(delta.rotationZ);
     }

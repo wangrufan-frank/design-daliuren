@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
 import type { ArtifactPose } from "../timeline/types";
 import type { LoadedArtifact } from "./load-artifact";
@@ -51,9 +52,21 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
     movingNode.add(labelSurface);
     labelSurfaces.set(dynamicId, labelSurface);
   }
+  const generalNodeIds = generals.map(([, id]) => `general/${id}`);
+  const generalNodes = generalNodeIds.map((id, index) => {
+    const general = node(id);
+    general.position.set(index * 10, index * 20, index * 30);
+    general.rotation.set(index * 0.01, index * 0.02, index * 0.03);
+    general.scale.setScalar(index + 1);
+    root.add(general);
+    return general;
+  });
   const artifact: LoadedArtifact = {
     root,
-    nodes: new Map([["calendar/slip", movingNode]]),
+    nodes: new Map([
+      ["calendar/slip", movingNode],
+      ...generalNodeIds.map((id, index) => [id, generalNodes[index]] as const),
+    ]),
     animations: [],
     url: "/artifact.glb",
   };
@@ -79,7 +92,7 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
   return {
     artifact, callbacks, canvas, controller, controls, geometry,
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
-    material, movingNode, renderer,
+    generalNodes, material, movingNode, renderer,
   };
 }
 
@@ -101,6 +114,22 @@ function pose(translationX: number, rotationZ: number): ArtifactPose {
     generalDirection: "forward",
     generalSequence: [],
     cameraOrbitRequested: false,
+  };
+}
+
+function generalPose(targetEarth: EarthlyBranch): ArtifactPose {
+  const value = pose(0, 0);
+  return {
+    ...value,
+    nodes: {
+      "general/noble": {
+        translationX: 0,
+        translationY: 0,
+        translationZ: 0.007,
+        rotationZ: 0,
+        targetEarth,
+      },
+    },
   };
 }
 
@@ -174,6 +203,27 @@ describe("ArtifactSceneController", () => {
     expect(movingNode.quaternion.toArray()).toEqual(firstQuaternion);
     expect(movingNode.scale.toArray()).toEqual([2, 3, 4]);
     expect(baseQuaternion.equals(movingNode.quaternion)).toBe(false);
+  });
+
+  it("selects general destination palaces from frozen slots without pose history", () => {
+    const { controller, generalNodes } = fixture();
+    const targetSlot = generalNodes[3];
+    const targetQuaternion = targetSlot.quaternion.toArray();
+
+    controller.applyPose(generalPose("卯"));
+    const firstPosition = generalNodes[0].position.toArray();
+    const firstQuaternion = generalNodes[0].quaternion.toArray();
+    const firstScale = generalNodes[0].scale.toArray();
+    controller.applyPose(generalPose("酉"));
+    generalNodes[0].position.set(999, 999, 999);
+    controller.applyPose(generalPose("卯"));
+
+    expect(firstPosition).toEqual([30, 60, 90.007]);
+    expect(firstQuaternion).toEqual(targetQuaternion);
+    expect(firstScale).toEqual([4, 4, 4]);
+    expect(generalNodes[0].position.toArray()).toEqual(firstPosition);
+    expect(generalNodes[0].quaternion.toArray()).toEqual(firstQuaternion);
+    expect(generalNodes[0].scale.toArray()).toEqual(firstScale);
   });
 
   it("binds state-derived canvas labels and releases replaced textures", () => {
