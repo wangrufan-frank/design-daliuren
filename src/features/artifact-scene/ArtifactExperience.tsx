@@ -15,6 +15,7 @@ import "./artifact-scene.css";
 declare global {
   interface ImportMetaEnv {
     readonly PROD: boolean;
+    readonly VITE_ARTIFACT_BENCHMARK?: string;
   }
 
   interface ImportMeta {
@@ -33,7 +34,7 @@ interface ArtifactExperienceProps {
 
 type ExperienceStatus = "loading" | "ready" | "error";
 
-const observableBuild = () => !import.meta.env.PROD;
+const observableBuild = () => !import.meta.env.PROD || import.meta.env.VITE_ARTIFACT_BENCHMARK === "1";
 
 function poseHash(pose: ArtifactPose): string {
   const values: number[] = [];
@@ -268,6 +269,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
       data-testid="artifact-experience"
       data-auto-camera={String(autoCamera)}
       data-pose-hash={observableBuild() ? currentPoseHash : undefined}
+      data-source-lines={observableBuild() ? "disabled" : undefined}
     >
       <div className="artifact-experience__viewport">
         <canvas ref={canvasRef} aria-label="大六壬三维器物" />

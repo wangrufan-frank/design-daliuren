@@ -264,6 +264,7 @@ describe("ArtifactExperience", () => {
     act(() => latestController().callbacks.onUserControlStart());
 
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-auto-camera", "false");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "disabled");
     expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({ cameraOrbitRequested: false }));
     frames.step(100);
     frames.step(250);
@@ -337,8 +338,24 @@ describe("ArtifactExperience", () => {
     await screen.findByRole("slider", { name: "推演时间轴" });
 
     expect(screen.getByTestId("artifact-experience")).not.toHaveAttribute("data-pose-hash");
+    expect(screen.getByTestId("artifact-experience")).not.toHaveAttribute("data-source-lines");
     frames.step(16);
     expect(observer).not.toHaveBeenCalled();
+    delete window.__artifactFrameObserver;
+  });
+
+  it("publishes observability for the isolated benchmark build", async () => {
+    vi.stubEnv("PROD", true);
+    vi.stubEnv("VITE_ARTIFACT_BENCHMARK", "1");
+    const frames = installAnimationFrames();
+    const observer = vi.fn();
+    window.__artifactFrameObserver = observer;
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-pose-hash", expect.stringMatching(/\S+/));
+    frames.step(16);
+    expect(observer).toHaveBeenCalledWith(16);
     delete window.__artifactFrameObserver;
   });
 });

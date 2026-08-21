@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "benchmark:artifact": "node scripts/benchmark-artifact.mjs",
     "asset:blender": "node scripts/run-blender.mjs",
     "asset:export-graybox": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py",
     "asset:export-lod0": "node scripts/run-blender.mjs --background --factory-startup --python tools/blender/export_graybox.py -- --lod 0",
