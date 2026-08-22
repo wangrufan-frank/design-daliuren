@@ -198,13 +198,13 @@ async function expectContrastAtLeast(element: Locator, minimum: number) {
 
 async function expectVisibleControlsKeyboardReachable(page: Page) {
   const selector = [
-    "button:visible:not([disabled]):not([tabindex='-1'])",
-    "input:visible:not([disabled]):not([tabindex='-1'])",
-    "select:visible:not([disabled]):not([tabindex='-1'])",
+    "a[href]", "area[href]", "button", "input", "select", "textarea", "summary", "[tabindex]",
+    "[contenteditable]:not([contenteditable='false'])",
   ].join(", ");
-  const controls = page.locator(selector);
+  const tabbableSelector = `:is(${selector}):visible:not(:disabled):not([tabindex^='-'])`;
+  const controls = page.locator(tabbableSelector);
   const controlCount = await controls.count();
-  const reviewControlCount = await page.getByRole("region", { name: "阶段证据抽屉" }).locator(selector).count();
+  const reviewControlCount = await page.getByRole("region", { name: "阶段证据抽屉" }).locator(tabbableSelector).count();
   await controls.evaluateAll((elements) => {
     const records: Array<{
       controlIndex: number;
@@ -241,7 +241,11 @@ async function expectVisibleControlsKeyboardReachable(page: Page) {
     const sentinel = document.createElement("button");
     sentinel.id = "keyboard-order-sentinel";
     sentinel.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
-    elements[0].before(sentinel);
+    const firstControl = elements[0];
+    const anchor = firstControl.tagName === "SUMMARY" && firstControl.parentElement?.tagName === "DETAILS"
+      ? firstControl.parentElement
+      : firstControl;
+    anchor.before(sentinel);
     sentinel.focus({ preventScroll: true });
   });
   for (let index = 0; index < controlCount; index += 1) {
@@ -271,6 +275,9 @@ async function expectVisibleControlsKeyboardReachable(page: Page) {
   expect(reached.map(({ controlIndex }) => controlIndex)).toEqual(
     Array.from({ length: controlCount }, (_, index) => index),
   );
+  expect(reached).toEqual(expect.arrayContaining([
+    expect.objectContaining({ tagName: "SUMMARY", text: expect.stringContaining("起课上下文") }),
+  ]));
   for (const focused of reached) {
     expect(focused.outlineStyle, JSON.stringify(focused)).not.toBe("none");
     expect(focused.outlineWidth, JSON.stringify(focused)).toBeGreaterThan(0);

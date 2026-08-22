@@ -636,6 +636,8 @@ it("preserves prior snapshots when a snapshot-bearing correction fails the calen
   expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
   expect(screen.getByRole("button", { name: /月将.*有效 神后.*子.*自动计算/ })).toBeVisible();
   expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("data-status", "completed");
+  await user.click(screen.getByRole("button", { name: "文字课式" }));
+  expectCourseText("甲辰");
 });
 
 it("collapses each shell panel and unmounts its content", async () => {
