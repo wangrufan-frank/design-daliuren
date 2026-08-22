@@ -2,8 +2,8 @@ import type { AnnotationLayout, ProjectedAnchor } from "./types";
 import type { AnnotationViewport } from "./project-annotations";
 
 const DEFAULT_CARD = { width: 216, height: 56, inset: 12 } as const;
-const COMPACT_CARD = { width: 180, height: 40, inset: 8 } as const;
-const DENSE_CARD = { width: 144, height: 28, inset: 4 } as const;
+const COMPACT_CARD = { width: 180, height: 44, inset: 8 } as const;
+const DENSE_CARD = { width: 144, height: 44, inset: 4 } as const;
 const CARD_GAP = 8;
 const HYSTERESIS_PX = 12;
 const MIN_CARD_WIDTH = 24;
@@ -56,14 +56,17 @@ function cardDensity(viewport: AnnotationViewport, count: number): CardDensity {
     }
   }
 
-  const inset = 2;
-  const height = Math.floor((viewport.height - inset * 2 - CARD_GAP * (requiredPerSide - 1)) / requiredPerSide);
-  if (height < 1) throw new RangeError("Viewport is too short to place annotation cards with an 8px gap");
+  const inset = 0;
+  const height = DENSE_CARD.height;
+  const capacity = Math.floor((viewport.height + CARD_GAP) / (height + CARD_GAP));
+  if (capacity < requiredPerSide) {
+    throw new RangeError("Viewport is too short to place 44px annotation cards with an 8px gap");
+  }
   return {
     width: Math.max(MIN_CARD_WIDTH, Math.min(DENSE_CARD.width, Math.floor((viewport.width - inset * 2 - CARD_GAP) / 2))),
     height,
     inset,
-    capacity: Math.floor((viewport.height - inset * 2 + CARD_GAP) / (height + CARD_GAP)),
+    capacity,
   };
 }
 

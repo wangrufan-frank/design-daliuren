@@ -483,6 +483,24 @@ describe("ArtifactSceneController", () => {
     expect(controls.target.toArray()).toEqual([0, 0, 0]);
   });
 
+  it("keeps a focused node after a later render interrupts a stage camera tween", () => {
+    const { controller, controls, renderer, setNow } = fixture();
+    controller.applyCameraPreset(reviewStageFor("four-lessons").camera);
+    setNow(350);
+    controller.render();
+    const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
+
+    controller.focusNode("calendar/slip");
+    const focusedPosition = camera.position.toArray();
+    expect(controls.target.toArray()).toEqual([1, 2, 3]);
+
+    setNow(700);
+    controller.render();
+
+    expect(camera.position.toArray()).toEqual(focusedPosition);
+    expect(controls.target.toArray()).toEqual([1, 2, 3]);
+  });
+
   it("invokes user-control start synchronously", () => {
     const { callbacks, controls } = fixture();
 

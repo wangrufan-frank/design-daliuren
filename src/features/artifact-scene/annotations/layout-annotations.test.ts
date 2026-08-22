@@ -87,6 +87,43 @@ describe("layoutArtifactAnnotations", () => {
     moved.forEach((layout) => expect(layout.labelRect.x).toBe(first.find(({ id }) => id === layout.id)?.labelRect.x));
   });
 
+  it("keeps 22 cards at least 44px tall with an 8px same-side gap in a short viewport", () => {
+    const viewport = { width: 1200, height: 691 };
+    const clustered = allIds.map((id, index): ProjectedAnchor => ({
+      id,
+      x: 180 + index,
+      y: 80 + index * 24,
+      depth: 0,
+      behindCamera: false,
+      occluded: false,
+    }));
+    const layouts = layoutArtifactAnnotations(clustered, viewport);
+
+    expect(layouts).toHaveLength(22);
+    layouts.forEach(({ labelRect }) => expect(labelRect.height).toBeGreaterThanOrEqual(44));
+    for (const x of new Set(layouts.map(({ labelRect }) => labelRect.x))) {
+      const side = layouts.filter(({ labelRect }) => labelRect.x === x).sort((a, b) => a.labelRect.y - b.labelRect.y);
+      side.slice(1).forEach((layout, index) => {
+        expect(layout.labelRect.y - (side[index].labelRect.y + side[index].labelRect.height)).toBeGreaterThanOrEqual(8);
+      });
+    }
+  });
+
+  it("rejects a viewport too short for 22 minimum-height cards with 8px gaps", () => {
+    const clustered = allIds.map((id, index): ProjectedAnchor => ({
+      id,
+      x: 180 + index,
+      y: 80 + index * 24,
+      depth: 0,
+      behindCamera: false,
+      occluded: false,
+    }));
+
+    expect(() => layoutArtifactAnnotations(clustered, { width: 1200, height: 563 })).toThrow(
+      new RangeError("Viewport is too short to place 44px annotation cards with an 8px gap"),
+    );
+  });
+
   it("rejects viewports too narrow for bounded left and right card slots", () => {
     expect(() => layoutArtifactAnnotations([
       { id: "calendar/slip", x: 0, y: 0, depth: 0, behindCamera: false, occluded: false },

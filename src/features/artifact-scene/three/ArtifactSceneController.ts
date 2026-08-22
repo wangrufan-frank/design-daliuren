@@ -439,6 +439,7 @@ export class ArtifactSceneController {
       this.callbacks.onError(new Error(`Unknown artifact node: ${nodeId}`));
       return;
     }
+    this.cameraTween = undefined;
     const target = object.getWorldPosition(new THREE.Vector3());
     const offset = this.camera.position.clone().sub(this.controls.target);
     this.controls.target.copy(target);

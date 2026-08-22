@@ -9,11 +9,22 @@
 - Added the Tian-guang museum visual treatment: 1px celadon elbow leaders, 5px anchor dots, translucent light specimen cards, 14px text, at least 44px interactive targets, and 55% opacity plus dashed leaders for occluded parts.
 - Preserved stage replay captions, evidence drawer, text-course escape, reduced motion behavior, PMREM lighting, `toneMapped: false` dynamic labels, controller ownership, and disposal behavior.
 
+## Independent-review fixes
+
+- Aligned layout geometry with the annotation card's CSS minimum target: every returned density is at least 44px tall, same-side cards retain an 8px gap, and a viewport shorter than the minimum required stack now throws a descriptive `RangeError` instead of compressing cards into overlapping DOM targets.
+- Made node focus interrupt an active stage camera tween before changing the camera and controls target, so later renders preserve the selected-node focus.
+
+## Red/green evidence
+
+- Layout RED: `npm test -- src/features/artifact-scene/annotations/layout-annotations.test.ts` — 2 focused regressions failed as intended: the fitting 691px viewport returned 40px cards, and a 563px viewport did not throw.
+- Layout GREEN: the same command — 1 file, 6 tests passed after enforcing the 44px minimum and rejecting insufficient height.
+- Focus RED: `npm test -- src/features/artifact-scene/three/ArtifactSceneController.test.ts -t "keeps a focused node after a later render interrupts a stage camera tween"` — 1 test failed because the later render restored the stage preset camera.
+- Focus GREEN: the same command — 1 focused test passed after `focusNode()` began canceling the active tween before changing camera state.
+
 ## Focused verification
 
-- `npm test -- src/features/artifact-scene/ArtifactAnnotationLayer.test.tsx src/features/artifact-scene/three/ArtifactSceneController.test.ts src/features/artifact-scene/ArtifactExperience.test.tsx` — 3 files, 44 tests passed before the tolerance regression was added.
-- `npm test -- src/features/artifact-scene/three/ArtifactSceneController.test.ts` — 1 file, 18 tests passed, including projection after camera/node motion, nearer-mesh occlusion, the `0.002` tolerance, and missing-node continuity.
-- `npm test -- src/features/artifact-scene` — 14 files, 109 tests passed before the final tolerance regression was added.
+- `npm test -- src/features/artifact-scene/annotations/layout-annotations.test.ts src/features/artifact-scene/three/ArtifactSceneController.test.ts` — 2 files, 25 tests passed.
+- `npm test -- src/features/artifact-scene` — 14 files, 113 tests passed.
 - `npm run build` — TypeScript and Vite production build completed; Vite retained the existing large-chunk advisory.
 - `git diff --check` — no whitespace errors; Git only reported the repository's LF-to-CRLF checkout notices.
 
