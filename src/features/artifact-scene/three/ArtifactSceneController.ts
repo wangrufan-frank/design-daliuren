@@ -150,15 +150,16 @@ export class ArtifactSceneController {
   ) {
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.scene.background = new THREE.Color(0x121817);
+    renderer.toneMappingExposure = 1.08;
+    this.scene.background = new THREE.Color(0xdce5df);
     this.scene.add(artifact.root);
 
-    const key = new THREE.DirectionalLight(0xffd7b0, 1);
-    key.position.set(0.5, 0.75, 0.45);
-    const fill = new THREE.HemisphereLight(0x879b92, 0x26322f, 0.3);
-    const rim = new THREE.DirectionalLight(0xc2c6bb, 0.18);
-    rim.position.set(-0.55, 0.28, -0.5);
-    this.scene.add(key, fill, rim);
+    const keyLight = new THREE.DirectionalLight(0xffd7b0, 1.35);
+    keyLight.position.set(0.5, 0.75, 0.45);
+    const fillLight = new THREE.HemisphereLight(0x879b92, 0x26322f, 0.65);
+    const rimLight = new THREE.DirectionalLight(0xc2c6bb, 0.45);
+    rimLight.position.set(-0.55, 0.28, -0.5);
+    this.scene.add(keyLight, fillLight, rimLight);
 
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialTarget);

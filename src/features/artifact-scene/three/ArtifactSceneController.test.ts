@@ -203,12 +203,14 @@ describe("ArtifactSceneController", () => {
     controller.render();
 
     expect(renderer.toneMapping).toBe(THREE.AgXToneMapping);
+    expect(renderer.toneMappingExposure).toBe(1.08);
     expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(2);
     expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
     const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
+    expect(scene.background).toEqual(new THREE.Color(0xdce5df));
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
-    expect(lights.map((light) => light.intensity)).toEqual([1, 0.3, 0.18]);
+    expect(lights.map((light) => light.intensity)).toEqual([1.35, 0.65, 0.45]);
   });
 
   it("applies every pose against frozen loaded transforms", () => {

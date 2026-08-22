@@ -1,9 +1,14 @@
 :root {
-  --ink: #121817;
-  --dark-bronze: #26322f;
-  --patina: #435c53;
-  --ru-celadon: #879b92;
-  --ash: #c2c6bb;
-  --old-gold: #b7a36b;
-  --error: #7b332f;
+  --canvas: #f4f3ee;
+  --panel: #fcfbf7;
+  --ink: #fcfbf7;
+  --dark-bronze: #e4ebe6;
+  --patina: #a9b8b1;
+  --ru-celadon: #3f7667;
+  --ash: #242a28;
+  --old-gold: #a77d3d;
+  --error: #8f3e36;
+  --font-display: "Noto Serif SC", "Songti SC", serif;
+  --font-body: "Noto Serif SC", "Songti SC", serif;
+  --font-utility: "Microsoft YaHei UI", "PingFang SC", sans-serif;
 }

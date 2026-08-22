@@ -1,0 +1,130 @@
+.course-workbench {
+  width: min(100%, 1680px);
+  margin: 0 auto;
+  padding: 22px clamp(18px, 3vw, 44px) 36px;
+}
+
+.course-workbench__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--patina);
+}
+
+.course-workbench__header p,
+.course-workbench__stages > p,
+.course-context__eyebrow {
+  margin: 0;
+  color: var(--ru-celadon);
+  font-family: var(--font-utility);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.course-workbench__header h1 {
+  margin: 0;
+  color: var(--ash);
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 3vw, 2.55rem);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+.course-workbench__grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 2.6fr) minmax(240px, 0.8fr);
+  gap: clamp(16px, 2vw, 30px);
+  align-items: start;
+  padding-top: 22px;
+}
+
+.course-workbench__grid > * { min-width: 0; }
+
+.course-workbench__stage {
+  min-height: 560px;
+  padding: 8px;
+  border: 1px solid var(--patina);
+  background: var(--panel);
+}
+
+.course-workbench__stage .course-experience .artifact-experience__viewport {
+  min-height: clamp(520px, 54vw, 760px);
+}
+
+.course-workbench__stages {
+  padding-top: 4px;
+}
+
+.course-workbench__stages .rule-stage-rail {
+  margin-top: 18px;
+}
+
+.course-context {
+  padding-top: 4px;
+}
+
+.course-context details { border-block: 1px solid var(--patina); }
+
+.course-context summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  color: var(--ash);
+  cursor: default;
+  list-style: none;
+}
+
+.course-context summary::-webkit-details-marker { display: none; }
+.course-context summary span { font-size: 0.9rem; font-weight: 600; letter-spacing: 0.12em; }
+.course-context summary small { color: var(--ru-celadon); font-family: var(--font-utility); font-size: 0.68rem; }
+
+.course-context__body { padding: 20px 0 4px; }
+.course-context__reason { margin: 8px 0 24px; color: var(--ash); font-size: 1.08rem; line-height: 1.8; overflow-wrap: anywhere; }
+.course-context dl { display: grid; gap: 18px; margin: 0; }
+.course-context dt { color: var(--ru-celadon); font-family: var(--font-utility); font-size: 0.7rem; letter-spacing: 0.1em; }
+.course-context dd { margin: 5px 0 0; color: var(--ash); line-height: 1.55; overflow-wrap: anywhere; }
+.course-context time { font-family: var(--font-utility); font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+.course-context__corrections { display: flex; flex-wrap: wrap; gap: 6px; }
+.course-context__corrections span { padding: 4px 7px; border: 1px solid var(--patina); color: var(--old-gold); font-family: var(--font-utility); font-size: 0.7rem; }
+.course-context button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 24px;
+  border: 1px solid var(--ru-celadon);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ru-celadon);
+  cursor: pointer;
+}
+.course-context button:hover { background: var(--ru-celadon); color: var(--panel); }
+
+@media (min-width: 900px) {
+  .course-context summary { pointer-events: none; }
+}
+
+@media (max-width: 899px) {
+  .course-workbench { padding-inline: 16px; }
+  .course-workbench__header { align-items: flex-start; flex-direction: column-reverse; gap: 6px; }
+  .course-workbench__grid { grid-template-columns: minmax(0, 1fr); }
+  .course-context summary { cursor: pointer; }
+  .course-context summary::after { color: var(--old-gold); content: "＋"; }
+  .course-context details[open] summary::after { content: "－"; }
+  .course-context summary small { margin-left: auto; }
+  .course-workbench__stage { min-height: 0; padding: 5px; }
+  .course-workbench__stage .course-experience .artifact-experience__viewport { min-height: 360px; }
+  .course-workbench__stages { padding-top: 10px; border-top: 1px solid var(--patina); }
+  .course-workbench__stages .rule-stage-rail { display: grid; grid-template-columns: repeat(6, minmax(140px, 1fr)); overflow-x: auto; border-left: 0; }
+  .course-workbench__stages .rule-stage-rail li { padding: 14px 12px 10px; border-top: 1px solid var(--patina); }
+  .course-workbench__stages .rule-stage-rail li::before { top: -5px; left: 14px; background: var(--panel); }
+}
+
+@media (max-width: 520px) {
+  .course-workbench__header h1 { font-size: 1.65rem; }
+  .course-workbench__stage .course-experience .artifact-experience__viewport { min-height: 330px; }
+}

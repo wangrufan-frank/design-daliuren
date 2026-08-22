@@ -98,28 +98,19 @@ it("runs the real offline stages through three transmissions, then navigates pri
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
 });
 
-it("recomputes only the course when the reason changes", async () => {
-  const runCalendar = vi.spyOn(calendarStage, "runCalendarStage");
-  const runHeavenEarth = vi.spyOn(heavenEarthStage, "runHeavenEarthStage");
-  const runFourLessons = vi.spyOn(fourLessonsStage, "runFourLessonsStage");
-  const runThreeTransmissions = vi.spyOn(threeTransmissionsStage, "runThreeTransmissionsStage");
-  const runGenerals = vi.spyOn(heavenlyGeneralsStage, "runHeavenlyGeneralsStage");
-  const runCourse = vi.spyOn(courseStage, "runCourseStage");
+it("restarts a completed workbench through a fresh empty input session", async () => {
   render(<App />);
 
   const user = await submitCourse();
-  const reason = screen.getByLabelText("起课事由");
-  await user.clear(reason);
-  await user.type(reason, "新的事由");
-  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  expect(screen.getByRole("region", { name: "起课上下文" })).toHaveTextContent("商务决策复盘");
+  expect(screen.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
 
-  expect(runCalendar).toHaveBeenCalledTimes(1);
-  expect(runHeavenEarth).toHaveBeenCalledTimes(1);
-  expect(runFourLessons).toHaveBeenCalledTimes(1);
-  expect(runThreeTransmissions).toHaveBeenCalledTimes(1);
-  expect(runGenerals).toHaveBeenCalledTimes(1);
-  expect(runCourse).toHaveBeenCalledTimes(2);
-  expect(runCourse.mock.calls[1]?.[0].snapshots.course).toBeDefined();
+  await user.click(screen.getByRole("button", { name: "重新起课" }));
+
+  expect(screen.getByLabelText("日期与时间")).toHaveValue("");
+  expect(screen.getByLabelText("起课事由")).toHaveValue("");
+  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
+  expect(screen.getByText("历法与月将")).toHaveAttribute("data-status", "current");
 });
 
 it("opens the three-dimensional experience only for the complete guarded bundle", async () => {
@@ -568,6 +559,8 @@ it("clears a field correction error after reset and after a new successful submi
   fireEvent.change(correction, { target: { value: "甲丑" } });
   expect(screen.getByRole("alert")).toHaveTextContent("人工修正值无效");
 
+  await user.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
+  await user.type(screen.getByLabelText("起课事由"), "商务决策复盘");
   await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   await openFourLessonsReview(user);
@@ -589,6 +582,7 @@ it("clears prior snapshots when a new parsed submission fails the calendar stage
   render(<App />);
   const user = await submitCourse();
 
+  await user.click(screen.getByRole("button", { name: "重新起课" }));
   vi.spyOn(calendarStage, "runCalendarStage").mockReturnValueOnce({
     ok: false,
     error: { code: "CALENDAR_ADAPTER_FAILURE", message: "历法数据读取失败" },
@@ -596,6 +590,7 @@ it("clears prior snapshots when a new parsed submission fails the calendar stage
   const dateTime = screen.getByLabelText("日期与时间");
   await user.clear(dateTime);
   await user.type(dateTime, "2024-02-11T14:30:00");
+  await user.type(screen.getByLabelText("起课事由"), "新的起课事由");
   await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
 
   expect(screen.getByRole("alert")).toHaveTextContent("历法数据读取失败");

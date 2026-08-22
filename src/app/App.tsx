@@ -33,6 +33,7 @@ import type { CourseStageOutcome } from "../domain/course/types";
 import { CourseSheet } from "../features/course-sheet/CourseSheet";
 import { CourseExperience } from "../features/course-experience/CourseExperience";
 import type { ArtifactSourceResults } from "../features/artifact-scene/model/types";
+import { CourseWorkbench } from "../features/course-workbench/CourseWorkbench";
 import "../styles/tokens.css";
 import "../styles/global.css";
 
@@ -207,6 +208,24 @@ export function App() {
             : hasCalendar
               ? "heaven-earth"
               : "calendar";
+
+  if (session && artifactSource && reviewStage === "course") {
+    return (
+      <CourseWorkbench
+        input={session.input}
+        source={artifactSource}
+        selectedStage={reviewStage}
+        onSelectStage={setReviewStage}
+        onRestart={() => {
+          setSession(null);
+          setStageError(null);
+          setReviewStage("calendar");
+          setInputOpen(true);
+          setRailOpen(true);
+        }}
+      />
+    );
+  }
 
   return (
     <main className="app-shell">
