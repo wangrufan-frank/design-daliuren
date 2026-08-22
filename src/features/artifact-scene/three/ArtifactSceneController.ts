@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
@@ -28,6 +29,7 @@ interface ControlsLike {
 
 interface ArtifactSceneDependencies {
   createControls(camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement): ControlsLike;
+  createEnvironment(renderer: THREE.WebGLRenderer): { texture: THREE.Texture; dispose(): void };
 }
 
 interface BaseTransform {
@@ -105,13 +107,24 @@ const COPY_BINDINGS = {
 } as const satisfies Record<CopyKey, { anchorId: string; sourceNodeIds: readonly string[] }>;
 
 function defaultDependencies(): ArtifactSceneDependencies {
-  return { createControls: (camera, canvas) => new OrbitControls(camera, canvas) };
+  return {
+    createControls: (camera, canvas) => new OrbitControls(camera, canvas),
+    createEnvironment: (renderer) => {
+      const generator = new THREE.PMREMGenerator(renderer);
+      const room = new RoomEnvironment();
+      const target = generator.fromScene(room, 0.04);
+      room.dispose();
+      generator.dispose();
+      return { texture: target.texture, dispose: () => target.dispose() };
+    },
+  };
 }
 
 export class ArtifactSceneController {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(38, 1, 0.01, 20);
   private readonly controls: ControlsLike;
+  private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
   private readonly baseTransforms = new Map<string, BaseTransform>();
   private readonly generalSlots = new Map<EarthlyBranch, BaseTransform>();
   private readonly labelBindings = new Map<string, LabelBinding>();
@@ -150,14 +163,17 @@ export class ArtifactSceneController {
   ) {
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.18;
     this.scene.background = new THREE.Color(0xdce5df);
+    this.environment = dependencies.createEnvironment(renderer);
+    this.scene.environment = this.environment.texture;
+    this.scene.environmentIntensity = 1.25;
     this.scene.add(artifact.root);
 
     const keyLight = new THREE.DirectionalLight(0xffd7b0, 1.35);
     keyLight.position.set(0.5, 0.75, 0.45);
     const fillLight = new THREE.HemisphereLight(0x879b92, 0x26322f, 0.65);
-    const rimLight = new THREE.DirectionalLight(0xc2c6bb, 0.45);
+    const rimLight = new THREE.DirectionalLight(0xc2c6bb, 0.75);
     rimLight.position.set(-0.55, 0.28, -0.5);
     this.scene.add(keyLight, fillLight, rimLight);
 
@@ -381,6 +397,8 @@ export class ArtifactSceneController {
     this.generalDirectionGeometry.dispose();
     this.generalDirectionMaterial.dispose();
     this.labels.dispose();
+    this.scene.environment = null;
+    this.environment.dispose();
     disposeArtifact(this.artifact.root);
     this.renderer.dispose();
   }

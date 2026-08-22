@@ -103,6 +103,8 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
     outputColorSpace: THREE.LinearSRGBColorSpace,
   } as unknown as THREE.WebGLRenderer;
   const controls = new TestControls();
+  const environmentTexture = new THREE.Texture();
+  const environmentDispose = vi.fn();
   const callbacks = {
     onUserControlStart: vi.fn(),
     onContextLost: vi.fn(),
@@ -110,11 +112,12 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
   };
   const controller = new ArtifactSceneController(renderer, artifact, callbacks, {
     createControls: () => controls,
+    createEnvironment: () => ({ texture: environmentTexture, dispose: environmentDispose }),
   });
   return {
     artifact, callbacks, canvas, controller, controls, geometry,
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
-    generalNodes, material, movingNode, renderer,
+    environmentDispose, environmentTexture, generalNodes, material, movingNode, renderer,
   };
 }
 
@@ -197,20 +200,22 @@ const completeDisplayState = {
 
 describe("ArtifactSceneController", () => {
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
-    const { controller, renderer } = fixture();
+    const { controller, environmentTexture, renderer } = fixture();
 
     controller.resize(800, 400, 2);
     controller.render();
 
     expect(renderer.toneMapping).toBe(THREE.AgXToneMapping);
-    expect(renderer.toneMappingExposure).toBe(1.08);
+    expect(renderer.toneMappingExposure).toBe(1.18);
     expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(2);
     expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
     const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
     expect(scene.background).toEqual(new THREE.Color(0xdce5df));
+    expect(scene.environment).toBe(environmentTexture);
+    expect(scene.environmentIntensity).toBe(1.25);
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
-    expect(lights.map((light) => light.intensity)).toEqual([1.35, 0.65, 0.45]);
+    expect(lights.map((light) => light.intensity)).toEqual([1.35, 0.65, 0.75]);
   });
 
   it("applies every pose against frozen loaded transforms", () => {
@@ -405,7 +410,7 @@ describe("ArtifactSceneController", () => {
   });
 
   it("removes listeners and disposes every owned resource exactly once", () => {
-    const { callbacks, canvas, controller, controls, geometry, material, renderer } = fixture();
+    const { callbacks, canvas, controller, controls, environmentDispose, geometry, material, renderer } = fixture();
     const geometryDispose = vi.spyOn(geometry, "dispose");
     const materialDispose = vi.spyOn(material, "dispose");
 
@@ -420,6 +425,7 @@ describe("ArtifactSceneController", () => {
     canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
 
     expect(controls.dispose).toHaveBeenCalledOnce();
+    expect(environmentDispose).toHaveBeenCalledOnce();
     expect(renderer.dispose).toHaveBeenCalledOnce();
     expect(geometryDispose).toHaveBeenCalledOnce();
     expect(materialDispose).toHaveBeenCalledOnce();
