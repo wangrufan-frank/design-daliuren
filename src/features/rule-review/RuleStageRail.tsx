@@ -1,14 +1,5 @@
-import { RULE_STAGE_ORDER } from "../../domain/chart/stages";
 import type { RuleStageId } from "../../domain/chart/types";
-
-const labels: Record<RuleStageId, string> = {
-  calendar: "历法与月将",
-  "heaven-earth": "天地盘加临",
-  "four-lessons": "四课生成",
-  "three-transmissions": "三传取法",
-  "heavenly-generals": "天将排列",
-  course: "复制结课",
-};
+import { ARTIFACT_REVIEW_STAGES } from "../artifact-scene/timeline/review-stages";
 
 const statusLabels = {
   completed: "已完成",
@@ -26,21 +17,21 @@ interface RuleStageRailProps {
 export function RuleStageRail({ completed, current, selected, onSelect }: RuleStageRailProps) {
   return (
     <ol className="rule-stage-rail" aria-label="传统规则阶段">
-      {RULE_STAGE_ORDER.map((stage) => {
-        const status = completed.includes(stage) ? "completed" : stage === current ? "current" : "locked";
+      {ARTIFACT_REVIEW_STAGES.map((stage) => {
+        const status = completed.includes(stage.id) ? "completed" : stage.id === current ? "current" : "locked";
         const stageProps = {
           "data-status": status,
-          "aria-label": `${labels[stage]}，${statusLabels[status]}`,
+          "aria-label": `${stage.label}，${statusLabels[status]}`,
         };
 
         return (
-          <li key={stage}>
+          <li key={stage.id}>
             {status === "completed" ? (
-              <button type="button" {...stageProps} aria-current={stage === selected ? "page" : undefined} onClick={() => onSelect?.(stage)}>
-                {labels[stage]}
+              <button type="button" {...stageProps} aria-current={stage.id === selected ? "page" : undefined} onClick={() => onSelect?.(stage.id)}>
+                {stage.label}
               </button>
             ) : (
-              <span {...stageProps} aria-current={status === "current" ? "step" : undefined}>{labels[stage]}</span>
+              <span {...stageProps} aria-current={status === "current" ? "step" : undefined}>{stage.label}</span>
             )}
           </li>
         );

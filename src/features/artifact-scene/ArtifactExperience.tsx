@@ -3,7 +3,9 @@ import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
+import { reviewStageFor } from "./timeline/review-stages";
 import type { ArtifactPose } from "./timeline/types";
+import type { RuleStageId } from "../../domain/chart/types";
 import { ArtifactSceneController, type ArtifactAppliedState } from "./three/ArtifactSceneController";
 import { disposeArtifact } from "./three/dispose-artifact";
 import { createArtifactRenderer, loadArtifact } from "./three/load-artifact";
@@ -29,6 +31,7 @@ declare global {
 
 interface ArtifactExperienceProps {
   source: ArtifactSourceResults;
+  selectedStage?: RuleStageId;
   onShowCourse(): void;
 }
 
@@ -68,7 +71,7 @@ function AccessibleFacts({ state }: { state: ArtifactDisplayState }) {
   );
 }
 
-export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceProps) {
+export function ArtifactExperience({ source, selectedStage = "calendar", onShowCourse }: ArtifactExperienceProps) {
   const displayState = useMemo(() => mapArtifactState(source), [source]);
   const reducedMotion = useReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -263,7 +266,7 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     applyAt(timeRef.current);
   }, [applyAt, reducedMotion]);
 
-  const seek = (nextTime: number) => {
+  const seek = useCallback((nextTime: number) => {
     const clamped = Math.round(Math.min(ARTIFACT_DURATION_MS, Math.max(0, nextTime)));
     timeRef.current = clamped;
     accumulatedTimeRef.current = clamped;
@@ -271,7 +274,11 @@ export function ArtifactExperience({ source, onShowCourse }: ArtifactExperienceP
     setTimeMs(clamped);
     stopPlayback();
     applyAt(clamped);
-  };
+  }, [applyAt, stopPlayback]);
+
+  useEffect(() => {
+    seek(reviewStageFor(selectedStage).settledTimeMs);
+  }, [displayState, seek, selectedStage]);
 
   const togglePlayback = () => {
     if (playingRef.current) {

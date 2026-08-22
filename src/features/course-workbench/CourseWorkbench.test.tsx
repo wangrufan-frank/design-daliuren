@@ -1,5 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { CalendarResult } from "../../domain/calendar/types";
 import type { CourseResult } from "../../domain/course/types";
@@ -53,4 +55,17 @@ it("renders one semantic three-column workbench for a complete course", () => {
   expect(screen.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
   expect(screen.getByRole("navigation", { name: "推演阶段" })).toBeVisible();
   expect(screen.getByRole("button", { name: "复制结课，已完成" })).toHaveAttribute("aria-current", "page");
+});
+
+it("keeps stage selection inside the workbench and updates the central caption", async () => {
+  const user = userEvent.setup();
+  function Workbench() {
+    const [selectedStage, setSelectedStage] = useState<"calendar" | "heaven-earth" | "four-lessons" | "three-transmissions" | "heavenly-generals" | "course">("course");
+    return <CourseWorkbench input={referenceSession.input} source={source} selectedStage={selectedStage} onSelectStage={setSelectedStage} onRestart={vi.fn()} />;
+  }
+
+  render(<Workbench />);
+  await user.click(screen.getByRole("button", { name: "三传取法，已完成" }));
+
+  expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
 });

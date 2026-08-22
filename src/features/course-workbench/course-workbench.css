@@ -55,6 +55,36 @@
   min-height: clamp(520px, 54vw, 760px);
 }
 
+.course-experience__caption {
+  display: grid;
+  gap: 3px;
+  margin: 16px 4px 4px;
+  padding-left: 14px;
+  border-left: 2px solid var(--old-gold);
+}
+.course-experience__caption p { margin: 0; color: var(--ash); font-family: var(--font-display); letter-spacing: 0.08em; }
+.course-experience__caption p + p { color: var(--ru-celadon); font-family: var(--font-utility); font-size: 0.8rem; }
+
+.stage-evidence-drawer { margin: 16px 4px 4px; }
+.stage-evidence-drawer > button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--ru-celadon);
+  background: transparent;
+  color: var(--ru-celadon);
+  cursor: pointer;
+}
+.stage-evidence-drawer > button:hover { background: var(--ru-celadon); color: var(--panel); }
+.stage-evidence-drawer__panel {
+  margin-top: 12px;
+  padding: 20px;
+  border: 1px solid var(--patina);
+  background: var(--panel);
+}
+.stage-evidence-drawer__panel > header { margin-bottom: 18px; border-bottom: 1px solid var(--patina); }
+.stage-evidence-drawer__panel > header p { margin: 0; color: var(--ru-celadon); font-family: var(--font-utility); font-size: 0.7rem; letter-spacing: 0.12em; }
+.stage-evidence-drawer__panel > header h2 { margin: 6px 0 14px; color: var(--ash); font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
+
 .course-workbench__stages {
   padding-top: 4px;
 }

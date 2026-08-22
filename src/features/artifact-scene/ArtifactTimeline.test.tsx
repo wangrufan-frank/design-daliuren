@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArtifactTimeline } from "./ArtifactTimeline";
+import { ARTIFACT_REVIEW_STAGES } from "./timeline/review-stages";
 
 afterEach(cleanup);
 
@@ -53,5 +54,13 @@ describe("ArtifactTimeline", () => {
 
     expect(callbacks.onTogglePlayback).toHaveBeenCalledOnce();
     expect(callbacks.onSeek).toHaveBeenLastCalledWith(10_300);
+  });
+
+  it("renders its scale markers from the shared review stages", () => {
+    renderTimeline();
+
+    ARTIFACT_REVIEW_STAGES.forEach((stage) => {
+      expect(screen.getByText(stage.label)).toBeVisible();
+    });
   });
 });

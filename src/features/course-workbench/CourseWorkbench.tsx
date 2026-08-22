@@ -1,9 +1,13 @@
 import { RULE_STAGE_ORDER } from "../../domain/chart/stages";
 import type { CourseInput, RuleStageId } from "../../domain/chart/types";
+import type { CalendarCorrectionField } from "../../domain/calendar/types";
 import { CourseExperience } from "../course-experience/CourseExperience";
 import type { ArtifactSourceResults } from "../artifact-scene/model/types";
 import { RuleStageRail } from "../rule-review/RuleStageRail";
 import { CourseContextSummary } from "./CourseContextSummary";
+import { StageEvidenceDrawer } from "./StageEvidenceDrawer";
+import { StageReviewContent } from "../rule-review/StageReviewContent";
+import { reviewStageFor } from "../artifact-scene/timeline/review-stages";
 import "./course-workbench.css";
 
 interface CourseWorkbenchProps {
@@ -11,6 +15,9 @@ interface CourseWorkbenchProps {
   source: ArtifactSourceResults;
   selectedStage: RuleStageId;
   onSelectStage(stage: RuleStageId): void;
+  onSetCalendarCorrection?(field: CalendarCorrectionField, rawValue: string): void;
+  onResetCalendarCorrection?(field: CalendarCorrectionField): void;
+  calendarCorrectionError?: { field: CalendarCorrectionField; message: string };
   onRestart(): void;
 }
 
@@ -19,8 +26,12 @@ export function CourseWorkbench({
   source,
   selectedStage,
   onSelectStage,
+  onSetCalendarCorrection,
+  onResetCalendarCorrection,
+  calendarCorrectionError,
   onRestart,
 }: CourseWorkbenchProps) {
+  const stage = reviewStageFor(selectedStage);
   return (
     <main className="course-workbench">
       <header className="course-workbench__header">
@@ -30,7 +41,17 @@ export function CourseWorkbench({
       <div className="course-workbench__grid">
         <CourseContextSummary input={input} onRestart={onRestart} />
         <section className="course-workbench__stage" aria-label="三维阶段回看">
-          <CourseExperience source={source} />
+          <CourseExperience source={source} selectedStage={selectedStage} />
+          <StageEvidenceDrawer stage={stage}>
+            <StageReviewContent
+              stage={selectedStage}
+              source={source}
+              onSelectStage={onSelectStage}
+              onSetCalendarCorrection={onSetCalendarCorrection}
+              onResetCalendarCorrection={onResetCalendarCorrection}
+              calendarCorrectionError={calendarCorrectionError}
+            />
+          </StageEvidenceDrawer>
         </section>
         <nav className="course-workbench__stages" aria-label="推演阶段">
           <p>六阶段校准</p>

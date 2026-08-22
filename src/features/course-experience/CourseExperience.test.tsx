@@ -64,6 +64,13 @@ it("opens the three-dimensional experience for a complete guarded bundle and swi
   expect(textCourse).toHaveTextContent("夜贵寅");
 });
 
+it("shows the selected stage's shared two-line caption", () => {
+  render(<CourseExperience source={source} selectedStage="three-transmissions" />);
+
+  expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
+  expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("由课势取其来去");
+});
+
 it("keeps the text course and copy action usable when artifact loading fails", async () => {
   artifactLoader.loadArtifact.mockRejectedValueOnce(new Error("missing GLB"));
   const user = userEvent.setup();

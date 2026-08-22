@@ -209,13 +209,16 @@ export function App() {
               ? "heaven-earth"
               : "calendar";
 
-  if (session && artifactSource && reviewStage === "course") {
+  if (session && artifactSource && hasCourse) {
     return (
       <CourseWorkbench
         input={session.input}
         source={artifactSource}
         selectedStage={reviewStage}
         onSelectStage={setReviewStage}
+        onSetCalendarCorrection={setCorrection}
+        onResetCalendarCorrection={resetCorrection}
+        calendarCorrectionError={correctionError}
         onRestart={() => {
           setSession(null);
           setStageError(null);
