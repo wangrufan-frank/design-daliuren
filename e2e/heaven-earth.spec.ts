@@ -68,6 +68,7 @@ for (const viewport of VIEWPORTS) {
     isOffline = true;
     await submitOrdinaryInput(page);
     await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
+    await page.getByRole("button", { name: "查看阶段证据" }).click();
 
     const review = page.getByRole("region", { name: "天地盘加临" });
     const plate = review.getByRole("list", { name: "天地盘十二宫" });
@@ -133,6 +134,7 @@ test("mobile fallback keeps all twelve palace comparisons on two stacked lines a
   await page.goto("/");
   await submitOrdinaryInput(page);
   await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
+  await page.getByRole("button", { name: "查看阶段证据" }).click();
 
   const fallback = page.getByRole("list", { name: "十二宫文字对照" });
   const records = fallback.getByRole("listitem");
@@ -225,7 +227,7 @@ test("completed-stage rail buttons reset native chrome and expose hover and keyb
     expect(hovered.decoration).toContain("underline");
   }
 
-  await page.getByRole("button", { name: "推演依据" }).focus();
+  await page.getByRole("button", { name: "查看阶段证据" }).focus();
   for (let index = 0; index < 4; index += 1) {
     await page.keyboard.press("Tab");
     const button = stageButtons.nth(index);

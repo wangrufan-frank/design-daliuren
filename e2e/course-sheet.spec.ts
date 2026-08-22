@@ -60,10 +60,11 @@ test("renders, copies, and navigates the completed standard course", async ({ co
   expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n"))
     .toBe(EXPECTED_REFERENCE_TEXT);
   await page.getByRole("button", { name: "天将排列，已完成" }).click();
+  await page.getByRole("button", { name: "查看阶段证据" }).click();
   await expect(page.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
   await page.getByRole("button", { name: "复制结课，已完成" }).click();
   await page.getByRole("button", { name: "文字课式", exact: true }).click();
-  await expect(page.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+  await expect(page.locator(".course-experience__stage").getByRole("article", { name: "标准文字课式" })).toBeVisible();
 });
 
 test("390x844 preserves approved order, hierarchy, and square without overflow", async ({ page }) => {

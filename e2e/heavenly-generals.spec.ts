@@ -12,6 +12,7 @@ test("reviews heavenly generals and returns to upstream evidence", async ({ page
   await page.goto("/");
   await submitReferenceCourse(page);
   await page.getByRole("button", { name: /天将排列，已完成/ }).click();
+  await page.getByRole("button", { name: "查看阶段证据" }).click();
   await expect(page.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
   await expect(page.getByRole("list", { name: "十二天将方盘" }).locator(":scope > li")).toHaveCount(12);
   await expect(page.getByText("待天将加临")).toHaveCount(0);
@@ -28,6 +29,7 @@ test("390x844 preserves approved order and has no overflow", async ({ page }) =>
   await page.goto("/");
   await submitReferenceCourse(page);
   await page.getByRole("button", { name: /天将排列，已完成/ }).click();
+  await page.getByRole("button", { name: "查看阶段证据" }).click();
   const order = await page.locator("[data-heavenly-generals-section]").evaluateAll(
     (nodes) => nodes.map((node) => node.getAttribute("data-heavenly-generals-section")),
   );
@@ -40,6 +42,7 @@ test("derives the complete review after the loaded app goes offline", async ({ c
   await context.setOffline(true);
   await submitReferenceCourse(page);
   await page.getByRole("button", { name: /天将排列，已完成/ }).click();
+  await page.getByRole("button", { name: "查看阶段证据" }).click();
   await expect(page.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
   await expect(page.getByRole("list", { name: "十二天将方盘" }).locator(":scope > li")).toHaveCount(12);
 });

@@ -57,6 +57,23 @@ it("renders one semantic three-column workbench for a complete course", () => {
   expect(screen.getByRole("button", { name: "复制结课，已完成" })).toHaveAttribute("aria-current", "page");
 });
 
+it("keeps a general stage error visible without replacing the completed workbench", () => {
+  render(
+    <CourseWorkbench
+      input={referenceSession.input}
+      source={source}
+      selectedStage="calendar"
+      stageErrorMessage="历法数据读取失败"
+      onSelectStage={vi.fn()}
+      onRestart={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole("alert")).toHaveTextContent("历法数据读取失败");
+  expect(screen.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "推演阶段" })).toBeVisible();
+});
+
 it("keeps stage selection inside the workbench and updates the central caption", async () => {
   const user = userEvent.setup();
   function Workbench() {

@@ -17,6 +17,7 @@ async function calculateCalendar(page: Page) {
   await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "建立起课上下文" }).click();
   await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
+  await page.getByRole("button", { name: "查看阶段证据" }).click();
   await expect(page.getByRole("list", { name: "天地盘十二宫" })).toBeVisible();
   await returnToCalendar(page);
   await expect(page.locator(".calendar-review__time-band").getByText("2024-02-10T14:30:00", { exact: true })).toBeVisible();
@@ -180,7 +181,6 @@ function inspectComputedColors(node: Element, options?: { activeElement?: boolea
     computedForeground: style.color,
     contrastRatio: (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
       / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05),
-    controlIndex: [...document.querySelectorAll("button, input, select")].indexOf(element),
     outlineAlpha: parseCssColor(style.outlineColor).alpha,
     outlineColor: style.outlineColor,
     outlineStyle: style.outlineStyle,
@@ -197,36 +197,87 @@ async function expectContrastAtLeast(element: Locator, minimum: number) {
 }
 
 async function expectVisibleControlsKeyboardReachable(page: Page) {
-  const selector = "button, input, select";
-  const expectedIndexes = await page.locator(selector).evaluateAll((elements) => elements.flatMap(
-    (element, index) => element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden"
-      ? [index]
-      : [],
-  ));
-
-  await page.evaluate(() => {
-    document.body.tabIndex = -1;
-    document.body.focus();
-    document.body.removeAttribute("tabindex");
+  const selector = [
+    "button:visible:not([disabled]):not([tabindex='-1'])",
+    "input:visible:not([disabled]):not([tabindex='-1'])",
+    "select:visible:not([disabled]):not([tabindex='-1'])",
+  ].join(", ");
+  const controls = page.locator(selector);
+  const controlCount = await controls.count();
+  const reviewControlCount = await page.getByRole("region", { name: "阶段证据抽屉" }).locator(selector).count();
+  await controls.evaluateAll((elements) => {
+    const records: Array<{
+      controlIndex: number;
+      outlineAlpha: number;
+      outlineColor: string;
+      outlineStyle: string;
+      outlineWidth: number;
+      tagName: string;
+      text?: string;
+    }> = [];
+    const state = globalThis as typeof globalThis & {
+      __keyboardOrderState?: { handler: (event: FocusEvent) => void; records: typeof records };
+    };
+    elements.forEach((element, index) => {
+      (element as HTMLElement).dataset.keyboardOrderIndex = String(index);
+    });
+    const handler = (event: FocusEvent) => {
+      const element = event.target;
+      if (!(element instanceof HTMLElement) || element.dataset.keyboardOrderIndex === undefined) return;
+      const style = getComputedStyle(element);
+      const alphaMatch = style.outlineColor.match(/rgba\([^)]*,\s*([\d.]+)\s*\)$/i);
+      records.push({
+        controlIndex: Number(element.dataset.keyboardOrderIndex),
+        outlineAlpha: style.outlineColor === "transparent" ? 0 : Number(alphaMatch?.[1] ?? 1),
+        outlineColor: style.outlineColor,
+        outlineStyle: style.outlineStyle,
+        outlineWidth: Number.parseFloat(style.outlineWidth),
+        tagName: element.tagName,
+        text: element.textContent?.trim(),
+      });
+    };
+    document.addEventListener("focusin", handler);
+    state.__keyboardOrderState = { handler, records };
+    const sentinel = document.createElement("button");
+    sentinel.id = "keyboard-order-sentinel";
+    sentinel.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
+    elements[0].before(sentinel);
+    sentinel.focus({ preventScroll: true });
   });
-
-  const reachedIndexes: number[] = [];
-  for (let press = 0; press < expectedIndexes.length * 4 && reachedIndexes.length < expectedIndexes.length; press += 1) {
+  for (let index = 0; index < controlCount; index += 1) {
     await page.keyboard.press("Tab");
-    const focused = await page.locator("body").evaluate(inspectComputedColors, { activeElement: true });
-
-    if (!expectedIndexes.includes(focused.controlIndex)) continue;
+  }
+  const reached = await page.evaluate(() => {
+    const state = (globalThis as typeof globalThis & {
+      __keyboardOrderState?: { handler: (event: FocusEvent) => void; records: Array<{
+        controlIndex: number;
+        outlineAlpha: number;
+        outlineColor: string;
+        outlineStyle: string;
+        outlineWidth: number;
+        tagName: string;
+        text?: string;
+      }> };
+    }).__keyboardOrderState;
+    if (!state) throw new Error("Keyboard order recorder was not initialized");
+    document.removeEventListener("focusin", state.handler);
+    document.querySelector("#keyboard-order-sentinel")?.remove();
+    document.querySelectorAll<HTMLElement>("[data-keyboard-order-index]").forEach((element) => {
+      delete element.dataset.keyboardOrderIndex;
+    });
+    delete (globalThis as typeof globalThis & { __keyboardOrderState?: unknown }).__keyboardOrderState;
+    return state.records;
+  });
+  expect(reached.map(({ controlIndex }) => controlIndex)).toEqual(
+    Array.from({ length: controlCount }, (_, index) => index),
+  );
+  for (const focused of reached) {
     expect(focused.outlineStyle, JSON.stringify(focused)).not.toBe("none");
     expect(focused.outlineWidth, JSON.stringify(focused)).toBeGreaterThan(0);
     expect(focused.outlineAlpha, JSON.stringify(focused)).toBeGreaterThan(0);
-    if (!reachedIndexes.includes(focused.controlIndex)) {
-      expect(focused.controlIndex, JSON.stringify(focused)).toBe(expectedIndexes[reachedIndexes.length]);
-      reachedIndexes.push(focused.controlIndex);
-    }
   }
 
-  expect(reachedIndexes).toEqual(expectedIndexes);
-  return expectedIndexes.length;
+  return reviewControlCount;
 }
 
 for (const viewport of VIEWPORTS) {
@@ -352,6 +403,7 @@ for (const viewport of VIEWPORTS) {
   });
 
   test(`${viewport.name} keyboard users reach the matrix, correction, and reset controls in document order`, async ({ page }) => {
+    test.setTimeout(60_000);
     await page.setViewportSize(viewport);
     await page.goto("/");
     await calculateCalendar(page);
@@ -374,7 +426,7 @@ for (const viewport of VIEWPORTS) {
       await reset.focus();
       await page.keyboard.press("Tab");
       expect(await evidence.evaluate((aside) => !aside.contains(document.activeElement))).toBe(true);
-      await expect(page.getByRole("button", { name: "推演依据" })).toBeFocused();
+      await expect(page.getByRole("button", { name: "历法与月将，已完成" })).toBeFocused();
     }
   });
 

@@ -34,6 +34,11 @@
   letter-spacing: 0.16em;
 }
 
+.course-workbench__error {
+  margin: 16px 0 0;
+  color: var(--error);
+}
+
 .course-workbench__grid {
   display: grid;
   grid-template-columns: minmax(220px, 0.7fr) minmax(0, 2.6fr) minmax(240px, 0.8fr);

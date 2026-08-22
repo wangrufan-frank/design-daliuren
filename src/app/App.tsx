@@ -219,6 +219,7 @@ export function App() {
         onSetCalendarCorrection={setCorrection}
         onResetCalendarCorrection={resetCorrection}
         calendarCorrectionError={correctionError}
+        stageErrorMessage={generalErrorMessage}
         onRestart={() => {
           setSession(null);
           setStageError(null);

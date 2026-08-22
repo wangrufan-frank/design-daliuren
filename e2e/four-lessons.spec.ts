@@ -55,6 +55,7 @@ for (const viewport of VIEWPORTS) {
     isOffline = true;
     await submitOrdinaryInput(page);
     await page.getByRole("button", { name: "四课生成，已完成" }).click();
+    await page.getByRole("button", { name: "查看阶段证据" }).click();
 
     const review = page.getByRole("region", { name: "四课生成" });
     const list = review.getByRole("list", { name: "四课课体" });

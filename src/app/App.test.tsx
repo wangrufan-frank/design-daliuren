@@ -52,12 +52,30 @@ async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
   return user;
 }
 
+async function openStageEvidence(user: ReturnType<typeof userEvent.setup>) {
+  const toggle = screen.getByRole("button", { name: /阶段证据/ });
+  if (toggle.getAttribute("aria-expanded") !== "true") {
+    await user.click(toggle);
+  }
+}
+
+async function openStageReview(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+  await user.click(screen.getByRole("button", { name }));
+  await openStageEvidence(user);
+}
+
 async function openCalendarReview(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /历法与月将，已完成/ }));
+  await openStageReview(user, /历法与月将，已完成/);
 }
 
 async function openFourLessonsReview(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /四课生成，已完成/ }));
+  await openStageReview(user, /四课生成，已完成/);
+}
+
+function expectCourseText(value: string) {
+  for (const course of screen.getAllByRole("article", { name: "标准文字课式" })) {
+    expect(course).toHaveTextContent(value);
+  }
 }
 
 it("starts at input without a fake model or fake course", () => {
@@ -135,7 +153,7 @@ it("returns to heavenly generals and back to the completed course without recomp
   const user = await submitCourse();
 
   expect(runCourse).toHaveBeenCalledTimes(1);
-  await user.click(screen.getByRole("button", { name: "天将排列，已完成" }));
+  await openStageReview(user, /天将排列，已完成/);
   expect(screen.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "复制结课，已完成" }));
   expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
@@ -207,18 +225,18 @@ it("replaces the completed course after a day-pillar correction and reset", asyn
   const user = await submitCourse();
 
   await user.click(screen.getByRole("button", { name: "文字课式" }));
-  expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("甲辰");
+  expectCourseText("甲辰");
   await openCalendarReview(user);
   await user.click(screen.getByRole("button", { name: /日柱.*自动 甲辰.*自动计算/ }));
   await user.selectOptions(screen.getByRole("combobox", { name: "修正日柱" }), "乙巳");
   await user.click(screen.getByRole("button", { name: "文字课式" }));
-  expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("乙巳");
+  expectCourseText("乙巳");
 
   await openCalendarReview(user);
   await user.click(screen.getByRole("button", { name: /日柱.*有效 乙巳.*人工修正/ }));
   await user.click(screen.getByRole("button", { name: "恢复日柱自动值" }));
   await user.click(screen.getByRole("button", { name: "文字课式" }));
-  expect(screen.getByRole("article", { name: "标准文字课式" })).toHaveTextContent("甲辰");
+  expectCourseText("甲辰");
 });
 
 it("does not complete, render, or inject heavenly generals copied from another canonical plate", async () => {
@@ -272,15 +290,15 @@ it("navigates from heavenly generals to every completed upstream review without 
   const user = await submitCourse();
 
   expect(runGenerals).toHaveBeenCalledTimes(1);
-  await user.click(screen.getByRole("button", { name: /三传取法，已完成/ }));
+  await openStageReview(user, /三传取法，已完成/);
   expect(screen.getByRole("heading", { name: /九宗门 · 三传取法/ })).toBeVisible();
-  await user.click(screen.getByRole("button", { name: /四课生成，已完成/ }));
+  await openStageReview(user, /四课生成，已完成/);
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
-  await user.click(screen.getByRole("button", { name: /天地盘加临，已完成/ }));
+  await openStageReview(user, /天地盘加临，已完成/);
   expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
-  await user.click(screen.getByRole("button", { name: /历法与月将，已完成/ }));
+  await openStageReview(user, /历法与月将，已完成/);
   expect(screen.getByRole("heading", { name: "历法与月将" })).toBeVisible();
-  await user.click(screen.getByRole("button", { name: /天将排列，已完成/ }));
+  await openStageReview(user, /天将排列，已完成/);
   expect(screen.getByRole("heading", { name: "贵人起例 · 十二天将布列" })).toBeVisible();
   expect(runGenerals).toHaveBeenCalledTimes(1);
 });
@@ -292,7 +310,7 @@ it("navigates from three transmissions back to four lessons and the plate", asyn
   await openFourLessonsReview(user);
   expect(screen.getByRole("region", { name: "四课生成" })).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: /三传取法，已完成/ }));
+  await openStageReview(user, /三传取法，已完成/);
   await user.click(screen.getByRole("button", { name: "查看天地盘" }));
   expect(screen.getByRole("region", { name: "天地盘加临" })).toBeInTheDocument();
 });
@@ -335,7 +353,7 @@ it("returns from calendar to the guarded heaven-earth snapshot without recomputi
 
   expect(runStage).toHaveBeenCalledTimes(1);
   await openCalendarReview(user);
-  await user.click(screen.getByRole("button", { name: /天地盘加临，已完成/ }));
+  await openStageReview(user, /天地盘加临，已完成/);
 
   expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
   expect(screen.getByRole("button", { name: /天地盘加临，已完成/ })).toHaveAttribute("aria-current", "page");
@@ -452,6 +470,7 @@ it("keeps the latest calendar and associates a heaven-earth failure with the sta
 
   expect(screen.getByRole("list", { name: "历法结果矩阵" })).toBeVisible();
   expect(screen.getByRole("button", { name: /月将.*有效 登明.*亥.*人工修正/ })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: /月将.*有效 登明.*亥.*人工修正/ }));
   expect(screen.getByRole("combobox", { name: "修正月将" })).not.toHaveAttribute("aria-invalid");
   expect(screen.getByRole("alert")).toHaveTextContent("天地盘结果不完整");
   expect(screen.queryByRole("region", { name: "天地盘加临" })).not.toBeInTheDocument();
@@ -462,7 +481,7 @@ it("offers no independent correction or approval controls on the heaven-earth re
   render(<App />);
 
   const user = await submitCourse();
-  await user.click(screen.getByRole("button", { name: /天地盘加临，已完成/ }));
+  await openStageReview(user, /天地盘加临，已完成/);
 
   expect(screen.getByRole("region", { name: "天地盘加临" })).toBeVisible();
   expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
@@ -559,6 +578,7 @@ it("clears a field correction error after reset and after a new successful submi
   fireEvent.change(correction, { target: { value: "甲丑" } });
   expect(screen.getByRole("alert")).toHaveTextContent("人工修正值无效");
 
+  await user.click(screen.getByRole("button", { name: "重新起课" }));
   await user.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
   await user.type(screen.getByLabelText("起课事由"), "商务决策复盘");
   await user.click(screen.getByRole("button", { name: "建立起课上下文" }));

@@ -18,6 +18,7 @@ interface CourseWorkbenchProps {
   onSetCalendarCorrection?(field: CalendarCorrectionField, rawValue: string): void;
   onResetCalendarCorrection?(field: CalendarCorrectionField): void;
   calendarCorrectionError?: { field: CalendarCorrectionField; message: string };
+  stageErrorMessage?: string;
   onRestart(): void;
 }
 
@@ -29,6 +30,7 @@ export function CourseWorkbench({
   onSetCalendarCorrection,
   onResetCalendarCorrection,
   calendarCorrectionError,
+  stageErrorMessage,
   onRestart,
 }: CourseWorkbenchProps) {
   const stage = reviewStageFor(selectedStage);
@@ -38,6 +40,7 @@ export function CourseWorkbench({
         <p>传统术式 · 六阶段回看</p>
         <h1>大六壬演式</h1>
       </header>
+      {stageErrorMessage ? <p className="course-workbench__error" role="alert">{stageErrorMessage}</p> : null}
       <div className="course-workbench__grid">
         <CourseContextSummary input={input} onRestart={onRestart} />
         <section className="course-workbench__stage" aria-label="三维阶段回看">
