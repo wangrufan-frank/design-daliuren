@@ -382,14 +382,28 @@
   .artifact-part-directory button:focus-visible { outline: 2px solid var(--ash); outline-offset: -3px; }
   .artifact-part-directory__bar > button { padding: 8px 10px; color: var(--ru-celadon); }
   .artifact-part-directory__sheet {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     max-height: min(52vh, 430px);
     overflow: hidden;
     border-top: 1px solid var(--patina);
     background: var(--dark-bronze);
     box-shadow: 0 -12px 28px color-mix(in srgb, var(--ink) 28%, transparent);
   }
+  .artifact-part-directory__sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--patina) 58%, transparent);
+  }
+  .artifact-part-directory__sheet-header p,
+  .artifact-part-directory__overview { margin: 0; font-size: 16px; }
+  .artifact-part-directory__sheet-header p { color: var(--ru-celadon); }
+  .artifact-part-directory__sheet-header button { padding: 8px 12px; }
   .artifact-part-directory__scroll {
-    max-height: inherit;
+    min-height: 0;
     padding: 8px 10px 14px;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -419,6 +433,7 @@
   .artifact-part-directory__entries span { font-size: 16px; line-height: 1.35; }
   .artifact-part-directory__entries strong { color: var(--ash); font-weight: 600; }
   .artifact-part-directory__entries span { color: var(--ru-celadon); }
+  .artifact-part-directory__overview { padding: 10px; color: var(--ru-celadon); line-height: 1.6; }
   .artifact-timeline { padding: 14px 10px; }
   .artifact-timeline__stages b { font-size: 0.56rem; letter-spacing: 0; }
 }

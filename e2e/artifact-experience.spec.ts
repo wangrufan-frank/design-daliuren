@@ -102,9 +102,12 @@ test("mobile review keeps stage callouts and reaches every part through the dire
 
   const directory = page.getByRole("dialog", { name: "全部部件" });
   await expect(directory).toBeVisible();
+  expect(await directory.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   await expect(directory.getByTestId("artifact-part-group")).toHaveCount(6);
   const entries = directory.locator("button[data-part-id]");
   await expect(entries).toHaveCount(22);
+  await expect(directory.getByText("无新增部件，可查看全部22项")).toBeVisible();
+  await directory.getByRole("button", { name: "天地盘加临" }).click();
   expect(await directory.locator(".artifact-part-directory__scroll").evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
   const firstVisibleEntry = directory.locator("button[data-part-id]:visible").first();
   expect(await firstVisibleEntry.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
