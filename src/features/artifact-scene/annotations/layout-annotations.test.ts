@@ -7,6 +7,13 @@ const ids = [
   "lesson/second", "lesson/third", "lesson/fourth", "transmission/initial",
 ] as const;
 
+const allIds = [
+  "calendar/slip", "plate/earth", "plate/heaven", "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
+  "transmission/initial", "transmission/middle", "transmission/final", "general/noble", "general/snake", "general/vermilion-bird",
+  "general/harmony", "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger", "general/constant",
+  "general/black-tortoise", "general/yin", "general/queen-of-heaven",
+] as const;
+
 function crossingAnchors(): ProjectedAnchor[] {
   return ids.map((id, index) => ({
     id,
@@ -49,5 +56,34 @@ describe("layoutArtifactAnnotations", () => {
 
     expect(after[0].labelRect.x).toBe(before[0].labelRect.x);
     expect(omitted).toEqual([]);
+  });
+
+  it("rebalances 22 same-side anchors without overflowing cards or losing stable slots", () => {
+    const viewport = { width: 1200, height: 800 };
+    const clustered = allIds.map((id, index): ProjectedAnchor => ({
+      id,
+      x: 180 + index,
+      y: 80 + index * 24,
+      depth: 0,
+      behindCamera: false,
+      occluded: false,
+    }));
+    const first = layoutArtifactAnnotations(clustered, viewport);
+    const repeated = layoutArtifactAnnotations(clustered, viewport);
+    const moved = layoutArtifactAnnotations(clustered.map((anchor) => ({ ...anchor, x: anchor.x + 5, y: anchor.y + 5 })), viewport, { previous: first });
+
+    expect(first).toEqual(repeated);
+    expect(first).toHaveLength(22);
+    first.forEach(({ labelRect }) => {
+      expect(labelRect.x).toBeGreaterThanOrEqual(0);
+      expect(labelRect.y).toBeGreaterThanOrEqual(0);
+      expect(labelRect.x + labelRect.width).toBeLessThanOrEqual(viewport.width);
+      expect(labelRect.y + labelRect.height).toBeLessThanOrEqual(viewport.height);
+    });
+    for (const x of new Set(first.map(({ labelRect }) => labelRect.x))) {
+      const side = first.filter(({ labelRect }) => labelRect.x === x).sort((a, b) => a.labelRect.y - b.labelRect.y);
+      side.slice(1).forEach((layout, index) => expect(layout.labelRect.y - (side[index].labelRect.y + side[index].labelRect.height)).toBeGreaterThanOrEqual(8));
+    }
+    moved.forEach((layout) => expect(layout.labelRect.x).toBe(first.find(({ id }) => id === layout.id)?.labelRect.x));
   });
 });

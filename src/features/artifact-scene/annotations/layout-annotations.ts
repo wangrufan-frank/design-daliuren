@@ -1,9 +1,9 @@
 import type { AnnotationLayout, ProjectedAnchor } from "./types";
 import type { AnnotationViewport } from "./project-annotations";
 
-const CARD_WIDTH = 216;
-const CARD_HEIGHT = 56;
-const EDGE_INSET = 12;
+const DEFAULT_CARD = { width: 216, height: 56, inset: 12 } as const;
+const COMPACT_CARD = { width: 180, height: 40, inset: 8 } as const;
+const DENSE_CARD = { width: 144, height: 28, inset: 4 } as const;
 const CARD_GAP = 8;
 const HYSTERESIS_PX = 12;
 
@@ -17,6 +17,14 @@ interface PositionedAnchor {
   anchor: ProjectedAnchor;
   side: Side;
   y: number;
+  retained: boolean;
+}
+
+interface CardDensity {
+  width: number;
+  height: number;
+  inset: number;
+  capacity: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -29,21 +37,60 @@ function previousSide(anchor: ProjectedAnchor, previous: readonly AnnotationLayo
   return prior.labelRect.x + prior.labelRect.width / 2 < viewport.width / 2 ? "left" : "right";
 }
 
-function positionSide(items: readonly PositionedAnchor[], viewport: AnnotationViewport): PositionedAnchor[] {
+function cardDensity(viewport: AnnotationViewport, count: number): CardDensity {
+  const requiredPerSide = Math.ceil(count / 2);
+  for (const card of [DEFAULT_CARD, COMPACT_CARD, DENSE_CARD]) {
+    const capacity = Math.floor((viewport.height - card.inset * 2 + CARD_GAP) / (card.height + CARD_GAP));
+    if (capacity >= requiredPerSide) {
+      return {
+        ...card,
+        width: Math.max(1, Math.min(card.width, Math.floor((viewport.width - card.inset * 2 - CARD_GAP) / 2))),
+        capacity,
+      };
+    }
+  }
+
+  const inset = 2;
+  const height = Math.floor((viewport.height - inset * 2 - CARD_GAP * (requiredPerSide - 1)) / requiredPerSide);
+  if (height < 1) throw new RangeError("Viewport is too short to place annotation cards with an 8px gap");
+  return {
+    width: Math.max(1, Math.min(DENSE_CARD.width, Math.floor((viewport.width - inset * 2 - CARD_GAP) / 2))),
+    height,
+    inset,
+    capacity: Math.floor((viewport.height - inset * 2 + CARD_GAP) / (height + CARD_GAP)),
+  };
+}
+
+function positionSide(items: readonly PositionedAnchor[], viewport: AnnotationViewport, density: CardDensity): PositionedAnchor[] {
   const ordered = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.anchor.id.localeCompare(b.anchor.id));
-  const minimumY = EDGE_INSET;
-  const maximumY = viewport.height - CARD_HEIGHT - EDGE_INSET;
+  const minimumY = density.inset;
+  const maximumY = viewport.height - density.height - density.inset;
   let nextY = minimumY;
   ordered.forEach((item) => {
-    item.y = Math.max(clamp(item.anchor.y - CARD_HEIGHT / 2, minimumY, maximumY), nextY);
-    nextY = item.y + CARD_HEIGHT + CARD_GAP;
+    item.y = Math.max(clamp(item.anchor.y - density.height / 2, minimumY, maximumY), nextY);
+    nextY = item.y + density.height + CARD_GAP;
   });
   nextY = maximumY;
   for (let index = ordered.length - 1; index >= 0; index -= 1) {
     ordered[index].y = Math.min(ordered[index].y, nextY);
-    nextY = ordered[index].y - CARD_HEIGHT - CARD_GAP;
+    nextY = ordered[index].y - density.height - CARD_GAP;
   }
   return ordered;
+}
+
+function rebalance(positioned: readonly PositionedAnchor[], capacity: number): PositionedAnchor[] {
+  for (const side of ["left", "right"] as const) {
+    const sideItems = positioned.filter((item) => item.side === side);
+    const overflow = sideItems.length - capacity;
+    if (overflow <= 0) continue;
+    const movable = sideItems.filter(({ retained }) => !retained).sort((a, b) => a.anchor.y - b.anchor.y || a.anchor.id.localeCompare(b.anchor.id));
+    const required = overflow - movable.length;
+    const candidates = required > 0
+      ? [...movable, ...sideItems.filter(({ retained }) => retained).sort((a, b) => a.anchor.y - b.anchor.y || a.anchor.id.localeCompare(b.anchor.id))]
+      : movable;
+    candidates.slice(-overflow).forEach((item) => { item.side = side === "left" ? "right" : "left"; });
+  }
+  return [...positioned];
 }
 
 export function layoutArtifactAnnotations(
@@ -52,23 +99,29 @@ export function layoutArtifactAnnotations(
   options: AnnotationLayoutOptions = {},
 ): AnnotationLayout[] {
   const visible = anchors.filter(({ behindCamera }) => !behindCamera);
-  const positioned = visible.map((anchor): PositionedAnchor => ({
-    anchor,
-    side: previousSide(anchor, options.previous ?? [], viewport) ?? (anchor.x < viewport.width / 2 ? "left" : "right"),
-    y: 0,
-  }));
-  const left = positionSide(positioned.filter(({ side }) => side === "left"), viewport);
-  const right = positionSide(positioned.filter(({ side }) => side === "right"), viewport);
+  const density = cardDensity(viewport, visible.length);
+  const positioned = visible.map((anchor): PositionedAnchor => {
+    const retainedSide = previousSide(anchor, options.previous ?? [], viewport);
+    return {
+      anchor,
+      side: retainedSide ?? (anchor.x < viewport.width / 2 ? "left" : "right"),
+      y: 0,
+      retained: retainedSide !== undefined,
+    };
+  });
+  const balanced = rebalance(positioned, density.capacity);
+  const left = positionSide(balanced.filter(({ side }) => side === "left"), viewport, density);
+  const right = positionSide(balanced.filter(({ side }) => side === "right"), viewport, density);
 
   return [...left, ...right].map(({ anchor, side, y }) => {
-    const x = side === "left" ? EDGE_INSET : viewport.width - CARD_WIDTH - EDGE_INSET;
-    const cardEdgeX = side === "left" ? x + CARD_WIDTH : x;
+    const x = side === "left" ? density.inset : viewport.width - density.width - density.inset;
+    const cardEdgeX = side === "left" ? x + density.width : x;
     const bendX = clamp((anchor.x + cardEdgeX) / 2, 0, viewport.width);
-    const cardCenterY = y + CARD_HEIGHT / 2;
+    const cardCenterY = y + density.height / 2;
     return {
       id: anchor.id,
       anchor: [anchor.x, anchor.y] as const,
-      labelRect: { x, y, width: CARD_WIDTH, height: CARD_HEIGHT },
+      labelRect: { x, y, width: density.width, height: density.height },
       leaderPath: `M ${anchor.x} ${anchor.y} L ${bendX} ${anchor.y} L ${cardEdgeX} ${cardCenterY}`,
       occluded: anchor.occluded,
     };

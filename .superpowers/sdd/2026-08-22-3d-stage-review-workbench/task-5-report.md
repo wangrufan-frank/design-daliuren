@@ -16,3 +16,10 @@ The calendar stage has one physical calendar slip. Per the approved task ruling,
 - `npm test -- src/features/artifact-scene/annotations` — 3 files, 6 tests passed.
 - `npx tsc -b --pretty false` — completed with exit code 0.
 - `git diff --check` — no whitespace errors.
+
+## Follow-up: overloaded-side layout fix
+
+- Added capacity-aware left/right rebalancing. Items with a previous slot inside the 12px hysteresis window keep it unless that side has no remaining capacity; default-side items move first, with deterministic anchor/id ordering.
+- Added compact and dense card profiles, followed by a calculated minimum density fallback. When a viewport cannot physically contain positive-height cards with the required 8px gaps, the pure function raises an explicit range error instead of overlapping or overflowing cards.
+- Added the 22 same-side-anchor regression at 1200×800. It verifies bounds, per-side 8px gaps, repeat determinism, and side retention after sub-12px motion.
+- Follow-up verification: `npm test -- src/features/artifact-scene/annotations` — 3 files, 7 tests passed; `npx tsc -b --pretty false` — exit code 0.
