@@ -1,10 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import type { CourseInput } from "../../domain/chart/types";
 import { CourseContextSummary } from "./CourseContextSummary";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const input: CourseInput = {
   civilDateTime: "2026-08-14T23:57:00",
@@ -35,4 +39,25 @@ it("omits an empty location and restarts through its callback", () => {
   expect(region).toHaveTextContent("无人工修正");
   screen.getByRole("button", { name: "重新起课" }).click();
   expect(onRestart).toHaveBeenCalledOnce();
+});
+
+it("starts collapsed below 900px and expands from its accessible summary", async () => {
+  const mediaQuery = {
+    matches: true,
+    media: "(max-width: 899px)",
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  } as unknown as MediaQueryList;
+  vi.stubGlobal("matchMedia", vi.fn(() => mediaQuery));
+  const user = userEvent.setup();
+
+  render(<CourseContextSummary input={input} onRestart={vi.fn()} />);
+
+  const details = screen.getByRole("region", { name: "起课上下文" }).querySelector("details")!;
+  expect(details).not.toHaveAttribute("open");
+
+  await user.click(details.querySelector("summary")!);
+  expect(details).toHaveAttribute("open");
 });

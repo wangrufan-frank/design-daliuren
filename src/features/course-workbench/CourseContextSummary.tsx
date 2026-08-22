@@ -1,4 +1,28 @@
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CourseInput } from "../../domain/chart/types";
+
+const COMPACT_QUERY = "(max-width: 899px)";
+
+function compactQuery(): MediaQueryList | undefined {
+  return typeof window === "undefined" || typeof window.matchMedia !== "function"
+    ? undefined
+    : window.matchMedia(COMPACT_QUERY);
+}
+
+function subscribeToCompactLayout(onChange: () => void): () => void {
+  const query = compactQuery();
+  if (!query) return () => undefined;
+  if (typeof query.addEventListener === "function") {
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }
+  query.addListener(onChange);
+  return () => query.removeListener(onChange);
+}
+
+function compactSnapshot(): boolean {
+  return compactQuery()?.matches ?? false;
+}
 
 const correctionLabels: Record<keyof CourseInput["corrections"], string> = {
   yearPillar: "年柱",
@@ -15,11 +39,15 @@ interface CourseContextSummaryProps {
 }
 
 export function CourseContextSummary({ input, onRestart }: CourseContextSummaryProps) {
+  const compact = useSyncExternalStore(subscribeToCompactLayout, compactSnapshot, () => false);
+  const [open, setOpen] = useState(() => !compact);
   const corrections = Object.keys(input.corrections) as (keyof CourseInput["corrections"])[];
+
+  useEffect(() => setOpen(!compact), [compact]);
 
   return (
     <section className="course-context" aria-label="起课上下文">
-      <details open>
+      <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
         <summary>
           <span>起课上下文</span>
           <small>北京时间</small>
