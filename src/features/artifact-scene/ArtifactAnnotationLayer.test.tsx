@@ -109,6 +109,19 @@ describe("ArtifactAnnotationLayer", () => {
     expect(fixture.source.focusNode).toHaveBeenCalledWith("calendar/slip");
   });
 
+  it("limits compact layouts to current-stage or hidden annotations", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    const fixture = sourceFixture(featuredIds.map((id, index) => anchor(id, 240 + index * 120, 160 + index * 90)));
+    render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} allowAll={false} />);
+    frames.step(16);
+
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "全部" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "隐藏" }));
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
+  });
+
   it("cancels its annotation frame loop on unmount", () => {
     const fixture = sourceFixture([anchor("calendar/slip", 240, 180)]);
     const { unmount } = render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={["calendar/slip"]} />);

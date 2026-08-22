@@ -9,6 +9,7 @@ type AnnotationDensity = "stage" | "all" | "hidden";
 interface ArtifactAnnotationLayerProps {
   source: AnnotationFrameSource;
   featuredIds: readonly ArtifactAnnotationId[];
+  allowAll?: boolean;
 }
 
 const DESCRIPTORS_BY_ID = new Map(
@@ -25,7 +26,7 @@ function sameIds(left: readonly ArtifactAnnotationId[], right: readonly Artifact
   return left.length === right.length && left.every((id, index) => id === right[index]);
 }
 
-function AnnotationLayer({ source, featuredIds }: ArtifactAnnotationLayerProps) {
+function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnotationLayerProps) {
   const [density, setDensity] = useState<AnnotationDensity>("stage");
   const rootRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -34,14 +35,15 @@ function AnnotationLayer({ source, featuredIds }: ArtifactAnnotationLayerProps) 
   const dotRefs = useRef(new Map<ArtifactAnnotationId, SVGCircleElement>());
   const previousLayoutsRef = useRef<readonly AnnotationLayout[]>([]);
   const featuredKey = featuredIds.join("|");
+  const effectiveDensity = density === "all" && !allowAll ? "stage" : density;
   const descriptors = useMemo((): readonly ArtifactAnnotationDescriptor[] => {
-    if (density === "hidden") return [];
-    if (density === "all") return ARTIFACT_ANNOTATION_DESCRIPTORS;
+    if (effectiveDensity === "hidden") return [];
+    if (effectiveDensity === "all") return ARTIFACT_ANNOTATION_DESCRIPTORS;
     return featuredIds.flatMap((id) => {
       const descriptor = DESCRIPTORS_BY_ID.get(id);
       return descriptor ? [descriptor] : [];
     });
-  }, [density, featuredKey]);
+  }, [effectiveDensity, featuredKey]);
   const ids = useMemo(() => descriptors.map(({ id }) => id), [descriptors]);
   const idsKey = ids.join("|");
 
@@ -102,7 +104,7 @@ function AnnotationLayer({ source, featuredIds }: ArtifactAnnotationLayerProps) 
   }, [descriptors, ids, idsKey, source]);
 
   return (
-    <div ref={rootRef} className="artifact-annotations" data-density={density}>
+    <div ref={rootRef} className="artifact-annotations" data-density={effectiveDensity}>
       <svg ref={svgRef} className="artifact-annotations__leaders" aria-hidden="true">
         {descriptors.map(({ id }) => (
           <path
@@ -149,11 +151,11 @@ function AnnotationLayer({ source, featuredIds }: ArtifactAnnotationLayerProps) 
         ))}
       </div>
       <div className="artifact-annotations__density" role="group" aria-label="标注密度">
-        {DENSITY_OPTIONS.map((option) => (
+        {DENSITY_OPTIONS.filter((option) => allowAll || option.id !== "all").map((option) => (
           <button
             key={option.id}
             type="button"
-            aria-pressed={density === option.id}
+            aria-pressed={effectiveDensity === option.id}
             onClick={() => setDensity(option.id)}
           >
             {option.label}
@@ -165,5 +167,7 @@ function AnnotationLayer({ source, featuredIds }: ArtifactAnnotationLayerProps) 
 }
 
 export const ArtifactAnnotationLayer = memo(AnnotationLayer, (previous, next) => (
-  previous.source === next.source && sameIds(previous.featuredIds, next.featuredIds)
+  previous.source === next.source
+  && previous.allowAll === next.allowAll
+  && sameIds(previous.featuredIds, next.featuredIds)
 ));

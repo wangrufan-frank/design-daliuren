@@ -82,6 +82,44 @@ test("reduced motion retains final facts and disables source lines", async ({ pa
   await expect(experience).toHaveAttribute("data-source-lines", "disabled");
 });
 
+test("mobile review keeps stage callouts and reaches every part through the directory", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await completeReferenceCourse(page);
+  await expectArtifactReady(page);
+
+  const callouts = page.locator(".artifact-annotations__card");
+  const calloutCount = await callouts.count();
+  expect(calloutCount).toBeGreaterThanOrEqual(3);
+  expect(calloutCount).toBeLessThanOrEqual(6);
+  await expect(page.getByRole("button", { name: "全部" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "查看文字课式" })).toBeVisible();
+
+  const directoryButton = page.getByRole("button", { name: "打开部件目录" });
+  await expect(directoryButton).toBeVisible();
+  expect(await directoryButton.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+  expect((await directoryButton.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await directoryButton.click();
+
+  const directory = page.getByRole("dialog", { name: "全部部件" });
+  await expect(directory).toBeVisible();
+  await expect(directory.getByTestId("artifact-part-group")).toHaveCount(6);
+  const entries = directory.locator("button[data-part-id]");
+  await expect(entries).toHaveCount(22);
+  expect(await directory.locator(".artifact-part-directory__scroll").evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  const firstVisibleEntry = directory.locator("button[data-part-id]:visible").first();
+  expect(await firstVisibleEntry.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+  expect((await firstVisibleEntry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+  await directory.locator('button[data-part-id="plate/heaven"]').click();
+  await expect(directory).toHaveCount(0);
+  await expect(page.getByText("当前聚焦：天盘")).toBeVisible();
+  await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.getByRole("button", { name: "查看文字课式" }).click();
+  await expect(page.getByLabel("标准文字课式")).toBeVisible();
+});
+
 test("a GLB 404 falls back to the existing text course", async ({ page }) => {
   await page.route("**/models/daliuren/daliuren-artifact-lod*.glb", (route) => route.fulfill({ status: 404 }));
   await completeReferenceCourse(page);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
@@ -13,6 +13,8 @@ import { createArtifactRenderer, loadArtifact } from "./three/load-artifact";
 import type { LoadedArtifact } from "./three/load-artifact";
 import { ArtifactTimeline } from "./ArtifactTimeline";
 import { ArtifactAnnotationLayer } from "./ArtifactAnnotationLayer";
+import { ArtifactPartDirectory } from "./ArtifactPartDirectory";
+import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 import { useReducedMotion } from "./use-reduced-motion";
 import "./artifact-scene.css";
 
@@ -46,8 +48,22 @@ interface ActiveStageReplay {
 }
 
 const observableBuild = () => !import.meta.env.PROD || import.meta.env.VITE_ARTIFACT_BENCHMARK === "1";
+const COMPACT_MAX_WIDTH = 520;
 const dayNightText = { day: "昼", night: "夜" } as const;
 const directionText = { forward: "顺", reverse: "逆" } as const;
+
+function subscribeToViewport(onChange: () => void): () => void {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+}
+
+function compactViewportSnapshot(): boolean {
+  return window.innerWidth <= COMPACT_MAX_WIDTH;
+}
+
+function useCompactArtifactLayout(): boolean {
+  return useSyncExternalStore(subscribeToViewport, compactViewportSnapshot, () => false);
+}
 
 function poseHash(state: ArtifactAppliedState): string {
   const values: number[] = [];
@@ -82,6 +98,7 @@ function AccessibleFacts({ state }: { state: ArtifactDisplayState }) {
 export function ArtifactExperience({ source, selectedStage = "calendar", onShowCourse }: ArtifactExperienceProps) {
   const displayState = useMemo(() => mapArtifactState(source), [source]);
   const reducedMotion = useReducedMotion();
+  const compactLayout = useCompactArtifactLayout();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controllerRef = useRef<ArtifactSceneController | undefined>(undefined);
   const displayStateRef = useRef(displayState);
@@ -365,6 +382,7 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
           <ArtifactAnnotationLayer
             source={controllerRef.current}
             featuredIds={reviewStageFor(selectedStage).annotationIds}
+            allowAll={!compactLayout}
           />
         )}
       </div>
@@ -380,6 +398,16 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
             <p className="artifact-visually-hidden" role="status" aria-label="标注状态">
               {annotationError}
             </p>
+          )}
+          {compactLayout && (
+            <ArtifactPartDirectory
+              stage={selectedStage}
+              descriptors={ARTIFACT_ANNOTATION_DESCRIPTORS}
+              onFocus={(id) => {
+                const descriptor = ARTIFACT_ANNOTATION_DESCRIPTORS.find((item) => item.id === id);
+                if (descriptor) controllerRef.current?.focusNode(descriptor.nodeId);
+              }}
+            />
           )}
           <ArtifactTimeline
             timeMs={timeMs}

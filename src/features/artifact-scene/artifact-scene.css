@@ -164,6 +164,10 @@
   outline-offset: -3px;
 }
 
+.artifact-part-directory {
+  display: none;
+}
+
 .artifact-timeline {
   display: grid;
   grid-template-columns: auto minmax(280px, 1fr) auto;
@@ -339,6 +343,82 @@
 
 @media (max-width: 520px) {
   .artifact-experience__viewport { min-height: 340px; }
+  .artifact-annotations__card,
+  .artifact-annotations__card strong,
+  .artifact-annotations__card span,
+  .artifact-annotations__density button { font-size: 16px; }
+  .artifact-annotations__density button { min-width: 86px; }
+  .artifact-part-directory {
+    display: block;
+    position: relative;
+    z-index: 3;
+    border-top: 1px solid var(--patina);
+    background: var(--ink);
+    color: var(--ash);
+    font-size: 16px;
+  }
+  .artifact-part-directory__bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 6px 10px;
+  }
+  .artifact-part-directory__bar h2,
+  .artifact-part-directory__bar p { margin: 0; font-size: 16px; }
+  .artifact-part-directory__bar h2 { color: var(--ru-celadon); font-weight: 600; letter-spacing: 0.08em; }
+  .artifact-part-directory__bar p { overflow: hidden; color: var(--old-gold); text-overflow: ellipsis; white-space: nowrap; }
+  .artifact-part-directory button {
+    min-height: 44px;
+    border: 1px solid var(--patina);
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .artifact-part-directory button:focus-visible { outline: 2px solid var(--ash); outline-offset: -3px; }
+  .artifact-part-directory__bar > button { padding: 8px 10px; color: var(--ru-celadon); }
+  .artifact-part-directory__sheet {
+    max-height: min(52vh, 430px);
+    overflow: hidden;
+    border-top: 1px solid var(--patina);
+    background: var(--dark-bronze);
+    box-shadow: 0 -12px 28px color-mix(in srgb, var(--ink) 28%, transparent);
+  }
+  .artifact-part-directory__scroll {
+    max-height: inherit;
+    padding: 8px 10px 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .artifact-part-directory__group { border-bottom: 1px solid color-mix(in srgb, var(--patina) 58%, transparent); }
+  .artifact-part-directory .artifact-part-directory__group-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 0;
+    text-align: left;
+  }
+  .artifact-part-directory__group-toggle[aria-expanded="true"] { color: var(--old-gold); }
+  .artifact-part-directory__group-toggle small { color: var(--ru-celadon); font-size: 16px; }
+  .artifact-part-directory__entries { display: grid; gap: 6px; padding: 0 0 10px; }
+  .artifact-part-directory__entries[hidden] { display: none; }
+  .artifact-part-directory__entries button {
+    display: grid;
+    min-height: 56px;
+    padding: 8px 10px;
+    border-color: color-mix(in srgb, var(--patina) 68%, transparent);
+    text-align: left;
+  }
+  .artifact-part-directory__entries strong,
+  .artifact-part-directory__entries span { font-size: 16px; line-height: 1.35; }
+  .artifact-part-directory__entries strong { color: var(--ash); font-weight: 600; }
+  .artifact-part-directory__entries span { color: var(--ru-celadon); }
   .artifact-timeline { padding: 14px 10px; }
   .artifact-timeline__stages b { font-size: 0.56rem; letter-spacing: 0; }
 }
