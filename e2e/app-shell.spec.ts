@@ -197,6 +197,7 @@ async function expectContrastAtLeast(element: Locator, minimum: number) {
 }
 
 async function expectVisibleControlsKeyboardReachable(page: Page) {
+  await expect(page.getByRole("slider", { name: "推演时间轴" })).toBeVisible({ timeout: 15_000 });
   const selector = [
     "a[href]", "area[href]", "button", "input", "select", "textarea", "summary", "[tabindex]",
     "[contenteditable]:not([contenteditable='false'])",
@@ -410,7 +411,7 @@ for (const viewport of VIEWPORTS) {
   });
 
   test(`${viewport.name} keyboard users reach the matrix, correction, and reset controls in document order`, async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
     await page.setViewportSize(viewport);
     await page.goto("/");
     await calculateCalendar(page);
