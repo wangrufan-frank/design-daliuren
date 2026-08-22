@@ -115,7 +115,13 @@ test("mobile review keeps stage callouts and reaches every part through the dire
 
   await directory.locator('button[data-part-id="plate/heaven"]').click();
   await expect(directory).toHaveCount(0);
-  await expect(page.getByText("当前聚焦：天盘")).toBeVisible();
+  const focusStatus = page.getByText("当前聚焦：天盘");
+  await expect(focusStatus).toBeVisible();
+  const focusStatusWidth = await focusStatus.evaluate((element) => ({
+    client: element.clientWidth,
+    scroll: element.scrollWidth,
+  }));
+  expect(focusStatusWidth.client).toBeGreaterThanOrEqual(focusStatusWidth.scroll);
   await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 

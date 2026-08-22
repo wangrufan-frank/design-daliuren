@@ -359,7 +359,7 @@
   }
   .artifact-part-directory__bar {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
     min-height: 56px;
@@ -367,8 +367,8 @@
   }
   .artifact-part-directory__bar h2,
   .artifact-part-directory__bar p { margin: 0; font-size: 16px; }
-  .artifact-part-directory__bar h2 { color: var(--ru-celadon); font-weight: 600; letter-spacing: 0.08em; }
-  .artifact-part-directory__bar p { overflow: hidden; color: var(--old-gold); text-overflow: ellipsis; white-space: nowrap; }
+  .artifact-part-directory__bar h2 { grid-area: 1 / 1; color: var(--ru-celadon); font-weight: 600; letter-spacing: 0.08em; }
+  .artifact-part-directory__bar p { grid-area: 2 / 1 / auto / -1; overflow: visible; color: var(--old-gold); white-space: normal; }
   .artifact-part-directory button {
     min-height: 44px;
     border: 1px solid var(--patina);
@@ -380,7 +380,7 @@
     cursor: pointer;
   }
   .artifact-part-directory button:focus-visible { outline: 2px solid var(--ash); outline-offset: -3px; }
-  .artifact-part-directory__bar > button { padding: 8px 10px; color: var(--ru-celadon); }
+  .artifact-part-directory__bar > button { grid-area: 1 / 2; padding: 8px 10px; color: var(--ru-celadon); }
   .artifact-part-directory__sheet {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
