@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
 import type { ArtifactPose } from "../timeline/types";
+import { reviewStageFor } from "../timeline/review-stages";
 import type { LoadedArtifact } from "./load-artifact";
 import { ArtifactSceneController } from "./ArtifactSceneController";
 
@@ -252,7 +253,7 @@ describe("ArtifactSceneController", () => {
 
   it("applies stage camera presets and cancels only the active tween on drag", () => {
     const { callbacks, controller, controls, renderer, setNow } = fixture();
-    const preset = { position: [2, 1.5, 3] as const, target: [0.1, 0.2, 0.3] as const };
+    const preset = reviewStageFor("four-lessons").camera;
 
     controller.applyCameraPreset(preset);
     setNow(350);
@@ -260,6 +261,7 @@ describe("ArtifactSceneController", () => {
     const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
     expect(camera.position.toArray()).not.toEqual([0.56, 0.44, 0.56]);
     expect(camera.position.toArray()).not.toEqual(preset.position);
+    expect(camera.position.distanceTo(controls.target)).toBeLessThan(1);
 
     controls.dispatchStart();
     const interruptedPosition = camera.position.toArray();
@@ -271,6 +273,7 @@ describe("ArtifactSceneController", () => {
     controller.applyCameraPreset(preset, true);
     expect(camera.position.toArray()).toEqual(preset.position);
     expect(controls.target.toArray()).toEqual(preset.target);
+    expect(camera.position.distanceTo(controls.target)).toBeCloseTo(0.9, 5);
   });
 
   it("applies copy opacity and source-line progress to owned scene objects", () => {

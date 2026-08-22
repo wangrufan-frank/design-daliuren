@@ -322,7 +322,7 @@ describe("ArtifactExperience", () => {
     await screen.findByRole("slider", { name: "推演时间轴" });
 
     expect(latestController().applyCameraPreset).toHaveBeenCalledWith({
-      position: [-2.4, 1.7, 2.8],
+      position: [-0.53732, 0.458213, 0.626873],
       target: [0, 0.1, 0],
     }, false);
     frames.step(100);
