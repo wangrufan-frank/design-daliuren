@@ -6,6 +6,8 @@ const COMPACT_CARD = { width: 180, height: 40, inset: 8 } as const;
 const DENSE_CARD = { width: 144, height: 28, inset: 4 } as const;
 const CARD_GAP = 8;
 const HYSTERESIS_PX = 12;
+const MIN_CARD_WIDTH = 24;
+const MIN_LAYOUT_WIDTH = DENSE_CARD.inset * 2 + CARD_GAP + MIN_CARD_WIDTH * 2;
 
 export interface AnnotationLayoutOptions {
   previous?: readonly AnnotationLayout[];
@@ -38,13 +40,17 @@ function previousSide(anchor: ProjectedAnchor, previous: readonly AnnotationLayo
 }
 
 function cardDensity(viewport: AnnotationViewport, count: number): CardDensity {
+  if (viewport.width < MIN_LAYOUT_WIDTH) {
+    throw new RangeError("Viewport is too narrow to place bounded left and right annotation cards");
+  }
   const requiredPerSide = Math.ceil(count / 2);
   for (const card of [DEFAULT_CARD, COMPACT_CARD, DENSE_CARD]) {
     const capacity = Math.floor((viewport.height - card.inset * 2 + CARD_GAP) / (card.height + CARD_GAP));
-    if (capacity >= requiredPerSide) {
+    const fitsWidth = viewport.width >= card.inset * 2 + CARD_GAP + MIN_CARD_WIDTH * 2;
+    if (capacity >= requiredPerSide && fitsWidth) {
       return {
         ...card,
-        width: Math.max(1, Math.min(card.width, Math.floor((viewport.width - card.inset * 2 - CARD_GAP) / 2))),
+        width: Math.max(MIN_CARD_WIDTH, Math.min(card.width, Math.floor((viewport.width - card.inset * 2 - CARD_GAP) / 2))),
         capacity,
       };
     }
@@ -54,7 +60,7 @@ function cardDensity(viewport: AnnotationViewport, count: number): CardDensity {
   const height = Math.floor((viewport.height - inset * 2 - CARD_GAP * (requiredPerSide - 1)) / requiredPerSide);
   if (height < 1) throw new RangeError("Viewport is too short to place annotation cards with an 8px gap");
   return {
-    width: Math.max(1, Math.min(DENSE_CARD.width, Math.floor((viewport.width - inset * 2 - CARD_GAP) / 2))),
+    width: Math.max(MIN_CARD_WIDTH, Math.min(DENSE_CARD.width, Math.floor((viewport.width - inset * 2 - CARD_GAP) / 2))),
     height,
     inset,
     capacity: Math.floor((viewport.height - inset * 2 + CARD_GAP) / (height + CARD_GAP)),

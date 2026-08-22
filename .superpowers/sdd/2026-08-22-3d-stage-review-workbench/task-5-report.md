@@ -23,3 +23,9 @@ The calendar stage has one physical calendar slip. Per the approved task ruling,
 - Added compact and dense card profiles, followed by a calculated minimum density fallback. When a viewport cannot physically contain positive-height cards with the required 8px gaps, the pure function raises an explicit range error instead of overlapping or overflowing cards.
 - Added the 22 same-side-anchor regression at 1200×800. It verifies bounds, per-side 8px gaps, repeat determinism, and side retention after sub-12px motion.
 - Follow-up verification: `npm test -- src/features/artifact-scene/annotations` — 3 files, 7 tests passed; `npx tsc -b --pretty false` — exit code 0.
+
+## Follow-up: impossible-width guard
+
+- Added a minimum-width feasibility guard for two bounded card columns: dense-profile edge insets, the 8px inter-column gap, and two positive 24px minimum cards must fit before layout begins.
+- Added the `width: 1` regression, which asserts that layout raises `RangeError` rather than emitting an out-of-bounds rectangle.
+- Verification: `npm test -- src/features/artifact-scene/annotations` — 3 files, 8 tests passed; `npx tsc -b --pretty false` — exit code 0.

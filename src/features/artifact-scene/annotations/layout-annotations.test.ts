@@ -86,4 +86,10 @@ describe("layoutArtifactAnnotations", () => {
     }
     moved.forEach((layout) => expect(layout.labelRect.x).toBe(first.find(({ id }) => id === layout.id)?.labelRect.x));
   });
+
+  it("rejects viewports too narrow for bounded left and right card slots", () => {
+    expect(() => layoutArtifactAnnotations([
+      { id: "calendar/slip", x: 0, y: 0, depth: 0, behindCamera: false, occluded: false },
+    ], { width: 1, height: 800 })).toThrow(RangeError);
+  });
 });
