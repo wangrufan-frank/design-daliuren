@@ -5,6 +5,7 @@ import type { HeavenlyGeneralsSnapshot } from "../heavenly-generals/types";
 import type { CourseResult } from "../course/types";
 import {
   invalidateFrom,
+  isCourseSnapshotForCurrentInputs,
   isHeavenlyGeneralsSnapshotForCurrentInputs,
   validateSession,
 } from "./snapshots";
@@ -139,6 +140,23 @@ it("removes heavenly-generals and course when three transmissions change", () =>
   const next = invalidateFrom(referenceSession, "three-transmissions");
   expect(next.snapshots["heavenly-generals"]).toBeUndefined();
   expect(next.snapshots.course).toBeUndefined();
+});
+
+it("invalidates only course when context text changes", () => {
+  const changed = { ...referenceSession, input: { ...referenceSession.input, reason: "新的事由" } };
+
+  expect(isCourseSnapshotForCurrentInputs(
+    changed.snapshots.course,
+    changed.input,
+    changed.snapshots.calendar,
+    changed.snapshots["four-lessons"],
+    changed.snapshots["three-transmissions"],
+    changed.snapshots["heavenly-generals"],
+  )).toBe(false);
+  const invalidated = invalidateFrom(changed, "course");
+  expect(invalidated.snapshots.calendar).toBe(referenceSession.snapshots.calendar);
+  expect(invalidated.snapshots["heavenly-generals"]).toBe(referenceSession.snapshots["heavenly-generals"]);
+  expect(invalidated.snapshots.course).toBeUndefined();
 });
 
 it.each([

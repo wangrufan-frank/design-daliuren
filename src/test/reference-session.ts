@@ -22,8 +22,7 @@ const referenceInput: CourseInput = {
   civilDateTime: "2026-08-14T23:57:00",
   timeZone: "Asia/Shanghai",
   locationName: "参考课式",
-  longitude: 116.4074,
-  latitude: 39.9042,
+  reason: "商务决策复盘",
   corrections: {},
 };
 const calendarSnapshot = {
@@ -182,7 +181,7 @@ const heavenlyGeneralsSnapshot = {
 } as const satisfies HeavenlyGeneralsSnapshot;
 
 const courseValue = deriveCourse(
-  referenceInput.locationName,
+  { reason: referenceInput.reason, locationName: referenceInput.locationName },
   calendarSnapshot.value,
   fourLessonsSnapshot.value,
   threeTransmissionsSnapshot.value,

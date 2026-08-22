@@ -12,7 +12,7 @@ it("shows concrete errors and does not submit invalid input", async () => {
 
   await userEvent.click(screen.getByRole("button", { name: "建立起课上下文" }));
 
-  expect(screen.getByText("请输入地点")).toBeVisible();
+  expect(screen.getByText("请输入起课事由")).toBeVisible();
   expect(onSubmit).not.toHaveBeenCalled();
 });
 
@@ -20,9 +20,7 @@ it("associates each invalid base input with its own error", async () => {
   render(<CourseInputForm onSubmit={vi.fn()} />);
   const fields = [
     { label: "日期与时间", errorId: "civilDateTime-error", message: "请输入日期与时间" },
-    { label: "地点", errorId: "locationName-error", message: "请输入地点" },
-    { label: "经度", errorId: "longitude-error", message: "请输入经度" },
-    { label: "纬度", errorId: "latitude-error", message: "请输入纬度" },
+    { label: "起课事由", errorId: "reason-error", message: "请输入起课事由" },
   ];
 
   for (const { label } of fields) {
@@ -57,11 +55,19 @@ it("keeps ordinary entry to base context fields and submits empty corrections", 
   expect(screen.queryByLabelText("占时")).not.toBeInTheDocument();
 
   await userEvent.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
-  await userEvent.type(screen.getByLabelText("地点"), "北京");
-  await userEvent.type(screen.getByLabelText("经度"), "116.4074");
-  await userEvent.type(screen.getByLabelText("纬度"), "39.9042");
+  await userEvent.type(screen.getByLabelText("地点（选填）"), "北京");
+  await userEvent.type(screen.getByLabelText("起课事由"), "商务决策复盘");
   await userEvent.click(screen.getByRole("button", { name: "建立起课上下文" }));
 
   expect(onSubmit).toHaveBeenCalledOnce();
   expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ corrections: {} }));
+});
+
+it("requires a reason textarea and keeps location optional without coordinates", () => {
+  render(<CourseInputForm onSubmit={vi.fn()} />);
+
+  expect(screen.getByRole("textbox", { name: "起课事由" })).toHaveAttribute("required");
+  expect(screen.getByRole("textbox", { name: "起课事由" }).tagName).toBe("TEXTAREA");
+  expect(screen.getByLabelText("地点（选填）")).toBeInTheDocument();
+  expect(screen.queryByLabelText(/经度|纬度/)).not.toBeInTheDocument();
 });

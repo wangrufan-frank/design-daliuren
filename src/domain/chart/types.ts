@@ -19,9 +19,8 @@ export type ValueSource = "automatic" | "manual";
 export interface CourseInput {
   civilDateTime: string;
   timeZone: "Asia/Shanghai";
-  locationName: string;
-  longitude: number;
-  latitude: number;
+  locationName?: string;
+  reason: string;
   corrections: Partial<{
     yearPillar: StemBranch;
     monthPillar: StemBranch;
@@ -30,6 +29,11 @@ export interface CourseInput {
     monthGeneral: EarthlyBranch;
     divinationHour: EarthlyBranch;
   }>;
+}
+
+export interface CourseContextInput {
+  locationName?: string;
+  reason: string;
 }
 
 export interface RuleSnapshot<T, Stage extends RuleStageId = RuleStageId> {

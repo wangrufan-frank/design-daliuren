@@ -1,7 +1,7 @@
 import { isCalendarSnapshot } from "../calendar/result-guard";
 import type { CalendarSnapshot } from "../calendar/types";
 import { invalidateFrom, validateSession } from "../chart/snapshots";
-import type { CourseSession } from "../chart/types";
+import type { CourseContextInput, CourseSession } from "../chart/types";
 import { FOUR_LESSONS_SNAPSHOT_RULE_ID, isFourLessonsResult } from "../four-lessons/result-guard";
 import type { FourLessonsSnapshot } from "../four-lessons/types";
 import { HEAVENLY_GENERALS_SNAPSHOT_RULE_ID, isHeavenlyGeneralsResult } from "../heavenly-generals/result-guard";
@@ -34,7 +34,7 @@ function dependenciesEqual(actual: unknown, expected: readonly string[]): boolea
 }
 
 export function computeCourse(
-  locationName: string,
+  contextInput: CourseContextInput,
   calendar?: CalendarSnapshot,
   lessons?: FourLessonsSnapshot,
   transmissions?: ThreeTransmissionsSnapshot,
@@ -56,8 +56,8 @@ export function computeCourse(
     return { ok: false, error: { code: "INVALID_COURSE_INPUT", message: "缺少有效课式上游快照" } };
   }
   try {
-    const value = deriveCourse(locationName, calendar.value, lessons.value, transmissions.value, generals.value);
-    if (!isCourseResult(value) || !matchesCourseInputs(value, locationName, calendar.value, lessons.value, transmissions.value, generals.value)) {
+    const value = deriveCourse(contextInput, calendar.value, lessons.value, transmissions.value, generals.value);
+    if (!isCourseResult(value) || !matchesCourseInputs(value, contextInput, calendar.value, lessons.value, transmissions.value, generals.value)) {
       return { ok: false, error: { code: "COURSE_RESULT_GUARD_FAILED", message: "课式结果未通过完整性校验" } };
     }
     return {
@@ -90,7 +90,7 @@ export function runCourseStage(session: CourseSession): CourseStageOutcome {
   }
   const invalidated = invalidateFrom(session, "course");
   const outcome = computeCourse(
-    session.input.locationName,
+    { reason: session.input.reason, ...(session.input.locationName && { locationName: session.input.locationName }) },
     session.snapshots.calendar as CalendarSnapshot,
     session.snapshots["four-lessons"] as FourLessonsSnapshot,
     session.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot,

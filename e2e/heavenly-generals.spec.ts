@@ -2,9 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function submitReferenceCourse(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
-  await page.getByLabel("地点").fill("北京");
-  await page.getByLabel("经度").fill("116.4074");
-  await page.getByLabel("纬度").fill("39.9042");
+  await page.getByLabel("地点（选填）").fill("北京");
+  await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "建立起课上下文" }).click();
 }
 

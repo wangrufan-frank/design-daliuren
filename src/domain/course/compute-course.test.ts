@@ -17,7 +17,7 @@ const withoutCourse: CourseSession = {
 describe("course computation", () => {
   it("composes a guarded canonical course snapshot", () => {
     const outcome = computeCourse(
-      withoutCourse.input.locationName,
+      { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName },
       withoutCourse.snapshots.calendar as CalendarSnapshot,
       withoutCourse.snapshots["four-lessons"] as FourLessonsSnapshot,
       withoutCourse.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot,
@@ -46,8 +46,20 @@ describe("course computation", () => {
     const wrongRelation = { ...value, transmissions: value.transmissions.map((item: any, index: number) => index ? item : { ...item, relation: item.relation === "父母" ? "子孙" : "父母" }) };
     const wrongGeneral = { ...value, palaces: value.palaces.map((item: any, index: number) => index ? item : { ...item, general: item.general === "贵人" ? "螣蛇" : "贵人" }) };
     expect(isCourseResult(wrongRelation)).toBe(true);
-    expect(matchesCourseInputs(wrongRelation, withoutCourse.input.locationName, calendar.value, lessons.value, transmissions.value, generals.value)).toBe(false);
-    expect(matchesCourseInputs(wrongGeneral, withoutCourse.input.locationName, calendar.value, lessons.value, transmissions.value, generals.value)).toBe(false);
+    const contextInput = { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName };
+    expect(matchesCourseInputs(wrongRelation, contextInput, calendar.value, lessons.value, transmissions.value, generals.value)).toBe(false);
+    expect(matchesCourseInputs(wrongGeneral, contextInput, calendar.value, lessons.value, transmissions.value, generals.value)).toBe(false);
+  });
+
+  it("accepts absent location but rejects unknown context keys", () => {
+    const outcome = runCourseStage(withoutCourse);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error(outcome.error.message);
+    const value = outcome.value as any;
+    const { locationName: _locationName, ...contextWithoutLocation } = value.context;
+
+    expect(isCourseResult({ ...value, context: contextWithoutLocation })).toBe(true);
+    expect(isCourseResult({ ...value, context: { ...value.context, extra: "forged" } })).toBe(false);
   });
 
   it.each([
@@ -69,7 +81,7 @@ describe("course computation", () => {
 
   it("propagates a direct manual source into the composed snapshot", () => {
     const outcome = computeCourse(
-      withoutCourse.input.locationName,
+      { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName },
       withoutCourse.snapshots.calendar as CalendarSnapshot,
       withoutCourse.snapshots["four-lessons"] as FourLessonsSnapshot,
       withoutCourse.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot,

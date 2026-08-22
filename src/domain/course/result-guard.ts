@@ -1,6 +1,6 @@
 import { EARTHLY_BRANCHES, HEAVENLY_STEMS, ZHONG_QI_TO_MONTH_GENERAL } from "../calendar/constants";
 import type { CalendarResult } from "../calendar/types";
-import type { EarthlyBranch, ValueSource } from "../chart/types";
+import type { CourseContextInput, EarthlyBranch, ValueSource } from "../chart/types";
 import type { FourLessonsResult } from "../four-lessons/types";
 import { GENERAL_ORDER } from "../heavenly-generals/policy";
 import type { HeavenlyGeneralsResult } from "../heavenly-generals/types";
@@ -34,7 +34,7 @@ export function isCourseResult(value: unknown): value is CourseResult {
 
 export function matchesCourseInputs(
   value: CourseResult,
-  locationName: string,
+  contextInput: CourseContextInput,
   calendar: CalendarResult,
   lessons: FourLessonsResult,
   transmissions: import("../three-transmissions/types").ThreeTransmissionsResult,
@@ -42,7 +42,7 @@ export function matchesCourseInputs(
 ): boolean {
   if (!isCourseResult(value)) return false;
   try {
-    return sameValue(value, deriveCourse(locationName, calendar, lessons, transmissions, generals));
+    return sameValue(value, deriveCourse(contextInput, calendar, lessons, transmissions, generals));
   } catch {
     return false;
   }
@@ -74,8 +74,11 @@ function isStemBranch(value: unknown): value is StemBranch {
 }
 
 function isContext(value: unknown): boolean {
-  if (!isRecord(value) || !hasExactKeys(value, ["civilDateTime", "effectiveGanzhiDate", "locationName", "lunarDateDisplay", "pillars", "monthBuild", "monthGeneral", "divinationHour"])) return false;
-  if (typeof value.civilDateTime !== "string" || typeof value.effectiveGanzhiDate !== "string" || typeof value.locationName !== "string" || typeof value.lunarDateDisplay !== "string") return false;
+  if (!isRecord(value)) return false;
+  const keys = ["civilDateTime", "effectiveGanzhiDate", "reason", "lunarDateDisplay", "pillars", "monthBuild", "monthGeneral", "divinationHour"];
+  const expectedKeys = typeof value.locationName === "string" ? [...keys, "locationName"] : keys;
+  if (!hasExactKeys(value, expectedKeys)) return false;
+  if (typeof value.civilDateTime !== "string" || typeof value.effectiveGanzhiDate !== "string" || typeof value.reason !== "string" || typeof value.lunarDateDisplay !== "string") return false;
   if (!isRecord(value.pillars) || !hasExactKeys(value.pillars, ["year", "month", "day", "hour"]) || !Object.values(value.pillars).every(isStemBranch)) return false;
   if (!isRecord(value.monthGeneral) || !hasExactKeys(value.monthGeneral, ["name", "branch"]) || !monthGeneralNames.has(value.monthGeneral.name as never) || !isBranch(value.monthGeneral.branch)) return false;
   return isBranch(value.monthBuild) && isBranch(value.divinationHour);

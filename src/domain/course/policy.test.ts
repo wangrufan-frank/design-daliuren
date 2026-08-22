@@ -12,16 +12,26 @@ const transmissions = referenceSession.snapshots["three-transmissions"] as Three
 const generals = referenceSession.snapshots["heavenly-generals"] as HeavenlyGeneralsSnapshot;
 
 function derive() {
-  return deriveCourse(referenceSession.input.locationName, calendar.value, lessons.value, transmissions.value, generals.value);
+  return deriveCourse({ reason: referenceSession.input.reason, locationName: referenceSession.input.locationName }, calendar.value, lessons.value, transmissions.value, generals.value);
 }
 
 describe("deriveCourse", () => {
+  it("serializes reason and omits an empty location line", () => {
+    const result = deriveCourse({ reason: "项目签约判断" }, calendar.value, lessons.value, transmissions.value, generals.value);
+    const copy = serializeCourseText(result);
+
+    expect(result.context.reason).toBe("项目签约判断");
+    expect(copy).toContain("事由：项目签约判断");
+    expect(copy).not.toContain("地点：");
+  });
+
   it("projects only verified upstream facts in approved visual order", () => {
     const result = derive();
     expect(result.context).toEqual({
       civilDateTime: calendar.value.civilDateTime,
       effectiveGanzhiDate: calendar.value.effectiveGanzhiDate,
       locationName: "参考课式",
+      reason: "商务决策复盘",
       lunarDateDisplay: calendar.value.lunarDate.display,
       pillars: {
         year: calendar.value.pillars.year.effective,
@@ -93,7 +103,7 @@ describe("deriveCourse", () => {
     const localLessons = structuredClone(lessons.value);
     const localTransmissions = structuredClone(transmissions.value);
     const localGenerals = structuredClone(generals.value);
-    const result = deriveCourse(referenceSession.input.locationName, localCalendar, localLessons, localTransmissions, localGenerals);
+    const result = deriveCourse({ reason: referenceSession.input.reason, locationName: referenceSession.input.locationName }, localCalendar, localLessons, localTransmissions, localGenerals);
     const sourceLower = localLessons.lessons.find((lesson) => lesson.id === "fourth")!.lower;
     expect(result.context.monthGeneral).not.toBe(localCalendar.monthGeneral.effective);
     expect(result.lessons[0].lower).not.toBe(sourceLower);
@@ -108,9 +118,10 @@ describe("deriveCourse", () => {
     const result = derive();
     const text = serializeCourseText(result);
     expect(text).not.toContain("\r");
-    expect(text.split("\n").slice(0, 8)).toEqual([
+    expect(text.split("\n").slice(0, 9)).toEqual([
       "大六壬标准课式",
       `时间：${result.context.civilDateTime}`,
+      `事由：${result.context.reason}`,
       `地点：${result.context.locationName}`,
       `农历：${result.context.lunarDateDisplay}`,
       `四柱：${result.context.pillars.year}　${result.context.pillars.month}　${result.context.pillars.day}　${result.context.pillars.hour}`,

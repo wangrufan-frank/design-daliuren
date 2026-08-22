@@ -8,7 +8,8 @@ export interface CourseResult {
   context: {
     civilDateTime: string;
     effectiveGanzhiDate: string;
-    locationName: string;
+    locationName?: string;
+    reason: string;
     lunarDateDisplay: string;
     pillars: { year: StemBranch; month: StemBranch; day: StemBranch; hour: StemBranch };
     monthBuild: EarthlyBranch;

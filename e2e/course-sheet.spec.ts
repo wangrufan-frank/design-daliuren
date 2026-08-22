@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const EXPECTED_REFERENCE_TEXT = [
   "大六壬标准课式",
   "时间：2024-02-10T14:30:00",
+  "事由：商务决策复盘",
   "地点：北京",
   "农历：二〇二四年正月初一",
   "四柱：甲辰　丙寅　甲辰　辛未",
@@ -39,9 +40,8 @@ const EXPECTED_REFERENCE_TEXT = [
 
 async function submitReferenceCourse(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
-  await page.getByLabel("地点").fill("北京");
-  await page.getByLabel("经度").fill("116.4074");
-  await page.getByLabel("纬度").fill("39.9042");
+  await page.getByLabel("地点（选填）").fill("北京");
+  await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "建立起课上下文" }).click();
   await page.getByRole("button", { name: "文字课式", exact: true }).click();
 }

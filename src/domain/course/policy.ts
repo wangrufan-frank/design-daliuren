@@ -1,5 +1,5 @@
 import type { CalendarResult } from "../calendar/types";
-import type { EarthlyBranch } from "../chart/types";
+import type { CourseContextInput, EarthlyBranch } from "../chart/types";
 import type { FourLessonsResult } from "../four-lessons/types";
 import { generalForHeaven } from "../heavenly-generals/policy";
 import type { HeavenlyGeneralsResult } from "../heavenly-generals/types";
@@ -17,7 +17,7 @@ export class CourseProjectionError extends Error {
 }
 
 export function deriveCourse(
-  locationName: string,
+  contextInput: CourseContextInput,
   calendar: CalendarResult,
   fourLessons: FourLessonsResult,
   transmissions: ThreeTransmissionsResult,
@@ -30,7 +30,8 @@ export function deriveCourse(
       context: {
         civilDateTime: calendar.civilDateTime,
         effectiveGanzhiDate: calendar.effectiveGanzhiDate,
-        locationName,
+        ...(contextInput.locationName && { locationName: contextInput.locationName }),
+        reason: contextInput.reason,
         lunarDateDisplay: calendar.lunarDate.display,
         pillars: {
           year: calendar.pillars.year.effective,
@@ -93,7 +94,8 @@ export function serializeCourseText(result: CourseResult): string {
   return [
     "大六壬标准课式",
     `时间：${result.context.civilDateTime}`,
-    `地点：${result.context.locationName}`,
+    `事由：${result.context.reason}`,
+    ...(result.context.locationName ? [`地点：${result.context.locationName}`] : []),
     `农历：${result.context.lunarDateDisplay}`,
     `四柱：${result.context.pillars.year}　${result.context.pillars.month}　${result.context.pillars.day}　${result.context.pillars.hour}`,
     `月建：${result.context.monthBuild}`,

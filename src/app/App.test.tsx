@@ -46,9 +46,8 @@ afterEach(() => {
 async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText("日期与时间"), civilDateTime);
-  await user.type(screen.getByLabelText("地点"), "北京");
-  await user.type(screen.getByLabelText("经度"), "116.4074");
-  await user.type(screen.getByLabelText("纬度"), "39.9042");
+  await user.type(screen.getByLabelText("地点（选填）"), "北京");
+  await user.type(screen.getByLabelText("起课事由"), "商务决策复盘");
   await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
   return user;
 }
@@ -97,6 +96,30 @@ it("runs the real offline stages through three transmissions, then navigates pri
   expect(screen.queryByRole("region", { name: "天地盘加临" })).not.toBeInTheDocument();
   expect(screen.queryByLabelText("标准文字课式")).not.toBeInTheDocument();
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
+});
+
+it("recomputes only the course when the reason changes", async () => {
+  const runCalendar = vi.spyOn(calendarStage, "runCalendarStage");
+  const runHeavenEarth = vi.spyOn(heavenEarthStage, "runHeavenEarthStage");
+  const runFourLessons = vi.spyOn(fourLessonsStage, "runFourLessonsStage");
+  const runThreeTransmissions = vi.spyOn(threeTransmissionsStage, "runThreeTransmissionsStage");
+  const runGenerals = vi.spyOn(heavenlyGeneralsStage, "runHeavenlyGeneralsStage");
+  const runCourse = vi.spyOn(courseStage, "runCourseStage");
+  render(<App />);
+
+  const user = await submitCourse();
+  const reason = screen.getByLabelText("起课事由");
+  await user.clear(reason);
+  await user.type(reason, "新的事由");
+  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+
+  expect(runCalendar).toHaveBeenCalledTimes(1);
+  expect(runHeavenEarth).toHaveBeenCalledTimes(1);
+  expect(runFourLessons).toHaveBeenCalledTimes(1);
+  expect(runThreeTransmissions).toHaveBeenCalledTimes(1);
+  expect(runGenerals).toHaveBeenCalledTimes(1);
+  expect(runCourse).toHaveBeenCalledTimes(2);
+  expect(runCourse.mock.calls[1]?.[0].snapshots.course).toBeDefined();
 });
 
 it("opens the three-dimensional experience only for the complete guarded bundle", async () => {

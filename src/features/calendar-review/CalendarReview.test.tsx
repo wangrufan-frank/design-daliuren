@@ -13,8 +13,7 @@ const ordinaryInput: CourseInput = {
   civilDateTime: "2024-02-10T14:30:00",
   timeZone: "Asia/Shanghai",
   locationName: "北京",
-  longitude: 116.4074,
-  latitude: 39.9042,
+  reason: "商务决策复盘",
   corrections: {},
 };
 const jiaZi = [

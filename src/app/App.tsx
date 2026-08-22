@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LunarTypescriptAdapter } from "../adapters/calendar/lunar-typescript-adapter";
-import type { CourseSession, RuleStageId } from "../domain/chart/types";
+import type { CourseInput, CourseSession, RuleStageId } from "../domain/chart/types";
 import {
   isCourseSnapshotForCurrentInputs,
   isHeavenlyGeneralsSnapshotForCurrentInputs,
@@ -45,6 +45,17 @@ type StageError = CalendarError
   | Extract<HeavenlyGeneralsStageOutcome, { ok: false }>["error"]
   | Extract<CourseStageOutcome, { ok: false }>["error"];
 
+function hasSameCalendarInputs(left: CourseInput, right: CourseInput): boolean {
+  return left.civilDateTime === right.civilDateTime
+    && left.timeZone === right.timeZone
+    && left.corrections.yearPillar === right.corrections.yearPillar
+    && left.corrections.monthPillar === right.corrections.monthPillar
+    && left.corrections.dayPillar === right.corrections.dayPillar
+    && left.corrections.hourPillar === right.corrections.hourPillar
+    && left.corrections.monthGeneral === right.corrections.monthGeneral
+    && left.corrections.divinationHour === right.corrections.divinationHour;
+}
+
 export function App() {
   const [session, setSession] = useState<CourseSession | null>(null);
   const [stageError, setStageError] = useState<StageError | null>(null);
@@ -69,7 +80,7 @@ export function App() {
   const hasHeavenlyGenerals = heavenlyGeneralsResult !== undefined;
   const courseResult = isCourseSnapshotForCurrentInputs(
     courseSnapshot,
-    session?.input.locationName,
+    session ? { reason: session.input.reason, ...(session.input.locationName && { locationName: session.input.locationName }) } : undefined,
     session?.snapshots.calendar,
     session?.snapshots["four-lessons"],
     session?.snapshots["three-transmissions"],
@@ -156,6 +167,23 @@ export function App() {
     replaceFrom({ ...session, input: resetCalendarCorrection(session.input, field) });
   }
 
+  function submitInput(input: CourseInput) {
+    if (!session || !hasSameCalendarInputs(session.input, input)) {
+      replaceFrom({ input, snapshots: {} });
+      return;
+    }
+    const courseOutcome = runCourseStage({ ...session, input });
+    if (!courseOutcome.ok) {
+      setSession(courseOutcome.session);
+      setReviewStage("heavenly-generals");
+      setStageError(courseOutcome.error);
+      return;
+    }
+    setSession(courseOutcome.session);
+    setReviewStage("course");
+    setStageError(null);
+  }
+
   const correctionError = stageError?.code === "INVALID_CALENDAR_CORRECTION" && stageError.field
     ? { field: stageError.field, message: stageError.message }
     : undefined;
@@ -190,7 +218,7 @@ export function App() {
           <button className="app-panel__toggle" type="button" aria-expanded={inputOpen} onClick={() => setInputOpen((value) => !value)}>
             起课输入
           </button>
-          {inputOpen && <CourseInputForm onSubmit={(input) => replaceFrom({ input, snapshots: {} })} />}
+          {inputOpen && <CourseInputForm onSubmit={submitInput} />}
         </aside>
         <section className="app-stage" aria-live="polite">
           {reviewStage === "course" && hasCourse ? (

@@ -1,5 +1,5 @@
 import { RULE_STAGE_ORDER, stageDependencies } from "./stages";
-import type { CourseSession, HeavenlyStem, RuleSnapshot, RuleStageId } from "./types";
+import type { CourseContextInput, CourseSession, HeavenlyStem, RuleSnapshot, RuleStageId } from "./types";
 import type { CalendarSnapshot } from "../calendar/types";
 import {
   CALENDAR_SNAPSHOT_RULE_ID,
@@ -71,7 +71,7 @@ export function isHeavenlyGeneralsSnapshotForCurrentInputs(
 
 export function isCourseSnapshotForCurrentInputs(
   snapshot: RuleSnapshot<unknown, "course"> | undefined,
-  locationName: string | undefined,
+  contextInput: CourseContextInput | undefined,
   calendar: CalendarSnapshot | undefined,
   lessons: RuleSnapshot<unknown, "four-lessons"> | undefined,
   transmissions: RuleSnapshot<unknown, "three-transmissions"> | undefined,
@@ -79,7 +79,7 @@ export function isCourseSnapshotForCurrentInputs(
 ): snapshot is CourseSnapshot {
   return Boolean(
     snapshot
-    && locationName !== undefined
+    && contextInput !== undefined
     && snapshot.stage === "course"
     && dependenciesEqual(snapshot.dependsOn, stageDependencies.course)
     && snapshot.ruleId === COURSE_SNAPSHOT_RULE_ID
@@ -89,7 +89,7 @@ export function isCourseSnapshotForCurrentInputs(
     && generals && isHeavenlyGeneralsResult(generals.value)
     && snapshot.source === courseResultSource([calendar.source, lessons.source, transmissions.source, generals.source])
     && isCourseResult(snapshot.value)
-    && matchesCourseInputs(snapshot.value, locationName, calendar.value, lessons.value, transmissions.value, generals.value)
+    && matchesCourseInputs(snapshot.value, contextInput, calendar.value, lessons.value, transmissions.value, generals.value)
   );
 }
 
@@ -230,7 +230,7 @@ export function validateSession(session: CourseSession): readonly string[] {
           }
           if (!matchesCourseInputs(
             snapshot.value,
-            session.input.locationName,
+            { reason: session.input.reason, ...(session.input.locationName && { locationName: session.input.locationName }) },
             calendar.value,
             lessons.value,
             transmissions.value,
