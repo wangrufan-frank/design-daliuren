@@ -5,6 +5,8 @@ export interface ArtifactNodePose {
   translationX: number;
   translationY: number;
   translationZ: number;
+  rotationX: number;
+  rotationY: number;
   rotationZ: number;
   targetEarth?: EarthlyBranch;
 }

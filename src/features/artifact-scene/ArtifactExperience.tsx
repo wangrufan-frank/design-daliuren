@@ -3,7 +3,8 @@ import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
-import { reviewStageFor } from "./timeline/review-stages";
+import { evaluateStageReplay } from "./timeline/evaluate-stage-replay";
+import { reviewStageFor, type ArtifactReviewStage } from "./timeline/review-stages";
 import type { ArtifactPose } from "./timeline/types";
 import type { RuleStageId } from "../../domain/chart/types";
 import { ArtifactSceneController, type ArtifactAppliedState } from "./three/ArtifactSceneController";
@@ -36,6 +37,12 @@ interface ArtifactExperienceProps {
 }
 
 type ExperienceStatus = "loading" | "ready" | "error";
+
+interface ActiveStageReplay {
+  stage: ArtifactReviewStage;
+  elapsedMs: number;
+  lastFrameMs?: number;
+}
 
 const observableBuild = () => !import.meta.env.PROD || import.meta.env.VITE_ARTIFACT_BENCHMARK === "1";
 const dayNightText = { day: "昼", night: "夜" } as const;
@@ -78,6 +85,7 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
   const controllerRef = useRef<ArtifactSceneController | undefined>(undefined);
   const displayStateRef = useRef(displayState);
   const reducedMotionRef = useRef(reducedMotion);
+  const selectedStageRef = useRef(selectedStage);
   const playingRef = useRef(false);
   const timeRef = useRef(0);
   const accumulatedTimeRef = useRef(0);
@@ -85,6 +93,7 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
   const frameRef = useRef<number | undefined>(undefined);
   const lastFrameRef = useRef<number | undefined>(undefined);
   const userControlledRef = useRef(false);
+  const stageReplayRef = useRef<ActiveStageReplay | undefined>(undefined);
   const [status, setStatus] = useState<ExperienceStatus>("loading");
   const [timeMs, setTimeMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -180,7 +189,17 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
       if (observableBuild()) window.__artifactFrameObserver?.(timestamp);
       const previous = lastFrameRef.current ?? timestamp;
       lastFrameRef.current = timestamp;
-      if (playingRef.current) {
+      const stageReplay = stageReplayRef.current;
+      if (stageReplay) {
+        const previousReplayFrame = stageReplay.lastFrameMs ?? timestamp;
+        stageReplay.lastFrameMs = timestamp;
+        stageReplay.elapsedMs += Math.max(0, timestamp - previousReplayFrame);
+        const replayState = evaluateStageReplay(stageReplay.stage, stageReplay.elapsedMs, reducedMotionRef.current);
+        timeRef.current = replayState.timelineTimeMs;
+        accumulatedTimeRef.current = replayState.timelineTimeMs;
+        setTimeMs(replayState.timelineTimeMs);
+        if (replayState.complete) stageReplayRef.current = undefined;
+      } else if (playingRef.current) {
         accumulatedTimeRef.current = Math.min(
           ARTIFACT_DURATION_MS,
           accumulatedTimeRef.current + Math.max(0, timestamp - previous),
@@ -194,7 +213,7 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
         }
       }
       applyAt(timeRef.current);
-      controller.render();
+      controller.render(timestamp);
       if (controllerRef.current) frameRef.current = requestAnimationFrame(frame);
     };
 
@@ -221,6 +240,7 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
       controllerRef.current = controller;
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
+      controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, reducedMotionRef.current);
       if (controllerRef.current !== controller) return;
       resizeController();
       applyAt(timeRef.current);
@@ -263,10 +283,20 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
     reducedMotionRef.current = reducedMotion;
     autoCameraRef.current = !reducedMotion && !userControlledRef.current;
     setAutoCamera(autoCameraRef.current);
+    const stageReplay = stageReplayRef.current;
+    if (reducedMotion && stageReplay) {
+      const replayState = evaluateStageReplay(stageReplay.stage, stageReplay.elapsedMs, true);
+      stageReplayRef.current = undefined;
+      timeRef.current = replayState.timelineTimeMs;
+      accumulatedTimeRef.current = replayState.timelineTimeMs;
+      setTimeMs(replayState.timelineTimeMs);
+      controllerRef.current?.applyCameraPreset(stageReplay.stage.camera, true);
+    }
     applyAt(timeRef.current);
   }, [applyAt, reducedMotion]);
 
   const seek = useCallback((nextTime: number) => {
+    stageReplayRef.current = undefined;
     const clamped = Math.round(Math.min(ARTIFACT_DURATION_MS, Math.max(0, nextTime)));
     timeRef.current = clamped;
     accumulatedTimeRef.current = clamped;
@@ -277,8 +307,18 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
   }, [applyAt, stopPlayback]);
 
   useEffect(() => {
-    seek(reviewStageFor(selectedStage).settledTimeMs);
-  }, [displayState, seek, selectedStage]);
+    selectedStageRef.current = selectedStage;
+    const stage = reviewStageFor(selectedStage);
+    const replayState = evaluateStageReplay(stage, 0, reducedMotionRef.current);
+    stageReplayRef.current = replayState.complete ? undefined : { stage, elapsedMs: 0 };
+    timeRef.current = replayState.timelineTimeMs;
+    accumulatedTimeRef.current = replayState.timelineTimeMs;
+    lastFrameRef.current = undefined;
+    setTimeMs(replayState.timelineTimeMs);
+    stopPlayback();
+    controllerRef.current?.applyCameraPreset(stage.camera, reducedMotionRef.current);
+    applyAt(replayState.timelineTimeMs);
+  }, [applyAt, displayState, selectedStage, stopPlayback]);
 
   const togglePlayback = () => {
     if (playingRef.current) {
@@ -286,6 +326,7 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
       return;
     }
     if (timeRef.current === ARTIFACT_DURATION_MS) seek(0);
+    stageReplayRef.current = undefined;
     lastFrameRef.current = undefined;
     playingRef.current = true;
     setPlaying(true);

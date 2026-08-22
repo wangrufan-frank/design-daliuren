@@ -21,6 +21,10 @@ interface ArtifactSceneCallbacks {
 interface ControlsLike {
   target: THREE.Vector3;
   autoRotate: boolean;
+  minPolarAngle: number;
+  maxPolarAngle: number;
+  minAzimuthAngle: number;
+  maxAzimuthAngle: number;
   addEventListener(type: "start", listener: () => void): void;
   removeEventListener(type: "start", listener: () => void): void;
   update(): void;
@@ -30,12 +34,26 @@ interface ControlsLike {
 interface ArtifactSceneDependencies {
   createControls(camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement): ControlsLike;
   createEnvironment(renderer: THREE.WebGLRenderer): { texture: THREE.Texture; dispose(): void };
+  now?(): number;
 }
 
 interface BaseTransform {
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
   scale: THREE.Vector3;
+}
+
+interface CameraTween {
+  startedAtMs: number;
+  fromPosition: THREE.Vector3;
+  fromTarget: THREE.Vector3;
+  toPosition: THREE.Vector3;
+  toTarget: THREE.Vector3;
+}
+
+export interface ArtifactCameraPreset {
+  position: readonly [number, number, number];
+  target: readonly [number, number, number];
 }
 
 interface LabelBinding {
@@ -86,6 +104,7 @@ const GENERAL_SLOT_NODE_IDS = [
   "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
   "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
 ] as const;
+const CAMERA_TWEEN_DURATION_MS = 700;
 
 const LABEL_SIZE = { width: 512, height: 256 } as const;
 const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
@@ -144,10 +163,15 @@ export class ArtifactSceneController {
   );
   private readonly initialCameraPosition = new THREE.Vector3(0.56, 0.44, 0.56);
   private readonly initialTarget = new THREE.Vector3(0, 0, 0);
+  private readonly now: () => number;
+  private cameraTween: CameraTween | undefined;
   private stopped = false;
   private disposed = false;
 
-  private readonly handleControlStart = () => this.callbacks.onUserControlStart();
+  private readonly handleControlStart = () => {
+    this.cameraTween = undefined;
+    this.callbacks.onUserControlStart();
+  };
   private readonly handleContextLost = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -169,6 +193,7 @@ export class ArtifactSceneController {
     this.scene.environment = this.environment.texture;
     this.scene.environmentIntensity = 1.25;
     this.scene.add(artifact.root);
+    this.now = dependencies.now ?? (() => performance.now());
 
     const keyLight = new THREE.DirectionalLight(0xffd7b0, 1.35);
     keyLight.position.set(0.5, 0.75, 0.45);
@@ -182,6 +207,10 @@ export class ArtifactSceneController {
     this.controls = dependencies.createControls(this.camera, renderer.domElement);
     this.controls.target.copy(this.initialTarget);
     this.controls.autoRotate = false;
+    this.controls.minPolarAngle = Math.PI / 9;
+    this.controls.maxPolarAngle = 5 * Math.PI / 12;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
     this.controls.update();
     this.controls.addEventListener("start", this.handleControlStart);
     renderer.domElement.addEventListener("webglcontextlost", this.handleContextLost);
@@ -328,6 +357,8 @@ export class ArtifactSceneController {
         object.quaternion.copy(targetSlot.quaternion);
       }
       object.position.add(new THREE.Vector3(delta.translationX, delta.translationY, delta.translationZ));
+      object.rotateX(delta.rotationX);
+      object.rotateY(delta.rotationY);
       object.rotateZ(delta.rotationZ);
     }
     for (const key of Object.keys(COPY_BINDINGS) as CopyKey[]) this.applyCopyPose(key, pose.copy[key]);
@@ -352,21 +383,54 @@ export class ArtifactSceneController {
 
   resetCamera(): void {
     if (this.disposed) return;
+    this.cameraTween = undefined;
     this.camera.position.copy(this.initialCameraPosition);
     this.controls.target.copy(this.initialTarget);
     this.camera.lookAt(this.initialTarget);
     this.controls.update();
   }
 
-  render(): void {
+  applyCameraPreset(preset: ArtifactCameraPreset, immediate = false): void {
+    if (this.disposed) return;
+    const toPosition = new THREE.Vector3(...preset.position);
+    const toTarget = new THREE.Vector3(...preset.target);
+    if (immediate) {
+      this.cameraTween = undefined;
+      this.camera.position.copy(toPosition);
+      this.controls.target.copy(toTarget);
+      this.camera.lookAt(toTarget);
+      this.controls.update();
+      return;
+    }
+    this.cameraTween = {
+      startedAtMs: this.now(),
+      fromPosition: this.camera.position.clone(),
+      fromTarget: this.controls.target.clone(),
+      toPosition,
+      toTarget,
+    };
+  }
+
+  render(timestampMs = this.now()): void {
     if (this.disposed || this.stopped) return;
     try {
+      this.updateCameraTween(timestampMs);
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
     } catch (error) {
       this.stopped = true;
       this.callbacks.onError(error);
     }
+  }
+
+  private updateCameraTween(timestampMs: number): void {
+    const tween = this.cameraTween;
+    if (!tween) return;
+    const rawProgress = Math.min(1, Math.max(0, (timestampMs - tween.startedAtMs) / CAMERA_TWEEN_DURATION_MS));
+    const progress = rawProgress * rawProgress * (3 - 2 * rawProgress);
+    this.camera.position.lerpVectors(tween.fromPosition, tween.toPosition, progress);
+    this.controls.target.lerpVectors(tween.fromTarget, tween.toTarget, progress);
+    if (rawProgress === 1) this.cameraTween = undefined;
   }
 
   dispose(): void {

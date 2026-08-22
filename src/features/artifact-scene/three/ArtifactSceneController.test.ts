@@ -23,6 +23,10 @@ class TestControls {
   readonly update = vi.fn();
   readonly dispose = vi.fn();
   autoRotate = false;
+  minPolarAngle = 0;
+  maxPolarAngle = Math.PI;
+  minAzimuthAngle = -Infinity;
+  maxAzimuthAngle = Infinity;
   private readonly listeners = new Set<() => void>();
 
   addEventListener(_type: "start", listener: () => void) { this.listeners.add(listener); }
@@ -37,6 +41,7 @@ function node(id: string) {
 }
 
 function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
+  let nowMs = 0;
   const canvas = document.createElement("canvas");
   const root = new THREE.Group();
   const movingNode = node("calendar/slip");
@@ -113,11 +118,13 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
   const controller = new ArtifactSceneController(renderer, artifact, callbacks, {
     createControls: () => controls,
     createEnvironment: () => ({ texture: environmentTexture, dispose: environmentDispose }),
+    now: () => nowMs,
   });
   return {
     artifact, callbacks, canvas, controller, controls, geometry,
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
     environmentDispose, environmentTexture, generalNodes, material, movingNode, renderer,
+    setNow: (value: number) => { nowMs = value; },
   };
 }
 
@@ -128,6 +135,8 @@ function pose(translationX: number, rotationZ: number): ArtifactPose {
         translationX,
         translationY: 0,
         translationZ: 0,
+        rotationX: 0,
+        rotationY: 0,
         rotationZ,
       },
     },
@@ -151,6 +160,8 @@ function generalPose(targetEarth: EarthlyBranch): ArtifactPose {
         translationX: 0,
         translationY: 0,
         translationZ: 0.007,
+        rotationX: 0,
+        rotationY: 0,
         rotationZ: 0,
         targetEarth,
       },
@@ -200,7 +211,7 @@ const completeDisplayState = {
 
 describe("ArtifactSceneController", () => {
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
-    const { controller, environmentTexture, renderer } = fixture();
+    const { controller, controls, environmentTexture, renderer } = fixture();
 
     controller.resize(800, 400, 2);
     controller.render();
@@ -214,6 +225,10 @@ describe("ArtifactSceneController", () => {
     expect(scene.background).toEqual(new THREE.Color(0xdce5df));
     expect(scene.environment).toBe(environmentTexture);
     expect(scene.environmentIntensity).toBe(1.25);
+    expect(controls.minPolarAngle).toBeCloseTo(Math.PI / 9);
+    expect(controls.maxPolarAngle).toBeCloseTo(5 * Math.PI / 12);
+    expect(controls.minAzimuthAngle).toBe(-Infinity);
+    expect(controls.maxAzimuthAngle).toBe(Infinity);
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
     expect(lights.map((light) => light.intensity)).toEqual([1.35, 0.65, 0.75]);
   });
@@ -233,6 +248,29 @@ describe("ArtifactSceneController", () => {
     expect(movingNode.quaternion.toArray()).toEqual(firstQuaternion);
     expect(movingNode.scale.toArray()).toEqual([2, 3, 4]);
     expect(baseQuaternion.equals(movingNode.quaternion)).toBe(false);
+  });
+
+  it("applies stage camera presets and cancels only the active tween on drag", () => {
+    const { callbacks, controller, controls, renderer, setNow } = fixture();
+    const preset = { position: [2, 1.5, 3] as const, target: [0.1, 0.2, 0.3] as const };
+
+    controller.applyCameraPreset(preset);
+    setNow(350);
+    controller.render();
+    const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
+    expect(camera.position.toArray()).not.toEqual([0.56, 0.44, 0.56]);
+    expect(camera.position.toArray()).not.toEqual(preset.position);
+
+    controls.dispatchStart();
+    const interruptedPosition = camera.position.toArray();
+    setNow(700);
+    controller.render();
+    expect(camera.position.toArray()).toEqual(interruptedPosition);
+    expect(callbacks.onUserControlStart).toHaveBeenCalledOnce();
+
+    controller.applyCameraPreset(preset, true);
+    expect(camera.position.toArray()).toEqual(preset.position);
+    expect(controls.target.toArray()).toEqual(preset.target);
   });
 
   it("applies copy opacity and source-line progress to owned scene objects", () => {
@@ -268,9 +306,9 @@ describe("ArtifactSceneController", () => {
     nextPose.generalDirection = "reverse";
     nextPose.cameraOrbitRequested = true;
     nextPose.nodes = {
-      "general/noble": { translationX: 0, translationY: 0, translationZ: 0.007, rotationZ: 0 },
-      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
-      "general/vermilion-bird": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
+      "general/noble": { translationX: 0, translationY: 0, translationZ: 0.007, rotationX: 0, rotationY: 0, rotationZ: 0 },
+      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
+      "general/vermilion-bird": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
     };
 
     const applied = controller.applyPose(nextPose);
@@ -294,8 +332,8 @@ describe("ArtifactSceneController", () => {
     const nextPose = pose(0, 0);
     nextPose.generalSequence = ["general/noble", "general/snake"];
     nextPose.nodes = {
-      "general/noble": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
-      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0 },
+      "general/noble": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
+      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
     };
 
     controller.applyPose(nextPose);

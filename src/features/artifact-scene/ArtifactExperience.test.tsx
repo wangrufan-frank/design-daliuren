@@ -18,6 +18,7 @@ interface ControllerDouble {
   resize: any;
   setDisplayState: any;
   applyPose: any;
+  applyCameraPreset: any;
   resetCamera: any;
   render: any;
   dispose: any;
@@ -79,6 +80,7 @@ beforeAll(async () => {
       resize = vi.fn();
       setDisplayState = vi.fn();
       applyPose = vi.fn((pose: ArtifactPose) => appliedStateFromPose(pose));
+      applyCameraPreset = vi.fn();
       resetCamera = vi.fn();
       render = vi.fn();
       dispose = vi.fn();
@@ -306,6 +308,39 @@ describe("ArtifactExperience", () => {
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("150");
     expect(screen.getByRole("button", { name: "暂停推演" })).toBeVisible();
     expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({ cameraOrbitRequested: false }));
+  });
+
+  it("replays a selected stage through recap and separation after camera drag", async () => {
+    const frames = installAnimationFrames();
+    render(
+      <ArtifactExperience
+        source={referenceSourceResults}
+        selectedStage="four-lessons"
+        onShowCourse={vi.fn()}
+      />,
+    );
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    expect(latestController().applyCameraPreset).toHaveBeenCalledWith({
+      position: [-2.4, 1.7, 2.8],
+      target: [0, 0.1, 0],
+    }, false);
+    frames.step(100);
+    frames.step(800);
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("3200");
+
+    act(() => latestController().callbacks.onUserControlStart());
+    frames.step(1_700);
+
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("5400");
+    expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
+    expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({
+      cameraOrbitRequested: false,
+      nodes: expect.objectContaining({
+        "lesson/first": expect.objectContaining({ translationX: -0.045 }),
+        "lesson/fourth": expect.objectContaining({ translationX: 0.045 }),
+      }),
+    }));
   });
 
   it("clamps playback at the exact duration and returns to the play label", async () => {

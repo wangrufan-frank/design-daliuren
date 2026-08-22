@@ -1,7 +1,8 @@
 import type { ArtifactDisplayState } from "../model/types";
+import { ARTIFACT_REVIEW_STAGES, reviewStageFor } from "./review-stages";
 import type { ArtifactCopyPose, ArtifactNodePose, ArtifactPose } from "./types";
 
-export const ARTIFACT_DURATION_MS = 12_500;
+export const ARTIFACT_DURATION_MS = ARTIFACT_REVIEW_STAGES[ARTIFACT_REVIEW_STAGES.length - 1].settledTimeMs;
 
 const GENERAL_NODE_IDS = {
   贵人: "general/noble", 螣蛇: "general/snake", 朱雀: "general/vermilion-bird", 六合: "general/harmony",
@@ -9,10 +10,17 @@ const GENERAL_NODE_IDS = {
   太常: "general/constant", 玄武: "general/black-tortoise", 太阴: "general/yin", 天后: "general/queen-of-heaven",
 } as const;
 
-const LESSON_TRAVEL_X = { first: 0.092, second: 0.092, third: -0.092, fourth: -0.092 } as const;
+const intervalFor = (stageId: Parameters<typeof reviewStageFor>[0]) => {
+  const stage = reviewStageFor(stageId);
+  return [stage.startTimeMs, stage.settledTimeMs] as const;
+};
 const STAGES = {
-  calendar: [0, 1_200], plate: [1_200, 3_200], lessons: [3_200, 5_400],
-  transmissions: [5_400, 7_600], generals: [7_600, 10_300], copy: [10_300, ARTIFACT_DURATION_MS],
+  calendar: intervalFor("calendar"),
+  plate: intervalFor("heaven-earth"),
+  lessons: intervalFor("four-lessons"),
+  transmissions: intervalFor("three-transmissions"),
+  generals: intervalFor("heavenly-generals"),
+  copy: intervalFor("course"),
 } as const;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -24,7 +32,15 @@ function stageProgress(timeMs: number, stage: readonly [number, number], reduced
 }
 
 function node(overrides: Partial<ArtifactNodePose> = {}): ArtifactNodePose {
-  return { translationX: 0, translationY: 0, translationZ: 0, rotationZ: 0, ...overrides };
+  return {
+    translationX: 0,
+    translationY: 0,
+    translationZ: 0,
+    rotationX: 0,
+    rotationY: 0,
+    rotationZ: 0,
+    ...overrides,
+  };
 }
 
 function copyPose(timeMs: number, reducedMotion: boolean): ArtifactCopyPose {
@@ -56,12 +72,19 @@ export function evaluateArtifactPose(
   const generalSequenceIndexes = new Map(generalSequence.map((id, index) => [id, index]));
   const generalStepMs = (STAGES.generals[1] - STAGES.generals[0]) / generalSequence.length;
   const nodes: Record<string, ArtifactNodePose> = {
-    "calendar/slip": node({ translationZ: 0.012 * calendar }),
-    "plate/heaven": node({ rotationZ: state.plate.offset * Math.PI / 6 * plate }),
+    "calendar/slip": node({ translationZ: 0.035 * calendar, rotationX: -0.12 * calendar }),
+    "plate/heaven": node({
+      translationZ: 0.03 * plate,
+      rotationZ: state.plate.offset * Math.PI / 6 * plate,
+    }),
     "transmission/bridge": node({ translationY: -0.118 * transmissions }),
+    "transmission/initial": node({ translationY: -0.035 * transmissions }),
+    "transmission/middle": node({ translationY: -0.055 * transmissions }),
+    "transmission/final": node({ translationY: -0.075 * transmissions }),
   };
-  (Object.keys(LESSON_TRAVEL_X) as (keyof typeof LESSON_TRAVEL_X)[]).forEach((lesson) => {
-    nodes[`lesson/${lesson}`] = node({ translationX: LESSON_TRAVEL_X[lesson] * lessons });
+  const lessonSeparations = { first: -0.045, second: -0.015, third: 0.015, fourth: 0.045 } as const;
+  (Object.keys(lessonSeparations) as (keyof typeof lessonSeparations)[]).forEach((lesson) => {
+    nodes[`lesson/${lesson}`] = node({ translationX: lessonSeparations[lesson] * lessons });
   });
   state.generals.forEach((placement) => {
     const id = GENERAL_NODE_IDS[placement.general];
@@ -71,10 +94,13 @@ export function evaluateArtifactPose(
       STAGES.generals[0] + (sequenceIndex + 1) * generalStepMs,
     ] as const;
     nodes[id] = node({
-      translationZ: 0.007 * stageProgress(time, stage, reducedMotion),
+      translationZ: 0.004 * (sequenceIndex + 1) * stageProgress(time, stage, reducedMotion),
       targetEarth: placement.earth,
     });
   });
+  const course = stageProgress(time, STAGES.copy, reducedMotion);
+  nodes["anchor/course-copy/lessons"] = node({ translationX: -0.025 * course });
+  nodes["anchor/course-copy/transmissions"] = node({ translationX: 0.025 * course });
   const copy = copyPose(time, reducedMotion);
   return {
     nodes,
