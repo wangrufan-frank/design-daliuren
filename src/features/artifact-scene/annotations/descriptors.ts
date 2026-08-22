@@ -1,0 +1,26 @@
+import type { ArtifactAnnotationDescriptor } from "./types";
+
+export const ARTIFACT_ANNOTATION_DESCRIPTORS = [
+  { id: "calendar/slip", nodeId: "calendar/slip", label: "历书", detail: "记载占时与月将的历法依据。", stages: ["calendar", "heaven-earth", "course"] },
+  { id: "plate/earth", nodeId: "plate/earth", label: "地盘", detail: "承载十二支方位，作为加临的基准。", stages: ["calendar", "heaven-earth", "course"] },
+  { id: "plate/heaven", nodeId: "plate/heaven", label: "天盘", detail: "随月将转动，显示天盘加临位置。", stages: ["calendar", "heaven-earth", "course"] },
+  { id: "lesson/first", nodeId: "lesson/first", label: "第一课", detail: "由日干与其上神构成首课。", stages: ["four-lessons", "course"] },
+  { id: "lesson/second", nodeId: "lesson/second", label: "第二课", detail: "由日支与其上神承接第二层。", stages: ["four-lessons"] },
+  { id: "lesson/third", nodeId: "lesson/third", label: "第三课", detail: "循首课上神再取其上神而成。", stages: ["four-lessons"] },
+  { id: "lesson/fourth", nodeId: "lesson/fourth", label: "第四课", detail: "循次课上神再取其上神而成。", stages: ["four-lessons"] },
+  { id: "transmission/initial", nodeId: "transmission/initial", label: "初传", detail: "三传的起点，表示事势初发。", stages: ["three-transmissions", "course"] },
+  { id: "transmission/middle", nodeId: "transmission/middle", label: "中传", detail: "承接初传，显示事势推移。", stages: ["three-transmissions"] },
+  { id: "transmission/final", nodeId: "transmission/final", label: "末传", detail: "三传终点，显示事势归宿。", stages: ["three-transmissions"] },
+  { id: "general/noble", nodeId: "general/noble", label: "贵人", detail: "天将之首，统摄诸将的起例。", stages: ["heavenly-generals", "course"] },
+  { id: "general/snake", nodeId: "general/snake", label: "螣蛇", detail: "十二天将之一，随贵人次第布列。", stages: ["heavenly-generals"] },
+  { id: "general/vermilion-bird", nodeId: "general/vermilion-bird", label: "朱雀", detail: "十二天将之一，承接将位运行。", stages: ["heavenly-generals"] },
+  { id: "general/harmony", nodeId: "general/harmony", label: "六合", detail: "十二天将之一，显示六合将位。", stages: ["heavenly-generals"] },
+  { id: "general/hook-array", nodeId: "general/hook-array", label: "勾陈", detail: "十二天将之一，显示勾陈将位。", stages: ["heavenly-generals"] },
+  { id: "general/azure-dragon", nodeId: "general/azure-dragon", label: "青龙", detail: "十二天将之一，显示青龙将位。", stages: ["heavenly-generals"] },
+  { id: "general/void", nodeId: "general/void", label: "天空", detail: "十二天将之一，显示天空将位。", stages: ["heavenly-generals"] },
+  { id: "general/white-tiger", nodeId: "general/white-tiger", label: "白虎", detail: "十二天将之一，显示白虎将位。", stages: ["heavenly-generals"] },
+  { id: "general/constant", nodeId: "general/constant", label: "太常", detail: "十二天将之一，显示太常将位。", stages: ["heavenly-generals"] },
+  { id: "general/black-tortoise", nodeId: "general/black-tortoise", label: "玄武", detail: "十二天将之一，显示玄武将位。", stages: ["heavenly-generals"] },
+  { id: "general/yin", nodeId: "general/yin", label: "太阴", detail: "十二天将之一，显示太阴将位。", stages: ["heavenly-generals"] },
+  { id: "general/queen-of-heaven", nodeId: "general/queen-of-heaven", label: "天后", detail: "十二天将之一，显示天后将位。", stages: ["heavenly-generals"] },
+] as const satisfies readonly ArtifactAnnotationDescriptor[];

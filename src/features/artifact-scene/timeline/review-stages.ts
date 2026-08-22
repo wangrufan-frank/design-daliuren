@@ -19,7 +19,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     settledTimeMs: 1_200,
     caption: ["历法定时", "月将临占时"] as const,
     camera: { position: [0, 0.353057, 0.827859], target: [0, 0, 0] },
-    annotationIds: ["calendar/slip"],
+    annotationIds: ["calendar/slip", "plate/earth", "plate/heaven"],
   },
   {
     id: "heaven-earth",
@@ -28,7 +28,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     settledTimeMs: 3_200,
     caption: ["天地相加", "十二宫依时转位"] as const,
     camera: { position: [0, 0.550956, 0.711651], target: [0, 0, 0] },
-    annotationIds: ["plate/earth", "plate/heaven"],
+    annotationIds: ["calendar/slip", "plate/earth", "plate/heaven"],
   },
   {
     id: "four-lessons",
@@ -57,8 +57,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     camera: { position: [0, 0.562226, 0.702782], target: [0, 0, 0] },
     annotationIds: [
       "general/noble", "general/snake", "general/vermilion-bird", "general/harmony",
-      "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
-      "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
+      "general/hook-array", "general/azure-dragon",
     ],
   },
   {
@@ -69,12 +68,8 @@ export const ARTIFACT_REVIEW_STAGES = [
     caption: ["课式归一", "可回看每一步依据"] as const,
     camera: { position: [0, 0.402492, 0.804984], target: [0, 0, 0] },
     annotationIds: [
-      "calendar/slip", "plate/earth", "plate/heaven",
-      "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
-      "transmission/initial", "transmission/middle", "transmission/final",
-      "general/noble", "general/snake", "general/vermilion-bird", "general/harmony",
-      "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
-      "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
+      "calendar/slip", "plate/earth", "plate/heaven", "lesson/first",
+      "transmission/initial", "general/noble",
     ],
   },
 ] as const satisfies readonly ArtifactReviewStage[];
