@@ -14,11 +14,13 @@ import { referenceSession } from "../../test/reference-session";
 import { useReducedMotion } from "./use-reduced-motion";
 
 interface ControllerDouble {
-  callbacks: { onUserControlStart(): void; onContextLost(): void; onError(error: unknown): void };
+  callbacks: { onUserControlStart(): void; onContextLost(): void; onError(error: unknown): void; onAnnotationError(error: unknown): void };
   resize: any;
   setDisplayState: any;
   applyPose: any;
   applyCameraPreset: any;
+  captureAnnotationFrame: any;
+  focusNode: any;
   resetCamera: any;
   render: any;
   dispose: any;
@@ -76,11 +78,23 @@ beforeAll(async () => {
   }));
   vi.doMock("./three/ArtifactSceneController", () => ({
     ArtifactSceneController: class {
-      callbacks: { onUserControlStart(): void; onContextLost(): void; onError(error: unknown): void };
+      callbacks: { onUserControlStart(): void; onContextLost(): void; onError(error: unknown): void; onAnnotationError(error: unknown): void };
       resize = vi.fn();
       setDisplayState = vi.fn();
       applyPose = vi.fn((pose: ArtifactPose) => appliedStateFromPose(pose));
       applyCameraPreset = vi.fn();
+      captureAnnotationFrame = vi.fn((ids: readonly string[]) => ({
+        viewport: { width: 800, height: 560 },
+        anchors: ids.map((id, index) => ({
+          id,
+          x: 220 + index * 12,
+          y: 80 + index * 18,
+          depth: 0,
+          behindCamera: false,
+          occluded: false,
+        })),
+      }));
+      focusNode = vi.fn();
       resetCamera = vi.fn();
       render = vi.fn();
       dispose = vi.fn();
@@ -263,15 +277,41 @@ describe("ArtifactExperience", () => {
     expect(mocks.disposeArtifact).not.toHaveBeenCalled();
   });
 
-  it("cancels its single frame loop and disposes the controller exactly once on unmount", async () => {
+  it("cancels the scene and annotation frame loops and disposes the controller exactly once on unmount", async () => {
     const { unmount } = render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
 
-    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
     unmount();
 
-    expect(cancelAnimationFrame).toHaveBeenCalledOnce();
+    expect(cancelAnimationFrame).toHaveBeenCalledTimes(2);
     expect(latestController().dispose).toHaveBeenCalledOnce();
+  });
+
+  it("shows stage annotations by default and exposes all 22 or no annotations on demand", async () => {
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} selectedStage="calendar" onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    expect(screen.getByRole("button", { name: "本阶段" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(3);
+    await user.click(screen.getByRole("button", { name: "全部" }));
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(22);
+    await user.click(screen.getByRole("button", { name: "隐藏" }));
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
+  });
+
+  it("keeps the 3D experience usable when annotation sampling reports a missing node", async () => {
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    act(() => latestController().callbacks.onAnnotationError(new Error(
+      'Artifact annotation "plate/heaven" requires missing node "plate/heaven"',
+    )));
+
+    expect(screen.getByRole("status", { name: "标注状态" })).toHaveTextContent("plate/heaven");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toBeVisible();
+    expect(latestController().dispose).not.toHaveBeenCalled();
   });
 
   it("reuses the loaded artifact and resets the absolute pose when source changes", async () => {

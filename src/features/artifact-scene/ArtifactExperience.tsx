@@ -12,6 +12,7 @@ import { disposeArtifact } from "./three/dispose-artifact";
 import { createArtifactRenderer, loadArtifact } from "./three/load-artifact";
 import type { LoadedArtifact } from "./three/load-artifact";
 import { ArtifactTimeline } from "./ArtifactTimeline";
+import { ArtifactAnnotationLayer } from "./ArtifactAnnotationLayer";
 import { useReducedMotion } from "./use-reduced-motion";
 import "./artifact-scene.css";
 
@@ -100,6 +101,7 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
   const [autoCamera, setAutoCamera] = useState(!reducedMotion);
   const [currentPoseHash, setCurrentPoseHash] = useState<string | undefined>(undefined);
   const [sourceLinesActive, setSourceLinesActive] = useState(false);
+  const [annotationError, setAnnotationError] = useState<string | undefined>(undefined);
 
   const applyAt = useCallback((nextTime: number) => {
     const controller = controllerRef.current;
@@ -235,9 +237,13 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
         },
         onContextLost: failExperience,
         onError: failExperience,
+        onAnnotationError: (error) => setAnnotationError(
+          error instanceof Error ? error.message : String(error),
+        ),
       });
       ownedController = controller;
       controllerRef.current = controller;
+      setAnnotationError(undefined);
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
       controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, reducedMotionRef.current);
@@ -355,6 +361,12 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
       <div className="artifact-experience__viewport">
         <canvas ref={canvasRef} aria-label="大六壬三维器物" />
         {status === "loading" && <p className="artifact-experience__loading" role="status">正在加载三维器物</p>}
+        {status === "ready" && controllerRef.current && (
+          <ArtifactAnnotationLayer
+            source={controllerRef.current}
+            featuredIds={reviewStageFor(selectedStage).annotationIds}
+          />
+        )}
       </div>
       {status === "loading" && (
         <div className="artifact-experience__loading-actions">
@@ -364,6 +376,11 @@ export function ArtifactExperience({ source, selectedStage = "calendar", onShowC
       {status === "ready" && (
         <>
           <AccessibleFacts state={displayState} />
+          {annotationError && (
+            <p className="artifact-visually-hidden" role="status" aria-label="标注状态">
+              {annotationError}
+            </p>
+          )}
           <ArtifactTimeline
             timeMs={timeMs}
             playing={playing}

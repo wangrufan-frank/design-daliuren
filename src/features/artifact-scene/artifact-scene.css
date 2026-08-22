@@ -30,6 +30,140 @@
   transform: translate(-50%, -50%);
 }
 
+.artifact-annotations {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.artifact-annotations__leaders,
+.artifact-annotations__cards {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.artifact-annotations__leader {
+  fill: none;
+  stroke: var(--ru-celadon);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1px;
+  opacity: 0.82;
+}
+
+.artifact-annotations__anchor {
+  fill: var(--ru-celadon);
+  opacity: 0.92;
+}
+
+.artifact-annotations__leader.is-occluded,
+.artifact-annotations__anchor.is-occluded,
+.artifact-annotations__card.is-occluded {
+  opacity: 0.55;
+}
+
+.artifact-annotations__card {
+  display: grid;
+  position: absolute;
+  top: 0;
+  left: 0;
+  align-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 4px 10px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--patina) 78%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--ink) 86%, transparent);
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--ash) 12%, transparent);
+  color: var(--ash);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.18;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  will-change: transform;
+  backdrop-filter: blur(6px);
+}
+
+.artifact-annotations__card strong,
+.artifact-annotations__card span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-annotations__card strong {
+  color: var(--ash);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.artifact-annotations__card span {
+  color: var(--ru-celadon);
+  font-weight: 400;
+}
+
+.artifact-annotations[data-density="all"] .artifact-annotations__card span {
+  display: none;
+}
+
+.artifact-annotations__card:hover {
+  border-color: var(--ru-celadon);
+  background: color-mix(in srgb, var(--ink) 94%, transparent);
+}
+
+.artifact-annotations__card:focus-visible {
+  outline: 2px solid var(--ash);
+  outline-offset: -3px;
+}
+
+.artifact-annotations__density {
+  display: flex;
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  gap: 1px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--patina) 82%, transparent);
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  transform: translateX(-50%);
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+}
+
+.artifact-annotations__density button {
+  min-width: 64px;
+  min-height: 44px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ru-celadon);
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.artifact-annotations__density button[aria-pressed="true"] {
+  background: var(--ru-celadon);
+  color: var(--ink);
+}
+
+.artifact-annotations__density button:focus-visible {
+  outline: 2px solid var(--ash);
+  outline-offset: -3px;
+}
+
 .artifact-timeline {
   display: grid;
   grid-template-columns: auto minmax(280px, 1fr) auto;

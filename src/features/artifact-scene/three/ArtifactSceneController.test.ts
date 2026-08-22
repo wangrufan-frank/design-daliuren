@@ -115,6 +115,7 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
     onUserControlStart: vi.fn(),
     onContextLost: vi.fn(),
     onError: vi.fn(),
+    onAnnotationError: vi.fn(),
   };
   const controller = new ArtifactSceneController(renderer, artifact, callbacks, {
     createControls: () => controls,
@@ -274,6 +275,72 @@ describe("ArtifactSceneController", () => {
     expect(camera.position.toArray()).toEqual(preset.position);
     expect(controls.target.toArray()).toEqual(preset.target);
     expect(camera.position.distanceTo(controls.target)).toBeCloseTo(0.9, 5);
+  });
+
+  it("captures current annotation coordinates after camera and node movement", () => {
+    const { controller, movingNode } = fixture();
+    movingNode.position.set(0, 0, 0);
+    controller.resize(800, 600, 1);
+    controller.applyCameraPreset({ position: [0, 0, 1], target: [0, 0, 0] }, true);
+
+    const initial = controller.captureAnnotationFrame(["calendar/slip"]);
+    controller.applyCameraPreset({ position: [0.2, 0, 1], target: [0, 0, 0] }, true);
+    const afterCamera = controller.captureAnnotationFrame(["calendar/slip"]);
+    controller.applyPose(pose(0.15, 0));
+    const afterPose = controller.captureAnnotationFrame(["calendar/slip"]);
+
+    expect(initial.viewport).toEqual({ width: 800, height: 600 });
+    expect(initial.anchors[0]).toMatchObject({ id: "calendar/slip", x: 400, y: 300, behindCamera: false });
+    expect(afterCamera.anchors[0].x).not.toBe(initial.anchors[0].x);
+    expect(afterPose.anchors[0].x).not.toBe(afterCamera.anchors[0].x);
+  });
+
+  it("marks an annotation occluded only when a separate mesh is nearer than its anchor", () => {
+    const { artifact, controller, movingNode } = fixture();
+    movingNode.position.set(0, 0, 0);
+    controller.resize(800, 600, 1);
+    controller.applyCameraPreset({ position: [0, 0, 1], target: [0, 0, 0] }, true);
+    expect(controller.captureAnnotationFrame(["calendar/slip"]).anchors[0].occluded).toBe(false);
+
+    const occluder = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.2, 0.08),
+      new THREE.MeshBasicMaterial(),
+    );
+    occluder.position.set(0, 0, 0.5);
+    artifact.root.add(occluder);
+
+    expect(controller.captureAnnotationFrame(["calendar/slip"]).anchors[0].occluded).toBe(true);
+  });
+
+  it("ignores an intersection less than 0.002 world units nearer than the anchor", () => {
+    const { artifact, controller, movingNode } = fixture();
+    movingNode.position.set(0, 0, 0);
+    controller.resize(800, 600, 1);
+    controller.applyCameraPreset({ position: [0, 0, 1], target: [0, 0, 0] }, true);
+    const nearCoplanar = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.2, 0.2),
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+    );
+    nearCoplanar.position.set(0, 0, 0.001);
+    artifact.root.add(nearCoplanar);
+
+    expect(controller.captureAnnotationFrame(["calendar/slip"]).anchors[0].occluded).toBe(false);
+
+    nearCoplanar.position.z = 0.01;
+    expect(controller.captureAnnotationFrame(["calendar/slip"]).anchors[0].occluded).toBe(true);
+  });
+
+  it("reports a missing annotation node without stopping the render loop", () => {
+    const { callbacks, controller, renderer } = fixture();
+
+    expect(() => controller.captureAnnotationFrame(["plate/heaven"])).not.toThrow();
+    controller.render();
+
+    expect(callbacks.onAnnotationError).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Artifact annotation "plate/heaven" requires missing node "plate/heaven"',
+    }));
+    expect(callbacks.onError).not.toHaveBeenCalled();
+    expect(renderer.render).toHaveBeenCalledOnce();
   });
 
   it("applies copy opacity and source-line progress to owned scene objects", () => {

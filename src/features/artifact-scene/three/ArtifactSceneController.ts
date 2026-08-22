@@ -5,6 +5,9 @@ import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
 import type { ArtifactPose } from "../timeline/types";
+import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "../annotations/descriptors";
+import { projectArtifactAnnotations } from "../annotations/project-annotations";
+import type { ArtifactAnnotationId, ProjectedAnchor } from "../annotations/types";
 import { disposeArtifact } from "./dispose-artifact";
 import type { LoadedArtifact } from "./load-artifact";
 import {
@@ -16,6 +19,17 @@ interface ArtifactSceneCallbacks {
   onUserControlStart(): void;
   onContextLost(): void;
   onError(error: unknown): void;
+  onAnnotationError?(error: unknown): void;
+}
+
+export interface AnnotationFrame {
+  viewport: { width: number; height: number };
+  anchors: readonly ProjectedAnchor[];
+}
+
+export interface AnnotationFrameSource {
+  captureAnnotationFrame(ids: readonly ArtifactAnnotationId[]): AnnotationFrame;
+  focusNode(nodeId: string): void;
 }
 
 interface ControlsLike {
@@ -104,6 +118,9 @@ const GENERAL_SLOT_NODE_IDS = [
   "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
   "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
 ] as const;
+const ANNOTATION_DESCRIPTORS_BY_ID = new Map(
+  ARTIFACT_ANNOTATION_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor]),
+);
 const CAMERA_TWEEN_DURATION_MS = 700;
 
 const LABEL_SIZE = { width: 512, height: 256 } as const;
@@ -164,6 +181,9 @@ export class ArtifactSceneController {
   private readonly initialCameraPosition = new THREE.Vector3(0.56, 0.44, 0.56);
   private readonly initialTarget = new THREE.Vector3(0, 0, 0);
   private readonly now: () => number;
+  private readonly annotationRaycaster = new THREE.Raycaster();
+  private readonly reportedAnnotationErrors = new Set<ArtifactAnnotationId>();
+  private annotationViewport = { width: 1, height: 1 };
   private cameraTween: CameraTween | undefined;
   private stopped = false;
   private disposed = false;
@@ -273,10 +293,55 @@ export class ArtifactSceneController {
 
   resize(width: number, height: number, dpr: number): void {
     if (this.disposed) return;
-    this.camera.aspect = width / Math.max(1, height);
+    this.annotationViewport = { width: Math.max(1, width), height: Math.max(1, height) };
+    this.camera.aspect = this.annotationViewport.width / this.annotationViewport.height;
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(width, height, false);
+  }
+
+  captureAnnotationFrame(ids: readonly ArtifactAnnotationId[]): AnnotationFrame {
+    if (this.disposed) return { viewport: this.annotationViewport, anchors: [] };
+    this.artifact.root.updateMatrixWorld(true);
+    this.camera.updateMatrixWorld(true);
+    const anchors = ids.flatMap((id) => {
+      const descriptor = ANNOTATION_DESCRIPTORS_BY_ID.get(id);
+      const object = descriptor ? this.artifact.nodes.get(descriptor.nodeId) : undefined;
+      if (!descriptor || !object) {
+        if (!this.reportedAnnotationErrors.has(id)) {
+          this.reportedAnnotationErrors.add(id);
+          const nodeId = descriptor?.nodeId ?? id;
+          this.callbacks.onAnnotationError?.(new Error(
+            `Artifact annotation "${id}" requires missing node "${nodeId}"`,
+          ));
+        }
+        return [];
+      }
+      this.reportedAnnotationErrors.delete(id);
+      const position = object.getWorldPosition(new THREE.Vector3());
+      const cameraToAnchor = position.clone().sub(this.camera.position);
+      const anchorDistance = cameraToAnchor.length();
+      let occluded = false;
+      if (anchorDistance > 0.002) {
+        this.annotationRaycaster.set(this.camera.position, cameraToAnchor.normalize());
+        this.annotationRaycaster.near = 0;
+        this.annotationRaycaster.far = anchorDistance - 0.002;
+        occluded = this.annotationRaycaster.intersectObject(this.artifact.root, true).some((intersection) => (
+          intersection.object instanceof THREE.Mesh
+          && intersection.distance <= anchorDistance - 0.002
+          && !this.isNodeOrDescendant(intersection.object, object)
+        ));
+      }
+      return [{ id, position: position.toArray() as [number, number, number], occluded }];
+    });
+    const viewProjection = new THREE.Matrix4().multiplyMatrices(
+      this.camera.projectionMatrix,
+      this.camera.matrixWorldInverse,
+    );
+    return {
+      viewport: this.annotationViewport,
+      anchors: projectArtifactAnnotations(anchors, viewProjection.elements, this.annotationViewport),
+    };
   }
 
   setDisplayState(state: ArtifactDisplayState): void {
@@ -431,6 +496,15 @@ export class ArtifactSceneController {
     this.camera.position.lerpVectors(tween.fromPosition, tween.toPosition, progress);
     this.controls.target.lerpVectors(tween.fromTarget, tween.toTarget, progress);
     if (rawProgress === 1) this.cameraTween = undefined;
+  }
+
+  private isNodeOrDescendant(candidate: THREE.Object3D, node: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = candidate;
+    while (current) {
+      if (current === node) return true;
+      current = current.parent;
+    }
+    return false;
   }
 
   dispose(): void {
