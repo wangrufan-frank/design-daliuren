@@ -121,3 +121,48 @@ it("keeps the selected stage when text mode opens and closes on mobile", async (
   expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
   expect(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "三维推演" })).toHaveAttribute("aria-pressed", "true");
 });
+
+it("keeps mobile navigation and opens the real text course after artifact loading fails", async () => {
+  vi.stubGlobal("innerWidth", 390);
+  vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+    matches: query === "(max-width: 899px)",
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })));
+  artifactLoader.loadArtifact.mockRejectedValueOnce(new Error("missing GLB"));
+  const user = userEvent.setup();
+
+  render(<CourseWorkbench input={referenceSession.input} source={source} selectedStage="course" onSelectStage={vi.fn()} onRestart={vi.fn()} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("三维器物无法加载");
+  expect(screen.getByRole("navigation", { name: "移动推演阶段" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "查看文字课式" }));
+
+  expect(screen.getByRole("region", { name: "移动工具面板" })).toHaveTextContent("大六壬 · 标准文字课式");
+});
+
+it("keeps the mobile dock beside the text course when artifact mapping is unavailable", () => {
+  vi.stubGlobal("innerWidth", 390);
+  const inconsistent: ArtifactSourceResults = {
+    ...source,
+    course: {
+      ...source.course,
+      transmissions: source.course.transmissions.map((item, index) => index === 0
+        ? { ...item, branch: item.branch === "子" ? "丑" : "子" }
+        : item),
+    },
+  };
+
+  render(<CourseWorkbench input={referenceSession.input} source={inconsistent} selectedStage="course" onSelectStage={vi.fn()} onRestart={vi.fn()} />);
+
+  expect(
+    within(screen.getByRole("region", { name: "三维阶段回看" })).getByLabelText("标准文字课式"),
+  ).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "移动推演阶段" })).toBeVisible();
+  expect(screen.getByRole("toolbar", { name: "工作台工具" })).toBeVisible();
+});

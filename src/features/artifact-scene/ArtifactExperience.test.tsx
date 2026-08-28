@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CalendarResult } from "../../domain/calendar/types";
@@ -249,6 +249,25 @@ describe("ArtifactExperience", () => {
 
     expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
     expect(screen.queryByRole("region", { name: "部件目录" })).not.toBeInTheDocument();
+  });
+
+  it("mounts exactly one timeline range in the mobile timeline host", async () => {
+    const { container } = render(
+      <>
+        <div id="mobile-parts-host" />
+        <div id="mobile-timeline-host" />
+        <ArtifactExperience
+          source={referenceSourceResults}
+          mobileToolHosts={{ partsId: "mobile-parts-host", timelineId: "mobile-timeline-host" }}
+          onShowCourse={vi.fn()}
+        />
+      </>,
+    );
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    const timelineHost = container.querySelector<HTMLElement>("#mobile-timeline-host")!;
+    expect(within(timelineHost).getByRole("slider", { name: "推演时间轴" })).toBeVisible();
+    expect(container.querySelectorAll("#artifact-timeline-range")).toHaveLength(1);
   });
 
   it("disposes the renderer after loader failure and removes the empty canvas", async () => {

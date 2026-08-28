@@ -66,7 +66,7 @@ it("opens the three-dimensional experience for a complete guarded bundle and swi
   expect(textCourse).toHaveTextContent("夜贵寅");
 });
 
-it("uses the controlled mobile course panel for the text mode", async () => {
+it("keeps the artifact mounted while controlled mobile text mode opens", async () => {
   vi.stubGlobal("innerWidth", 390);
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
     matches: query === "(max-width: 899px)",
@@ -82,24 +82,27 @@ it("uses the controlled mobile course panel for the text mode", async () => {
   function Harness() {
     const [activeTool, setActiveTool] = useState<"context" | "parts" | "timeline" | "evidence" | "course">();
     return (
-      <CourseExperience
-        source={source}
-        selectedStage="three-transmissions"
-        mobileTools={{
-          activeTool,
-          onActiveToolChange: setActiveTool,
-          onSelectStage: vi.fn(),
-          context: <p>上下文内容</p>,
-          evidence: <p>证据内容</p>,
-        }}
-      />
+      <>
+        <div id="parts-host" />
+        <div id="timeline-host" />
+        <CourseExperience
+          source={source}
+          selectedStage="three-transmissions"
+          mobileTools={{
+            activeTool,
+            onActiveToolChange: setActiveTool,
+            partDirectoryHostId: "parts-host",
+            timelineHostId: "timeline-host",
+          }}
+        />
+      </>
     );
   }
 
   render(<Harness />);
   await user.click(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" }));
 
-  expect(screen.getByRole("region", { name: "移动工具面板" })).toHaveTextContent("大六壬 · 标准文字课式");
+  expect(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByLabelText("大六壬三维器物")).toBeInTheDocument();
 });
 

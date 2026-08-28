@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { ArtifactExperience } from "../artifact-scene/ArtifactExperience";
 import { mapArtifactState } from "../artifact-scene/model/map-artifact-state";
 import type { ArtifactSourceResults } from "../artifact-scene/model/types";
@@ -9,21 +9,11 @@ import type { MobileToolId } from "../course-workbench/MobileWorkbenchTools";
 
 type CourseMode = "artifact" | "text";
 
-function subscribeToMobileWorkbench(onChange: () => void): () => void {
-  window.addEventListener("resize", onChange);
-  return () => window.removeEventListener("resize", onChange);
-}
-
-function mobileWorkbenchSnapshot(): boolean {
-  return window.innerWidth < 900;
-}
-
 export interface CourseExperienceMobileTools {
   activeTool?: MobileToolId;
   onActiveToolChange(tool?: MobileToolId): void;
-  onSelectStage(stage: RuleStageId): void;
-  context: ReactNode;
-  evidence: ReactNode;
+  partDirectoryHostId: string;
+  timelineHostId: string;
 }
 
 interface CourseExperienceProps {
@@ -34,7 +24,6 @@ interface CourseExperienceProps {
 
 export function CourseExperience({ source, selectedStage = "calendar", mobileTools }: CourseExperienceProps) {
   const [requestedMode, setRequestedMode] = useState<CourseMode>("artifact");
-  const mobileLayout = useSyncExternalStore(subscribeToMobileWorkbench, mobileWorkbenchSnapshot, () => false);
   const artifactAvailable = useMemo(() => {
     try {
       mapArtifactState(source);
@@ -51,7 +40,7 @@ export function CourseExperience({ source, selectedStage = "calendar", mobileToo
     if (mobileTools) mobileTools.onActiveToolChange(nextMode === "text" ? "course" : undefined);
     else setRequestedMode(nextMode);
   };
-  const showArtifact = artifactAvailable && (mode === "artifact" || (mobileTools !== undefined && mobileLayout));
+  const showArtifact = artifactAvailable && (mode === "artifact" || mobileTools !== undefined);
 
   return (
     <section className="course-experience" data-mode={mode}>
@@ -78,10 +67,9 @@ export function CourseExperience({ source, selectedStage = "calendar", mobileToo
             source={source}
             selectedStage={selectedStage}
             onShowCourse={() => selectMode("text")}
-            mobileTools={mobileTools && mobileLayout ? {
-              ...mobileTools,
-              selectedStage,
-              course: <CourseSheet result={source.course} />,
+            mobileToolHosts={mobileTools ? {
+              partsId: mobileTools.partDirectoryHostId,
+              timelineId: mobileTools.timelineHostId,
             } : undefined}
           />
         ) : (

@@ -188,8 +188,6 @@
     min-height: 0;
   }
   .course-workbench .course-experience__modes { top: env(safe-area-inset-top, 0); }
-  .course-workbench .artifact-experience > .artifact-timeline { display: none; }
-
   .mobile-workbench-tools {
     display: grid;
     position: sticky;
@@ -275,6 +273,8 @@
     border-bottom: 1px solid var(--patina);
     background: var(--dark-bronze);
   }
+
+  .mobile-workbench-tools__panel[hidden] { display: none; }
 
   .mobile-workbench-tools__panel > header {
     display: flex;

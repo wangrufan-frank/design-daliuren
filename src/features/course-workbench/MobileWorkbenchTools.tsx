@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { RULE_STAGE_ORDER } from "../../domain/chart/stages";
 import type { RuleStageId } from "../../domain/chart/types";
 import { RuleStageRail } from "../rule-review/RuleStageRail";
@@ -12,6 +12,19 @@ const TOOLS: readonly { id: MobileToolId; label: string }[] = [
   { id: "evidence", label: "阶段证据" },
   { id: "course", label: "文字课式" },
 ];
+
+function subscribeToMobileWorkbench(onChange: () => void): () => void {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+}
+
+function mobileWorkbenchSnapshot(): boolean {
+  return window.innerWidth < 900;
+}
+
+export function useMobileWorkbenchLayout(): boolean {
+  return useSyncExternalStore(subscribeToMobileWorkbench, mobileWorkbenchSnapshot, () => false);
+}
 
 interface MobileWorkbenchToolsProps {
   activeTool?: MobileToolId;
@@ -42,6 +55,7 @@ export function MobileWorkbenchTools({
   const triggerRefs = useRef<Partial<Record<MobileToolId, HTMLButtonElement | null>>>({});
   const lastActiveToolRef = useRef<MobileToolId | undefined>(undefined);
   const content = { context, parts, timeline, evidence, course };
+  const panelIdFor = (tool: MobileToolId) => `${panelId}-${tool}`;
 
   useEffect(() => {
     const selected = stageNavigationRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
@@ -60,30 +74,38 @@ export function MobileWorkbenchTools({
   }, [activeTool]);
 
   return (
-    <section className="mobile-workbench-tools" aria-label="移动工作台">
+    <section
+      className="mobile-workbench-tools"
+      aria-label="移动工作台"
+      onKeyDown={(event) => {
+        if (activeTool && event.key === "Escape") onActiveToolChange(undefined);
+      }}
+    >
       <nav ref={stageNavigationRef} className="mobile-workbench-tools__stages" aria-label="移动推演阶段">
         <RuleStageRail completed={RULE_STAGE_ORDER} selected={selectedStage} onSelect={onSelectStage} />
       </nav>
 
-      {activeTool ? (
-        <div
-          ref={panelRef}
-          id={panelId}
-          className="mobile-workbench-tools__panel"
-          role="region"
-          aria-label="移动工具面板"
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") onActiveToolChange(undefined);
-          }}
-        >
-          <header>
-            <h2>{TOOLS.find((tool) => tool.id === activeTool)?.label}</h2>
-            <button type="button" aria-label="关闭移动工具面板" onClick={() => onActiveToolChange(undefined)}>关闭</button>
-          </header>
-          <div className="mobile-workbench-tools__panel-content">{content[activeTool]}</div>
-        </div>
-      ) : null}
+      {TOOLS.map((tool) => {
+        const active = activeTool === tool.id;
+        return (
+          <div
+            key={tool.id}
+            ref={active ? panelRef : undefined}
+            id={panelIdFor(tool.id)}
+            className="mobile-workbench-tools__panel"
+            role="region"
+            aria-label="移动工具面板"
+            tabIndex={-1}
+            hidden={!active}
+          >
+            <header>
+              <h2>{tool.label}</h2>
+              <button type="button" aria-label="关闭移动工具面板" onClick={() => onActiveToolChange(undefined)}>关闭</button>
+            </header>
+            <div className="mobile-workbench-tools__panel-content">{content[tool.id]}</div>
+          </div>
+        );
+      })}
 
       <div className="mobile-workbench-tools__toolbar" role="toolbar" aria-label="工作台工具">
         {TOOLS.map((tool) => (
@@ -92,7 +114,7 @@ export function MobileWorkbenchTools({
             ref={(element) => { triggerRefs.current[tool.id] = element; }}
             type="button"
             aria-expanded={activeTool === tool.id}
-            aria-controls={activeTool === tool.id ? panelId : undefined}
+            aria-controls={panelIdFor(tool.id)}
             onClick={() => onActiveToolChange(activeTool === tool.id ? undefined : tool.id)}
           >
             {tool.label}

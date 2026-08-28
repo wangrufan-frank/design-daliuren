@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
@@ -16,7 +17,6 @@ import { ArtifactAnnotationLayer } from "./ArtifactAnnotationLayer";
 import { ArtifactPartDirectory } from "./ArtifactPartDirectory";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 import { useReducedMotion } from "./use-reduced-motion";
-import { MobileWorkbenchTools, type MobileToolId } from "../course-workbench/MobileWorkbenchTools";
 import "./artifact-scene.css";
 
 declare global {
@@ -40,15 +40,7 @@ interface ArtifactExperienceProps {
   onShowCourse(): void;
   showTimeline?: boolean;
   showPartDirectory?: boolean;
-  mobileTools?: {
-    activeTool?: MobileToolId;
-    onActiveToolChange(tool?: MobileToolId): void;
-    selectedStage: RuleStageId;
-    onSelectStage(stage: RuleStageId): void;
-    context: ReactNode;
-    evidence: ReactNode;
-    course: ReactNode;
-  };
+  mobileToolHosts?: { partsId: string; timelineId: string };
 }
 
 type ExperienceStatus = "loading" | "ready" | "error";
@@ -113,7 +105,7 @@ export function ArtifactExperience({
   onShowCourse,
   showTimeline = true,
   showPartDirectory = true,
-  mobileTools,
+  mobileToolHosts,
 }: ArtifactExperienceProps) {
   const displayState = useMemo(() => mapArtifactState(source), [source]);
   const reducedMotion = useReducedMotion();
@@ -138,6 +130,17 @@ export function ArtifactExperience({
   const [currentPoseHash, setCurrentPoseHash] = useState<string | undefined>(undefined);
   const [sourceLinesActive, setSourceLinesActive] = useState(false);
   const [annotationError, setAnnotationError] = useState<string | undefined>(undefined);
+  const [mobileHosts, setMobileHosts] = useState<{ parts: HTMLElement; timeline: HTMLElement }>();
+
+  useEffect(() => {
+    if (!mobileToolHosts) {
+      setMobileHosts(undefined);
+      return;
+    }
+    const parts = document.getElementById(mobileToolHosts.partsId);
+    const timeline = document.getElementById(mobileToolHosts.timelineId);
+    setMobileHosts(parts && timeline ? { parts, timeline } : undefined);
+  }, [mobileToolHosts]);
 
   const applyAt = useCallback((nextTime: number) => {
     const controller = controllerRef.current;
@@ -438,17 +441,12 @@ export function ArtifactExperience({
               {annotationError}
             </p>
           )}
-          {showPartDirectory && compactLayout && !mobileTools ? partDirectory : null}
-          {showTimeline ? timeline : null}
+          {showPartDirectory && compactLayout && !mobileToolHosts ? partDirectory : null}
+          {showTimeline && !mobileToolHosts ? timeline : null}
         </>
       )}
-      {mobileTools ? (
-        <MobileWorkbenchTools
-          {...mobileTools}
-          parts={status === "ready" && showPartDirectory ? partDirectory : null}
-          timeline={status === "ready" && showTimeline ? timeline : null}
-        />
-      ) : null}
+      {status === "ready" && showPartDirectory && mobileHosts ? createPortal(partDirectory, mobileHosts.parts) : null}
+      {status === "ready" && showTimeline && mobileHosts ? createPortal(timeline, mobileHosts.timeline) : null}
     </section>
   );
 }

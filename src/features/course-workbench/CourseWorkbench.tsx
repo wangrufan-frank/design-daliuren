@@ -8,8 +8,9 @@ import { CourseContextSummary } from "./CourseContextSummary";
 import { StageEvidenceDrawer } from "./StageEvidenceDrawer";
 import { StageReviewContent } from "../rule-review/StageReviewContent";
 import { reviewStageFor } from "../artifact-scene/timeline/review-stages";
-import { useState } from "react";
-import type { MobileToolId } from "./MobileWorkbenchTools";
+import { useId, useState } from "react";
+import { CourseSheet } from "../course-sheet/CourseSheet";
+import { MobileWorkbenchTools, useMobileWorkbenchLayout, type MobileToolId } from "./MobileWorkbenchTools";
 import "./course-workbench.css";
 
 interface CourseWorkbenchProps {
@@ -37,6 +38,10 @@ export function CourseWorkbench({
 }: CourseWorkbenchProps) {
   const stage = reviewStageFor(selectedStage);
   const [activeMobileTool, setActiveMobileTool] = useState<MobileToolId>();
+  const mobileLayout = useMobileWorkbenchLayout();
+  const mobileToolHostId = useId();
+  const partDirectoryHostId = `${mobileToolHostId}-parts`;
+  const timelineHostId = `${mobileToolHostId}-timeline`;
   const context = <CourseContextSummary input={input} onRestart={onRestart} />;
   const evidence = (
     <StageReviewContent
@@ -61,13 +66,12 @@ export function CourseWorkbench({
           <CourseExperience
             source={source}
             selectedStage={selectedStage}
-            mobileTools={{
+            mobileTools={mobileLayout ? {
               activeTool: activeMobileTool,
               onActiveToolChange: setActiveMobileTool,
-              onSelectStage,
-              context: <CourseContextSummary input={input} onRestart={onRestart} />,
-              evidence,
-            }}
+              partDirectoryHostId,
+              timelineHostId,
+            } : undefined}
           />
           <StageEvidenceDrawer stage={stage}>
             {evidence}
@@ -82,6 +86,19 @@ export function CourseWorkbench({
           />
         </nav>
       </div>
+      {mobileLayout ? (
+        <MobileWorkbenchTools
+          activeTool={activeMobileTool}
+          onActiveToolChange={setActiveMobileTool}
+          selectedStage={selectedStage}
+          onSelectStage={onSelectStage}
+          context={<CourseContextSummary input={input} onRestart={onRestart} />}
+          parts={<div id={partDirectoryHostId} />}
+          timeline={<div id={timelineHostId} />}
+          evidence={evidence}
+          course={<CourseSheet result={source.course} />}
+        />
+      ) : null}
     </main>
   );
 }
