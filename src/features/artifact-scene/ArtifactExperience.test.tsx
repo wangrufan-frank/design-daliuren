@@ -9,6 +9,7 @@ import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/type
 import type { HeavenEarthResult } from "../../domain/heaven-earth/types";
 import type { ThreeTransmissionsResult } from "../../domain/three-transmissions/types";
 import type { ArtifactSourceResults } from "./model/types";
+import { reviewStageFor } from "./timeline/review-stages";
 import type { ArtifactPose } from "./timeline/types";
 import { referenceSession } from "../../test/reference-session";
 import { useReducedMotion } from "./use-reduced-motion";
@@ -381,10 +382,10 @@ describe("ArtifactExperience", () => {
     );
     await screen.findByRole("slider", { name: "推演时间轴" });
 
-    expect(latestController().applyCameraPreset).toHaveBeenCalledWith({
-      position: [-0.53732, 0.458213, 0.626873],
-      target: [0, 0.1, 0],
-    }, false);
+    expect(latestController().applyCameraPreset).toHaveBeenCalledWith(
+      reviewStageFor("four-lessons").camera,
+      false,
+    );
     frames.step(100);
     frames.step(800);
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("3200");

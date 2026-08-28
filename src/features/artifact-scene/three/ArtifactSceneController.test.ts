@@ -219,7 +219,7 @@ describe("ArtifactSceneController", () => {
     controller.render();
 
     expect(renderer.toneMapping).toBe(THREE.AgXToneMapping);
-    expect(renderer.toneMappingExposure).toBe(1.18);
+    expect(renderer.toneMappingExposure).toBe(1.32);
     expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(2);
     expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
@@ -232,7 +232,11 @@ describe("ArtifactSceneController", () => {
     expect(controls.minAzimuthAngle).toBe(-Infinity);
     expect(controls.maxAzimuthAngle).toBe(Infinity);
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
-    expect(lights.map((light) => light.intensity)).toEqual([1.35, 0.65, 0.75]);
+    expect(lights).toHaveLength(4);
+    expect(lights.map((light) => light.intensity)).toEqual([1.55, 1.05, 0.72, 0.58]);
+    expect(lights[0].color).toEqual(new THREE.Color(0xf2eee4));
+    expect(lights[1]).toBeInstanceOf(THREE.HemisphereLight);
+    expect(lights[2]).toBeInstanceOf(THREE.DirectionalLight);
   });
 
   it("applies every pose against frozen loaded transforms", () => {
@@ -262,7 +266,8 @@ describe("ArtifactSceneController", () => {
     const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
     expect(camera.position.toArray()).not.toEqual([0.56, 0.44, 0.56]);
     expect(camera.position.toArray()).not.toEqual(preset.position);
-    expect(camera.position.distanceTo(controls.target)).toBeLessThan(1);
+    expect(camera.position.distanceTo(controls.target)).toBeGreaterThanOrEqual(1.04);
+    expect(camera.position.distanceTo(controls.target)).toBeLessThanOrEqual(1.18);
 
     controls.dispatchStart();
     const interruptedPosition = camera.position.toArray();
@@ -274,7 +279,8 @@ describe("ArtifactSceneController", () => {
     controller.applyCameraPreset(preset, true);
     expect(camera.position.toArray()).toEqual(preset.position);
     expect(controls.target.toArray()).toEqual(preset.target);
-    expect(camera.position.distanceTo(controls.target)).toBeCloseTo(0.9, 5);
+    expect(camera.position.distanceTo(controls.target)).toBeGreaterThanOrEqual(1.04);
+    expect(camera.position.distanceTo(controls.target)).toBeLessThanOrEqual(1.18);
   });
 
   it("captures current annotation coordinates after camera and node movement", () => {
@@ -474,13 +480,18 @@ describe("ArtifactSceneController", () => {
     );
   });
 
-  it("focuses a runtime node and restores the initial camera target", () => {
-    const { controller, controls } = fixture();
+  it("focuses a runtime node and restores the three-quarter initial camera", () => {
+    const { controller, controls, renderer } = fixture();
 
     controller.focusNode("calendar/slip");
     expect(controls.target.toArray()).toEqual([1, 2, 3]);
     controller.resetCamera();
-    expect(controls.target.toArray()).toEqual([0, 0, 0]);
+    controller.render();
+    const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
+    expect(controls.target.toArray()).toEqual([0, 0.05, 0]);
+    expect(camera.position.toArray()).toEqual([0.62, 0.58, 0.78]);
+    expect(camera.position.distanceTo(controls.target)).toBeGreaterThanOrEqual(1.04);
+    expect(camera.position.distanceTo(controls.target)).toBeLessThanOrEqual(1.18);
   });
 
   it("keeps a focused node after a later render interrupts a stage camera tween", () => {

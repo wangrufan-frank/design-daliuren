@@ -178,8 +178,8 @@ export class ArtifactSceneController {
     this.generalDirectionGeometry,
     this.generalDirectionMaterial,
   );
-  private readonly initialCameraPosition = new THREE.Vector3(0.56, 0.44, 0.56);
-  private readonly initialTarget = new THREE.Vector3(0, 0, 0);
+  private readonly initialCameraPosition = new THREE.Vector3(0.62, 0.58, 0.78);
+  private readonly initialTarget = new THREE.Vector3(0, 0.05, 0);
   private readonly now: () => number;
   private readonly annotationRaycaster = new THREE.Raycaster();
   private readonly reportedAnnotationErrors = new Set<ArtifactAnnotationId>();
@@ -207,7 +207,7 @@ export class ArtifactSceneController {
   ) {
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 1.18;
+    renderer.toneMappingExposure = 1.32;
     this.scene.background = new THREE.Color(0xdce5df);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
@@ -215,12 +215,14 @@ export class ArtifactSceneController {
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 
-    const keyLight = new THREE.DirectionalLight(0xffd7b0, 1.35);
-    keyLight.position.set(0.5, 0.75, 0.45);
-    const fillLight = new THREE.HemisphereLight(0x879b92, 0x26322f, 0.65);
-    const rimLight = new THREE.DirectionalLight(0xc2c6bb, 0.75);
-    rimLight.position.set(-0.55, 0.28, -0.5);
-    this.scene.add(keyLight, fillLight, rimLight);
+    const keyLight = new THREE.DirectionalLight(0xf2eee4, 1.55);
+    keyLight.position.set(-0.65, 0.95, 0.7);
+    const fillLight = new THREE.HemisphereLight(0xc8d9d2, 0x52605b, 1.05);
+    const sideFill = new THREE.DirectionalLight(0xb8d0c7, 0.72);
+    sideFill.position.set(0.75, 0.5, 0.35);
+    const rimLight = new THREE.DirectionalLight(0xd8ddd5, 0.58);
+    rimLight.position.set(-0.5, 0.8, -0.7);
+    this.scene.add(keyLight, fillLight, sideFill, rimLight);
 
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialTarget);

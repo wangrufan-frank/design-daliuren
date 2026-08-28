@@ -18,7 +18,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     startTimeMs: 0,
     settledTimeMs: 1_200,
     caption: ["历法定时", "月将临占时"] as const,
-    camera: { position: [0, 0.353057, 0.827859], target: [0, 0, 0] },
+    camera: { position: [-0.36, 0.48, 0.93], target: [0, 0.05, 0] },
     annotationIds: ["calendar/slip", "plate/earth", "plate/heaven"],
   },
   {
@@ -27,7 +27,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     startTimeMs: 1_200,
     settledTimeMs: 3_200,
     caption: ["天地相加", "十二宫依时转位"] as const,
-    camera: { position: [0, 0.550956, 0.711651], target: [0, 0, 0] },
+    camera: { position: [-0.17, 0.58, 0.98], target: [0, 0.05, 0] },
     annotationIds: ["calendar/slip", "plate/earth", "plate/heaven"],
   },
   {
@@ -36,7 +36,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     startTimeMs: 3_200,
     settledTimeMs: 5_400,
     caption: ["四课相承", "以上神照见下神"] as const,
-    camera: { position: [-0.53732, 0.458213, 0.626873], target: [0, 0.1, 0] },
+    camera: { position: [0.12, 0.62, 0.98], target: [0, 0.05, 0] },
     annotationIds: ["lesson/first", "lesson/second", "lesson/third", "lesson/fourth"],
   },
   {
@@ -45,7 +45,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     startTimeMs: 5_400,
     settledTimeMs: 7_600,
     caption: ["初中末传", "由课势取其来去"] as const,
-    camera: { position: [0.575977, 0.445586, 0.599016], target: [0, 0.1, 0] },
+    camera: { position: [0.37, 0.57, 0.89], target: [0, 0.05, 0] },
     annotationIds: ["transmission/initial", "transmission/middle", "transmission/final"],
   },
   {
@@ -54,7 +54,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     startTimeMs: 7_600,
     settledTimeMs: 10_300,
     caption: ["贵人起例", "十二天将顺逆布列"] as const,
-    camera: { position: [0, 0.562226, 0.702782], target: [0, 0, 0] },
+    camera: { position: [0.56, 0.62, 0.79], target: [0, 0.05, 0] },
     annotationIds: [
       "general/noble", "general/snake", "general/vermilion-bird", "general/harmony",
       "general/hook-array", "general/azure-dragon",
@@ -66,7 +66,7 @@ export const ARTIFACT_REVIEW_STAGES = [
     startTimeMs: 10_300,
     settledTimeMs: 12_500,
     caption: ["课式归一", "可回看每一步依据"] as const,
-    camera: { position: [0, 0.402492, 0.804984], target: [0, 0, 0] },
+    camera: { position: [0.26, 0.53, 0.94], target: [0, 0.05, 0] },
     annotationIds: [
       "calendar/slip", "plate/earth", "plate/heaven", "lesson/first",
       "transmission/initial", "general/noble",

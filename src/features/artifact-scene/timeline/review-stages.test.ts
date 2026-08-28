@@ -41,12 +41,17 @@ describe("ARTIFACT_REVIEW_STAGES", () => {
       return [x / length, y / length, z / length].map((value) => value.toFixed(3)).join("/");
     })).size).toBe(6);
 
-    offsets.forEach(([x, y, z]) => {
+    ARTIFACT_REVIEW_STAGES.forEach(({ camera }, index) => {
+      const [x, y, z] = offsets[index];
       const distance = Math.hypot(x, y, z);
       const polarAngle = Math.atan2(Math.hypot(x, z), y);
-      expect(distance).toBeCloseTo(0.9, 5);
+      expect(distance).toBeGreaterThanOrEqual(1.04);
+      expect(distance).toBeLessThanOrEqual(1.18);
       expect(projectedWidthPercent(distance)).toBeGreaterThanOrEqual(60);
-      expect(projectedWidthPercent(distance)).toBeLessThanOrEqual(85);
+      expect(projectedWidthPercent(distance)).toBeLessThanOrEqual(70);
+      expect(camera.position[1]).toBeGreaterThan(camera.target[1] + 0.32);
+      expect(Math.abs(camera.target[0])).toBeLessThanOrEqual(0.12);
+      expect(Math.abs(camera.target[2])).toBeLessThanOrEqual(0.12);
       expect(polarAngle).toBeGreaterThanOrEqual(Math.PI / 9);
       expect(polarAngle).toBeLessThanOrEqual(5 * Math.PI / 12);
     });
@@ -54,6 +59,7 @@ describe("ARTIFACT_REVIEW_STAGES", () => {
     offsets.forEach((from, fromIndex) => offsets.slice(fromIndex + 1).forEach((to) => {
       const midpointDistance = Math.hypot(...from.map((value, index) => (value + to[index]) / 2));
       expect(projectedWidthPercent(midpointDistance)).toBeGreaterThanOrEqual(60);
+      expect(projectedWidthPercent(midpointDistance)).toBeLessThanOrEqual(85);
     }));
   });
 });
