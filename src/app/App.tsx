@@ -17,6 +17,7 @@ import type { HeavenEarthStageOutcome } from "../domain/heaven-earth/types";
 import { CalendarReview } from "../features/calendar-review/CalendarReview";
 import { CourseInputForm } from "../features/course-input/CourseInputForm";
 import { CourseLandingPreview } from "../features/course-input/CourseLandingPreview";
+import { CourseGenerationProgress } from "../features/course-input/CourseGenerationProgress";
 import { isFourLessonsResult, runFourLessonsStage } from "../domain/four-lessons/compute-four-lessons";
 import type { FourLessonsStageOutcome } from "../domain/four-lessons/types";
 import { FourLessonsReview } from "../features/four-lessons-review/FourLessonsReview";
@@ -35,6 +36,7 @@ import { CourseSheet } from "../features/course-sheet/CourseSheet";
 import { CourseExperience } from "../features/course-experience/CourseExperience";
 import type { ArtifactSourceResults } from "../features/artifact-scene/model/types";
 import { CourseWorkbench } from "../features/course-workbench/CourseWorkbench";
+import { useReducedMotion } from "../features/artifact-scene/use-reduced-motion";
 import "../styles/tokens.css";
 import "../styles/global.css";
 
@@ -60,10 +62,12 @@ function hasSameCalendarInputs(left: CourseInput, right: CourseInput): boolean {
 
 export function App() {
   const [session, setSession] = useState<CourseSession | null>(null);
+  const [pendingSession, setPendingSession] = useState<CourseSession | null>(null);
   const [stageError, setStageError] = useState<StageError | null>(null);
   const [reviewStage, setReviewStage] = useState<ReviewStage>("calendar");
   const [inputOpen, setInputOpen] = useState(true);
   const [railOpen, setRailOpen] = useState(true);
+  const reducedMotion = useReducedMotion();
   const calendarResult = session?.snapshots.calendar?.value;
   const heavenEarthResult = session?.snapshots["heaven-earth"]?.value;
   const fourLessonsResult = session?.snapshots["four-lessons"]?.value;
@@ -106,7 +110,7 @@ export function App() {
     };
   }
 
-  function replaceFrom(nextSession: CourseSession) {
+  function replaceFrom(nextSession: CourseSession, showProgress = false) {
     const calendarOutcome = runCalendarStage(nextSession, calendarAdapter);
     if (!calendarOutcome.ok) {
       setSession(nextSession);
@@ -149,7 +153,11 @@ export function App() {
       setStageError(courseOutcome.error);
       return;
     }
-    setSession(courseOutcome.session);
+    if (showProgress) {
+      setPendingSession(courseOutcome.session);
+    } else {
+      setSession(courseOutcome.session);
+    }
     setReviewStage("course");
     setStageError(null);
   }
@@ -171,7 +179,8 @@ export function App() {
 
   function submitInput(input: CourseInput) {
     if (!session || !hasSameCalendarInputs(session.input, input)) {
-      replaceFrom({ input, snapshots: {} });
+      setPendingSession(null);
+      replaceFrom({ input, snapshots: {} }, true);
       return;
     }
     const courseOutcome = runCourseStage({ ...session, input });
@@ -210,6 +219,25 @@ export function App() {
               ? "heaven-earth"
               : "calendar";
 
+  if (pendingSession) {
+    return (
+      <main className="app-shell">
+        <header className="app-header">
+          <h1>大六壬演式</h1>
+        </header>
+        <section className="app-stage" aria-live="polite">
+          <CourseGenerationProgress
+            reducedMotion={reducedMotion}
+            onComplete={() => {
+              setSession(pendingSession);
+              setPendingSession(null);
+            }}
+          />
+        </section>
+      </main>
+    );
+  }
+
   if (session && artifactSource && hasCourse) {
     return (
       <CourseWorkbench
@@ -223,6 +251,7 @@ export function App() {
         stageErrorMessage={generalErrorMessage}
         onRestart={() => {
           setSession(null);
+          setPendingSession(null);
           setStageError(null);
           setReviewStage("calendar");
           setInputOpen(true);

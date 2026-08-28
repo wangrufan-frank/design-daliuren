@@ -36,11 +36,20 @@ beforeEach(() => {
     dispose: vi.fn(),
   }));
   artifactLoader.loadArtifact.mockReturnValue(new Promise(() => undefined));
+  vi.stubGlobal("matchMedia", vi.fn(() => ({
+    matches: true,
+    media: "(prefers-reduced-motion: reduce)",
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })));
 });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
@@ -96,6 +105,23 @@ it("explains the complete output before a course is generated", () => {
   expect(preview).toHaveTextContent("三维课式");
   expect(preview).toHaveTextContent("标准文字课式");
   expect(preview).toHaveTextContent("六阶段依据");
+});
+
+it("shows generation progress before promoting a valid submission to the workbench", async () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({
+    matches: false,
+    media: "(prefers-reduced-motion: reduce)",
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })));
+  render(<App />);
+
+  await submitCourse();
+
+  expect(screen.getByRole("status")).toHaveTextContent("正在生成完整课式");
+  expect(screen.queryByRole("region", { name: "三维阶段回看" })).not.toBeInTheDocument();
 });
 
 it("runs the real offline stages through three transmissions, then navigates prior reviews", async () => {
