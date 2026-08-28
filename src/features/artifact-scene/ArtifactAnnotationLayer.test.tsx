@@ -7,6 +7,12 @@ import type { AnnotationFrameSource } from "./three/ArtifactSceneController";
 import { ArtifactAnnotationLayer } from "./ArtifactAnnotationLayer";
 
 const featuredIds = ["calendar/slip", "plate/earth", "plate/heaven"] as const;
+const allIds = [
+  "calendar/slip", "plate/earth", "plate/heaven", "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
+  "transmission/initial", "transmission/middle", "transmission/final", "general/noble", "general/snake", "general/vermilion-bird",
+  "general/harmony", "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger", "general/constant",
+  "general/black-tortoise", "general/yin", "general/queen-of-heaven",
+] as const;
 
 function installAnimationFrames() {
   let nextId = 1;
@@ -30,11 +36,11 @@ function anchor(id: ArtifactAnnotationId, x: number, y: number, occluded = false
   return { id, x, y, depth: 0, behindCamera: false, occluded };
 }
 
-function sourceFixture(initialAnchors: ProjectedAnchor[]) {
+function sourceFixture(initialAnchors: ProjectedAnchor[], viewport = { width: 900, height: 600 }) {
   let anchors = initialAnchors;
   const source: AnnotationFrameSource = {
     captureAnnotationFrame: vi.fn((ids: readonly ArtifactAnnotationId[]) => ({
-      viewport: { width: 900, height: 600 },
+      viewport,
       anchors: anchors.filter(({ id }) => ids.includes(id)),
     })),
     focusNode: vi.fn(),
@@ -94,7 +100,10 @@ describe("ArtifactAnnotationLayer", () => {
   it("switches between the stage, all 22, and hidden density sets and focuses cards", async () => {
     const frames = installAnimationFrames();
     const user = userEvent.setup();
-    const fixture = sourceFixture(featuredIds.map((id, index) => anchor(id, 240 + index * 120, 160 + index * 90)));
+    const fixture = sourceFixture(
+      allIds.map((id, index) => anchor(id, index % 2 === 0 ? 180 : 1_020, 100 + (index % 11) * 60)),
+      { width: 1_200, height: 800 },
+    );
     render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} />);
     frames.step(16);
 
@@ -107,7 +116,10 @@ describe("ArtifactAnnotationLayer", () => {
     ]);
 
     await user.click(screen.getByRole("button", { name: "全部" }));
-    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(22);
+    frames.step(32);
+    const allCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    expect(allCards).toHaveLength(22);
+    allCards.forEach((card) => expect(card).toBeVisible());
     await user.click(screen.getByRole("button", { name: "隐藏" }));
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "本阶段" }));
