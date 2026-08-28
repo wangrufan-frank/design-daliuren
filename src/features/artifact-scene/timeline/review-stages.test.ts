@@ -28,6 +28,15 @@ describe("ARTIFACT_REVIEW_STAGES", () => {
     });
   });
 
+  it("keeps featured annotation sets concise while allowing complex stages up to six", () => {
+    for (const stage of ARTIFACT_REVIEW_STAGES) {
+      expect(stage.annotationIds.length).toBeGreaterThanOrEqual(3);
+      expect(stage.annotationIds.length).toBeLessThanOrEqual(
+        stage.id === "heavenly-generals" || stage.id === "course" ? 6 : 4,
+      );
+    }
+  });
+
   it("keeps every distinct camera direction inspection-safe", () => {
     const offsets = ARTIFACT_REVIEW_STAGES.map(({ camera }) => camera.position.map(
       (value, index) => value - camera.target[index],

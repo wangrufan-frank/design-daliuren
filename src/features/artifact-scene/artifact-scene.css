@@ -330,6 +330,8 @@
 }
 
 @media (max-width: 920px) {
+  .artifact-annotations__density { top: 4px; }
+
   .artifact-timeline {
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;

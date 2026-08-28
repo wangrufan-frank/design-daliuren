@@ -29,6 +29,10 @@ function overlaps(a: { x: number; y: number; width: number; height: number }, b:
   return a.x < b.x + b.width + 8 && a.x + a.width + 8 > b.x && a.y < b.y + b.height + 8 && a.y + a.height + 8 > b.y;
 }
 
+function rectanglesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
 describe("layoutArtifactAnnotations", () => {
   it("lays crossing anchors into deterministic non-overlapping slots with elbow leaders", () => {
     const viewport = { width: 1200, height: 800 };
@@ -56,6 +60,49 @@ describe("layoutArtifactAnnotations", () => {
 
     expect(after[0].labelRect.x).toBe(before[0].labelRect.x);
     expect(omitted).toEqual([]);
+  });
+
+  it("keeps cards outside toolbar, controls, and the subject center", () => {
+    const safeArea = {
+      top: 64,
+      right: 12,
+      bottom: 120,
+      left: 12,
+      subject: { x: 220, y: 100, width: 360, height: 420 },
+    };
+    const result = layoutArtifactAnnotations(crossingAnchors(), { width: 804, height: 760 }, { safeArea });
+
+    expect(result).toHaveLength(8);
+    for (const { labelRect } of result) {
+      expect(labelRect.y).toBeGreaterThanOrEqual(64);
+      expect(labelRect.y + labelRect.height).toBeLessThanOrEqual(640);
+      expect(rectanglesOverlap(labelRect, safeArea.subject)).toBe(false);
+    }
+  });
+
+  it("deterministically omits the lowest-priority occluded card when safe rails are full", () => {
+    const constrained = ids.slice(0, 5).map((id, index): ProjectedAnchor => ({
+      id,
+      x: 80 + index * 60,
+      y: 30 + index * 18,
+      depth: 0,
+      behindCamera: false,
+      occluded: index === 1 || index === 4,
+    }));
+    const viewport = { width: 400, height: 144 };
+    const safeArea = {
+      top: 20,
+      right: 12,
+      bottom: 20,
+      left: 12,
+      subject: { x: 120, y: 32, width: 160, height: 80 },
+    };
+
+    const first = layoutArtifactAnnotations(constrained, viewport, { safeArea });
+    const repeated = layoutArtifactAnnotations(constrained, viewport, { safeArea });
+
+    expect(first).toEqual(repeated);
+    expect(first.map(({ id }) => id)).toEqual(ids.slice(0, 4));
   });
 
   it("rebalances 22 same-side anchors without overflowing cards or losing stable slots", () => {

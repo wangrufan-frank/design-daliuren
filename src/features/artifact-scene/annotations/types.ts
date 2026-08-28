@@ -32,3 +32,16 @@ export interface AnnotationLayout {
   leaderPath: string;
   occluded: boolean;
 }
+
+export interface AnnotationSafeArea {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+  subject?: { x: number; y: number; width: number; height: number };
+}
+
+export interface AnnotationLayoutOptions {
+  previous?: readonly AnnotationLayout[];
+  safeArea?: AnnotationSafeArea;
+}

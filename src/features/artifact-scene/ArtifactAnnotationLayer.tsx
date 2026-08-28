@@ -1,7 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 import { layoutArtifactAnnotations } from "./annotations/layout-annotations";
-import type { AnnotationLayout, ArtifactAnnotationDescriptor, ArtifactAnnotationId } from "./annotations/types";
+import type { AnnotationLayout, AnnotationSafeArea, ArtifactAnnotationDescriptor, ArtifactAnnotationId } from "./annotations/types";
+import type { AnnotationViewport } from "./annotations/project-annotations";
 import type { AnnotationFrameSource } from "./three/ArtifactSceneController";
 
 type AnnotationDensity = "stage" | "all" | "hidden";
@@ -24,6 +25,23 @@ const DENSITY_OPTIONS = [
 
 function sameIds(left: readonly ArtifactAnnotationId[], right: readonly ArtifactAnnotationId[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function safeAreaFor(viewport: AnnotationViewport, compact: boolean): AnnotationSafeArea {
+  const subjectWidth = viewport.width * (compact ? 0.34 : 0.46);
+  const subjectHeight = viewport.height * (compact ? 0.52 : 0.6);
+  return {
+    top: compact ? 56 : 72,
+    right: compact ? 8 : 12,
+    bottom: compact ? 16 : 128,
+    left: compact ? 8 : 12,
+    subject: {
+      x: (viewport.width - subjectWidth) / 2,
+      y: (viewport.height - subjectHeight) / 2,
+      width: subjectWidth,
+      height: subjectHeight,
+    },
+  };
 }
 
 function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnotationLayerProps) {
@@ -58,6 +76,7 @@ function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnot
         const frame = source.captureAnnotationFrame(ids);
         const layouts = layoutArtifactAnnotations(frame.anchors, frame.viewport, {
           previous: previousLayoutsRef.current,
+          safeArea: safeAreaFor(frame.viewport, !allowAll),
         });
         previousLayoutsRef.current = layouts;
         root.removeAttribute("data-annotation-error");
@@ -101,7 +120,7 @@ function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnot
     };
     frameId = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frameId);
-  }, [descriptors, ids, idsKey, source]);
+  }, [allowAll, descriptors, ids, idsKey, source]);
 
   return (
     <div ref={rootRef} className="artifact-annotations" data-density={effectiveDensity}>

@@ -98,6 +98,14 @@ describe("ArtifactAnnotationLayer", () => {
     render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} />);
     frames.step(16);
 
+    const stageCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    expect(stageCards).toHaveLength(featuredIds.length);
+    expect(stageCards.map((card) => card.getAttribute("aria-label"))).toEqual([
+      "历书：记载占时与月将的历法依据。",
+      "地盘：承载十二支方位，作为加临的基准。",
+      "天盘：随月将转动，显示天盘加临位置。",
+    ]);
+
     await user.click(screen.getByRole("button", { name: "全部" }));
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(22);
     await user.click(screen.getByRole("button", { name: "隐藏" }));
