@@ -50,7 +50,7 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
       />
       {errors.reason ? <p id="reason-error" role="alert">{errors.reason}</p> : null}
 
-      <button type="submit">建立起课上下文</button>
+      <button type="submit">生成完整课式</button>
     </form>
   );
 }

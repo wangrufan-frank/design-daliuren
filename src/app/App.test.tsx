@@ -48,7 +48,7 @@ async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
   await user.type(screen.getByLabelText("日期与时间"), civilDateTime);
   await user.type(screen.getByLabelText("地点（选填）"), "北京");
   await user.type(screen.getByLabelText("起课事由"), "商务决策复盘");
-  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  await user.click(screen.getByRole("button", { name: "生成完整课式" }));
   return user;
 }
 
@@ -82,11 +82,20 @@ it("starts at input without a fake model or fake course", () => {
   render(<App />);
 
   expect(screen.getByRole("heading", { name: "大六壬演式" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "建立起课上下文" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "生成完整课式" })).toBeVisible();
   expect(screen.getByLabelText("传统规则阶段")).toBeVisible();
   expect(screen.queryByLabelText("历法结果矩阵")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("标准文字课式")).not.toBeInTheDocument();
   expect(screen.queryByText(/三维模型占位/)).not.toBeInTheDocument();
+});
+
+it("explains the complete output before a course is generated", () => {
+  render(<App />);
+  const preview = screen.getByRole("region", { name: "课式生成预览" });
+
+  expect(preview).toHaveTextContent("三维课式");
+  expect(preview).toHaveTextContent("标准文字课式");
+  expect(preview).toHaveTextContent("六阶段依据");
 });
 
 it("runs the real offline stages through three transmissions, then navigates prior reviews", async () => {
@@ -581,7 +590,7 @@ it("clears a field correction error after reset and after a new successful submi
   await user.click(screen.getByRole("button", { name: "重新起课" }));
   await user.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
   await user.type(screen.getByLabelText("起课事由"), "商务决策复盘");
-  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  await user.click(screen.getByRole("button", { name: "生成完整课式" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   await openFourLessonsReview(user);
   expect(screen.getByRole("region", { name: "四课生成" })).toBeVisible();
@@ -611,7 +620,7 @@ it("clears prior snapshots when a new parsed submission fails the calendar stage
   await user.clear(dateTime);
   await user.type(dateTime, "2024-02-11T14:30:00");
   await user.type(screen.getByLabelText("起课事由"), "新的起课事由");
-  await user.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  await user.click(screen.getByRole("button", { name: "生成完整课式" }));
 
   expect(screen.getByRole("alert")).toHaveTextContent("历法数据读取失败");
   expect(screen.queryByLabelText("历法结果矩阵")).not.toBeInTheDocument();

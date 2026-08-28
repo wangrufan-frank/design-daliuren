@@ -16,6 +16,7 @@ import { isHeavenEarthResult, runHeavenEarthStage } from "../domain/heaven-earth
 import type { HeavenEarthStageOutcome } from "../domain/heaven-earth/types";
 import { CalendarReview } from "../features/calendar-review/CalendarReview";
 import { CourseInputForm } from "../features/course-input/CourseInputForm";
+import { CourseLandingPreview } from "../features/course-input/CourseLandingPreview";
 import { isFourLessonsResult, runFourLessonsStage } from "../domain/four-lessons/compute-four-lessons";
 import type { FourLessonsStageOutcome } from "../domain/four-lessons/types";
 import { FourLessonsReview } from "../features/four-lessons-review/FourLessonsReview";
@@ -283,8 +284,8 @@ export function App() {
             />
           ) : (
             <>
-              <h2>起课输入</h2>
-              {!generalErrorMessage ? <p>输入时间与地点，建立可追溯的起课上下文。</p> : null}
+              <CourseLandingPreview />
+              <h2 className="app-stage__status">起课输入</h2>
             </>
           )}
           {generalErrorMessage ? <p role="alert">{generalErrorMessage}</p> : null}

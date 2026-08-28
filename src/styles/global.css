@@ -84,6 +84,8 @@ button, input, select { font: inherit; }
 .app-input-panel [role="alert"] { min-height: 1.25em; margin: -3px 0 0; color: var(--ash); font-size: 0.85rem; }
 .app-input-panel [role="alert"]:empty { display: none; }
 .app-stage { display: grid; align-content: center; min-height: 390px; padding: clamp(24px, 6vw, 72px); border: 1px solid var(--patina); background: var(--panel); }
+.app-stage > .course-landing-preview { min-width: 0; }
+.app-stage__status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .app-stage > h2 { margin: 0; color: var(--ru-celadon); font-size: clamp(1.5rem, 3vw, 2.5rem); font-weight: 600; letter-spacing: 0.12em; }
 .app-stage > p { max-width: 24rem; margin: 14px 0 0; line-height: 1.8; }
 .course-experience { display: grid; width: 100%; min-width: 0; }

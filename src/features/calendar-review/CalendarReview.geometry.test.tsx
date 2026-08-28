@@ -139,8 +139,8 @@ describe("CalendarReview connector geometry", () => {
       expect(metrics.footPointerEvents).toBe("none");
       expect(metrics.lineContent).not.toBe("none");
       expect(metrics.footContent).not.toBe("none");
-      expect(metrics.lineBackground).toBe("rgb(169, 184, 177)");
-      expect(metrics.footBackground).toBe("rgb(169, 184, 177)");
+      expect(metrics.lineBackground).toBe("rgb(175, 197, 188)");
+      expect(metrics.footBackground).toBe("rgb(175, 197, 188)");
       expect(metrics.lineWidth).toBe("2px");
       expect(metrics.footHeight).toBe("2px");
       expect(metrics.visibleConnectorIndices).toEqual([activeIndex]);
@@ -151,14 +151,14 @@ describe("CalendarReview connector geometry", () => {
       border: getComputedStyle(button).borderColor,
       indicator: getComputedStyle(button, "::before").backgroundColor,
     }));
-    expect(manualStyle).toEqual({ border: "rgb(146, 110, 54)", indicator: "rgb(63, 118, 103)" });
+    expect(manualStyle).toEqual({ border: "rgb(154, 120, 66)", indicator: "rgb(84, 125, 112)" });
 
     await activate(page, 1);
     const automaticStyle = await page.locator(".calendar-review__cell").nth(1).evaluate((button) => ({
       border: getComputedStyle(button).borderColor,
       indicator: getComputedStyle(button, "::before").backgroundColor,
     }));
-    expect(automaticStyle).toEqual({ border: "rgb(169, 184, 177)", indicator: "rgb(63, 118, 103)" });
+    expect(automaticStyle).toEqual({ border: "rgb(175, 197, 188)", indicator: "rgb(84, 125, 112)" });
     await page.close();
   });
 });

@@ -10,7 +10,7 @@ it("shows concrete errors and does not submit invalid input", async () => {
   const onSubmit = vi.fn();
   render(<CourseInputForm onSubmit={onSubmit} />);
 
-  await userEvent.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  await userEvent.click(screen.getByRole("button", { name: "生成完整课式" }));
 
   expect(screen.getByText("请输入起课事由")).toBeVisible();
   expect(onSubmit).not.toHaveBeenCalled();
@@ -28,7 +28,7 @@ it("associates each invalid base input with its own error", async () => {
     expect(screen.getByLabelText(label)).not.toHaveAttribute("aria-invalid");
   }
 
-  await userEvent.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  await userEvent.click(screen.getByRole("button", { name: "生成完整课式" }));
 
   for (const { label, errorId, message } of fields) {
     const input = screen.getByLabelText(label);
@@ -57,7 +57,7 @@ it("keeps ordinary entry to base context fields and submits empty corrections", 
   await userEvent.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
   await userEvent.type(screen.getByLabelText("地点（选填）"), "北京");
   await userEvent.type(screen.getByLabelText("起课事由"), "商务决策复盘");
-  await userEvent.click(screen.getByRole("button", { name: "建立起课上下文" }));
+  await userEvent.click(screen.getByRole("button", { name: "生成完整课式" }));
 
   expect(onSubmit).toHaveBeenCalledOnce();
   expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ corrections: {} }));
@@ -70,4 +70,10 @@ it("requires a reason textarea and keeps location optional without coordinates",
   expect(screen.getByRole("textbox", { name: "起课事由" }).tagName).toBe("TEXTAREA");
   expect(screen.getByLabelText("地点（选填）")).toBeInTheDocument();
   expect(screen.queryByLabelText(/经度|纬度/)).not.toBeInTheDocument();
+});
+
+it("names the action by the complete result it creates", () => {
+  render(<CourseInputForm onSubmit={vi.fn()} />);
+
+  expect(screen.getByRole("button", { name: "生成完整课式" })).toBeVisible();
 });
