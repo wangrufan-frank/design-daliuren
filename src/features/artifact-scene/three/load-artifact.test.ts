@@ -85,6 +85,30 @@ describe("artifact loader", () => {
     expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
   });
 
+  it("shares KTX2 support across overlapping artifact loads until both settle", async () => {
+    ktx2Loaders.length = 0;
+    const renderer = {} as THREE.WebGLRenderer;
+    let resolveFirst!: (value: { scene: THREE.Group; animations: THREE.AnimationClip[] }) => void;
+    let resolveSecond!: (value: { scene: THREE.Group; animations: THREE.AnimationClip[] }) => void;
+    const firstResult = new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondResult = new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    const firstLoad = loadArtifact("/models/first.glb", renderer, { loadAsync: vi.fn().mockReturnValue(firstResult) });
+    const secondLoad = loadArtifact("/models/second.glb", renderer, { loadAsync: vi.fn().mockReturnValue(secondResult) });
+
+    expect(ktx2Loaders).toHaveLength(1);
+    resolveFirst({ scene: artifactRoot(), animations: [] });
+    await firstLoad;
+    expect(ktx2Loaders[0].dispose).not.toHaveBeenCalled();
+    resolveSecond({ scene: artifactRoot(), animations: [] });
+    await secondLoad;
+    expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
+  });
+
   it("preserves the loading cause and disposes KTX2 support after failure", async () => {
     ktx2Loaders.length = 0;
     const cause = new Error("network unavailable");

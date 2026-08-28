@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { REQUIRED_NODE_IDS } from "../model/asset-contract";
 import { disposeArtifact } from "./dispose-artifact";
+import { acquireKtx2Loader } from "./ktx2-loader-lease";
 
 export interface LoadedArtifact {
   root: THREE.Object3D;
@@ -46,11 +46,12 @@ export async function loadArtifact(
   renderer: THREE.WebGLRenderer,
   loader: ArtifactLoader = new GLTFLoader(),
 ): Promise<LoadedArtifact> {
-  const ktx2Loader = new KTX2Loader();
+  let releaseKtx2Loader: (() => void) | undefined;
 
   try {
-    ktx2Loader.setTranscoderPath("/three/basis/").detectSupport(renderer);
-    loader.setKTX2Loader?.(ktx2Loader);
+    const lease = acquireKtx2Loader(renderer);
+    releaseKtx2Loader = lease.release;
+    loader.setKTX2Loader?.(lease.loader);
     const gltf = await loader.loadAsync(url);
     let nodes: ReadonlyMap<string, THREE.Object3D>;
     try {
@@ -69,6 +70,6 @@ export async function loadArtifact(
     const detail = cause instanceof Error ? cause.message : String(cause);
     throw new Error(`Failed to load artifact ${url}: ${detail}`, { cause });
   } finally {
-    ktx2Loader.dispose();
+    releaseKtx2Loader?.();
   }
 }
