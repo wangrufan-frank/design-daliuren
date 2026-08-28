@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CalendarResult } from "../../domain/calendar/types";
@@ -232,6 +232,23 @@ describe("ArtifactExperience", () => {
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "12500");
     await user.click(screen.getByRole("button", { name: "查看文字课式" }));
     expect(onShowCourse).toHaveBeenCalledOnce();
+  });
+
+  it("can hide the timeline without removing the artifact canvas", async () => {
+    render(<ArtifactExperience source={referenceSourceResults} showTimeline={false} onShowCourse={vi.fn()} />);
+    await waitFor(() => expect(mocks.controllers).toHaveLength(1));
+
+    expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "器物推演控制" })).not.toBeInTheDocument();
+  });
+
+  it("can hide the compact part directory without removing the artifact canvas", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    render(<ArtifactExperience source={referenceSourceResults} showPartDirectory={false} onShowCourse={vi.fn()} />);
+    await waitFor(() => expect(mocks.controllers).toHaveLength(1));
+
+    expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "部件目录" })).not.toBeInTheDocument();
   });
 
   it("disposes the renderer after loader failure and removes the empty canvas", async () => {

@@ -56,6 +56,26 @@
   background: var(--panel);
 }
 
+.course-workbench .course-experience {
+  grid-template-rows: auto auto auto;
+}
+
+.course-workbench .course-experience__modes {
+  display: flex;
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  grid-area: auto;
+  justify-self: stretch;
+  justify-content: flex-end;
+  margin: 0 0 8px;
+  background: var(--ink);
+}
+
+.course-workbench .course-experience__stage {
+  grid-area: auto;
+}
+
 .course-workbench__stage .course-experience .artifact-experience__viewport {
   min-height: clamp(520px, 54vw, 760px);
 }
@@ -72,7 +92,7 @@
 
 .stage-evidence-drawer { margin: 16px 4px 4px; }
 .stage-evidence-drawer > button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--ru-celadon);
   background: transparent;
@@ -96,6 +116,10 @@
 
 .course-workbench__stages .rule-stage-rail {
   margin-top: 18px;
+}
+
+.course-workbench__stages .rule-stage-rail button {
+  min-height: 44px;
 }
 
 .course-context {
@@ -139,6 +163,10 @@
 }
 .course-context button:hover { background: var(--ru-celadon); color: var(--panel); }
 
+.mobile-workbench-tools {
+  display: none;
+}
+
 @media (min-width: 900px) {
   .course-context summary { pointer-events: none; }
 }
@@ -147,16 +175,179 @@
   .course-workbench { padding-inline: 16px; }
   .course-workbench__header { align-items: flex-start; flex-direction: column-reverse; gap: 6px; }
   .course-workbench__grid { grid-template-columns: minmax(0, 1fr); }
+  .course-workbench__grid > .course-context,
+  .course-workbench__grid > .course-workbench__stages,
+  .course-workbench__stage > .stage-evidence-drawer { display: none; }
   .course-context summary { cursor: pointer; }
   .course-context summary::after { color: var(--old-gold); content: "＋"; }
   .course-context details[open] summary::after { content: "－"; }
   .course-context summary small { margin-left: auto; }
   .course-workbench__stage { min-height: 0; padding: 5px; }
-  .course-workbench__stage .course-experience .artifact-experience__viewport { min-height: 360px; }
-  .course-workbench__stages { padding-top: 10px; border-top: 1px solid var(--patina); }
-  .course-workbench__stages .rule-stage-rail { display: grid; grid-template-columns: repeat(6, minmax(140px, 1fr)); overflow-x: auto; border-left: 0; }
-  .course-workbench__stages .rule-stage-rail li { padding: 14px 12px 10px; border-top: 1px solid var(--patina); }
-  .course-workbench__stages .rule-stage-rail li::before { top: -5px; left: 14px; background: var(--panel); }
+  .course-workbench__stage .course-experience .artifact-experience__viewport {
+    height: clamp(360px, 60vh, 620px);
+    min-height: 0;
+  }
+  .course-workbench .course-experience__modes { top: env(safe-area-inset-top, 0); }
+  .course-workbench .artifact-experience > .artifact-timeline { display: none; }
+
+  .mobile-workbench-tools {
+    display: grid;
+    position: sticky;
+    z-index: 6;
+    bottom: 0;
+    min-width: 0;
+    border-top: 1px solid var(--patina);
+    background: var(--ink);
+    box-shadow: 0 -12px 28px color-mix(in srgb, var(--ink) 42%, transparent);
+  }
+
+  .mobile-workbench-tools__stages {
+    min-width: 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--patina);
+    scrollbar-width: thin;
+  }
+
+  .mobile-workbench-tools__stages .rule-stage-rail {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(132px, 1fr));
+    width: max-content;
+    min-width: 100%;
+    margin: 0;
+    border-left: 0;
+  }
+
+  .mobile-workbench-tools__stages .rule-stage-rail li {
+    padding: 0;
+    border-inline-end: 1px solid color-mix(in srgb, var(--patina) 58%, transparent);
+  }
+
+  .mobile-workbench-tools__stages .rule-stage-rail li::before { display: none; }
+  .mobile-workbench-tools__stages .rule-stage-rail button {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+  .mobile-workbench-tools__stages .rule-stage-rail button[aria-current="page"] {
+    box-shadow: inset 0 -3px var(--old-gold);
+    color: var(--ash);
+  }
+
+  .mobile-workbench-tools__toolbar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .mobile-workbench-tools__toolbar button,
+  .mobile-workbench-tools__panel > header button {
+    min-height: 48px;
+    padding: 7px 5px;
+    border: 0;
+    border-inline-end: 1px solid color-mix(in srgb, var(--patina) 58%, transparent);
+    border-radius: 0;
+    background: transparent;
+    color: var(--ru-celadon);
+    font: inherit;
+    font-family: var(--font-utility);
+    cursor: pointer;
+  }
+
+  .mobile-workbench-tools__toolbar button[aria-expanded="true"] {
+    background: var(--ru-celadon);
+    color: var(--ink);
+  }
+
+  .mobile-workbench-tools__toolbar button:focus-visible,
+  .mobile-workbench-tools__panel > header button:focus-visible,
+  .mobile-workbench-tools__panel:focus-visible {
+    outline: 2px solid var(--ash);
+    outline-offset: -3px;
+  }
+
+  .mobile-workbench-tools__panel {
+    max-height: min(58vh, 560px);
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-bottom: 1px solid var(--patina);
+    background: var(--dark-bronze);
+  }
+
+  .mobile-workbench-tools__panel > header {
+    display: flex;
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    padding-inline-start: 14px;
+    border-bottom: 1px solid var(--patina);
+    background: var(--dark-bronze);
+  }
+
+  .mobile-workbench-tools__panel > header h2 {
+    margin: 0;
+    color: var(--ash);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+
+  .mobile-workbench-tools__panel-content { min-width: 0; padding: 12px; }
+  .mobile-workbench-tools__panel-content > .artifact-timeline { padding: 0; border-top: 0; }
+  .mobile-workbench-tools__panel-content > .artifact-part-directory {
+    display: block;
+    color: var(--ash);
+    font-size: 16px;
+  }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__bar,
+  .mobile-workbench-tools__panel-content .artifact-part-directory__sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 48px;
+  }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__bar h2,
+  .mobile-workbench-tools__panel-content .artifact-part-directory__bar p,
+  .mobile-workbench-tools__panel-content .artifact-part-directory__sheet-header p { margin: 0; font-size: 16px; }
+  .mobile-workbench-tools__panel-content .artifact-part-directory button {
+    min-height: 44px;
+    border: 1px solid var(--patina);
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__bar > button,
+  .mobile-workbench-tools__panel-content .artifact-part-directory__sheet-header button { padding: 8px 10px; color: var(--ru-celadon); }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__sheet { border-top: 1px solid var(--patina); }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__scroll { display: grid; gap: 6px; padding-top: 8px; }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__group-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__entries { display: grid; gap: 6px; padding-block: 6px 10px; }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__entries[hidden] { display: none; }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__entries button {
+    display: grid;
+    min-height: 56px;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .mobile-workbench-tools__panel-content .artifact-part-directory__entries strong,
+  .mobile-workbench-tools__panel-content .artifact-part-directory__entries span { font-size: 16px; line-height: 1.35; }
+  .mobile-workbench-tools__panel-content > .course-context { padding-top: 0; }
 }
 
 @media (max-width: 520px) {
