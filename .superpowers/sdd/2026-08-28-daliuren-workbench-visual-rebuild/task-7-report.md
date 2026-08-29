@@ -35,3 +35,12 @@
 - `390×844` 首个工作台视口可达六阶段导航与五项工具；打开文字课式后两者仍在视口内，文字课式 footer 可通过 dock 面板访问。
 - 未增加运行时接口、依赖或抽象；仅删除被新移动舞台最小高度策略取代的 `330px` selector，以及静态工具栏后失效的移动 `top` 声明。
 - 独立只读审阅：无 Critical；修复 1 个 Important（桌面注释相交测试空集假绿）；剩余 Minor 仅为测试无法直接证明 CSS 使用 `color-mix`，运行时实现已满足且行为断言同时区分动作绿。
+
+## 第一轮审查修复
+
+- 修复提交：`d0b8c43 test: strengthen mobile dock acceptance`。
+- Important：移动验收现在直接枚举并断言 6 个阶段按钮与 5 个工具按钮；阶段导航和工具栏的 bounding box 四边必须完整落在 `390×844` viewport 内。同时验证 dock 的 computed `position: sticky`、`bottom: 0px`、通过 CDP 注入的 `24px` 安全区 padding，以及背景 alpha `1`。
+- 文档顺序与持续可达性：断言移动 dock 在标准文字课式 copy footer 之前；打开文字课式后重新断言两个 dock 区域完整位于 viewport，且 11 个按钮仍全部存在并可交互。
+- mutation RED：临时注入 `.mobile-workbench-tools { position: static !important; }` 后，新断言捕获阶段导航底边 `883.390625px > 844.5px`而失败；注入随后撤销。正常产品在加强测试下本已满足行为，因此这是旧验收缺口的测试强化，而非产品 RED。
+- Minor 颜色决策：尝试直接恢复 `var(--old-gold)` 后，desktop/mobile 离线流均测得人工修正强文本对比度为 `3.83566013272245:1`，低于既有 `4.5:1` 无障碍门槛。因此保留 `old-gold 68% + ash` 作为人工修正 old-gold 语义的可访问性校色，它不是 Task 7 的 muted secondary 文本策略。几何测试新增验证来源/有效值同色、不等于 action green、各 RGB 通道位于 ash 与 old-gold 之间，且对比度 `>= 4.5`。
+- 最终验证：`npx playwright test e2e/app-shell.spec.ts e2e/artifact-experience.spec.ts --browser=chromium` → `19 passed (2.1m)`；`npm test` → `55 passed` test files / `607 passed` tests；`npm run build` → exit `0`（仅既有 chunk 大小提醒）；`git diff --check` → exit `0`。
