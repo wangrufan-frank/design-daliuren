@@ -5,6 +5,8 @@ from pathlib import Path
 
 import bpy
 
+from geometry import add_beveled_box
+
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXED_INSCRIPTIONS_PATH = (
@@ -47,6 +49,9 @@ TEXT_SIZES = {
 }
 BRANCH_RECESS = 0.00015
 BRANCH_CUTTER_OVERLAP = 0.00010
+BRANCH_BED_RECESS = 0.00100
+BRANCH_BED_DEPTH = 0.00065
+BRANCH_GROOVE_DEPTH = 0.00120
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,31 +187,73 @@ def _add_mesh_text(
     return obj
 
 
-def _cut_branch_recess(parent, inlay):
-    cutter = inlay.copy()
-    cutter.data = inlay.data
-    cutter.name = f"cutter/{inlay['node_id']}"
-    for key in list(cutter.keys()):
-        del cutter[key]
-    bpy.context.scene.collection.objects.link(cutter)
+def _duplicate_mesh(source, name, copy_data=False):
+    duplicate = source.copy()
+    duplicate.data = source.data.copy() if copy_data else source.data
+    duplicate.name = name
+    for key in list(duplicate.keys()):
+        del duplicate[key]
+    bpy.context.scene.collection.objects.link(duplicate)
+    return duplicate
 
+
+def _apply_exact_difference(parent, cutter, label):
     bpy.ops.object.select_all(action="DESELECT")
     parent.select_set(True)
     bpy.context.view_layer.objects.active = parent
-    modifier = parent.modifiers.new(name=f"cut {inlay['node_id']}", type="BOOLEAN")
+    modifier = parent.modifiers.new(name=f"cut {label}", type="BOOLEAN")
     modifier.operation = "DIFFERENCE"
     modifier.solver = "EXACT"
     modifier.object = cutter
     bpy.ops.object.modifier_apply(modifier=modifier.name)
     bpy.data.objects.remove(cutter, do_unlink=True)
 
-    minimum_z = min(vertex.co.z for vertex in inlay.data.vertices)
-    maximum_z = max(vertex.co.z for vertex in inlay.data.vertices)
-    removed_height = BRANCH_CUTTER_OVERLAP + BRANCH_RECESS
+
+def _recess_mesh_top(obj, depth):
+    minimum_z = min(vertex.co.z for vertex in obj.data.vertices)
+    maximum_z = max(vertex.co.z for vertex in obj.data.vertices)
+    removed_height = BRANCH_CUTTER_OVERLAP + depth
     scale = (maximum_z - minimum_z - removed_height) / (maximum_z - minimum_z)
-    for vertex in inlay.data.vertices:
+    for vertex in obj.data.vertices:
         vertex.co.z = minimum_z + (vertex.co.z - minimum_z) * scale
-    inlay.data.update()
+    obj.data.update()
+
+
+def _cut_branch_recess(parent, inlay):
+    cutter = _duplicate_mesh(inlay, f"cutter/{inlay['node_id']}")
+    _apply_exact_difference(parent, cutter, inlay["node_id"])
+
+    bed_name = f"detail/branch-bed/{inlay['surface']}/{inlay['branch']}"
+    size = TEXT_SIZES[inlay["inscription_role"]]
+    surface_z = max(corner[2] for corner in parent.bound_box)
+    bed = add_beveled_box(
+        bed_name,
+        (size * 1.25, size * 1.15, BRANCH_BED_DEPTH),
+        (0.0, 0.0, 0.0),
+        0.0012,
+    )
+    del bed["node_id"]
+    bed.parent = parent
+    bed.location = (
+        inlay.location.x,
+        inlay.location.y,
+        surface_z - BRANCH_BED_RECESS - BRANCH_BED_DEPTH / 2,
+    )
+    bed.rotation_euler.z = inlay.rotation_euler.z
+    bed["detail_id"] = "structure/bronze-inlay-branch-bed"
+    bed["detail_index"] = inlay["ring_index"]
+    bed["owner_node_id"] = parent["node_id"]
+    bed["surface_treatment"] = "recessed-bed"
+    bed["material_variant"] = "ink-bronze"
+
+    bed_cutter = _duplicate_mesh(bed, f"cutter/{bed_name}")
+    bed_cutter.location.z = (
+        surface_z + BRANCH_CUTTER_OVERLAP - BRANCH_GROOVE_DEPTH / 2
+    )
+    bed_cutter.scale.z = BRANCH_GROOVE_DEPTH / BRANCH_BED_DEPTH
+    _apply_exact_difference(parent, bed_cutter, bed_name)
+
+    _recess_mesh_top(inlay, BRANCH_RECESS)
 
 
 def build_fixed_inscriptions(

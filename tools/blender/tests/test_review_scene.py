@@ -11,6 +11,7 @@ from build_graybox import build_master
 from render_lookdev_review import (
     CAMERA_NAMES,
     REVIEW_OUTPUTS,
+    _pixel_relative_luminance,
     build_lookdev_scene,
     legibility_metrics,
     validate_legibility_metrics,
@@ -82,6 +83,26 @@ class ReviewSceneTest(unittest.TestCase):
             with self.subTest(metrics=failing):
                 with self.assertRaises(ValueError):
                     validate_legibility_metrics(failing)
+
+    def test_sampled_pixel_metrics_reject_best_case_when_representative_glyph_is_unreadable(self):
+        metrics = legibility_metrics(
+            overall_luminances=(0.24,) * 76 + (0.04,) * 24,
+            functional_luminances=(0.72, 0.15, 0.13),
+            surround_luminances=(0.08, 0.12, 0.11),
+        )
+
+        self.assertAlmostEqual(
+            metrics["functional_text_contrast_ratio"],
+            (0.15 + 0.05) / (0.12 + 0.05),
+        )
+        with self.assertRaises(ValueError):
+            validate_legibility_metrics(metrics)
+
+    def test_contrast_samples_use_linear_relative_luminance(self):
+        self.assertAlmostEqual(
+            _pixel_relative_luminance((0.5, 0.5, 0.5, 1.0), 1, 1, 0, 0),
+            0.21404114048223255,
+        )
 
     def test_rebuilding_review_scene_is_deterministic_and_leak_free(self):
         build_lookdev_scene()

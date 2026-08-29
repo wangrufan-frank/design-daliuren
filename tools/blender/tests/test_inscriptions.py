@@ -192,6 +192,31 @@ class InscriptionTest(unittest.TestCase):
                     hit_world = plate.matrix_world @ location
                     self.assertLess(hit_world.z, minimum_z + 0.0001)
 
+    def test_branch_glyphs_have_recessed_non_coplanar_dark_beds(self):
+        build_graybox()
+
+        beds = [
+            obj
+            for obj in bpy.data.objects
+            if obj.get("detail_id") == "structure/bronze-inlay-branch-bed"
+        ]
+        self.assertEqual(len(beds), 24)
+        for surface in ("earth", "heaven"):
+            plate = bpy.data.objects[f"plate/{surface}"]
+            for branch in BRANCHES:
+                glyph = bpy.data.objects[f"branch/{surface}/{branch}"]
+                bed = bpy.data.objects[f"detail/branch-bed/{surface}/{branch}"]
+                glyph_bottom, glyph_top = world_z_bounds(glyph)
+                _, bed_top = world_z_bounds(bed)
+                with self.subTest(surface=surface, branch=branch):
+                    self.assertIs(bed.parent, plate)
+                    self.assertEqual(bed["owner_node_id"], f"plate/{surface}")
+                    self.assertEqual(bed["surface_treatment"], "recessed-bed")
+                    self.assertGreater(bed.dimensions.x, glyph.dimensions.x)
+                    self.assertGreater(bed.dimensions.y, glyph.dimensions.y)
+                    self.assertLessEqual(bed_top, glyph_top - 0.0001)
+                    self.assertLessEqual(glyph_bottom, bed_top - 0.00005)
+
     def test_builder_rejects_dynamic_parent_without_side_effects(self):
         build_graybox()
         count_before = len(bpy.data.objects)

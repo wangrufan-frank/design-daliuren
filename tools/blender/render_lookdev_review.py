@@ -4,6 +4,7 @@ import sys
 import tempfile
 from array import array
 from pathlib import Path
+from statistics import median
 
 import bpy
 from bpy_extras.object_utils import world_to_camera_view
@@ -234,14 +235,17 @@ def legibility_metrics(
 ):
     if not overall_luminances or not functional_luminances or not surround_luminances:
         raise ValueError("Legibility metrics require overall, functional, and surround samples")
+    if len(functional_luminances) != len(surround_luminances):
+        raise ValueError("Functional and surround samples must be paired per glyph")
+    glyph_contrasts = tuple(
+        (max(functional, surround) + 0.05) / (min(functional, surround) + 0.05)
+        for functional, surround in zip(functional_luminances, surround_luminances)
+    )
     return {
         "mean_luminance": math.fsum(overall_luminances) / len(overall_luminances),
         "dark_pixel_ratio": sum(value < 0.08 for value in overall_luminances)
         / len(overall_luminances),
-        "functional_text_contrast_ratio": (
-            max(functional_luminances) + 0.05
-        )
-        / (min(surround_luminances) + 0.05),
+        "functional_text_contrast_ratio": median(glyph_contrasts),
     }
 
 
@@ -266,6 +270,63 @@ def _pixel_luminance(pixels, width, height, x, y):
     return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 
 
+def _pixel_relative_luminance(pixels, width, height, x, y):
+    x = max(0, min(width - 1, int(round(x))))
+    y = max(0, min(height - 1, int(round(y))))
+    index = (y * width + x) * 4
+
+    def linear(channel):
+        return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+
+    red, green, blue = (linear(channel) for channel in pixels[index:index + 3])
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def _visible_top_luminances(obj, scene, camera, depsgraph, pixels, width, height):
+    samples = []
+    barycentric_samples = (
+        (1 / 3, 1 / 3, 1 / 3),
+        (0.70, 0.15, 0.15),
+        (0.15, 0.70, 0.15),
+        (0.15, 0.15, 0.70),
+        (0.60, 0.30, 0.10),
+        (0.60, 0.10, 0.30),
+        (0.30, 0.60, 0.10),
+        (0.10, 0.60, 0.30),
+        (0.30, 0.10, 0.60),
+        (0.10, 0.30, 0.60),
+    )
+    obj.data.calc_loop_triangles()
+    for triangle in obj.data.loop_triangles:
+        if obj.data.polygons[triangle.polygon_index].normal.z <= 0.99:
+            continue
+        vertices = tuple(obj.data.vertices[index].co for index in triangle.vertices)
+        for weights in barycentric_samples:
+            point = sum(
+                (vertex * weight for vertex, weight in zip(vertices, weights)),
+                Vector(),
+            )
+            world_point = obj.matrix_world @ point
+            hit, _, _, _, hit_obj, _ = scene.ray_cast(
+                depsgraph,
+                camera.location,
+                (world_point - camera.location).normalized(),
+            )
+            if not hit or hit_obj.original != obj:
+                continue
+            projected = world_to_camera_view(scene, camera, world_point)
+            samples.append(
+                _pixel_relative_luminance(
+                    pixels,
+                    width,
+                    height,
+                    projected.x * width,
+                    projected.y * height,
+                )
+            )
+    return samples
+
+
 def analyze_legibility_image(path, camera_name="camera/legibility"):
     image = bpy.data.images.load(str(path), check_existing=False)
     try:
@@ -286,6 +347,7 @@ def analyze_legibility_image(path, camera_name="camera/legibility"):
 
         scene = bpy.context.scene
         camera = bpy.data.objects[camera_name]
+        depsgraph = bpy.context.evaluated_depsgraph_get()
         functional = []
         surround = []
         branches = [
@@ -294,44 +356,34 @@ def analyze_legibility_image(path, camera_name="camera/legibility"):
             if obj.get("surface_treatment") == "recessed-inlay"
         ]
         for obj in branches:
-            projected_bounds = [
-                world_to_camera_view(scene, camera, obj.matrix_world @ Vector(corner))
-                for corner in obj.bound_box
-            ]
-            minimum_x = min(point.x for point in projected_bounds) * width
-            maximum_x = max(point.x for point in projected_bounds) * width
-            minimum_y = min(point.y for point in projected_bounds) * height
-            maximum_y = max(point.y for point in projected_bounds) * height
-            obj.data.calc_loop_triangles()
-            for triangle in obj.data.loop_triangles:
-                if obj.data.polygons[triangle.polygon_index].normal.z <= 0.9:
-                    continue
-                center = sum(
-                    (obj.data.vertices[index].co for index in triangle.vertices),
-                    Vector(),
-                ) / 3
-                projected = world_to_camera_view(
+            glyph_functional = _visible_top_luminances(
+                obj,
+                scene,
+                camera,
+                depsgraph,
+                pixels,
+                width,
+                height,
+            )
+            bed = bpy.data.objects.get(
+                f"detail/branch-bed/{obj['surface']}/{obj['branch']}"
+            )
+            glyph_surround = (
+                _visible_top_luminances(
+                    bed,
                     scene,
                     camera,
-                    obj.matrix_world @ center,
+                    depsgraph,
+                    pixels,
+                    width,
+                    height,
                 )
-                functional.append(
-                    _pixel_luminance(
-                        pixels,
-                        width,
-                        height,
-                        projected.x * width,
-                        projected.y * height,
-                    )
-                )
-            margin = 5.0
-            for x, y in (
-                (minimum_x - margin, minimum_y - margin),
-                (minimum_x - margin, maximum_y + margin),
-                (maximum_x + margin, minimum_y - margin),
-                (maximum_x + margin, maximum_y + margin),
-            ):
-                surround.append(_pixel_luminance(pixels, width, height, x, y))
+                if bed is not None
+                else []
+            )
+            if glyph_functional and glyph_surround:
+                functional.append(median(glyph_functional))
+                surround.append(median(glyph_surround))
         return legibility_metrics(overall, functional, surround)
     finally:
         bpy.data.images.remove(image)

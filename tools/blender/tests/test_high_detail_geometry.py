@@ -23,6 +23,7 @@ ALLOWED_DETAIL_PREFIXES = (
     "wear/contact-",
 )
 EXPECTED_DETAIL_COUNTS = {
+    "structure/bronze-inlay-branch-bed": 24,
     "structure/base-shell-thickness": 4,
     "structure/base-bottom-seam": 1,
     "structure/base-corner-transition": 4,
@@ -123,7 +124,11 @@ class HighDetailGeometryTest(unittest.TestCase):
             if obj.type == "MESH"
             and (
                 obj.get("detail_id")
-                or obj.get("surface_treatment") in {"recessed-inlay", "recessed-groove"}
+                or obj.get("surface_treatment") in {
+                    "recessed-inlay",
+                    "recessed-bed",
+                    "recessed-groove",
+                }
             )
         ]
         bounds = {obj.name: world_bounds(obj) for obj in exposed}

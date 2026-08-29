@@ -129,6 +129,31 @@ class MaterialTest(unittest.TestCase):
                         0.48,
                     )
 
+    def test_branch_beds_share_non_emissive_ink_bronze_material(self):
+        build_master()
+
+        beds = [
+            obj
+            for obj in bpy.data.objects
+            if obj.get("detail_id") == "structure/bronze-inlay-branch-bed"
+        ]
+        self.assertEqual(len(beds), 24)
+        materials = {obj.data.materials[0] for obj in beds}
+        self.assertEqual(len(materials), 1)
+        material = materials.pop()
+        self.assertEqual(material.name, "M_Bronze/branch-bed")
+        self.assertEqual(material["material_family"], "M_Bronze")
+        shader = principled(material)
+        self.assertColorClose(
+            shader.inputs["Base Color"].default_value,
+            linear_hex(PALETTE["ink"]),
+        )
+        self.assertAlmostEqual(shader.inputs["Roughness"].default_value, 0.62)
+        self.assertEqual(shader.inputs["Specular IOR Level"].default_value, 0.0)
+        self.assertFalse(
+            any("Emission" in node.bl_idname or "Emission" in node.name for node in material.node_tree.nodes)
+        )
+
     def test_material_graphs_contain_no_emissive_nodes(self):
         build_master()
 

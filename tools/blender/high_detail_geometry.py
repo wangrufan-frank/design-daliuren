@@ -137,7 +137,11 @@ def _add_heaven_details():
 def upgrade_to_high_detail(root):
     if root.get("node_id") != "artifact/root":
         raise ValueError("High-detail upgrade requires artifact/root")
-    if any("detail_id" in obj for obj in bpy.data.objects):
+    if any(
+        obj.get("detail_id") != "structure/bronze-inlay-branch-bed"
+        for obj in bpy.data.objects
+        if obj.get("detail_id")
+    ):
         raise RuntimeError("Artifact is already upgraded to high detail")
 
     _add_base_details()

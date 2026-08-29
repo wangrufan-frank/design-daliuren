@@ -530,6 +530,7 @@ def apply_master_materials(root):
     if any(obj.get("material_role") for obj in bpy.data.objects if obj.type == "MESH"):
         raise RuntimeError("Artifact materials are already assigned")
 
+    branch_bed_material = None
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
         name = _physical_material_name(obj)
         material = bpy.data.materials[name]
@@ -537,6 +538,17 @@ def apply_master_materials(root):
             material = material.copy()
             material.name = f"{name}/{obj['node_id']}"
             material["material_family"] = name
+        elif obj.get("material_variant") == "ink-bronze":
+            if branch_bed_material is None:
+                branch_bed_material, branch_bed_shader = _base_material(
+                    "M_Bronze/branch-bed",
+                    PALETTE["ink"],
+                    0.0,
+                    0.62,
+                )
+                _socket(branch_bed_shader, "Specular IOR Level").default_value = 0.0
+                branch_bed_material["material_family"] = "M_Bronze"
+            material = branch_bed_material
         obj.data.materials.clear()
         obj.data.materials.append(material)
         obj["material_role"] = name
