@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 import { layoutArtifactAnnotations } from "./annotations/layout-annotations";
 import type { AnnotationLayout, AnnotationSafeArea, ArtifactAnnotationDescriptor, ArtifactAnnotationId } from "./annotations/types";
@@ -64,7 +64,11 @@ function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnot
     });
   }, [effectiveDensity, featuredKey]);
   const ids = useMemo(() => descriptors.map(({ id }) => id), [descriptors]);
-  const idsKey = ids.join("|");
+  const idsKey = [...ids].sort().join("|");
+
+  useLayoutEffect(() => {
+    setLaidOutIdsKey((current) => current === idsKey ? current : null);
+  }, [idsKey]);
 
   useEffect(() => {
     previousLayoutsRef.current = [];

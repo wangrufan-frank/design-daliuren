@@ -102,6 +102,66 @@ describe("ArtifactAnnotationLayer", () => {
     allCards.forEach((card) => expect(card).toBeVisible());
   });
 
+  it("keeps positioned cards visible when the featured set is only reordered", () => {
+    const frames = installAnimationFrames();
+    const fixture = sourceFixture(featuredIds.map((id, index) => anchor(id, 260 + index * 180, 160 + index * 120)));
+    const { rerender } = render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} />);
+    frames.step(16);
+
+    const originalCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    const transforms = new Map(originalCards.map((card) => [card.getAttribute("aria-label"), card.style.transform]));
+
+    rerender(
+      <ArtifactAnnotationLayer
+        source={fixture.source}
+        featuredIds={["plate/heaven", "plate/earth", "calendar/slip"]}
+      />,
+    );
+
+    const reorderedCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    expect(reorderedCards.map((card) => card.getAttribute("aria-label"))).toEqual([
+      "天盘：随月将转动，显示天盘加临位置。",
+      "地盘：承载十二支方位，作为加临的基准。",
+      "历书：记载占时与月将的历法依据。",
+    ]);
+    reorderedCards.forEach((card) => {
+      expect(card).toBeVisible();
+      expect(card.style.transform).toBe(transforms.get(card.getAttribute("aria-label")));
+    });
+  });
+
+  it("invalidates readiness after an empty set or a featured-set replacement", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    const fixture = sourceFixture([
+      ...featuredIds.map((id, index) => anchor(id, 260 + index * 180, 160 + index * 120)),
+      anchor("lesson/first", 760, 520),
+    ]);
+    const { rerender } = render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} />);
+    frames.step(16);
+
+    await user.click(screen.getByRole("button", { name: "隐藏" }));
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "本阶段" }));
+    const remountedCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    expect(remountedCards).toHaveLength(featuredIds.length);
+    remountedCards.forEach((card) => expect(card).not.toBeVisible());
+    frames.step(32);
+    remountedCards.forEach((card) => expect(card).toBeVisible());
+
+    rerender(
+      <ArtifactAnnotationLayer
+        source={fixture.source}
+        featuredIds={["calendar/slip", "plate/earth", "lesson/first"]}
+      />,
+    );
+    const replacementCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    expect(replacementCards).toHaveLength(featuredIds.length);
+    replacementCards.forEach((card) => expect(card).not.toBeVisible());
+    frames.step(48);
+    replacementCards.forEach((card) => expect(card).toBeVisible());
+  });
+
   it("updates coordinates and occlusion state through refs without replacing semantic nodes", () => {
     const frames = installAnimationFrames();
     const fixture = sourceFixture([anchor("calendar/slip", 240, 180)]);
