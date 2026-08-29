@@ -4,7 +4,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
-import { formatVoidBranch } from "../model/format-void-branch";
+import { formatVoidBranch, VOID_SURFACE_COLORS, type VoidSurface } from "../model/format-void-branch";
 import type { ArtifactPose } from "../timeline/types";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "../annotations/descriptors";
 import { projectArtifactAnnotations } from "../annotations/project-annotations";
@@ -12,6 +12,7 @@ import type { ArtifactAnnotationId, ProjectedAnchor } from "../annotations/types
 import { disposeArtifact } from "./dispose-artifact";
 import type { LoadedArtifact } from "./load-artifact";
 import {
+  createLabelMaterial,
   LabelTextureCache,
   type LabelDescriptor,
 } from "./dynamic-labels";
@@ -78,26 +79,15 @@ interface LabelBinding {
   texture?: THREE.CanvasTexture;
 }
 
-type CopyKey = keyof ArtifactPose["copy"];
-
-interface CopyBinding {
-  anchorPosition: THREE.Vector3;
-  sourceNodeIds: readonly string[];
-  surface: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
-  sourceLine: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
-  texture?: THREE.CanvasTexture;
-}
-
 export interface ArtifactAppliedState {
   nodes: Readonly<Record<string, Readonly<{
     position: readonly [number, number, number];
     quaternion: readonly [number, number, number, number];
     scale: readonly [number, number, number];
+    visible: boolean;
   }>>>;
-  copy: ArtifactPose["copy"];
-  generalDirection: ArtifactPose["generalDirection"];
-  generalSequence: ArtifactPose["generalSequence"];
-  cameraOrbitRequested: boolean;
+  labelOpacity: Readonly<Record<string, number>>;
+  courseTraceOpacity: number;
 }
 
 const GENERAL_DYNAMIC_IDS = {
@@ -126,22 +116,7 @@ const CAMERA_TWEEN_DURATION_MS = 700;
 
 const LABEL_SIZE = { width: 512, height: 256 } as const;
 const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
-const COPY_LABEL_SIZE = { width: 1024, height: 512 } as const;
 const DAY_NIGHT_TEXT = { day: "昼", night: "夜" } as const;
-const COPY_BINDINGS = {
-  lessons: {
-    anchorId: "anchor/course-copy/lessons",
-    sourceNodeIds: ["lesson/first", "lesson/second", "lesson/third", "lesson/fourth"],
-  },
-  transmissions: {
-    anchorId: "anchor/course-copy/transmissions",
-    sourceNodeIds: ["transmission/initial", "transmission/middle", "transmission/final"],
-  },
-  generals: {
-    anchorId: "anchor/course-copy/generals",
-    sourceNodeIds: GENERAL_SLOT_NODE_IDS,
-  },
-} as const satisfies Record<CopyKey, { anchorId: string; sourceNodeIds: readonly string[] }>;
 
 function defaultDependencies(): ArtifactSceneDependencies {
   return {
@@ -159,26 +134,20 @@ function defaultDependencies(): ArtifactSceneDependencies {
 
 export class ArtifactSceneController {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(38, 1, 0.01, 20);
+  private readonly camera = new THREE.PerspectiveCamera(34, 1, 0.05, 4);
   private readonly controls: ControlsLike;
   private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
   private readonly baseTransforms = new Map<string, BaseTransform>();
   private readonly generalSlots = new Map<EarthlyBranch, BaseTransform>();
   private readonly labelBindings = new Map<string, LabelBinding>();
-  private readonly copyBindings = new Map<CopyKey, CopyBinding>();
+  private readonly branchMeshes = new Map<string, THREE.Mesh>();
+  private readonly branchMaterials = new Map<string, THREE.MeshStandardMaterial>();
+  private readonly branchOriginalMaterials = new Map<string, THREE.MeshStandardMaterial>();
+  private readonly branchNormalColors = new Map<string, THREE.Color>();
+  private readonly courseTraceMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+  private readonly courseTraceMaterial: THREE.MeshStandardMaterial;
+  private readonly courseTraceOriginalMaterial: THREE.MeshStandardMaterial;
   private readonly labels: LabelTextureCache;
-  private readonly copyGeometry = new THREE.PlaneGeometry(0.16, 0.072);
-  private readonly generalDirectionGeometry = new THREE.BufferGeometry();
-  private readonly generalDirectionMaterial = new THREE.LineBasicMaterial({
-    color: 0xb7a36b,
-    transparent: true,
-    opacity: 0.75,
-    depthWrite: false,
-  });
-  private readonly generalDirectionLine = new THREE.Line(
-    this.generalDirectionGeometry,
-    this.generalDirectionMaterial,
-  );
   private readonly initialCameraPosition = new THREE.Vector3(0.62, 0.58, 0.78);
   private readonly initialTarget = new THREE.Vector3(0, 0.05, 0);
   private readonly now: () => number;
@@ -206,22 +175,41 @@ export class ArtifactSceneController {
     private readonly callbacks: ArtifactSceneCallbacks,
     dependencies: ArtifactSceneDependencies = defaultDependencies(),
   ) {
+    const branchEntries: Array<readonly [string, THREE.Mesh, THREE.MeshStandardMaterial]> = [];
+    for (const surface of ["earth", "heaven"] as const) {
+      for (const branch of EARTHLY_BRANCHES) {
+        const id = `branch/${surface}/${branch}`;
+        const mesh = artifact.nodes.get(id);
+        const material = mesh instanceof THREE.Mesh ? mesh.material : undefined;
+        if (!(mesh instanceof THREE.Mesh) || !(material instanceof THREE.MeshStandardMaterial)) {
+          throw new Error(`Invalid branch inlay ${id}`);
+        }
+        branchEntries.push([id, mesh, material]);
+      }
+    }
+    const courseTrace = artifact.nodes.get("trace/course");
+    const courseTraceOriginalMaterial = courseTrace instanceof THREE.Mesh ? courseTrace.material : undefined;
+    if (!(courseTrace instanceof THREE.Mesh)
+      || !(courseTraceOriginalMaterial instanceof THREE.MeshStandardMaterial)) {
+      throw new Error("Invalid course trace trace/course");
+    }
+
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 1.32;
-    this.scene.background = new THREE.Color(0xdce5df);
+    renderer.toneMappingExposure = 1.18;
+    this.scene.background = new THREE.Color(0xe4e6df);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
-    this.scene.environmentIntensity = 1.25;
+    this.scene.environmentIntensity = 1.05;
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 
-    const keyLight = new THREE.DirectionalLight(0xf2eee4, 1.55);
+    const keyLight = new THREE.DirectionalLight(0xf2eee4, 1.75);
     keyLight.position.set(-0.65, 0.95, 0.7);
-    const fillLight = new THREE.HemisphereLight(0xc8d9d2, 0x52605b, 1.05);
-    const sideFill = new THREE.DirectionalLight(0xb8d0c7, 0.72);
+    const fillLight = new THREE.HemisphereLight(0xc8d9d2, 0x52605b, 1.28);
+    const sideFill = new THREE.DirectionalLight(0xb8d0c7, 0.82);
     sideFill.position.set(0.75, 0.5, 0.35);
-    const rimLight = new THREE.DirectionalLight(0xd8ddd5, 0.58);
+    const rimLight = new THREE.DirectionalLight(0xd8ddd5, 0.42);
     rimLight.position.set(-0.5, 0.8, -0.7);
     this.scene.add(keyLight, fillLight, sideFill, rimLight);
 
@@ -245,6 +233,21 @@ export class ArtifactSceneController {
         scale: object.scale.clone(),
       });
     }
+    for (const [id, mesh, originalMaterial] of branchEntries) {
+      const material = originalMaterial.clone();
+      mesh.material = material;
+      this.branchMeshes.set(id, mesh);
+      this.branchMaterials.set(id, material);
+      this.branchOriginalMaterials.set(id, originalMaterial);
+      this.branchNormalColors.set(id, originalMaterial.color.clone());
+    }
+    this.courseTraceMesh = courseTrace as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+    this.courseTraceOriginalMaterial = courseTraceOriginalMaterial;
+    this.courseTraceMaterial = courseTraceOriginalMaterial.clone();
+    this.courseTraceMaterial.transparent = true;
+    this.courseTraceMaterial.opacity = 0;
+    this.courseTraceMaterial.depthWrite = true;
+    this.courseTraceMesh.material = this.courseTraceMaterial;
     EARTHLY_BRANCHES.forEach((earth, index) => {
       const transform = this.baseTransforms.get(GENERAL_SLOT_NODE_IDS[index]);
       if (transform) this.generalSlots.set(earth, transform);
@@ -255,43 +258,10 @@ export class ArtifactSceneController {
       const dynamicId = object.userData.dynamic_label_id;
       if (!(object instanceof THREE.Mesh) || typeof dynamicId !== "string") return;
       const originalMaterial = object.material;
-      const material = new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false });
+      const material = createLabelMaterial();
       object.material = material;
       this.labelBindings.set(dynamicId, { mesh: object, originalMaterial, material });
     });
-    artifact.root.updateMatrixWorld(true);
-    for (const [key, definition] of Object.entries(COPY_BINDINGS) as [CopyKey, typeof COPY_BINDINGS[CopyKey]][]) {
-      const anchor = artifact.nodes.get(definition.anchorId);
-      if (!anchor) continue;
-      const material = new THREE.MeshBasicMaterial({
-        transparent: true,
-        opacity: 0,
-        toneMapped: false,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-      const surface = new THREE.Mesh(this.copyGeometry, material);
-      surface.name = `artifact-copy-${key}`;
-      surface.rotation.x = -Math.PI / 2;
-      surface.visible = false;
-      anchor.add(surface);
-      const sourceLine = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
-        new THREE.LineBasicMaterial({ color: 0x879b92, transparent: true, opacity: 0, depthWrite: false }),
-      );
-      sourceLine.name = `artifact-source-line-${key}`;
-      sourceLine.visible = false;
-      this.scene.add(sourceLine);
-      this.copyBindings.set(key, {
-        anchorPosition: anchor.getWorldPosition(new THREE.Vector3()).clone(),
-        sourceNodeIds: definition.sourceNodeIds,
-        surface,
-        sourceLine,
-      });
-    }
-    this.generalDirectionLine.name = "artifact-general-direction";
-    this.generalDirectionLine.visible = false;
-    this.scene.add(this.generalDirectionLine);
   }
 
   resize(width: number, height: number, dpr: number): void {
@@ -350,7 +320,21 @@ export class ArtifactSceneController {
   setDisplayState(state: ArtifactDisplayState): void {
     if (this.disposed) return;
     try {
-      const markVoid = (branch: string) => formatVoidBranch(branch, state.calendar.voidBranches);
+      for (const surface of ["earth", "heaven"] as const) {
+        for (const branch of EARTHLY_BRANCHES) {
+          const id = `branch/${surface}/${branch}`;
+          const material = this.branchMaterials.get(id)!;
+          material.color.copy(this.branchNormalColors.get(id)!);
+          if (state.calendar.voidBranches.includes(branch)) {
+            material.color.set(VOID_SURFACE_COLORS[surface]);
+          }
+        }
+      }
+      const markVoid = (branch: string, surface: VoidSurface = "neutral") => formatVoidBranch(
+        branch,
+        state.calendar.voidBranches,
+        surface,
+      );
       const calendarMarker = state.calendar.manualFields.length > 0 ? "manual" : undefined;
       this.bindLabel("dynamic/calendar", {
         text: `${state.calendar.pillars.join("　")}\n月建${state.calendar.monthBuild}　月将${state.calendar.monthGeneral}${state.calendar.monthGeneralBranch}　占时${state.calendar.divinationHour}　旬空${state.calendar.voidBranches.join("")}　${DAY_NIGHT_TEXT[state.noble.dayNight]}贵${state.noble.nobleHeaven}`,
@@ -360,7 +344,7 @@ export class ArtifactSceneController {
       });
       for (const lesson of state.lessons) {
         this.bindLabel(`dynamic/lesson/${lesson.id}`, {
-          text: `${lesson.label}\n${lesson.general}　${markVoid(lesson.upper)}/${markVoid(lesson.lower.value)}　查地盘${lesson.lookupEarth}`,
+          text: `${lesson.label}\n${lesson.general}　${markVoid(lesson.upper, "heaven")}/${markVoid(lesson.lower.value, "earth")}　查地盘${lesson.lookupEarth}`,
           style: "ash",
           ...LABEL_SIZE,
         });
@@ -380,28 +364,12 @@ export class ArtifactSceneController {
       });
       for (const placement of state.generals) {
         this.bindLabel(GENERAL_DYNAMIC_IDS[placement.general], {
-          text: `${placement.general}\n${markVoid(placement.heaven)}/${markVoid(placement.earth)}`,
+          text: `${placement.general}\n${markVoid(placement.heaven, "heaven")}/${markVoid(placement.earth, "earth")}`,
           style: placement.general === "贵人" ? "old-gold" : "ash",
           ...LABEL_SIZE,
           marker: placement.general === "贵人" ? "noble" : undefined,
         });
       }
-      this.bindCopyLabel("lessons", {
-        text: state.lessons.map((lesson) => `${lesson.label} ${markVoid(lesson.upper)}/${markVoid(lesson.lower.value)} 查${lesson.lookupEarth}`).join("　"),
-        style: "ash",
-        ...COPY_LABEL_SIZE,
-      });
-      this.bindCopyLabel("transmissions", {
-        text: state.transmissions.map((item) => `${item.label} ${markVoid(item.branch)} ${item.relation}`).join("　"),
-        style: "celadon",
-        ...COPY_LABEL_SIZE,
-      });
-      this.bindCopyLabel("generals", {
-        text: state.generals.map((item) => `${item.general}${markVoid(item.earth)}`).join("　"),
-        style: "old-gold",
-        ...COPY_LABEL_SIZE,
-        marker: state.noble.direction === "forward" ? "direction-forward" : "direction-reverse",
-      });
     } catch (error) {
       this.callbacks.onError(error);
     }
@@ -425,15 +393,34 @@ export class ArtifactSceneController {
         object.position.y = targetSlot.position.y;
         object.quaternion.copy(targetSlot.quaternion);
       }
-      object.position.add(new THREE.Vector3(delta.translationX, delta.translationY, delta.translationZ));
+      object.position.x += delta.translationX;
+      object.position.y += delta.translationY;
+      object.position.z += delta.translationZ;
       object.rotateX(delta.rotationX);
       object.rotateY(delta.rotationY);
       object.rotateZ(delta.rotationZ);
+      if (delta.visible !== undefined) object.visible = delta.visible;
     }
-    for (const key of Object.keys(COPY_BINDINGS) as CopyKey[]) this.applyCopyPose(key, pose.copy[key]);
-    this.applyGeneralDirection(pose);
-    this.controls.autoRotate = pose.cameraOrbitRequested;
+    for (const [dynamicId, binding] of this.labelBindings) {
+      binding.material.opacity = pose.labelOpacity[dynamicId] ?? 1;
+    }
+    this.courseTraceMaterial.opacity = pose.courseTraceOpacity;
     return this.captureAppliedState(pose);
+  }
+
+  measureMinimumBranchProjectionPx(): number {
+    if (this.disposed) return 0;
+    this.artifact.root.updateMatrixWorld(true);
+    this.camera.updateMatrixWorld(true);
+    let minimum = Infinity;
+    for (const mesh of this.branchMeshes.values()) {
+      const box = new THREE.Box3().setFromObject(mesh);
+      const center = box.getCenter(new THREE.Vector3());
+      const top = new THREE.Vector3(center.x, center.y, box.max.z).project(this.camera);
+      const bottom = new THREE.Vector3(center.x, center.y, box.min.z).project(this.camera);
+      minimum = Math.min(minimum, Math.abs(top.y - bottom.y) * this.annotationViewport.height / 2);
+    }
+    return Number.isFinite(minimum) ? minimum : 0;
   }
 
   focusNode(nodeId: string): void {
@@ -526,19 +513,12 @@ export class ArtifactSceneController {
       binding.material.dispose();
       binding.mesh.material = binding.originalMaterial;
     }
-    for (const binding of this.copyBindings.values()) {
-      if (binding.texture) this.labels.release(binding.texture);
-      binding.surface.removeFromParent();
-      binding.sourceLine.removeFromParent();
-      binding.surface.material.map = null;
-      binding.surface.material.dispose();
-      binding.sourceLine.geometry.dispose();
-      binding.sourceLine.material.dispose();
+    for (const [id, mesh] of this.branchMeshes) {
+      mesh.material = this.branchOriginalMaterials.get(id)!;
+      this.branchMaterials.get(id)!.dispose();
     }
-    this.copyGeometry.dispose();
-    this.generalDirectionLine.removeFromParent();
-    this.generalDirectionGeometry.dispose();
-    this.generalDirectionMaterial.dispose();
+    this.courseTraceMesh.material = this.courseTraceOriginalMaterial;
+    this.courseTraceMaterial.dispose();
     this.labels.dispose();
     this.scene.environment = null;
     this.environment.dispose();
@@ -557,63 +537,6 @@ export class ArtifactSceneController {
     if (previous) this.labels.release(previous);
   }
 
-  private bindCopyLabel(key: CopyKey, descriptor: LabelDescriptor): void {
-    const binding = this.copyBindings.get(key);
-    if (!binding) return;
-    const texture = this.labels.acquire(descriptor);
-    const previous = binding.texture;
-    binding.texture = texture;
-    binding.surface.material.map = texture;
-    binding.surface.material.needsUpdate = true;
-    if (previous) this.labels.release(previous);
-  }
-
-  private applyCopyPose(key: CopyKey, pose: ArtifactPose["copy"][CopyKey]): void {
-    const binding = this.copyBindings.get(key);
-    if (!binding) return;
-    binding.surface.material.opacity = pose.opacity;
-    binding.surface.visible = pose.opacity > 0;
-    const source = this.sourceCenter(binding.sourceNodeIds);
-    const endpoint = source.clone().lerp(binding.anchorPosition, pose.sourceLineProgress);
-    const positions = binding.sourceLine.geometry.getAttribute("position") as THREE.BufferAttribute;
-    positions.setXYZ(0, source.x, source.y, source.z);
-    positions.setXYZ(1, endpoint.x, endpoint.y, endpoint.z);
-    positions.needsUpdate = true;
-    binding.sourceLine.material.opacity = pose.sourceLineOpacity;
-    binding.sourceLine.visible = pose.sourceLineOpacity > 0 && pose.sourceLineProgress > 0;
-  }
-
-  private sourceCenter(nodeIds: readonly string[]): THREE.Vector3 {
-    const center = new THREE.Vector3();
-    let count = 0;
-    this.artifact.root.updateMatrixWorld(true);
-    for (const nodeId of nodeIds) {
-      const object = this.artifact.nodes.get(nodeId);
-      if (!object) continue;
-      center.add(object.getWorldPosition(new THREE.Vector3()));
-      count += 1;
-    }
-    return count > 0 ? center.multiplyScalar(1 / count) : center;
-  }
-
-  private applyGeneralDirection(pose: ArtifactPose): void {
-    this.artifact.root.updateMatrixWorld(true);
-    const points = pose.generalSequence.flatMap((nodeId) => {
-      const object = this.artifact.nodes.get(nodeId);
-      return object ? [object.getWorldPosition(new THREE.Vector3())] : [];
-    });
-    const deployedCount = pose.generalSequence.filter(
-      (nodeId) => Math.abs(pose.nodes[nodeId]?.translationZ ?? 0) > Number.EPSILON,
-    ).length;
-    this.generalDirectionGeometry.setFromPoints(points);
-    this.generalDirectionLine.visible = points.length > 1
-      && deployedCount > 0
-      && deployedCount < pose.generalSequence.length;
-    this.generalDirectionLine.userData.sequence = [...pose.generalSequence];
-    this.generalDirectionLine.userData.direction = pose.generalDirection;
-    this.generalDirectionMaterial.color.setHex(pose.generalDirection === "forward" ? 0x879b92 : 0xb7a36b);
-  }
-
   private captureAppliedState(pose: ArtifactPose): ArtifactAppliedState {
     const nodes: Record<string, ArtifactAppliedState["nodes"][string]> = {};
     for (const id of Object.keys(pose.nodes)) {
@@ -623,27 +546,16 @@ export class ArtifactSceneController {
         position: object.position.toArray() as [number, number, number],
         quaternion: object.quaternion.toArray() as [number, number, number, number],
         scale: object.scale.toArray() as [number, number, number],
+        visible: object.visible,
       };
     }
-    const copy = Object.fromEntries((Object.keys(COPY_BINDINGS) as CopyKey[]).map((key) => {
-      const binding = this.copyBindings.get(key);
-      if (!binding) return [key, { opacity: 0, sourceLineProgress: 0, sourceLineOpacity: 0 }];
-      const positions = binding.sourceLine.geometry.getAttribute("position") as THREE.BufferAttribute;
-      const source = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
-      const endpoint = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
-      const fullDistance = source.distanceTo(binding.anchorPosition);
-      return [key, {
-        opacity: binding.surface.material.opacity,
-        sourceLineProgress: fullDistance > 0 ? source.distanceTo(endpoint) / fullDistance : 0,
-        sourceLineOpacity: binding.sourceLine.material.opacity,
-      }];
-    })) as unknown as ArtifactPose["copy"];
+    const labelOpacity = Object.fromEntries(
+      [...this.labelBindings].map(([dynamicId, binding]) => [dynamicId, binding.material.opacity]),
+    );
     return {
       nodes,
-      copy,
-      generalDirection: this.generalDirectionLine.userData.direction ?? pose.generalDirection,
-      generalSequence: Object.freeze([...(this.generalDirectionLine.userData.sequence ?? pose.generalSequence)]),
-      cameraOrbitRequested: this.controls.autoRotate,
+      labelOpacity,
+      courseTraceOpacity: this.courseTraceMaterial.opacity,
     };
   }
 }

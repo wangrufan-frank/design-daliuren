@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
 import type { ArtifactPose } from "../timeline/types";
@@ -41,7 +42,10 @@ function node(id: string) {
   return object;
 }
 
-function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
+function fixture(
+  dynamicIds: readonly string[] = ["dynamic/calendar"],
+  options: { invalidBranchMaterialId?: string } = {},
+) {
   let nowMs = 0;
   const canvas = document.createElement("canvas");
   const root = new THREE.Group();
@@ -80,20 +84,39 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
     root.add(transmission);
     return transmission;
   });
-  const copyAnchors = ["lessons", "transmissions", "generals"].map((id, index) => {
-    const anchor = node(`anchor/course-copy/${id}`);
-    anchor.position.set(-0.2 + index * 0.2, 0.2, -0.28);
-    root.add(anchor);
-    return anchor;
-  });
+  const branchGeometry = new THREE.BoxGeometry(0.012, 0.012, 0.04);
+  const earthBranchMaterial = new THREE.MeshStandardMaterial({ color: 0x80704c });
+  const heavenBranchMaterial = new THREE.MeshStandardMaterial({ color: 0xc2c6bb });
+  const branchNodes = new Map<string, THREE.Mesh>();
+  for (const [surfaceIndex, surface] of (["earth", "heaven"] as const).entries()) {
+    EARTHLY_BRANCHES.forEach((branch, index) => {
+      const id = `branch/${surface}/${branch}`;
+      const branchNode = new THREE.Mesh(
+        branchGeometry,
+        options.invalidBranchMaterialId === id
+          ? new THREE.MeshBasicMaterial()
+          : surface === "earth" ? earthBranchMaterial : heavenBranchMaterial,
+      );
+      branchNode.userData.node_id = id;
+      branchNode.position.set((index - 5.5) * 0.018, (surfaceIndex - 0.5) * 0.08, 0);
+      root.add(branchNode);
+      branchNodes.set(id, branchNode);
+    });
+  }
+  const traceGeometry = new THREE.BoxGeometry(0.16, 0.004, 0.002);
+  const traceMaterial = new THREE.MeshStandardMaterial({ color: 0x879b92 });
+  const trace = new THREE.Mesh(traceGeometry, traceMaterial);
+  trace.userData.node_id = "trace/course";
+  root.add(trace);
   const artifact: LoadedArtifact = {
     root,
-    nodes: new Map([
+    nodes: new Map<string, THREE.Object3D>([
       ["calendar/slip", movingNode],
       ...generalNodeIds.map((id, index) => [id, generalNodes[index]] as const),
       ...lessonNodes.map((lesson, index) => [`lesson/${["first", "second", "third", "fourth"][index]}`, lesson] as const),
       ...transmissionNodes.map((transmission, index) => [`transmission/${["initial", "middle", "final"][index]}`, transmission] as const),
-      ...copyAnchors.map((anchor, index) => [`anchor/course-copy/${["lessons", "transmissions", "generals"][index]}`, anchor] as const),
+      ...branchNodes,
+      ["trace/course", trace] as const,
     ]),
     animations: [],
     url: "/artifact.glb",
@@ -124,8 +147,10 @@ function fixture(dynamicIds: readonly string[] = ["dynamic/calendar"]) {
   });
   return {
     artifact, callbacks, canvas, controller, controls, geometry,
+    branchGeometry, branchNodes, earthBranchMaterial, heavenBranchMaterial,
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
     environmentDispose, environmentTexture, generalNodes, material, movingNode, renderer,
+    trace, traceGeometry, traceMaterial,
     setNow: (value: number) => { nowMs = value; },
   };
 }
@@ -142,14 +167,10 @@ function pose(translationX: number, rotationZ: number): ArtifactPose {
         rotationZ,
       },
     },
-    copy: {
-      lessons: { opacity: 0, sourceLineProgress: 0, sourceLineOpacity: 0 },
-      transmissions: { opacity: 0, sourceLineProgress: 0, sourceLineOpacity: 0 },
-      generals: { opacity: 0, sourceLineProgress: 0, sourceLineOpacity: 0 },
-    },
+    labelOpacity: {},
+    courseTraceOpacity: 0,
     generalDirection: "forward",
     generalSequence: [],
-    cameraOrbitRequested: false,
   };
 }
 
@@ -226,24 +247,77 @@ describe("ArtifactSceneController", () => {
     controller.render();
 
     expect(renderer.toneMapping).toBe(THREE.AgXToneMapping);
-    expect(renderer.toneMappingExposure).toBe(1.32);
+    expect(renderer.toneMappingExposure).toBe(1.18);
     expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(2);
     expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
     const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
-    expect(scene.background).toEqual(new THREE.Color(0xdce5df));
+    expect(scene.background).toEqual(new THREE.Color(0xe4e6df));
     expect(scene.environment).toBe(environmentTexture);
-    expect(scene.environmentIntensity).toBe(1.25);
+    expect(scene.environmentIntensity).toBe(1.05);
     expect(controls.minPolarAngle).toBeCloseTo(Math.PI / 9);
     expect(controls.maxPolarAngle).toBeCloseTo(5 * Math.PI / 12);
     expect(controls.minAzimuthAngle).toBe(-Infinity);
     expect(controls.maxAzimuthAngle).toBe(Infinity);
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
     expect(lights).toHaveLength(4);
-    expect(lights.map((light) => light.intensity)).toEqual([1.55, 1.05, 0.72, 0.58]);
+    expect(lights.map((light) => light.intensity)).toEqual([1.75, 1.28, 0.82, 0.42]);
     expect(lights[0].color).toEqual(new THREE.Color(0xf2eee4));
     expect(lights[1]).toBeInstanceOf(THREE.HemisphereLight);
     expect(lights[2]).toBeInstanceOf(THREE.DirectionalLight);
+    const camera = vi.mocked(renderer.render).mock.calls[0][1] as THREE.PerspectiveCamera;
+    expect(camera).toMatchObject({ fov: 34, near: 0.05, far: 4 });
+    expect(controls.autoRotate).toBe(false);
+  });
+
+  it("owns one cloned standard material per branch and resets plate-aware void colors", () => {
+    const {
+      artifact, branchNodes, controller, earthBranchMaterial, heavenBranchMaterial,
+    } = fixture();
+    const ownedMaterials = [...branchNodes.values()].map((mesh) => mesh.material);
+
+    expect(new Set(ownedMaterials).size).toBe(24);
+    expect(ownedMaterials).not.toContain(earthBranchMaterial);
+    expect(ownedMaterials).not.toContain(heavenBranchMaterial);
+    controller.setDisplayState({
+      ...completeDisplayState,
+      calendar: { ...completeDisplayState.calendar, voidBranches: ["子", "丑"] },
+    });
+
+    expect(((artifact.nodes.get("branch/earth/子") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
+      .toBe("8a563b");
+    expect(((artifact.nodes.get("branch/heaven/子") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
+      .toBe("477b9d");
+    expect(((artifact.nodes.get("branch/earth/寅") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
+      .toBe("80704c");
+    expect(earthBranchMaterial.color.getHexString()).toBe("80704c");
+    expect(heavenBranchMaterial.color.getHexString()).toBe("c2c6bb");
+
+    controller.setDisplayState({
+      ...completeDisplayState,
+      calendar: { ...completeDisplayState.calendar, voidBranches: ["辰", "巳"] },
+    });
+    expect((artifact.nodes.get("branch/earth/子") as THREE.Mesh).material).toBe(ownedMaterials[0]);
+    expect(((artifact.nodes.get("branch/earth/子") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
+      .toBe("80704c");
+  });
+
+  it("rejects a branch inlay that is not backed by a standard material", () => {
+    expect(() => fixture(["dynamic/calendar"], { invalidBranchMaterialId: "branch/heaven/亥" }))
+      .toThrow("Invalid branch inlay branch/heaven/亥");
+  });
+
+  it("measures branch height along world Z deterministically after resize and an immediate preset", () => {
+    const { controller } = fixture();
+    controller.resize(800, 600, 1);
+    controller.applyCameraPreset({ position: [0, -1, 0.2], target: [0, 0, 0] }, true);
+
+    const first = controller.measureMinimumBranchProjectionPx();
+    expect(first).toBeGreaterThan(18);
+    expect(controller.measureMinimumBranchProjectionPx()).toBe(first);
+
+    controller.resize(800, 300, 1);
+    expect(controller.measureMinimumBranchProjectionPx()).toBeCloseTo(first / 2);
   });
 
   it("applies every pose against frozen loaded transforms", () => {
@@ -356,74 +430,43 @@ describe("ArtifactSceneController", () => {
     expect(renderer.render).toHaveBeenCalledOnce();
   });
 
-  it("applies copy opacity and source-line progress to owned scene objects", () => {
-    const { controller, renderer } = fixture(allDynamicIds);
-    controller.setDisplayState(completeDisplayState);
+  it("applies physical visibility, dynamic-label opacity, and the owned course trace", () => {
+    const { controller, controls, labelSurface, movingNode, renderer, trace, traceMaterial } = fixture(allDynamicIds);
     const nextPose = pose(0, 0);
-    nextPose.copy = {
-      lessons: { opacity: 0.65, sourceLineProgress: 0.4, sourceLineOpacity: 0.25 },
-      transmissions: { opacity: 0.5, sourceLineProgress: 0.3, sourceLineOpacity: 0.2 },
-      generals: { opacity: 0.75, sourceLineProgress: 0.6, sourceLineOpacity: 0.35 },
-    };
-
-    const applied = controller.applyPose(nextPose);
-    controller.render();
-
-    const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
-    const copy = scene.getObjectByName("artifact-copy-lessons") as THREE.Mesh;
-    const sourceLine = scene.getObjectByName("artifact-source-line-lessons") as THREE.Line;
-    expect((copy.material as THREE.MeshBasicMaterial).opacity).toBeCloseTo(0.65);
-    expect((sourceLine.material as THREE.LineBasicMaterial).opacity).toBeCloseTo(0.25);
-    expect(sourceLine.geometry.getAttribute("position").getX(1)).not.toBe(
-      sourceLine.geometry.getAttribute("position").getX(0),
-    );
-    expect(applied.copy.lessons.opacity).toBeCloseTo(0.65);
-    expect(applied.copy.lessons.sourceLineProgress).toBeCloseTo(0.4);
-    expect(applied.copy.lessons.sourceLineOpacity).toBeCloseTo(0.25);
-  });
-
-  it("applies general ordering, direction, and automatic-camera intent to the scene", () => {
-    const { controller, controls, renderer } = fixture();
-    const nextPose = pose(0, 0);
-    nextPose.generalSequence = ["general/noble", "general/snake", "general/vermilion-bird"];
-    nextPose.generalDirection = "reverse";
-    nextPose.cameraOrbitRequested = true;
     nextPose.nodes = {
-      "general/noble": { translationX: 0, translationY: 0, translationZ: 0.007, rotationX: 0, rotationY: 0, rotationZ: 0 },
-      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
-      "general/vermilion-bird": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
+      "calendar/slip": {
+        translationX: 0, translationY: 0, translationZ: 0,
+        rotationX: 0, rotationY: 0, rotationZ: 0,
+        visible: false,
+      },
     };
+    nextPose.labelOpacity = { "dynamic/calendar": 0.35 };
+    nextPose.courseTraceOpacity = 0.6;
 
     const applied = controller.applyPose(nextPose);
     controller.render();
 
     const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
-    const direction = scene.getObjectByName("artifact-general-direction") as THREE.Line;
-    expect(direction.userData.sequence).toEqual(nextPose.generalSequence);
-    expect(direction.userData.direction).toBe("reverse");
-    expect(direction.visible).toBe(true);
-    expect(controls.autoRotate).toBe(true);
+    expect(movingNode.visible).toBe(false);
+    expect((labelSurface.material as THREE.MeshBasicMaterial).opacity).toBe(0.35);
+    expect(trace.material).not.toBe(traceMaterial);
+    expect(trace.material).toMatchObject({ transparent: true, depthWrite: true, opacity: 0.6 });
+    expect(controls.autoRotate).toBe(false);
+    expect(scene.getObjectByName("artifact-general-direction")).toBeUndefined();
+    expect(scene.children.some((object) => object.name.startsWith("artifact-copy-"))).toBe(false);
+    expect(scene.children.some((object) => object.name.startsWith("artifact-source-line-"))).toBe(false);
     expect(applied).toMatchObject({
-      generalDirection: "reverse",
-      generalSequence: nextPose.generalSequence,
-      cameraOrbitRequested: true,
+      nodes: { "calendar/slip": { visible: false } },
+      labelOpacity: { "dynamic/calendar": 0.35 },
+      courseTraceOpacity: 0.6,
     });
-  });
 
-  it("hides the general-direction path before deployment begins", () => {
-    const { controller, renderer } = fixture();
-    const nextPose = pose(0, 0);
-    nextPose.generalSequence = ["general/noble", "general/snake"];
-    nextPose.nodes = {
-      "general/noble": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
-      "general/snake": { translationX: 0, translationY: 0, translationZ: 0, rotationX: 0, rotationY: 0, rotationZ: 0 },
-    };
-
-    controller.applyPose(nextPose);
-    controller.render();
-
-    const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
-    expect(scene.getObjectByName("artifact-general-direction")).toHaveProperty("visible", false);
+    const resetPose = pose(0, 0);
+    resetPose.nodes["calendar/slip"].visible = true;
+    controller.applyPose(resetPose);
+    expect(movingNode.visible).toBe(true);
+    expect((labelSurface.material as THREE.MeshBasicMaterial).opacity).toBe(1);
+    expect((trace.material as THREE.MeshStandardMaterial).opacity).toBe(0);
   });
 
   it("selects general destination palaces from frozen slots without pose history", () => {
@@ -471,6 +514,7 @@ describe("ArtifactSceneController", () => {
     for (const surface of labelSurfaces.values()) {
       const texture = (surface.material as unknown as THREE.MeshBasicMaterial).map;
       expect(texture?.anisotropy).toBe(12);
+      expect(surface.children).toHaveLength(0);
     }
     expect(canvasContext.fillText).toHaveBeenCalledWith("✎", expect.any(Number), expect.any(Number));
     expect(canvasContext.fillText).toHaveBeenCalledWith("◆", expect.any(Number), expect.any(Number));
@@ -481,17 +525,12 @@ describe("ArtifactSceneController", () => {
       expect.any(Number),
     );
     expect(canvasContext.fillText).toHaveBeenCalledWith(
-      "贵人　寅（空）/卯（空）　查地盘子",
+      "贵人　寅（天盘空）/卯（地盘空）　查地盘子",
       expect.any(Number),
       expect.any(Number),
     );
     expect(canvasContext.fillText).toHaveBeenCalledWith(
-      "寅（空）/卯（空）",
-      expect.any(Number),
-      expect.any(Number),
-    );
-    expect(canvasContext.fillText).toHaveBeenCalledWith(
-      expect.stringContaining("贵人卯（空）"),
+      "寅（天盘空）/卯（地盘空）",
       expect.any(Number),
       expect.any(Number),
     );
@@ -564,16 +603,19 @@ describe("ArtifactSceneController", () => {
   });
 
   it("removes listeners and disposes every owned resource exactly once", () => {
-    const { callbacks, canvas, controller, controls, environmentDispose, geometry, material, renderer } = fixture();
+    const {
+      branchNodes, callbacks, canvas, controller, controls, environmentDispose,
+      geometry, material, renderer, trace, traceMaterial,
+    } = fixture();
     const geometryDispose = vi.spyOn(geometry, "dispose");
     const materialDispose = vi.spyOn(material, "dispose");
+    const ownedBranchMaterial = (branchNodes.get("branch/earth/子")!.material as THREE.MeshStandardMaterial);
+    const ownedBranchMaterialDispose = vi.spyOn(ownedBranchMaterial, "dispose");
+    const ownedTraceMaterial = trace.material as THREE.MeshStandardMaterial;
+    const ownedTraceMaterialDispose = vi.spyOn(ownedTraceMaterial, "dispose");
+    const originalTraceMaterialDispose = vi.spyOn(traceMaterial, "dispose");
 
     controller.setDisplayState(displayState);
-    controller.render();
-    const scene = vi.mocked(renderer.render).mock.calls.at(-1)![0] as THREE.Scene;
-    const copy = scene.getObjectByName("artifact-copy-lessons") as THREE.Mesh;
-    const copyGeometryDispose = vi.spyOn(copy.geometry, "dispose");
-    const copyMaterialDispose = vi.spyOn(copy.material as THREE.Material, "dispose");
     controller.dispose();
     controller.dispose();
     canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
@@ -583,8 +625,9 @@ describe("ArtifactSceneController", () => {
     expect(renderer.dispose).toHaveBeenCalledOnce();
     expect(geometryDispose).toHaveBeenCalledOnce();
     expect(materialDispose).toHaveBeenCalledOnce();
-    expect(copyGeometryDispose).toHaveBeenCalledOnce();
-    expect(copyMaterialDispose).toHaveBeenCalledOnce();
+    expect(ownedBranchMaterialDispose).toHaveBeenCalledOnce();
+    expect(ownedTraceMaterialDispose).toHaveBeenCalledOnce();
+    expect(originalTraceMaterialDispose).toHaveBeenCalledOnce();
     expect(callbacks.onContextLost).not.toHaveBeenCalled();
   });
 });

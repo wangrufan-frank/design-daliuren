@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LABEL_COLORS,
   LabelTextureCache,
+  createLabelMaterial,
   createLabelTexture,
 } from "./dynamic-labels";
 
@@ -34,6 +35,22 @@ afterEach(() => {
 });
 
 describe("dynamic artifact labels", () => {
+  it("creates one depth-stable untone-mapped material per physical readout", () => {
+    const first = createLabelMaterial();
+    const second = createLabelMaterial();
+
+    expect(first).not.toBe(second);
+    expect(first).toMatchObject({
+      transparent: true,
+      toneMapped: false,
+      depthWrite: true,
+      depthTest: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    });
+  });
+
   it("renders Chinese labels at stable high-resolution canvas dimensions", () => {
     const texture = createLabelTexture("贵人", {
       width: 512,

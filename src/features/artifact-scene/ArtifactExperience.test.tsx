@@ -21,6 +21,7 @@ interface ControllerDouble {
   setDisplayState: any;
   applyPose: any;
   applyCameraPreset: any;
+  measureMinimumBranchProjectionPx: any;
   captureAnnotationFrame: any;
   focusNode: any;
   resetCamera: any;
@@ -34,15 +35,10 @@ function appliedStateFromPose(pose: ArtifactPose) {
       position: [value.translationX, value.translationY, value.translationZ],
       quaternion: [0, 0, 0, 1],
       scale: [1, 1, 1],
+      visible: value.visible ?? true,
     }])),
-    copy: {
-      lessons: { ...pose.copy.lessons },
-      transmissions: { ...pose.copy.transmissions },
-      generals: { ...pose.copy.generals },
-    },
-    generalDirection: pose.generalDirection,
-    generalSequence: [...pose.generalSequence],
-    cameraOrbitRequested: pose.cameraOrbitRequested,
+    labelOpacity: { ...pose.labelOpacity },
+    courseTraceOpacity: pose.courseTraceOpacity,
   };
 }
 
@@ -86,6 +82,7 @@ beforeAll(async () => {
       setDisplayState = vi.fn();
       applyPose = vi.fn((pose: ArtifactPose) => appliedStateFromPose(pose));
       applyCameraPreset = vi.fn();
+      measureMinimumBranchProjectionPx = vi.fn(() => 21.6);
       captureAnnotationFrame = vi.fn((ids: readonly string[]) => ({
         viewport: { width: 800, height: 560 },
         anchors: ids.map((id, index) => ({
@@ -237,7 +234,7 @@ describe("ArtifactExperience", () => {
     await act(async () => resolveLoad(resolvedArtifact()));
 
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "12500");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "27000");
     await user.click(screen.getByRole("button", { name: "查看文字课式" }));
     expect(onShowCourse).toHaveBeenCalledOnce();
   });
@@ -439,7 +436,7 @@ describe("ArtifactExperience", () => {
     expect(latestController().setDisplayState).toHaveBeenCalledTimes(2);
     expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({
       nodes: expect.objectContaining({
-        "calendar/slip": expect.objectContaining({ translationZ: 0 }),
+        "calendar/slip": expect.objectContaining({ translationZ: 0.018, visible: true }),
       }),
     }));
   });
@@ -455,12 +452,11 @@ describe("ArtifactExperience", () => {
 
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-auto-camera", "false");
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "disabled");
-    expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({ cameraOrbitRequested: false }));
     frames.step(100);
     frames.step(250);
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("150");
     expect(screen.getByRole("button", { name: "暂停推演" })).toBeVisible();
-    expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({ cameraOrbitRequested: false }));
+    expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.not.objectContaining({ cameraOrbitRequested: expect.anything() }));
   });
 
   it("replays a selected stage through recap and separation after camera drag", async () => {
@@ -480,18 +476,17 @@ describe("ArtifactExperience", () => {
     );
     frames.step(100);
     frames.step(800);
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("3200");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("8700");
 
     act(() => latestController().callbacks.onUserControlStart());
-    frames.step(1_700);
+    frames.step(6_000);
 
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("5400");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("13000");
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
     expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({
-      cameraOrbitRequested: false,
       nodes: expect.objectContaining({
-        "lesson/first": expect.objectContaining({ translationX: -0.045 }),
-        "lesson/fourth": expect.objectContaining({ translationX: 0.045 }),
+        "lesson/first": expect.objectContaining({ visible: true }),
+        "lesson/fourth": expect.objectContaining({ visible: true }),
       }),
     }));
   });
@@ -504,9 +499,9 @@ describe("ArtifactExperience", () => {
 
     await user.click(screen.getByRole("button", { name: "播放推演" }));
     frames.step(100);
-    frames.step(12_700);
+    frames.step(27_200);
 
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("12500");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("27000");
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
   });
 
@@ -530,7 +525,7 @@ describe("ArtifactExperience", () => {
 
     await screen.findByRole("slider", { name: "推演时间轴" });
 
-    expect(latestController().applyPose).toHaveBeenCalledWith(expect.objectContaining({ cameraOrbitRequested: false }));
+    expect(latestController().applyPose).toHaveBeenCalledWith(expect.not.objectContaining({ cameraOrbitRequested: expect.anything() }));
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-auto-camera", "false");
     expect(screen.getByTestId("artifact-accessible-facts")).toHaveTextContent("初传");
     expect(screen.getByTestId("artifact-accessible-facts")).toHaveTextContent("贵人");
@@ -603,10 +598,31 @@ describe("ArtifactExperience", () => {
     width = 940;
     height = 620;
     vi.stubGlobal("devicePixelRatio", 2);
+    latestController().measureMinimumBranchProjectionPx.mockReturnValue(24.7);
 
     act(() => resizeObservers[0].trigger());
 
     expect(latestController().resize).toHaveBeenLastCalledWith(940, 620, 2);
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "25");
+  });
+
+  it("updates branch projection observability after an immediate reduced-motion camera preset", async () => {
+    installMatchMedia(true);
+    const { rerender } = render(
+      <ArtifactExperience source={referenceSourceResults} selectedStage="calendar" onShowCourse={vi.fn()} />,
+    );
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    latestController().measureMinimumBranchProjectionPx.mockReturnValue(27.4);
+
+    rerender(
+      <ArtifactExperience source={referenceSourceResults} selectedStage="heaven-earth" onShowCourse={vi.fn()} />,
+    );
+
+    expect(latestController().applyCameraPreset).toHaveBeenLastCalledWith(
+      reviewStageFor("heaven-earth").camera,
+      true,
+    );
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "27");
   });
 
   it("disconnects its ResizeObserver during teardown", async () => {
@@ -627,8 +643,9 @@ describe("ArtifactExperience", () => {
     await screen.findByRole("slider", { name: "推演时间轴" });
 
     const firstHash = screen.getByTestId("artifact-experience").getAttribute("data-pose-hash");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "22");
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "disabled");
-    fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "11400" } });
+    fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "25200" } });
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "active");
     fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "0" } });
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-pose-hash", firstHash);
@@ -637,14 +654,11 @@ describe("ArtifactExperience", () => {
     delete window.__artifactFrameObserver;
   });
 
-  it("publishes source-line diagnostics from controller-applied state", async () => {
+  it("publishes source-line diagnostics from the controller-applied physical trace", async () => {
     mocks.onControllerCreate = (controller) => {
       controller.applyPose.mockImplementation((pose: ArtifactPose) => ({
         ...appliedStateFromPose(pose),
-        copy: {
-          ...pose.copy,
-          lessons: { opacity: 0.4, sourceLineProgress: 0.5, sourceLineOpacity: 0.25 },
-        },
+        courseTraceOpacity: 0.25,
       }));
     };
 
@@ -664,6 +678,7 @@ describe("ArtifactExperience", () => {
 
     expect(screen.getByTestId("artifact-experience")).not.toHaveAttribute("data-pose-hash");
     expect(screen.getByTestId("artifact-experience")).not.toHaveAttribute("data-source-lines");
+    expect(screen.getByTestId("artifact-experience")).not.toHaveAttribute("data-min-branch-px");
     frames.step(16);
     expect(observer).not.toHaveBeenCalled();
     delete window.__artifactFrameObserver;
@@ -679,6 +694,7 @@ describe("ArtifactExperience", () => {
     await screen.findByRole("slider", { name: "推演时间轴" });
 
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-pose-hash", expect.stringMatching(/\S+/));
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "22");
     frames.step(16);
     expect(observer).toHaveBeenCalledWith(16);
     delete window.__artifactFrameObserver;

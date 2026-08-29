@@ -7,7 +7,6 @@ import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types"
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
 import { evaluateStageReplay } from "./timeline/evaluate-stage-replay";
 import { reviewStageFor, type ArtifactReviewStage } from "./timeline/review-stages";
-import type { ArtifactPose } from "./timeline/types";
 import type { RuleStageId } from "../../domain/chart/types";
 import { ArtifactSceneController, type ArtifactAppliedState } from "./three/ArtifactSceneController";
 import { disposeArtifact } from "./three/dispose-artifact";
@@ -74,12 +73,12 @@ function poseHash(state: ArtifactAppliedState): string {
   const values: number[] = [];
   Object.keys(state.nodes).sort().forEach((id) => {
     const node = state.nodes[id];
-    values.push(...node.position, ...node.quaternion, ...node.scale);
+    values.push(...node.position, ...node.quaternion, ...node.scale, node.visible ? 1 : 0);
   });
-  (["lessons", "transmissions", "generals"] as const).forEach((key) => {
-    const copy = state.copy[key];
-    values.push(copy.opacity, copy.sourceLineProgress, copy.sourceLineOpacity);
+  Object.keys(state.labelOpacity).sort().forEach((id) => {
+    values.push(state.labelOpacity[id]);
   });
+  values.push(state.courseTraceOpacity);
   let hash = 2_166_136_261;
   for (const character of values.map((value) => Number.isFinite(value) ? value.toFixed(8) : String(value)).join("|")) {
     hash ^= character.charCodeAt(0);
@@ -126,7 +125,6 @@ export function ArtifactExperience({
   const playingRef = useRef(false);
   const timeRef = useRef(0);
   const accumulatedTimeRef = useRef(0);
-  const autoCameraRef = useRef(!reducedMotion);
   const frameRef = useRef<number | undefined>(undefined);
   const lastFrameRef = useRef<number | undefined>(undefined);
   const userControlledRef = useRef(false);
@@ -137,6 +135,7 @@ export function ArtifactExperience({
   const [autoCamera, setAutoCamera] = useState(!reducedMotion);
   const [currentPoseHash, setCurrentPoseHash] = useState<string | undefined>(undefined);
   const [sourceLinesActive, setSourceLinesActive] = useState(false);
+  const [minimumBranchProjectionPx, setMinimumBranchProjectionPx] = useState<number | undefined>(undefined);
   const [annotationError, setAnnotationError] = useState<string | undefined>(undefined);
   const [mobileHosts, setMobileHosts] = useState<{ parts: HTMLElement; timeline: HTMLElement }>();
 
@@ -163,17 +162,18 @@ export function ArtifactExperience({
   const applyAt = useCallback((nextTime: number) => {
     const controller = controllerRef.current;
     if (!controller) return;
-    const evaluatedPose = evaluateArtifactPose(displayStateRef.current, nextTime, reducedMotionRef.current);
-    const pose = evaluatedPose.cameraOrbitRequested === autoCameraRef.current
-      ? evaluatedPose
-      : { ...evaluatedPose, cameraOrbitRequested: autoCameraRef.current };
+    const pose = evaluateArtifactPose(displayStateRef.current, nextTime, reducedMotionRef.current);
     const appliedState = controller.applyPose(pose);
     if (observableBuild()) {
       setCurrentPoseHash(poseHash(appliedState));
-      setSourceLinesActive(Object.values(appliedState.copy).some(
-        (copy) => copy.sourceLineProgress > 0 || copy.sourceLineOpacity > 0,
-      ));
+      setSourceLinesActive(appliedState.courseTraceOpacity > 0);
     }
+  }, []);
+
+  const measureBranchProjection = useCallback(() => {
+    if (!observableBuild()) return;
+    const controller = controllerRef.current;
+    if (controller) setMinimumBranchProjectionPx(Math.round(controller.measureMinimumBranchProjectionPx()));
   }, []);
 
   const stopPlayback = useCallback(() => {
@@ -211,6 +211,7 @@ export function ArtifactExperience({
         bounds.height || 560,
         window.devicePixelRatio || 1,
       );
+      measureBranchProjection();
     };
     const resizeObserver = typeof ResizeObserver === "undefined"
       ? undefined
@@ -288,9 +289,7 @@ export function ArtifactExperience({
       const controller = new ArtifactSceneController(renderer, artifact, {
         onUserControlStart: () => {
           userControlledRef.current = true;
-          autoCameraRef.current = false;
           setAutoCamera(false);
-          applyAt(timeRef.current);
         },
         onContextLost: failExperience,
         onError: failExperience,
@@ -327,7 +326,7 @@ export function ArtifactExperience({
       disposeOwnedController();
       disposeRenderer();
     };
-  }, [applyAt, stopPlayback]);
+  }, [applyAt, measureBranchProjection, stopPlayback]);
 
   useEffect(() => {
     displayStateRef.current = displayState;
@@ -344,8 +343,7 @@ export function ArtifactExperience({
 
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
-    autoCameraRef.current = !reducedMotion && !userControlledRef.current;
-    setAutoCamera(autoCameraRef.current);
+    setAutoCamera(!reducedMotion && !userControlledRef.current);
     const stageReplay = stageReplayRef.current;
     if (reducedMotion && stageReplay) {
       const replayState = evaluateStageReplay(stageReplay.stage, stageReplay.elapsedMs, true);
@@ -354,9 +352,10 @@ export function ArtifactExperience({
       accumulatedTimeRef.current = replayState.timelineTimeMs;
       setTimeMs(replayState.timelineTimeMs);
       controllerRef.current?.applyCameraPreset(stageReplay.stage.camera, true);
+      measureBranchProjection();
     }
     applyAt(timeRef.current);
-  }, [applyAt, reducedMotion]);
+  }, [applyAt, measureBranchProjection, reducedMotion]);
 
   const seek = useCallback((nextTime: number) => {
     stageReplayRef.current = undefined;
@@ -380,8 +379,9 @@ export function ArtifactExperience({
     setTimeMs(replayState.timelineTimeMs);
     stopPlayback();
     controllerRef.current?.applyCameraPreset(stage.camera, reducedMotionRef.current);
+    if (reducedMotionRef.current) measureBranchProjection();
     applyAt(replayState.timelineTimeMs);
-  }, [applyAt, displayState, selectedStage, stopPlayback]);
+  }, [applyAt, displayState, measureBranchProjection, selectedStage, stopPlayback]);
 
   const togglePlayback = () => {
     if (playingRef.current) {
@@ -397,6 +397,7 @@ export function ArtifactExperience({
   const observabilityAttributes = observableBuild() ? {
     "data-pose-hash": currentPoseHash,
     "data-source-lines": sourceLinesActive ? "active" : "disabled",
+    "data-min-branch-px": minimumBranchProjectionPx,
   } : {};
   const partDirectory = (
     <ArtifactPartDirectory

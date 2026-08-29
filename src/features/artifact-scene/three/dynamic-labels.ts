@@ -37,6 +37,18 @@ const STYLE_COLORS: Record<LabelStyle, string> = {
   ash: LABEL_COLORS.ash,
 };
 
+export function createLabelMaterial(): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    transparent: true,
+    toneMapped: false,
+    depthWrite: true,
+    depthTest: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+}
+
 export function createLabelTexture(text: string, options: LabelTextureOptions): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = options.width;
