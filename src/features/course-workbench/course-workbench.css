@@ -17,7 +17,7 @@
 .course-workbench__stages > p,
 .course-context__eyebrow {
   margin: 0;
-  color: var(--ru-celadon);
+  color: var(--muted-ink);
   font-family: var(--font-utility);
   font-size: 0.72rem;
   font-weight: 600;
@@ -26,6 +26,7 @@
 }
 
 .course-workbench__header h1 {
+  order: -1;
   margin: 0;
   color: var(--ash);
   font-family: var(--font-display);
@@ -62,14 +63,12 @@
 
 .course-workbench .course-experience__modes {
   display: flex;
-  position: sticky;
-  z-index: 5;
-  top: 0;
+  position: static;
   grid-area: auto;
   justify-self: stretch;
   justify-content: flex-end;
   margin: 0 0 8px;
-  background: var(--ink);
+  background: var(--panel);
 }
 
 .course-workbench .course-experience__stage {
@@ -88,7 +87,7 @@
   border-left: 2px solid var(--old-gold);
 }
 .course-experience__caption p { margin: 0; color: var(--ash); font-family: var(--font-display); letter-spacing: 0.08em; }
-.course-experience__caption p + p { color: var(--ru-celadon); font-family: var(--font-utility); font-size: 0.8rem; }
+.course-experience__caption p + p { color: var(--muted-ink); font-family: var(--font-utility); font-size: 0.8rem; }
 
 .stage-evidence-drawer { margin: 16px 4px 4px; }
 .stage-evidence-drawer > button {
@@ -141,12 +140,12 @@
 
 .course-context summary::-webkit-details-marker { display: none; }
 .course-context summary span { font-size: 0.9rem; font-weight: 600; letter-spacing: 0.12em; }
-.course-context summary small { color: var(--ru-celadon); font-family: var(--font-utility); font-size: 0.68rem; }
+.course-context summary small { color: var(--muted-ink); font-family: var(--font-utility); font-size: 0.68rem; }
 
 .course-context__body { padding: 20px 0 4px; }
 .course-context__reason { margin: 8px 0 24px; color: var(--ash); font-size: 1.08rem; line-height: 1.8; overflow-wrap: anywhere; }
 .course-context dl { display: grid; gap: 18px; margin: 0; }
-.course-context dt { color: var(--ru-celadon); font-family: var(--font-utility); font-size: 0.7rem; letter-spacing: 0.1em; }
+.course-context dt { color: var(--muted-ink); font-family: var(--font-utility); font-size: 0.7rem; letter-spacing: 0.1em; }
 .course-context dd { margin: 5px 0 0; color: var(--ash); line-height: 1.55; overflow-wrap: anywhere; }
 .course-context time { font-family: var(--font-utility); font-size: 0.84rem; font-variant-numeric: tabular-nums; }
 .course-context__corrections { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -173,7 +172,7 @@
 
 @media (max-width: 899px) {
   .course-workbench { padding-inline: 16px; }
-  .course-workbench__header { align-items: flex-start; flex-direction: column-reverse; gap: 6px; }
+  .course-workbench__header { align-items: flex-start; flex-direction: column; gap: 6px; }
   .course-workbench__grid { grid-template-columns: minmax(0, 1fr); }
   .course-workbench__grid > .course-context,
   .course-workbench__grid > .course-workbench__stages,
@@ -184,18 +183,19 @@
   .course-context summary small { margin-left: auto; }
   .course-workbench__stage { min-height: 0; padding: 5px; }
   .course-workbench__stage .course-experience .artifact-experience__viewport {
-    height: clamp(360px, 60vh, 620px);
-    min-height: 0;
+    height: 60vh;
+    min-height: max(360px, 55vh);
+    max-height: 65vh;
   }
-  .course-workbench .course-experience__modes { top: env(safe-area-inset-top, 0); }
   .mobile-workbench-tools {
     display: grid;
     position: sticky;
     z-index: 6;
     bottom: 0;
     min-width: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     border-top: 1px solid var(--patina);
-    background: var(--ink);
+    background: var(--panel);
     box-shadow: 0 -12px 28px color-mix(in srgb, var(--ink) 42%, transparent);
   }
 
@@ -236,7 +236,6 @@
   .mobile-workbench-tools__toolbar {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   .mobile-workbench-tools__toolbar button,
@@ -352,5 +351,4 @@
 
 @media (max-width: 520px) {
   .course-workbench__header h1 { font-size: 1.65rem; }
-  .course-workbench__stage .course-experience .artifact-experience__viewport { min-height: 330px; }
 }

@@ -10,14 +10,24 @@ const VISUALS_DIRECTORY = path.resolve(
   ".superpowers/sdd/2026-08-15-calendar-month-general/visuals",
 );
 
-async function calculateCalendar(page: Page) {
+async function generateCourse(page: Page) {
   // Chromium canonicalizes zero seconds out of datetime-local values; the schema restores :00.
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
-  await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "生成完整课式" }).click();
+  await expect(page.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
+}
+
+async function calculateCalendar(page: Page) {
+  await generateCourse(page);
   await page.getByRole("button", { name: "天地盘加临，已完成" }).click();
-  await page.getByRole("button", { name: "查看阶段证据" }).click();
+  const mobileTools = page.getByRole("toolbar", { name: "工作台工具" });
+  if (await mobileTools.count()) {
+    await mobileTools.getByRole("button", { name: "阶段证据" }).click();
+  } else {
+    await page.getByRole("button", { name: "查看阶段证据" }).click();
+  }
   await expect(page.getByRole("list", { name: "天地盘十二宫" })).toBeVisible();
   await returnToCalendar(page);
   await expect(page.locator(".calendar-review__time-band").getByText("2024-02-10T14:30:00", { exact: true })).toBeVisible();
@@ -197,7 +207,12 @@ async function expectContrastAtLeast(element: Locator, minimum: number) {
 }
 
 async function expectVisibleControlsKeyboardReachable(page: Page) {
-  await expect(page.getByRole("slider", { name: "推演时间轴" })).toBeVisible({ timeout: 15_000 });
+  const mobileWorkbench = Boolean(await page.getByRole("toolbar", { name: "工作台工具" }).count());
+  if (mobileWorkbench) {
+    await expect(page.getByLabel("大六壬三维器物")).toBeVisible({ timeout: 15_000 });
+  } else {
+    await expect(page.getByRole("slider", { name: "推演时间轴" })).toBeVisible({ timeout: 15_000 });
+  }
   const selector = [
     "a[href]", "area[href]", "button", "input", "select", "textarea", "summary", "[tabindex]",
     "[contenteditable]:not([contenteditable='false'])",
@@ -205,7 +220,10 @@ async function expectVisibleControlsKeyboardReachable(page: Page) {
   const tabbableSelector = `:is(${selector}):visible:not(:disabled):not([tabindex^='-'])`;
   const controls = page.locator(tabbableSelector);
   const controlCount = await controls.count();
-  const reviewControlCount = await page.getByRole("region", { name: "阶段证据抽屉" }).locator(tabbableSelector).count();
+  const reviewRegion = mobileWorkbench
+    ? page.getByRole("region", { name: "移动工具面板" })
+    : page.getByRole("region", { name: "阶段证据抽屉" });
+  const reviewControlCount = await reviewRegion.locator(tabbableSelector).count();
   await controls.evaluateAll((elements) => {
     const records: Array<{
       controlIndex: number;
@@ -277,7 +295,9 @@ async function expectVisibleControlsKeyboardReachable(page: Page) {
     Array.from({ length: controlCount }, (_, index) => index),
   );
   expect(reached).toEqual(expect.arrayContaining([
-    expect.objectContaining({ tagName: "SUMMARY", text: expect.stringContaining("起课上下文") }),
+    mobileWorkbench
+      ? expect.objectContaining({ tagName: "BUTTON", text: "阶段证据" })
+      : expect.objectContaining({ tagName: "SUMMARY", text: expect.stringContaining("起课上下文") }),
   ]));
   for (const focused of reached) {
     expect(focused.outlineStyle, JSON.stringify(focused)).not.toBe("none");
@@ -287,6 +307,100 @@ async function expectVisibleControlsKeyboardReachable(page: Page) {
 
   return reviewControlCount;
 }
+
+test("product name keeps the first visual position after generation", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "大六壬演式" })).toBeVisible();
+
+  await generateCourse(page);
+  const header = page.locator(".course-workbench__header");
+  const productName = header.getByRole("heading", { name: "大六壬演式" });
+  const descriptor = header.getByText("传统术式 · 六阶段回看", { exact: true });
+  const [productBounds, descriptorBounds] = await Promise.all([
+    productName.boundingBox(),
+    descriptor.boundingBox(),
+  ]);
+  expect(productBounds).not.toBeNull();
+  expect(descriptorBounds).not.toBeNull();
+  expect(productBounds!.x).toBeLessThan(descriptorBounds!.x);
+  expect(productBounds!.y).toBeLessThanOrEqual(descriptorBounds!.y);
+});
+
+test("desktop keeps a center-led three-column workbench and a vertical stage rail", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await generateCourse(page);
+
+  const context = page.locator(".course-workbench__grid > .course-context");
+  const stage = page.locator(".course-workbench__stage");
+  const stageRail = page.locator(".course-workbench__stages");
+  const [contextBounds, stageBounds, railBounds] = await Promise.all([
+    context.boundingBox(),
+    stage.boundingBox(),
+    stageRail.boundingBox(),
+  ]);
+  expect(contextBounds).not.toBeNull();
+  expect(stageBounds).not.toBeNull();
+  expect(railBounds).not.toBeNull();
+  expect(contextBounds!.x).toBeLessThan(stageBounds!.x);
+  expect(stageBounds!.x).toBeLessThan(railBounds!.x);
+  expect(stageBounds!.width).toBeGreaterThan(contextBounds!.width);
+  expect(stageBounds!.width).toBeGreaterThan(railBounds!.width);
+
+  const stageButtons = stageRail.getByRole("button");
+  const [firstStage, secondStage] = await Promise.all([
+    stageButtons.nth(0).boundingBox(),
+    stageButtons.nth(1).boundingBox(),
+  ]);
+  expect(firstStage).not.toBeNull();
+  expect(secondStage).not.toBeNull();
+  expect(secondStage!.y).toBeGreaterThan(firstStage!.y);
+  expect(Math.abs(secondStage!.x - firstStage!.x)).toBeLessThanOrEqual(1);
+
+  const secondaryColor = await page.locator(".course-experience__caption p + p").evaluate(
+    (element) => getComputedStyle(element).color,
+  );
+  const actionColor = await page.getByRole("toolbar", { name: "课式视图" })
+    .getByRole("button", { name: "文字课式" }).evaluate(
+      (element) => getComputedStyle(element).color,
+  );
+  expect(secondaryColor).not.toBe(actionColor);
+});
+
+test("mobile exposes stages and workbench tools before the document footer", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await generateCourse(page);
+
+  const stageDock = page.getByRole("navigation", { name: "移动推演阶段" });
+  const tools = page.getByRole("toolbar", { name: "工作台工具" });
+  await expect(stageDock).toBeInViewport();
+  await expect(tools).toBeInViewport();
+
+  const viewport = page.locator(".artifact-experience__viewport");
+  const viewportLayout = await viewport.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      height: element.getBoundingClientRect().height,
+      maxHeight: Number.parseFloat(style.maxHeight),
+      minHeight: Number.parseFloat(style.minHeight),
+    };
+  });
+  expect(viewportLayout.minHeight).toBeGreaterThanOrEqual(Math.max(360, 844 * 0.55) - 1);
+  expect(viewportLayout.maxHeight).toBeLessThanOrEqual(844 * 0.65 + 1);
+  expect(viewportLayout.height).toBeGreaterThanOrEqual(Math.max(360, 844 * 0.55) - 1);
+  expect(viewportLayout.height).toBeLessThanOrEqual(844 * 0.65 + 1);
+
+  await tools.getByRole("button", { name: "文字课式" }).click();
+  const textCourse = page.getByRole("article", { name: "标准文字课式" });
+  await expect(textCourse).toBeVisible();
+  await expect(stageDock).toBeInViewport();
+  await expect(tools).toBeInViewport();
+});
 
 for (const viewport of VIEWPORTS) {
   test(`${viewport.name} shell is readable without horizontal overflow`, async ({ page }) => {
@@ -434,7 +548,8 @@ for (const viewport of VIEWPORTS) {
       await reset.focus();
       await page.keyboard.press("Tab");
       expect(await evidence.evaluate((aside) => !aside.contains(document.activeElement))).toBe(true);
-      await expect(page.getByRole("button", { name: "历法与月将，已完成" })).toBeFocused();
+      await expect(page.getByRole("toolbar", { name: "工作台工具" })
+        .getByRole("button", { name: "上下文" })).toBeFocused();
     }
   });
 

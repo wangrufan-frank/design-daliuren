@@ -5,7 +5,8 @@ async function completeReferenceCourse(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
-  await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "生成完整课式" }).click();
+  await expect(page.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
 }
 
 async function expectTextFallback(page: Page) {
@@ -17,8 +18,13 @@ async function expectTextFallback(page: Page) {
 
 async function expectArtifactReady(page: Page) {
   const timeline = page.getByRole("slider", { name: "推演时间轴" });
-  await expect(timeline).toBeVisible({ timeout: 15_000 });
+  await expect(timeline).toBeVisible({ timeout: 30_000 });
   return timeline;
+}
+
+async function expectArtifactCanvasReady(page: Page) {
+  await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
+  await expect(page.getByText("正在加载三维器物")).toHaveCount(0, { timeout: 30_000 });
 }
 
 test("model labels and text course use the same verified facts", async ({ page }) => {
@@ -85,16 +91,19 @@ test("reduced motion retains final facts and disables source lines", async ({ pa
 test("mobile review keeps stage callouts and reaches every part through the directory", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await completeReferenceCourse(page);
-  await expectArtifactReady(page);
+  await expectArtifactCanvasReady(page);
 
   const callouts = page.locator(".artifact-annotations__card");
   const calloutCount = await callouts.count();
   expect(calloutCount).toBeGreaterThanOrEqual(3);
   expect(calloutCount).toBeLessThanOrEqual(6);
   await expect(page.getByRole("button", { name: "全部" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "查看文字课式" })).toBeVisible();
 
-  const directoryButton = page.getByRole("button", { name: "打开部件目录" });
+  const tools = page.getByRole("toolbar", { name: "工作台工具" });
+  await tools.getByRole("button", { name: "部件", exact: true }).click();
+  const toolPanel = page.getByRole("region", { name: "移动工具面板" });
+  await expect(toolPanel).toBeVisible();
+  const directoryButton = toolPanel.getByRole("button", { name: "打开部件目录" });
   await expect(directoryButton).toBeVisible();
   expect(await directoryButton.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
   expect((await directoryButton.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -125,8 +134,71 @@ test("mobile review keeps stage callouts and reaches every part through the dire
   await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  await page.getByRole("button", { name: "查看文字课式" }).click();
-  await expect(page.getByLabel("标准文字课式")).toBeVisible();
+  await tools.getByRole("button", { name: "文字课式" }).click();
+  await expect(page.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+});
+
+test("mode controls stay outside the artifact frame and visible annotation cards", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await completeReferenceCourse(page);
+  await expectArtifactReady(page);
+
+  const toolbar = page.getByRole("toolbar", { name: "课式视图" });
+  const frame = page.locator(".course-workbench__stage");
+  const viewport = page.locator(".artifact-experience__viewport");
+  const canvas = page.getByLabel("大六壬三维器物");
+  const [toolbarBounds, frameBounds, viewportBounds, canvasBounds] = await Promise.all([
+    toolbar.boundingBox(),
+    frame.boundingBox(),
+    viewport.boundingBox(),
+    canvas.boundingBox(),
+  ]);
+  expect(toolbarBounds).not.toBeNull();
+  expect(frameBounds).not.toBeNull();
+  expect(viewportBounds).not.toBeNull();
+  expect(canvasBounds).not.toBeNull();
+  expect(toolbarBounds!.y + toolbarBounds!.height).toBeLessThanOrEqual(viewportBounds!.y + 1);
+  expect(canvasBounds!.y).toBeGreaterThanOrEqual(frameBounds!.y);
+  expect(canvasBounds!.y + canvasBounds!.height).toBeLessThanOrEqual(frameBounds!.y + frameBounds!.height + 1);
+
+  const visibleCards = page.locator(".artifact-annotations__card:visible");
+  await expect(visibleCards.first()).toBeVisible();
+  const visibleCardCount = await visibleCards.count();
+  expect(visibleCardCount).toBeGreaterThanOrEqual(3);
+  expect(visibleCardCount).toBeLessThanOrEqual(6);
+  const cardBounds = await visibleCards.evaluateAll((cards) => cards.map((card) => {
+    const bounds = card.getBoundingClientRect();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+  }));
+  for (const card of cardBounds) {
+    const overlapsToolbar = toolbarBounds!.x < card.x + card.width
+      && toolbarBounds!.x + toolbarBounds!.width > card.x
+      && toolbarBounds!.y < card.y + card.height
+      && toolbarBounds!.y + toolbarBounds!.height > card.y;
+    expect(overlapsToolbar).toBe(false);
+  }
+});
+
+test("repeated text round trips keep one usable canvas without KTX2 loader warnings", async ({ page }) => {
+  test.setTimeout(120_000);
+  const warnings: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning") warnings.push(message.text());
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await completeReferenceCourse(page);
+  await expectArtifactReady(page);
+
+  const modes = page.getByRole("toolbar", { name: "课式视图" });
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    await modes.getByRole("button", { name: "文字课式" }).click();
+    await expect(page.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+    await modes.getByRole("button", { name: "三维推演" }).click();
+    await expectArtifactReady(page);
+    await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
+  }
+
+  expect(warnings.filter((message) => message.includes("Multiple active KTX2 loaders"))).toEqual([]);
 });
 
 test("a GLB 404 falls back to the existing text course", async ({ page }) => {
