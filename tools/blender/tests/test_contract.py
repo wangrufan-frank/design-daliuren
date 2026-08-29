@@ -4,24 +4,49 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from daliuren_contract import DIMENSIONS, NODE_IDS, POSE_IDS
+import daliuren_contract
+
+
+DIMENSIONS = daliuren_contract.DIMENSIONS
+NODE_IDS = daliuren_contract.NODE_IDS
+POSE_IDS = daliuren_contract.POSE_IDS
+
+
+FORBIDDEN_NODES = {
+    "transmission/bridge",
+    "anchor/course-copy/lessons",
+    "anchor/course-copy/transmissions",
+    "anchor/course-copy/generals",
+}
 
 
 class ContractTest(unittest.TestCase):
     def test_dimensions_match_confirmed_blueprint(self):
         self.assertEqual(DIMENSIONS["base"], (0.520, 0.520, 0.052))
-        self.assertEqual(DIMENSIONS["heaven_plate"], (0.380, 0.024))
-        self.assertEqual(DIMENSIONS["lesson"], (0.152, 0.100))
-        self.assertEqual(DIMENSIONS["slip_rise"], 0.012)
-        self.assertEqual(DIMENSIONS["lesson_travel"], 0.092)
-        self.assertEqual(DIMENSIONS["lesson_readout_rise"], 0.008)
-        self.assertEqual(DIMENSIONS["bridge_travel"], 0.118)
-        self.assertEqual(DIMENSIONS["general_rise"], 0.007)
+        self.assertEqual(DIMENSIONS.get("earth_plate"), (0.440, 0.440, 0.014))
+        self.assertEqual(DIMENSIONS["heaven_plate"], (0.380, 0.026))
+        self.assertEqual(DIMENSIONS.get("calendar_slip"), (0.300, 0.038, 0.009))
+        self.assertEqual(DIMENSIONS.get("lesson_slip"), (0.112, 0.066, 0.009))
+        self.assertEqual(DIMENSIONS.get("transmission_slip"), (0.112, 0.052, 0.010))
+        self.assertEqual(DIMENSIONS.get("method_slip"), (0.360, 0.026, 0.006))
+        self.assertEqual(DIMENSIONS.get("general_inlay"), (0.028, 0.004))
 
-    def test_runtime_ids_are_unique_ascii_paths(self):
+    def test_runtime_ids_are_unique_paths(self):
         self.assertEqual(len(NODE_IDS), len(set(NODE_IDS)))
-        self.assertTrue(all(node.isascii() and "/" in node for node in NODE_IDS))
+        self.assertTrue(all("/" in node for node in NODE_IDS))
         self.assertEqual(POSE_IDS[0], "closed")
+
+    def test_contract_replaces_mechanical_nodes_with_inlays_and_slips(self):
+        self.assertTrue(FORBIDDEN_NODES.isdisjoint(NODE_IDS))
+        self.assertIn("transmission/method", NODE_IDS)
+        self.assertIn("trace/course", NODE_IDS)
+        branches = getattr(daliuren_contract, "BRANCHES", ())
+        branch_node_ids = getattr(daliuren_contract, "BRANCH_INLAY_NODE_IDS", ())
+        self.assertEqual(branches, tuple("子丑寅卯辰巳午未申酉戌亥"))
+        self.assertEqual(len(branch_node_ids), 24)
+        for surface in ("earth", "heaven"):
+            for branch in branches:
+                self.assertIn(f"branch/{surface}/{branch}", NODE_IDS)
 
 
 if __name__ == "__main__":

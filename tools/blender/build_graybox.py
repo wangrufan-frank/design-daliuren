@@ -7,7 +7,7 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from daliuren_contract import DIMENSIONS, POSE_IDS
+from daliuren_contract import BRANCHES, DIMENSIONS, POSE_IDS
 from geometry import add_beveled_box, add_disc
 from high_detail_geometry import upgrade_to_high_detail
 from inscriptions import build_fixed_inscriptions
@@ -57,24 +57,9 @@ def new_empty(node_id, location):
     return obj
 
 
-def new_helper_empty(name, parent, location=(0.0, 0.0, 0.0)):
-    obj = bpy.data.objects.new(name, None)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.parent = parent
-    obj.location = location
-    return obj
-
-
 def add_child_box(name, parent, size, location, bevel=0.001):
     obj = add_beveled_box(name, size, (0.0, 0.0, 0.0), bevel)
     del obj["node_id"]
-    obj.parent = parent
-    obj.location = location
-    return obj
-
-
-def add_runtime_child_box(node_id, parent, size, location, bevel=0.001):
-    obj = add_beveled_box(node_id, size, (0.0, 0.0, 0.0), bevel)
     obj.parent = parent
     obj.location = location
     return obj
@@ -121,147 +106,159 @@ def add_calendar(root, base_height):
         calendar,
         (0.0, 0.238, base_height + 0.008),
         (0.0, 0.0, 1.0),
-        DIMENSIONS["slip_rise"],
+        0.012,
     )
     add_child_box(
         "calendar/slip/body",
         calendar,
-        (0.300, 0.032, 0.008),
+        DIMENSIONS["calendar_slip"],
         (0.0, 0.0, 0.0),
     )
     add_child_box(
         "calendar/slip/readout",
         calendar,
-        (0.264, 0.020, 0.004),
-        (0.0, -0.002, 0.006),
-        0.0008,
+        (0.264, 0.020, 0.001),
+        (0.0, -0.002, 0.004),
+        0.0003,
     )
 
 
-def add_lessons(root, base_height):
-    layout = (
-        ("fourth", 0, (-0.184, 0.110, base_height + 0.006), (-1.0, 0.0, 0.0)),
-        ("third", 1, (-0.184, -0.110, base_height + 0.006), (-1.0, 0.0, 0.0)),
-        ("second", 2, (0.184, -0.110, base_height + 0.006), (1.0, 0.0, 0.0)),
-        ("first", 3, (0.184, 0.110, base_height + 0.006), (1.0, 0.0, 0.0)),
-    )
-    lesson_width, lesson_depth = DIMENSIONS["lesson"]
-    for lesson, visual_order, closed_location, motion_axis in layout:
-        lesson_id = f"lesson/{lesson}"
-        lesson_root = new_empty(lesson_id, (0.0, 0.0, 0.0))
-        lesson_root.parent = root
-        lesson_root["visual_order"] = visual_order
-        configure_motion(
-            lesson_root,
-            closed_location,
-            motion_axis,
-            DIMENSIONS["lesson_travel"],
+def add_lesson_slips(root, base_height):
+    positions = {
+        "fourth": (-0.176, 0.132),
+        "third": (-0.176, -0.132),
+        "second": (0.176, -0.132),
+        "first": (0.176, 0.132),
+    }
+    for visual_order, (key, (x, y)) in enumerate(positions.items()):
+        slip = add_beveled_box(
+            f"lesson/{key}",
+            DIMENSIONS["lesson_slip"],
+            (x, y, base_height + 0.0185),
+            0.0012,
         )
-        add_child_box(
-            f"{lesson_id}/body",
-            lesson_root,
-            (lesson_width, lesson_depth, 0.008),
-            (0.0, 0.0, 0.0),
-        )
-        for readout, local_y in (("upper", 0.024), ("lower", -0.024)):
-            closed_location = (0.0, local_y, 0.001)
-            readout_obj = add_child_box(
-                f"{lesson_id}/readout/{readout}",
-                lesson_root,
-                (0.124, 0.034, 0.006),
-                closed_location,
-                0.0008,
-            )
-            readout_obj["closed_location"] = closed_location
-            readout_obj["open_location"] = (
-                closed_location[0],
-                closed_location[1],
-                closed_location[2] + DIMENSIONS["lesson_readout_rise"],
-            )
-        new_helper_empty(
-            f"{lesson_id}/socket/general",
-            lesson_root,
-            (0.058, 0.0, 0.012),
-        )
+        slip["visual_order"] = visual_order
+        slip["settled_location"] = tuple(slip.location)
+        slip.parent = root
 
 
-def add_transmission_bridge(root, base_height):
-    bridge = new_empty("transmission/bridge", (0.0, 0.0, 0.0))
-    bridge.parent = root
-    configure_motion(
-        bridge,
-        (0.0, -0.232, base_height + 0.006),
-        (0.0, -1.0, 0.0),
-        DIMENSIONS["bridge_travel"],
-    )
-    add_child_box(
-        "transmission/bridge/body",
-        bridge,
-        (DIMENSIONS["bridge_width"], 0.048, 0.008),
-        (0.0, 0.0, 0.0),
-    )
-    for module_order, (module, local_x) in enumerate(
-        (("initial", -0.140), ("middle", 0.0), ("final", 0.140))
+def add_transmission_slips(root, base_height):
+    for module_order, (key, x) in enumerate(
+        (("initial", -0.128), ("middle", 0.0), ("final", 0.128))
     ):
-        obj = add_runtime_child_box(
-            f"transmission/{module}",
-            bridge,
-            (0.112, 0.038, 0.010),
-            (local_x, 0.0, 0.009),
+        slip = add_beveled_box(
+            f"transmission/{key}",
+            DIMENSIONS["transmission_slip"],
+            (x, -0.205, base_height + 0.019),
+            0.0012,
         )
-        obj["module_order"] = module_order
+        slip["module_order"] = module_order
+        slip["settled_location"] = tuple(slip.location)
+        slip.parent = root
+    method = add_beveled_box(
+        "transmission/method",
+        DIMENSIONS["method_slip"],
+        (0.0, -0.247, base_height + 0.016),
+        0.0009,
+    )
+    method.parent = root
 
 
 def add_generals(root, base_height):
     radius = 0.218
-    closed_z = base_height + 0.007
+    diameter, depth = DIMENSIONS["general_inlay"]
+    settled_z = base_height + DIMENSIONS["earth_plate"][2] + depth / 2
     first = None
     for index, general_key in enumerate(GENERAL_KEYS):
         angle = math.radians(90.0 - index * 30.0)
-        closed_location = (
+        settled_location = (
             radius * math.cos(angle),
             radius * math.sin(angle),
-            closed_z,
+            settled_z,
         )
         node_id = f"general/{general_key}"
         if first is None:
-            general = add_disc(node_id, 0.012, 0.014, closed_location, 0.001)
+            general = add_disc(node_id, diameter / 2, depth, settled_location, 0.0008)
             first = general
-            first.data.name = "general/shared-seal-mesh"
+            first.data.name = "general/shared-inlay-mesh"
         else:
             general = bpy.data.objects.new(node_id, first.data)
             bpy.context.scene.collection.objects.link(general)
-            general.location = closed_location
+            general.location = settled_location
             general["node_id"] = node_id
         general.parent = root
         general.rotation_euler.z = angle - math.pi / 2
         general["domain"] = "general"
         general["general_key"] = general_key
         general["ring_index"] = index
-        configure_motion(
-            general,
-            closed_location,
-            (0.0, 0.0, 1.0),
-            DIMENSIONS["general_rise"],
-        )
-        reverse_slot = (-index) % len(GENERAL_KEYS)
-        reverse_angle = math.radians(90.0 - reverse_slot * 30.0)
-        general["open_location_forward"] = tuple(general["open_location"])
-        general["open_location_reverse"] = (
-            radius * math.cos(reverse_angle),
-            radius * math.sin(reverse_angle),
-            closed_z + DIMENSIONS["general_rise"],
-        )
+        general["settled_location"] = tuple(general.location)
+        general["closed_rotation_euler"] = tuple(general.rotation_euler)
 
 
-def add_course_copy_anchors(root):
-    for domain, location in (
-        ("lessons", (-0.185, 0.0, 0.125)),
-        ("transmissions", (0.0, -0.185, 0.125)),
-        ("generals", (0.185, 0.0, 0.125)),
+def add_branch_inlays(earth, heaven):
+    for surface, parent, radius, depth in (
+        ("earth", earth, 0.202, 0.0012),
+        ("heaven", heaven, 0.164, 0.0012),
     ):
-        anchor = new_empty(f"anchor/course-copy/{domain}", location)
-        anchor.parent = root
+        surface_top = parent.dimensions.z / 2
+        for index, branch in enumerate(BRANCHES):
+            angle = math.radians(90.0 - index * 30.0)
+            inlay = add_disc(
+                f"branch/{surface}/{branch}",
+                0.011,
+                depth,
+                (
+                    radius * math.cos(angle),
+                    radius * math.sin(angle),
+                    surface_top + depth / 2,
+                ),
+                0.0003,
+            )
+            inlay.parent = parent
+            inlay["surface"] = surface
+            inlay["branch"] = branch
+            inlay["ring_index"] = index
+            inlay["surface_treatment"] = "graybox-inlay"
+
+
+def add_course_trace(earth):
+    material = bpy.data.materials.get("graybox/trace-dark")
+    if material is None:
+        material = bpy.data.materials.new("graybox/trace-dark")
+        material.diffuse_color = (0.025, 0.030, 0.028, 1.0)
+
+    curve = bpy.data.curves.new("trace/course/curve", "CURVE")
+    curve.dimensions = "3D"
+    curve.resolution_u = 2
+    curve.bevel_depth = 0.00055
+    curve.bevel_resolution = 2
+    curve.resolution_v = 2
+    curve.fill_mode = "FULL"
+    spline = curve.splines.new("POLY")
+    points = (
+        (-0.108, 0.072, 0.0),
+        (-0.042, 0.112, 0.00015),
+        (0.030, 0.060, 0.0),
+        (-0.012, -0.016, 0.00012),
+        (0.092, -0.082, 0.0),
+    )
+    spline.points.add(len(points) - 1)
+    surface_z = earth.dimensions.z / 2 + 0.0003
+    for point, (x, y, z) in zip(spline.points, points):
+        point.co = (x, y, surface_z + z, 1.0)
+
+    trace = bpy.data.objects.new("trace/course", curve)
+    bpy.context.scene.collection.objects.link(trace)
+    trace.parent = earth
+    trace["node_id"] = "trace/course"
+    trace["surface_treatment"] = "shallow-groove"
+    trace["runtime_reveal"] = True
+    curve.materials.append(material)
+    bpy.ops.object.select_all(action="DESELECT")
+    trace.select_set(True)
+    bpy.context.view_layer.objects.active = trace
+    bpy.ops.object.convert(target="MESH")
+    return trace
 
 
 def build_graybox():
@@ -278,8 +275,8 @@ def build_graybox():
     )
     earth = add_beveled_box(
         "plate/earth",
-        (0.440, 0.440, 0.010),
-        (0.0, 0.0, base_height + 0.005),
+        DIMENSIONS["earth_plate"],
+        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] / 2),
         0.002,
     )
     earth["fixed"] = True
@@ -289,17 +286,18 @@ def build_graybox():
         "plate/heaven",
         heaven_diameter / 2,
         heaven_depth,
-        (0.0, 0.0, 0.074),
+        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + heaven_depth / 2),
         0.002,
     )
     heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
     add_historical_ring(radius=0.145, z=0.087)
     parent_runtime_parts(root)
     add_calendar(root, base_height)
-    add_lessons(root, base_height)
-    add_transmission_bridge(root, base_height)
+    add_lesson_slips(root, base_height)
+    add_transmission_slips(root, base_height)
     add_generals(root, base_height)
-    add_course_copy_anchors(root)
+    add_branch_inlays(earth, heaven)
+    add_course_trace(earth)
     return root
 
 

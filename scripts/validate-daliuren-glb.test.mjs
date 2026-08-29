@@ -48,19 +48,26 @@ const PACKAGE = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
 
-test("asset contract freezes the 28 runtime ids and six pose ids", () => {
+test("asset contract freezes the non-mechanical runtime ids and six pose ids", () => {
   assert.equal(ASSET_CONTRACT.schemaVersion, 1);
-  assert.deepEqual(ASSET_CONTRACT.nodeIds, [
-    "artifact/root", "base/body", "plate/earth", "plate/heaven",
-    "calendar/slip", "lesson/first", "lesson/second", "lesson/third",
-    "lesson/fourth", "transmission/bridge", "transmission/initial",
-    "transmission/middle", "transmission/final", "general/noble",
-    "general/snake", "general/vermilion-bird", "general/harmony",
-    "general/hook-array", "general/azure-dragon", "general/void",
-    "general/white-tiger", "general/constant", "general/black-tortoise",
-    "general/yin", "general/queen-of-heaven", "anchor/course-copy/lessons",
-    "anchor/course-copy/transmissions", "anchor/course-copy/generals",
-  ]);
+  const nodeIds = new Set(ASSET_CONTRACT.nodeIds);
+  assert.equal(nodeIds.size, ASSET_CONTRACT.nodeIds.length);
+  assert.equal(nodeIds.size, 50);
+  for (const forbidden of [
+    "transmission/bridge",
+    "anchor/course-copy/lessons",
+    "anchor/course-copy/transmissions",
+    "anchor/course-copy/generals",
+  ]) {
+    assert.equal(nodeIds.has(forbidden), false, forbidden);
+  }
+  assert.equal(nodeIds.has("transmission/method"), true);
+  assert.equal(nodeIds.has("trace/course"), true);
+  for (const surface of ["earth", "heaven"]) {
+    for (const branch of "子丑寅卯辰巳午未申酉戌亥") {
+      assert.equal(nodeIds.has(`branch/${surface}/${branch}`), true);
+    }
+  }
   assert.deepEqual(ASSET_CONTRACT.poseIds, [
     "closed", "calendar", "plate", "lessons", "transmissions", "generals",
   ]);

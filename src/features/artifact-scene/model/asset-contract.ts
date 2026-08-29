@@ -4,6 +4,8 @@ export const ARTIFACT_ASSET_URLS = {
   2: "/models/daliuren/daliuren-artifact-lod2.glb",
 } as const;
 
+const BRANCHES = [..."子丑寅卯辰巳午未申酉戌亥"] as const;
+
 export const REQUIRED_NODE_IDS: readonly string[] = [
   "artifact/root",
   "base/body",
@@ -14,10 +16,10 @@ export const REQUIRED_NODE_IDS: readonly string[] = [
   "lesson/second",
   "lesson/third",
   "lesson/fourth",
-  "transmission/bridge",
   "transmission/initial",
   "transmission/middle",
   "transmission/final",
+  "transmission/method",
   "general/noble",
   "general/snake",
   "general/vermilion-bird",
@@ -30,9 +32,9 @@ export const REQUIRED_NODE_IDS: readonly string[] = [
   "general/black-tortoise",
   "general/yin",
   "general/queen-of-heaven",
-  "anchor/course-copy/lessons",
-  "anchor/course-copy/transmissions",
-  "anchor/course-copy/generals",
+  ...BRANCHES.map((branch) => `branch/earth/${branch}`),
+  ...BRANCHES.map((branch) => `branch/heaven/${branch}`),
+  "trace/course",
 ];
 
 export function selectArtifactLod(width: number, dpr: number): 0 | 1 | 2 {

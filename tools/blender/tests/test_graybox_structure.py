@@ -26,12 +26,15 @@ class GrayboxStructureTest(unittest.TestCase):
 
     def test_base_and_heaven_plate_dimensions(self):
         base = bpy.data.objects["base/body"]
+        earth = bpy.data.objects["plate/earth"]
         heaven = bpy.data.objects["plate/heaven"]
         self.assertVectorAlmostEqual(base.dimensions, (0.520, 0.520, 0.052))
         self.assertAlmostEqual(base.location.z - base.dimensions.z / 2, 0.0, places=4)
+        self.assertVectorAlmostEqual(earth.dimensions, (0.440, 0.440, 0.014))
         self.assertAlmostEqual(heaven.dimensions.x, 0.380, places=4)
         self.assertAlmostEqual(heaven.dimensions.y, 0.380, places=4)
-        self.assertAlmostEqual(heaven.dimensions.z, 0.024, places=4)
+        self.assertGreaterEqual(heaven.dimensions.z, 0.024)
+        self.assertAlmostEqual(heaven.dimensions.z, 0.026, places=4)
 
     def test_earth_plate_is_fixed_and_heaven_plate_has_center_pivot(self):
         self.assertTrue(bpy.data.objects["plate/earth"]["fixed"])
@@ -82,6 +85,42 @@ class GrayboxStructureTest(unittest.TestCase):
                 "reference/historical-ring",
             }.issubset(bpy.data.objects.keys())
         )
+
+    def test_slips_have_real_thickness_and_settle_inside_base(self):
+        moving_slips = (
+            "lesson/fourth",
+            "lesson/third",
+            "lesson/second",
+            "lesson/first",
+            "transmission/initial",
+            "transmission/middle",
+            "transmission/final",
+        )
+        half_base = 0.520 / 2
+        for node_id in moving_slips:
+            slip = bpy.data.objects[node_id]
+            self.assertGreaterEqual(slip.dimensions.z, 0.006, node_id)
+            self.assertIn("settled_location", slip, node_id)
+            settled = slip["settled_location"]
+            self.assertLessEqual(abs(settled[0]) + slip.dimensions.x / 2, half_base, node_id)
+            self.assertLessEqual(abs(settled[1]) + slip.dimensions.y / 2, half_base, node_id)
+
+    def test_graybox_has_no_mechanical_node_or_detail_names(self):
+        forbidden = ("dovetail", "rail", "bridge", "track", "copy")
+        for obj in bpy.data.objects:
+            searchable = f'{obj.name} {obj.get("detail_id", "")}'.lower()
+            for token in forbidden:
+                self.assertNotIn(token, searchable, obj.name)
+
+    def test_course_trace_is_a_shallow_dark_mesh_attached_to_earth(self):
+        self.assertIn("trace/course", bpy.data.objects)
+        trace = bpy.data.objects["trace/course"]
+        self.assertEqual(trace.type, "MESH")
+        self.assertEqual(trace.parent, bpy.data.objects["plate/earth"])
+        self.assertGreater(trace.dimensions.z, 0.0001)
+        self.assertLess(trace.dimensions.z, 0.003)
+        self.assertEqual(len(trace.data.materials), 1)
+        self.assertLess(max(trace.data.materials[0].diffuse_color[:3]), 0.1)
 
 
 if __name__ == "__main__":
