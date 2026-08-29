@@ -8,23 +8,14 @@ export interface ArtifactNodePose {
   rotationX: number;
   rotationY: number;
   rotationZ: number;
+  visible?: boolean;
   targetEarth?: EarthlyBranch;
-}
-
-export interface ArtifactCopyPose {
-  opacity: number;
-  sourceLineProgress: number;
-  sourceLineOpacity: number;
 }
 
 export interface ArtifactPose {
   nodes: Readonly<Record<string, ArtifactNodePose>>;
-  copy: Readonly<{
-    lessons: ArtifactCopyPose;
-    transmissions: ArtifactCopyPose;
-    generals: ArtifactCopyPose;
-  }>;
+  labelOpacity: Readonly<Record<string, number>>;
+  courseTraceOpacity: number;
   generalDirection: GeneralDirection;
   generalSequence: readonly string[];
-  cameraOrbitRequested: boolean;
 }
