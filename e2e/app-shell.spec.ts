@@ -48,6 +48,17 @@ async function expectNoHorizontalOverflow(page: Page) {
   });
 }
 
+async function expectFullyInsideViewport(page: Page, locator: Locator) {
+  const box = await locator.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(-0.5);
+  expect(box!.y).toBeGreaterThanOrEqual(-0.5);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width + 0.5);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height + 0.5);
+}
+
 function isNonLocalNetworkUrl(url: string) {
   const target = new URL(url);
   return ["http:", "https:", "ws:", "wss:"].includes(target.protocol)
@@ -370,6 +381,88 @@ test("desktop keeps a center-led three-column workbench and a vertical stage rai
   expect(secondaryColor).not.toBe(actionColor);
 });
 
+test("desktop keeps the complete review workflow discoverable at 1280 by 720", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await generateCourse(page);
+
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  const modeToolbar = page.getByRole("toolbar", { name: "课式视图" });
+  const artifactViewport = page.locator(".artifact-experience__viewport");
+  const timeline = page.getByRole("region", { name: "器物推演控制" });
+  const evidenceTrigger = page.getByRole("button", { name: "查看阶段证据" });
+  const stageRail = page.getByRole("navigation", { name: "推演阶段" });
+  const timelineControls = [
+    page.getByRole("button", { name: "播放推演" }),
+    page.getByRole("button", { name: "上一阶段" }),
+    page.getByRole("button", { name: "下一阶段" }),
+    page.getByRole("slider", { name: "推演时间轴" }),
+    page.getByRole("button", { name: "重置视角" }),
+    timeline.getByRole("button", { name: "查看文字课式" }),
+  ];
+  const stageNames = [
+    "历法与月将，已完成",
+    "天地盘加临，已完成",
+    "四课生成，已完成",
+    "三传取法，已完成",
+    "天将排列，已完成",
+    "复制结课，已完成",
+  ] as const;
+
+  await expect(page.getByRole("slider", { name: "推演时间轴" })).toBeVisible({ timeout: 15_000 });
+  for (const locator of [modeToolbar, artifactViewport, timeline, evidenceTrigger, stageRail, ...timelineControls]) {
+    await expectFullyInsideViewport(page, locator);
+  }
+  for (const name of stageNames) {
+    await expectFullyInsideViewport(page, stageRail.getByRole("button", { name, exact: true }));
+  }
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole("group", { name: "标注密度" }).getByRole("button", { name: "全部" }).click();
+  const cards = page.locator(".artifact-annotations__card");
+  await expect(cards).toHaveCount(22);
+  const visibleCardCount = () => cards.evaluateAll((elements) => elements.filter((element) => {
+    const bounds = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden" && bounds.width > 0 && bounds.height > 0;
+  }).length);
+  await expect.poll(visibleCardCount).toBe(22);
+  const viewportBounds = await artifactViewport.boundingBox();
+  const cardBounds = await cards.evaluateAll((elements) => elements.filter((element) => {
+    const bounds = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden" && bounds.width > 0 && bounds.height > 0;
+  }).map((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+  }));
+  expect(viewportBounds).not.toBeNull();
+  const subject = {
+    x: viewportBounds!.x + viewportBounds!.width * 0.27,
+    y: viewportBounds!.y + viewportBounds!.height * 0.2,
+    width: viewportBounds!.width * 0.46,
+    height: viewportBounds!.height * 0.6,
+  };
+  const rectanglesOverlap = (
+    left: { x: number; y: number; width: number; height: number },
+    right: { x: number; y: number; width: number; height: number },
+  ) => left.x < right.x + right.width
+    && left.x + left.width > right.x
+    && left.y < right.y + right.height
+    && left.y + left.height > right.y;
+  cardBounds.forEach((bounds, index) => {
+    expect(bounds.x).toBeGreaterThanOrEqual(viewportBounds!.x + 12 - 0.5);
+    expect(bounds.y).toBeGreaterThanOrEqual(viewportBounds!.y + 72 - 0.5);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewportBounds!.x + viewportBounds!.width - 12 + 0.5);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewportBounds!.y + viewportBounds!.height - 128 + 0.5);
+    expect(rectanglesOverlap(bounds, subject)).toBe(false);
+    cardBounds.slice(index + 1).forEach((other) => expect(rectanglesOverlap(bounds, other)).toBe(false));
+  });
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+});
+
 test("mobile exposes stages and workbench tools before the document footer", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -399,16 +492,8 @@ test("mobile exposes stages and workbench tools before the document footer", asy
     await expect(tools.getByRole("button", { name, exact: true })).toBeVisible();
   }
 
-  async function expectFullyInsideViewport(locator: Locator) {
-    const box = await locator.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(-0.5);
-    expect(box!.y).toBeGreaterThanOrEqual(-0.5);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(390.5);
-    expect(box!.y + box!.height).toBeLessThanOrEqual(844.5);
-  }
-  await expectFullyInsideViewport(stageDock);
-  await expectFullyInsideViewport(tools);
+  await expectFullyInsideViewport(page, stageDock);
+  await expectFullyInsideViewport(page, tools);
 
   const dockStyle = await dock.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -453,8 +538,8 @@ test("mobile exposes stages and workbench tools before the document footer", asy
   await tools.getByRole("button", { name: "文字课式" }).click();
   const textCourse = page.getByRole("article", { name: "标准文字课式" });
   await expect(textCourse).toBeVisible();
-  await expectFullyInsideViewport(stageDock);
-  await expectFullyInsideViewport(tools);
+  await expectFullyInsideViewport(page, stageDock);
+  await expectFullyInsideViewport(page, tools);
   for (const name of stageNames) {
     await expect(stageDock.getByRole("button", { name, exact: true })).toBeVisible();
   }

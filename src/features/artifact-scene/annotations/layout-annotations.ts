@@ -9,6 +9,7 @@ const DENSE_CARD = { width: 144, height: 44, inset: 4 } as const;
 const CARD_GAP = 8;
 const HYSTERESIS_PX = 12;
 const MIN_CARD_WIDTH = 24;
+const MIN_DENSE_COLUMN_WIDTH = 64;
 const MIN_LAYOUT_WIDTH = DENSE_CARD.inset * 2 + CARD_GAP + MIN_CARD_WIDTH * 2;
 
 type Side = "left" | "right";
@@ -16,6 +17,7 @@ type Side = "left" | "right";
 interface PositionedAnchor {
   anchor: ProjectedAnchor;
   side: Side;
+  column: number;
   y: number;
   retained: boolean;
 }
@@ -24,6 +26,8 @@ interface CardDensity {
   width: number;
   height: number;
   inset: number;
+  columns: number;
+  rows: number;
   capacity: number;
 }
 
@@ -86,9 +90,31 @@ function cardDensity(viewport: AnnotationViewport, count: number, bounds: Layout
       return {
         ...card,
         width: Math.min(card.width, Math.floor(Math.min(...widths))),
+        columns: 1,
+        rows: capacity,
         capacity,
       };
     }
+  }
+
+  const denseInset = DENSE_CARD.inset;
+  const denseWidths = [railWidth(bounds.left, denseInset), railWidth(bounds.right, denseInset)]
+    .filter((width) => width >= MIN_DENSE_COLUMN_WIDTH);
+  const denseRows = Math.max(0, Math.floor((availableHeight - denseInset * 2 + CARD_GAP) / (DENSE_CARD.height + CARD_GAP)));
+  const requiredColumns = denseRows > 0 && denseWidths.length > 0
+    ? Math.ceil(count / (denseRows * denseWidths.length))
+    : 0;
+  const denseWidth = requiredColumns > 0
+    ? Math.floor((Math.min(...denseWidths) - CARD_GAP * (requiredColumns - 1)) / requiredColumns)
+    : 0;
+  if (canOmit && requiredColumns > 1 && denseWidth >= MIN_DENSE_COLUMN_WIDTH) {
+    return {
+      ...DENSE_CARD,
+      width: denseWidth,
+      columns: requiredColumns,
+      rows: denseRows,
+      capacity: denseRows * requiredColumns,
+    };
   }
 
   if (!canOmit) {
@@ -101,6 +127,8 @@ function cardDensity(viewport: AnnotationViewport, count: number, bounds: Layout
     width: widths.length > 0 ? Math.min(DENSE_CARD.width, Math.floor(Math.min(...widths))) : MIN_CARD_WIDTH,
     height: DENSE_CARD.height,
     inset,
+    columns: 1,
+    rows: Math.max(0, Math.floor((availableHeight - inset * 2 + CARD_GAP) / (DENSE_CARD.height + CARD_GAP))),
     capacity: Math.max(0, Math.floor((availableHeight - inset * 2 + CARD_GAP) / (DENSE_CARD.height + CARD_GAP))),
   };
 }
@@ -109,17 +137,22 @@ function positionSide(items: readonly PositionedAnchor[], bounds: LayoutBounds, 
   const ordered = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.anchor.id.localeCompare(b.anchor.id));
   const minimumY = bounds.top + density.inset;
   const maximumY = bounds.bottom - density.height - density.inset;
-  let nextY = minimumY;
-  ordered.forEach((item) => {
-    item.y = Math.max(clamp(item.anchor.y - density.height / 2, minimumY, maximumY), nextY);
-    nextY = item.y + density.height + CARD_GAP;
-  });
-  nextY = maximumY;
-  for (let index = ordered.length - 1; index >= 0; index -= 1) {
-    ordered[index].y = Math.min(ordered[index].y, nextY);
-    nextY = ordered[index].y - density.height - CARD_GAP;
-  }
-  return ordered;
+  const columns = Math.min(density.columns, Math.max(1, Math.ceil(ordered.length / density.rows)));
+  return Array.from({ length: columns }, (_, column) => {
+    const columnItems = ordered.filter((_, index) => index % columns === column);
+    let nextY = minimumY;
+    columnItems.forEach((item) => {
+      item.column = column;
+      item.y = Math.max(clamp(item.anchor.y - density.height / 2, minimumY, maximumY), nextY);
+      nextY = item.y + density.height + CARD_GAP;
+    });
+    nextY = maximumY;
+    for (let index = columnItems.length - 1; index >= 0; index -= 1) {
+      columnItems[index].y = Math.min(columnItems[index].y, nextY);
+      nextY = columnItems[index].y - density.height - CARD_GAP;
+    }
+    return columnItems;
+  }).flat();
 }
 
 function rebalance(positioned: readonly PositionedAnchor[], capacities: Record<Side, number>): PositionedAnchor[] {
@@ -168,6 +201,7 @@ export function layoutArtifactAnnotations(
     return {
       anchor,
       side: retainedSide ?? (anchor.x < viewport.width / 2 ? "left" : "right"),
+      column: 0,
       y: 0,
       retained: retainedSide !== undefined,
     };
@@ -176,9 +210,12 @@ export function layoutArtifactAnnotations(
   const left = positionSide(balanced.filter(({ side }) => side === "left"), bounds, density);
   const right = positionSide(balanced.filter(({ side }) => side === "right"), bounds, density);
 
-  return [...left, ...right].map(({ anchor, side, y }) => {
+  return [...left, ...right].map(({ anchor, side, column, y }) => {
     const rail = bounds[side];
-    const x = side === "left" ? rail.start + density.inset : rail.end - density.width - density.inset;
+    const columnOffset = column * (density.width + CARD_GAP);
+    const x = side === "left"
+      ? rail.start + density.inset + columnOffset
+      : rail.end - density.width - density.inset - columnOffset;
     const cardEdgeX = side === "left" ? x + density.width : x;
     const bendX = clamp((anchor.x + cardEdgeX) / 2, 0, viewport.width);
     const cardCenterY = y + density.height / 2;

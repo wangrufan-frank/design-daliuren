@@ -156,6 +156,46 @@ describe("layoutArtifactAnnotations", () => {
     }
   });
 
+  it("keeps all 22 cards inside the real desktop safe area without overlap", () => {
+    const viewport = { width: 672, height: 691 };
+    const subjectWidth = viewport.width * 0.46;
+    const subjectHeight = viewport.height * 0.6;
+    const safeArea = {
+      top: 72,
+      right: 12,
+      bottom: 128,
+      left: 12,
+      subject: {
+        x: (viewport.width - subjectWidth) / 2,
+        y: (viewport.height - subjectHeight) / 2,
+        width: subjectWidth,
+        height: subjectHeight,
+      },
+    };
+    const anchors = allIds.map((id, index): ProjectedAnchor => ({
+      id,
+      x: 120 + index * 8,
+      y: 80 + index * 24,
+      depth: 0,
+      behindCamera: false,
+      occluded: false,
+    }));
+
+    const layouts = layoutArtifactAnnotations(anchors, viewport, { safeArea });
+
+    expect(layouts).toHaveLength(22);
+    layouts.forEach(({ labelRect }) => {
+      expect(labelRect.x).toBeGreaterThanOrEqual(safeArea.left);
+      expect(labelRect.y).toBeGreaterThanOrEqual(safeArea.top);
+      expect(labelRect.x + labelRect.width).toBeLessThanOrEqual(viewport.width - safeArea.right);
+      expect(labelRect.y + labelRect.height).toBeLessThanOrEqual(viewport.height - safeArea.bottom);
+      expect(rectanglesOverlap(labelRect, safeArea.subject)).toBe(false);
+    });
+    layouts.forEach((layout, index) => layouts.slice(index + 1).forEach((other) => {
+      expect(overlaps(layout.labelRect, other.labelRect)).toBe(false);
+    }));
+  });
+
   it("rejects a viewport too short for 22 minimum-height cards with 8px gaps", () => {
     const clustered = allIds.map((id, index): ProjectedAnchor => ({
       id,

@@ -170,6 +170,46 @@
   .course-context summary { pointer-events: none; }
 }
 
+@media (min-width: 900px) and (max-height: 800px) {
+  .course-workbench__stage,
+  .course-workbench .course-experience,
+  .course-workbench__stage .artifact-experience {
+    position: relative;
+  }
+
+  .course-workbench__stage .course-experience .artifact-experience__viewport {
+    min-height: 520px;
+  }
+
+  .course-workbench__stage .artifact-timeline {
+    position: absolute;
+    z-index: 3;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+  .course-workbench__stage .course-experience__caption {
+    position: absolute;
+    z-index: 6;
+    top: 0;
+    left: 4px;
+    margin: 0;
+  }
+
+  .course-workbench__stage > .stage-evidence-drawer {
+    margin: 0;
+  }
+
+  .course-workbench__stage > .stage-evidence-drawer > button {
+    position: absolute;
+    z-index: 7;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 @media (max-width: 899px) {
   .course-workbench { padding-inline: 16px; }
   .course-workbench__header { align-items: flex-start; flex-direction: column; gap: 6px; }

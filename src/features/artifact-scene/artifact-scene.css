@@ -117,6 +117,14 @@
   display: none;
 }
 
+.artifact-annotations[data-density="all"] .artifact-annotations__card {
+  padding-inline: 4px;
+}
+
+.artifact-annotations[data-density="all"] .artifact-annotations__card strong {
+  letter-spacing: 0.02em;
+}
+
 .artifact-annotations__card:hover {
   border-color: var(--ru-celadon);
   background: color-mix(in srgb, var(--ink) 94%, transparent);
