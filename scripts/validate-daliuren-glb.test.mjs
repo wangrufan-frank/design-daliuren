@@ -24,7 +24,7 @@ const LOD_CONTRACT = {
   lods: {
     lod2: {
       triangleBudget: { min: 0, max: 3 },
-      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      sceneBoundsMeters: [0.52, 0.092, 0.52],
       textureMaxDimensions: {
         hero: [2048, 2048],
         moving: [1024, 1024],
@@ -159,7 +159,7 @@ function validLodDocument(overrides = {}) {
   return fakeDocument(nodes, {
     sceneBounds: overrides.sceneBounds ?? {
       min: [-0.26, 0, -0.26],
-      max: [0.26, 0.0905, 0.26],
+      max: [0.26, 0.092, 0.26],
     },
     materials: overrides.materials ?? [
       { name: "bronze", family: "M_Bronze" },
@@ -237,7 +237,7 @@ test("uses the selected LOD budget without changing the graybox budget", () => {
     { name: "root", extras: { node_id: "artifact/root" } },
     { name: "heaven", extras: { node_id: "plate/heaven" }, triangles: 4 },
   ], {
-    sceneBounds: { min: [-0.26, 0, -0.26], max: [0.26, 0.0905, 0.26] },
+    sceneBounds: { min: [-0.26, 0, -0.26], max: [0.26, 0.092, 0.26] },
   });
 
   assert.deepEqual(validateArtifactDocument(fourTriangles, BASE_CONTRACT), []);
@@ -294,7 +294,7 @@ test("validates final LOD scene bounds instead of graybox component bounds", () 
   });
 
   assert.deepEqual(validateArtifactDocument(invalid, LOD_CONTRACT, { lodId: "lod2" }), [
-    "scene bounds mismatch: y expected 0.0905 ± 0.01, got 0.11",
+    "scene bounds mismatch: y expected 0.092 ± 0.01, got 0.11",
   ]);
 });
 
@@ -303,19 +303,19 @@ test("asset contract declares final LOD budgets and runtime texture validation",
     lod0: {
       file: "public/models/daliuren/daliuren-artifact-lod0.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      sceneBoundsMeters: [0.52, 0.092, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod1: {
       file: "public/models/daliuren/daliuren-artifact-lod1.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      sceneBoundsMeters: [0.52, 0.092, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod2: {
       file: "public/models/daliuren/daliuren-artifact-lod2.glb",
       triangleBudget: { min: 1, max: 80000 },
-      sceneBoundsMeters: [0.52, 0.0905, 0.52],
+      sceneBoundsMeters: [0.52, 0.092, 0.52],
       textureMaxDimensions: { hero: [2048, 2048], moving: [1024, 1024] },
     },
   });

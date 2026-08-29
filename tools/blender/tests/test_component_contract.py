@@ -96,6 +96,8 @@ class ComponentContractTest(unittest.TestCase):
 
     def test_generals_are_independent_objects_on_one_shared_mesh(self):
         generals = [obj for obj in bpy.data.objects if obj.get("domain") == "general"]
+        base = bpy.data.objects["base/body"]
+        earth = bpy.data.objects["plate/earth"]
         self.assertEqual(len(generals), 12)
         self.assertEqual({obj["general_key"] for obj in generals}, set(GENERAL_KEYS))
         self.assertEqual(len({obj.name for obj in generals}), 12)
@@ -103,11 +105,18 @@ class ComponentContractTest(unittest.TestCase):
         self.assertEqual(len({obj.data.as_pointer() for obj in generals}), 1)
         self.assertEqual(len({id(obj) for obj in generals}), 12)
         for general in generals:
-            self.assertEqual(general.parent, self.root)
-            self.assertAlmostEqual(math.hypot(general.location.x, general.location.y), 0.218)
+            self.assertEqual(general.parent, base)
             self.assertAlmostEqual(general.dimensions.x, 0.028)
             self.assertAlmostEqual(general.dimensions.y, 0.028)
             self.assertAlmostEqual(general.dimensions.z, 0.004)
+            center = general.matrix_world.translation
+            half_inlay = general.dimensions.x / 2
+            self.assertLessEqual(abs(center.x) + half_inlay, base.dimensions.x / 2)
+            self.assertLessEqual(abs(center.y) + half_inlay, base.dimensions.y / 2)
+            self.assertGreaterEqual(
+                max(abs(center.x), abs(center.y)) - half_inlay,
+                earth.dimensions.x / 2,
+            )
 
     def test_branch_inlays_form_complete_surface_rings(self):
         for surface, radius in (("earth", 0.202), ("heaven", 0.164)):

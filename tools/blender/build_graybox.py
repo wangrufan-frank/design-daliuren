@@ -164,16 +164,17 @@ def add_transmission_slips(root, base_height):
     method.parent = root
 
 
-def add_generals(root, base_height):
-    radius = 0.218
+def add_generals(base):
     diameter, depth = DIMENSIONS["general_inlay"]
-    settled_z = base_height + DIMENSIONS["earth_plate"][2] + depth / 2
+    settled_z = base.dimensions.z / 2 + depth / 2
     first = None
     for index, general_key in enumerate(GENERAL_KEYS):
         angle = math.radians(90.0 - index * 30.0)
+        direction = (math.cos(angle), math.sin(angle))
+        scale = 0.240 / max(abs(direction[0]), abs(direction[1]))
         settled_location = (
-            radius * math.cos(angle),
-            radius * math.sin(angle),
+            direction[0] * scale,
+            direction[1] * scale,
             settled_z,
         )
         node_id = f"general/{general_key}"
@@ -186,7 +187,7 @@ def add_generals(root, base_height):
             bpy.context.scene.collection.objects.link(general)
             general.location = settled_location
             general["node_id"] = node_id
-        general.parent = root
+        general.parent = base
         general.rotation_euler.z = angle - math.pi / 2
         general["domain"] = "general"
         general["general_key"] = general_key
@@ -210,7 +211,7 @@ def add_branch_inlays(earth, heaven):
                 (
                     radius * math.cos(angle),
                     radius * math.sin(angle),
-                    surface_top + depth / 2,
+                    surface_top - depth / 2,
                 ),
                 0.0003,
             )
@@ -221,16 +222,11 @@ def add_branch_inlays(earth, heaven):
             inlay["surface_treatment"] = "graybox-inlay"
 
 
-def add_course_trace(earth):
-    material = bpy.data.materials.get("graybox/trace-dark")
-    if material is None:
-        material = bpy.data.materials.new("graybox/trace-dark")
-        material.diffuse_color = (0.025, 0.030, 0.028, 1.0)
-
-    curve = bpy.data.curves.new("trace/course/curve", "CURVE")
+def _add_course_curve_mesh(name, z, bevel_depth):
+    curve = bpy.data.curves.new(f"{name}/curve", "CURVE")
     curve.dimensions = "3D"
     curve.resolution_u = 2
-    curve.bevel_depth = 0.00055
+    curve.bevel_depth = bevel_depth
     curve.bevel_resolution = 2
     curve.resolution_v = 2
     curve.fill_mode = "FULL"
@@ -243,21 +239,45 @@ def add_course_trace(earth):
         (0.092, -0.082, 0.0),
     )
     spline.points.add(len(points) - 1)
-    surface_z = earth.dimensions.z / 2 + 0.0003
-    for point, (x, y, z) in zip(spline.points, points):
-        point.co = (x, y, surface_z + z, 1.0)
+    for point, (x, y, offset_z) in zip(spline.points, points):
+        point.co = (x, y, z + offset_z, 1.0)
 
-    trace = bpy.data.objects.new("trace/course", curve)
-    bpy.context.scene.collection.objects.link(trace)
-    trace.parent = earth
-    trace["node_id"] = "trace/course"
-    trace["surface_treatment"] = "shallow-groove"
-    trace["runtime_reveal"] = True
-    curve.materials.append(material)
+    obj = bpy.data.objects.new(name, curve)
+    bpy.context.scene.collection.objects.link(obj)
     bpy.ops.object.select_all(action="DESELECT")
-    trace.select_set(True)
-    bpy.context.view_layer.objects.active = trace
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
     bpy.ops.object.convert(target="MESH")
+    return obj
+
+
+def add_course_trace(earth):
+    material = bpy.data.materials.get("graybox/trace-dark")
+    if material is None:
+        material = bpy.data.materials.new("graybox/trace-dark")
+        material.diffuse_color = (0.025, 0.030, 0.028, 1.0)
+
+    earth_top = earth.location.z + earth.dimensions.z / 2
+    cutter = _add_course_curve_mesh("trace/course-groove-cutter", earth_top - 0.00075, 0.0011)
+    groove = earth.modifiers.new(name="course groove", type="BOOLEAN")
+    groove.operation = "DIFFERENCE"
+    groove.solver = "EXACT"
+    groove.object = cutter
+    bpy.context.view_layer.objects.active = earth
+    bpy.ops.object.modifier_apply(modifier=groove.name)
+    cutter_mesh = cutter.data
+    bpy.data.objects.remove(cutter, do_unlink=True)
+    if cutter_mesh.users == 0:
+        bpy.data.meshes.remove(cutter_mesh)
+
+    trace = _add_course_curve_mesh("trace/course", earth_top - 0.001, 0.00065)
+    world_matrix = trace.matrix_world.copy()
+    trace.parent = earth
+    trace.matrix_world = world_matrix
+    trace["node_id"] = "trace/course"
+    trace["surface_treatment"] = "recessed-groove"
+    trace["runtime_reveal"] = True
+    trace.data.materials.append(material)
     return trace
 
 
@@ -267,7 +287,7 @@ def build_graybox():
     root = new_empty("artifact/root", (0.0, 0.0, 0.0))
 
     base_height = DIMENSIONS["base"][2]
-    add_beveled_box(
+    base = add_beveled_box(
         "base/body",
         DIMENSIONS["base"],
         (0.0, 0.0, base_height / 2),
@@ -295,7 +315,7 @@ def build_graybox():
     add_calendar(root, base_height)
     add_lesson_slips(root, base_height)
     add_transmission_slips(root, base_height)
-    add_generals(root, base_height)
+    add_generals(base)
     add_branch_inlays(earth, heaven)
     add_course_trace(earth)
     return root

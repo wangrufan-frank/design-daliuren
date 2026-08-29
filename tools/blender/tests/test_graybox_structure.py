@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import bpy
+from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
@@ -35,6 +36,15 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertAlmostEqual(heaven.dimensions.y, 0.380, places=4)
         self.assertGreaterEqual(heaven.dimensions.z, 0.024)
         self.assertAlmostEqual(heaven.dimensions.z, 0.026, places=4)
+
+    def test_scene_stack_reaches_the_declared_lod_height(self):
+        maximum_z = max(
+            (obj.matrix_world @ Vector(corner)).z
+            for obj in bpy.data.objects
+            if obj.type == "MESH"
+            for corner in obj.bound_box
+        )
+        self.assertAlmostEqual(maximum_z, 0.092, places=4)
 
     def test_earth_plate_is_fixed_and_heaven_plate_has_center_pivot(self):
         self.assertTrue(bpy.data.objects["plate/earth"]["fixed"])
@@ -115,10 +125,16 @@ class GrayboxStructureTest(unittest.TestCase):
     def test_course_trace_is_a_shallow_dark_mesh_attached_to_earth(self):
         self.assertIn("trace/course", bpy.data.objects)
         trace = bpy.data.objects["trace/course"]
+        earth = bpy.data.objects["plate/earth"]
         self.assertEqual(trace.type, "MESH")
-        self.assertEqual(trace.parent, bpy.data.objects["plate/earth"])
+        self.assertEqual(trace.parent, earth)
+        self.assertEqual(trace["surface_treatment"], "recessed-groove")
         self.assertGreater(trace.dimensions.z, 0.0001)
         self.assertLess(trace.dimensions.z, 0.003)
+        earth_top = earth.location.z + earth.dimensions.z / 2
+        trace_top = max((trace.matrix_world @ Vector(corner)).z for corner in trace.bound_box)
+        self.assertLess(trace_top, earth_top - 0.0001)
+        self.assertGreater(trace_top, earth_top - 0.001)
         self.assertEqual(len(trace.data.materials), 1)
         self.assertLess(max(trace.data.materials[0].diffuse_color[:3]), 0.1)
 
