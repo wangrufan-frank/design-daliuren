@@ -10,6 +10,7 @@ import { ThreeTransmissionsReview } from "./ThreeTransmissionsReview";
 
 const result = referenceSession.snapshots["three-transmissions"]!.value as ThreeTransmissionsResult;
 const generals = referenceSession.snapshots["heavenly-generals"]!.value as HeavenlyGeneralsResult;
+const voidBranches = referenceSession.snapshots.calendar!.value.voidBranches;
 const sheHaiResult = {
   dayPillar: "庚子",
   plateOffset: 2,
@@ -63,10 +64,28 @@ const sheHaiResult = {
 afterEach(cleanup);
 
 describe("ThreeTransmissionsReview", () => {
+  it("marks a void transmission branch", () => {
+    const voidResult = structuredClone(result);
+    voidResult.transmissions[0].branch = "子";
+
+    render(
+      <ThreeTransmissionsReview
+        result={voidResult}
+        voidBranches={["子", "丑"]}
+        onReviewFourLessons={vi.fn()}
+        onReviewHeavenEarth={vi.fn()}
+      />,
+    );
+
+    const transmission = screen.getByRole("button", { name: /初传，子（空亡）/ });
+    expect(within(transmission).getByLabelText("空亡")).toBeVisible();
+  });
+
   it("uses the supplied heavenly-generals snapshot in every transmission accessible name", () => {
     render(
       <ThreeTransmissionsReview
         result={result}
+        voidBranches={voidBranches}
         generals={generals}
         onReviewFourLessons={vi.fn()}
         onReviewHeavenEarth={vi.fn()}
@@ -82,7 +101,7 @@ describe("ThreeTransmissionsReview", () => {
 
   it("keeps the pre-stage placeholder when no heavenly-generals snapshot is supplied", () => {
     render(
-      <ThreeTransmissionsReview result={result} onReviewFourLessons={vi.fn()} onReviewHeavenEarth={vi.fn()} />,
+      <ThreeTransmissionsReview result={result} voidBranches={voidBranches} onReviewFourLessons={vi.fn()} onReviewHeavenEarth={vi.fn()} />,
     );
 
     expect(screen.getAllByText("待天将加临")).toHaveLength(3);
@@ -92,6 +111,7 @@ describe("ThreeTransmissionsReview", () => {
     render(
       <ThreeTransmissionsReview
         result={result}
+        voidBranches={voidBranches}
         onReviewFourLessons={vi.fn()}
         onReviewHeavenEarth={vi.fn()}
       />,
@@ -130,6 +150,7 @@ describe("ThreeTransmissionsReview", () => {
     render(
       <ThreeTransmissionsReview
         result={sheHaiResult}
+        voidBranches={voidBranches}
         onReviewFourLessons={vi.fn()}
         onReviewHeavenEarth={vi.fn()}
       />,
@@ -167,6 +188,7 @@ describe("ThreeTransmissionsReview", () => {
     render(
       <ThreeTransmissionsReview
         result={sheHaiResult}
+        voidBranches={voidBranches}
         onReviewFourLessons={onReviewFourLessons}
         onReviewHeavenEarth={onReviewHeavenEarth}
       />,
@@ -199,6 +221,7 @@ describe("ThreeTransmissionsReview", () => {
     render(
       <ThreeTransmissionsReview
         result={result}
+        voidBranches={voidBranches}
         onReviewFourLessons={vi.fn()}
         onReviewHeavenEarth={vi.fn()}
       />,
@@ -216,6 +239,7 @@ describe("ThreeTransmissionsReview", () => {
     render(
       <ThreeTransmissionsReview
         result={sheHaiResult}
+        voidBranches={voidBranches}
         onReviewFourLessons={vi.fn()}
         onReviewHeavenEarth={vi.fn()}
       />,

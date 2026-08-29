@@ -21,8 +21,9 @@ function engineInput(value: string): CalendarEngineInput {
       civilDateTime: time.isoLocal,
       timeZone: "Asia/Shanghai",
       locationName: "北京",
-      reason: "商务决策复盘",
-      corrections: {},
+    reason: "商务决策复盘",
+    natal: { birthYear: 1990, branch: "午", source: "automatic" },
+    corrections: {},
     },
     time,
     primitives: adapter.read(time),
@@ -46,6 +47,24 @@ describe("deriveAutomaticCalendar", () => {
       monthGeneral: ordinaryCalendarCase.expected.monthGeneral,
       divinationHour: ordinaryCalendarCase.expected.divinationHour,
     });
+  });
+
+  it.each([
+    ["甲子", ["戌", "亥"]],
+    ["甲戌", ["申", "酉"]],
+    ["甲申", ["午", "未"]],
+    ["甲午", ["辰", "巳"]],
+    ["甲辰", ["寅", "卯"]],
+    ["甲寅", ["子", "丑"]],
+  ] as const)("derives the two void branches for the %s旬", (dayPillar, expected) => {
+    const input = engineInput(ordinaryCalendarCase.input);
+
+    const result = deriveAutomaticCalendar({
+      ...input,
+      primitives: { ...input.primitives, civilDayPillar: dayPillar },
+    });
+
+    expect(result.voidBranches).toEqual(expected);
   });
 
   it.each(ziInitialCases)("keeps the civil lunar date while applying the 23:00 Ganzhi rollover at $input", ({ input, expected }) => {

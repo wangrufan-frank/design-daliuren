@@ -55,6 +55,7 @@ afterEach(() => {
 async function submitCourse(civilDateTime = "2024-02-10T14:30:00") {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText("日期与时间"), civilDateTime);
+  await user.type(screen.getByLabelText("出生年份"), "1990");
   await user.type(screen.getByLabelText("地点（选填）"), "北京");
   await user.type(screen.getByLabelText("起课事由"), "商务决策复盘");
   await user.click(screen.getByRole("button", { name: "生成完整课式" }));
@@ -613,6 +614,7 @@ it("clears a field correction error after reset and after a new successful submi
 
   await user.click(screen.getByRole("button", { name: "重新起课" }));
   await user.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
+  await user.type(screen.getByLabelText("出生年份"), "1990");
   await user.type(screen.getByLabelText("起课事由"), "商务决策复盘");
   await user.click(screen.getByRole("button", { name: "生成完整课式" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -643,6 +645,7 @@ it("clears prior snapshots when a new parsed submission fails the calendar stage
   const dateTime = screen.getByLabelText("日期与时间");
   await user.clear(dateTime);
   await user.type(dateTime, "2024-02-11T14:30:00");
+  await user.type(screen.getByLabelText("出生年份"), "1990");
   await user.type(screen.getByLabelText("起课事由"), "新的起课事由");
   await user.click(screen.getByRole("button", { name: "生成完整课式" }));
 

@@ -12,12 +12,12 @@ const transmissions = referenceSession.snapshots["three-transmissions"] as Three
 const generals = referenceSession.snapshots["heavenly-generals"] as HeavenlyGeneralsSnapshot;
 
 function derive() {
-  return deriveCourse({ reason: referenceSession.input.reason, locationName: referenceSession.input.locationName }, calendar.value, lessons.value, transmissions.value, generals.value);
+  return deriveCourse({ reason: referenceSession.input.reason, locationName: referenceSession.input.locationName, natal: referenceSession.input.natal }, calendar.value, lessons.value, transmissions.value, generals.value);
 }
 
 describe("deriveCourse", () => {
   it("serializes reason and omits an empty location line", () => {
-    const result = deriveCourse({ reason: "项目签约判断" }, calendar.value, lessons.value, transmissions.value, generals.value);
+    const result = deriveCourse({ reason: "项目签约判断", natal: referenceSession.input.natal }, calendar.value, lessons.value, transmissions.value, generals.value);
     const copy = serializeCourseText(result);
 
     expect(result.context.reason).toBe("项目签约判断");
@@ -39,6 +39,8 @@ describe("deriveCourse", () => {
         day: calendar.value.pillars.day.effective,
         hour: calendar.value.pillars.hour.effective,
       },
+      voidBranches: calendar.value.voidBranches,
+      natal: referenceSession.input.natal,
       monthBuild: calendar.value.monthBuild,
       monthGeneral: calendar.value.monthGeneral.effective,
       divinationHour: calendar.value.divinationHour.effective,
@@ -103,7 +105,7 @@ describe("deriveCourse", () => {
     const localLessons = structuredClone(lessons.value);
     const localTransmissions = structuredClone(transmissions.value);
     const localGenerals = structuredClone(generals.value);
-    const result = deriveCourse({ reason: referenceSession.input.reason, locationName: referenceSession.input.locationName }, localCalendar, localLessons, localTransmissions, localGenerals);
+    const result = deriveCourse({ reason: referenceSession.input.reason, locationName: referenceSession.input.locationName, natal: referenceSession.input.natal }, localCalendar, localLessons, localTransmissions, localGenerals);
     const sourceLower = localLessons.lessons.find((lesson) => lesson.id === "fourth")!.lower;
     expect(result.context.monthGeneral).not.toBe(localCalendar.monthGeneral.effective);
     expect(result.lessons[0].lower).not.toBe(sourceLower);
@@ -118,20 +120,41 @@ describe("deriveCourse", () => {
     const result = derive();
     const text = serializeCourseText(result);
     expect(text).not.toContain("\r");
-    expect(text.split("\n").slice(0, 9)).toEqual([
+    expect(text.split("\n").slice(0, 10)).toEqual([
       "大六壬标准课式",
       `时间：${result.context.civilDateTime}`,
       `事由：${result.context.reason}`,
       `地点：${result.context.locationName}`,
       `农历：${result.context.lunarDateDisplay}`,
       `四柱：${result.context.pillars.year}　${result.context.pillars.month}　${result.context.pillars.day}　${result.context.pillars.hour}`,
+      `旬空：${result.context.voidBranches.join("　")}`,
+      `本命：1990年　午命（自动换算）`,
       `月建：${result.context.monthBuild}`,
       `月将：${result.context.monthGeneral.name}（${result.context.monthGeneral.branch}）　占时：${result.context.divinationHour}`,
-      "",
     ]);
     expect(text).toContain(`初传：${result.transmissions[0].general}　${result.transmissions[0].branch}　${result.transmissions[0].relation}`);
     expect(text.match(/宫：/g)).toHaveLength(12);
     expect(text).not.toMatch(/遁干|神煞|断语/);
+  });
+
+  it("marks every void branch occurrence in serialized palaces, lessons, and transmissions", () => {
+    const result = derive();
+    const annotated = {
+      ...result,
+      transmissions: result.transmissions.map((item, index) => index === 0 ? { ...item, branch: "子" as const } : item),
+      lessons: result.lessons.map((item, index) => index === 0
+        ? { ...item, upper: "丑" as const, lower: { kind: "branch" as const, value: "子" as const } }
+        : item),
+      palaces: result.palaces.map((item, index) => index === 0
+        ? { ...item, earth: "子" as const, heaven: "丑" as const }
+        : item),
+    };
+
+    const text = serializeCourseText(annotated);
+
+    expect(text).toContain(`初传：${annotated.transmissions[0].general}　子（空）`);
+    expect(text).toContain(`四课：${annotated.lessons[0].general}　上神丑（空）　下神子（空）`);
+    expect(text).toContain(`子宫：${annotated.palaces[0].general}　天盘丑（空）　地盘子（空）`);
   });
 
   it("omits absent subtype and variants without empty separators", () => {

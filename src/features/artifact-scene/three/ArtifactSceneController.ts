@@ -349,23 +349,26 @@ export class ArtifactSceneController {
   setDisplayState(state: ArtifactDisplayState): void {
     if (this.disposed) return;
     try {
+      const markVoid = (branch: string) => state.calendar.voidBranches.some((item) => item === branch)
+        ? `${branch}（空）`
+        : branch;
       const calendarMarker = state.calendar.manualFields.length > 0 ? "manual" : undefined;
       this.bindLabel("dynamic/calendar", {
-        text: `${state.calendar.pillars.join("　")}\n月建${state.calendar.monthBuild}　月将${state.calendar.monthGeneral}${state.calendar.monthGeneralBranch}　占时${state.calendar.divinationHour}　${DAY_NIGHT_TEXT[state.noble.dayNight]}贵${state.noble.nobleHeaven}`,
+        text: `${state.calendar.pillars.join("　")}\n月建${state.calendar.monthBuild}　月将${state.calendar.monthGeneral}${state.calendar.monthGeneralBranch}　占时${state.calendar.divinationHour}　旬空${state.calendar.voidBranches.join("")}　${DAY_NIGHT_TEXT[state.noble.dayNight]}贵${state.noble.nobleHeaven}`,
         style: "celadon",
         ...CALENDAR_LABEL_SIZE,
         marker: calendarMarker,
       });
       for (const lesson of state.lessons) {
         this.bindLabel(`dynamic/lesson/${lesson.id}`, {
-          text: `${lesson.label}\n${lesson.general}　${lesson.upper}/${lesson.lower.value}　查地盘${lesson.lookupEarth}`,
+          text: `${lesson.label}\n${lesson.general}　${markVoid(lesson.upper)}/${markVoid(lesson.lower.value)}　查地盘${lesson.lookupEarth}`,
           style: "ash",
           ...LABEL_SIZE,
         });
       }
       for (const transmission of state.transmissions) {
         this.bindLabel(`dynamic/transmission/${transmission.position}`, {
-          text: `${transmission.label}\n${transmission.general}　${transmission.branch}　${transmission.relation}`,
+          text: `${transmission.label}\n${transmission.general}　${markVoid(transmission.branch)}　${transmission.relation}`,
           style: "ash",
           ...LABEL_SIZE,
         });
@@ -385,12 +388,12 @@ export class ArtifactSceneController {
         });
       }
       this.bindCopyLabel("lessons", {
-        text: state.lessons.map((lesson) => `${lesson.label} ${lesson.upper}/${lesson.lower.value} 查${lesson.lookupEarth}`).join("　"),
+        text: state.lessons.map((lesson) => `${lesson.label} ${markVoid(lesson.upper)}/${markVoid(lesson.lower.value)} 查${lesson.lookupEarth}`).join("　"),
         style: "ash",
         ...COPY_LABEL_SIZE,
       });
       this.bindCopyLabel("transmissions", {
-        text: state.transmissions.map((item) => `${item.label} ${item.branch} ${item.relation}`).join("　"),
+        text: state.transmissions.map((item) => `${item.label} ${markVoid(item.branch)} ${item.relation}`).join("　"),
         style: "celadon",
         ...COPY_LABEL_SIZE,
       });

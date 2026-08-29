@@ -8,6 +8,7 @@ const baseInput: CourseInput = {
   timeZone: "Asia/Shanghai",
   locationName: "北京",
   reason: "商务决策复盘",
+  natal: { birthYear: 1990, branch: "午", source: "automatic" },
   corrections: {},
 };
 

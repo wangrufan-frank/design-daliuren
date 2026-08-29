@@ -7,6 +7,8 @@ const EXPECTED_REFERENCE_TEXT = [
   "地点：北京",
   "农历：二〇二四年正月初一",
   "四柱：甲辰　丙寅　甲辰　辛未",
+  "旬空：寅　卯",
+  "本命：1990年　午命（自动换算）",
   "月建：寅",
   "月将：神后（子）　占时：未",
   "",
@@ -16,7 +18,7 @@ const EXPECTED_REFERENCE_TEXT = [
   "末传：六合　戌　妻财",
   "",
   "四课",
-  "四课：天后　上神寅　下神酉",
+  "四课：天后　上神寅（空）　下神酉",
   "三课：勾陈　上神酉　下神辰",
   "二课：螣蛇　上神子　下神未",
   "一课：天空　上神未　下神甲",
@@ -26,13 +28,13 @@ const EXPECTED_REFERENCE_TEXT = [
   "午宫：朱雀　天盘亥　地盘午",
   "未宫：螣蛇　天盘子　地盘未",
   "申宫：贵人　天盘丑　地盘申",
-  "酉宫：天后　天盘寅　地盘酉",
-  "戌宫：太阴　天盘卯　地盘戌",
+  "酉宫：天后　天盘寅（空）　地盘酉",
+  "戌宫：太阴　天盘卯（空）　地盘戌",
   "亥宫：玄武　天盘辰　地盘亥",
   "子宫：太常　天盘巳　地盘子",
   "丑宫：白虎　天盘午　地盘丑",
-  "寅宫：天空　天盘未　地盘寅",
-  "卯宫：青龙　天盘申　地盘卯",
+  "寅宫：天空　天盘未　地盘寅（空）",
+  "卯宫：青龙　天盘申　地盘卯（空）",
   "辰宫：勾陈　天盘酉　地盘辰",
   "",
   "贵人：昼贵丑　落申宫　逆布",
@@ -40,6 +42,7 @@ const EXPECTED_REFERENCE_TEXT = [
 
 async function submitReferenceCourse(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("出生年份").fill("1990");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "生成完整课式" }).click();

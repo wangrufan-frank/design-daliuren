@@ -50,6 +50,23 @@ it("renders the approved reading order and enclosing palace square", () => {
   expect(screen.getByTestId("course-plate-center")).toHaveTextContent("月将");
 });
 
+it("shows natal context and marks void branches across transmissions, lessons, and palaces", () => {
+  const annotated: CourseResult = {
+    ...result,
+    transmissions: result.transmissions.map((item, index) => index === 0 ? { ...item, branch: "子" } : item),
+    lessons: result.lessons.map((item, index) => index === 0
+      ? { ...item, upper: "丑", lower: { kind: "branch", value: "子" } }
+      : item),
+    palaces: result.palaces,
+  };
+
+  render(<CourseSheet result={annotated} />);
+
+  expect(screen.getByText("旬空").nextElementSibling).toHaveTextContent(/子\s+丑/);
+  expect(screen.getByText("本命").nextElementSibling).toHaveTextContent("1990年 · 午命 · 自动换算");
+  expect(screen.getAllByLabelText("空亡")).toHaveLength(7);
+});
+
 it("locks the approved square, perimeter, mobile lesson grid, and host selector scope", () => {
   expect(globalCss).toMatch(/\.course-sheet__plate \{[^}]*grid-template-columns: repeat\(4,[^}]*grid-template-rows: repeat\(4,/);
   const perimeter = [

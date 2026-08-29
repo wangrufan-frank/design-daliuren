@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { serializeCourseText } from "../../domain/course/policy";
 import type { CourseResult } from "../../domain/course/types";
+import { VoidBranch } from "../void-branch/VoidBranch";
 
 const dayNightText = { day: "昼", night: "夜" } as const;
 const directionText = { forward: "顺", reverse: "逆" } as const;
@@ -60,6 +61,8 @@ export function CourseSheet({ result }: { result: CourseResult }) {
           <div><dt>北京时间</dt><dd>{result.context.civilDateTime}</dd></div>
           <div><dt>生效干支日</dt><dd>{result.context.effectiveGanzhiDate}</dd></div>
           <div><dt>四柱</dt><dd>{Object.values(result.context.pillars).join("　")}</dd></div>
+          <div><dt>旬空</dt><dd>{result.context.voidBranches.join("　")}</dd></div>
+          <div><dt>本命</dt><dd>{result.context.natal.birthYear}年 · {result.context.natal.branch}命 · {result.context.natal.source === "manual" ? "手动选择" : "自动换算"}</dd></div>
           <div><dt>月建 / 月将</dt><dd>{result.context.monthBuild} · {result.context.monthGeneral.name}{result.context.monthGeneral.branch}</dd></div>
         </dl>
       </header>
@@ -71,7 +74,7 @@ export function CourseSheet({ result }: { result: CourseResult }) {
               {result.transmissions.map((item) => (
                 <li key={item.position} data-testid="course-transmission" data-position={item.position}>
                   <b data-layer="general">{item.general}</b>
-                  <div data-layer="content"><span>{item.label}</span><strong>{item.branch}</strong><small>{item.relation}</small></div>
+                  <div data-layer="content"><span>{item.label}</span><strong><VoidBranch value={item.branch} voidBranches={result.context.voidBranches} /></strong><small>{item.relation}</small></div>
                 </li>
               ))}
             </ol>
@@ -82,7 +85,7 @@ export function CourseSheet({ result }: { result: CourseResult }) {
               {result.lessons.map((item) => (
                 <li key={item.id} data-testid="course-lesson" data-lesson={item.id}>
                   <b data-layer="general">{item.general}</b>
-                  <span>{item.label}</span><strong>{item.upper}</strong><i /><small>{item.lower.value}</small>
+                  <span>{item.label}</span><strong><VoidBranch value={item.upper} voidBranches={result.context.voidBranches} /></strong><i /><small><VoidBranch value={item.lower.value} voidBranches={result.context.voidBranches} /></small>
                 </li>
               ))}
             </ol>
@@ -94,7 +97,7 @@ export function CourseSheet({ result }: { result: CourseResult }) {
             <ul className="course-sheet__plate" aria-label="标准课式十二宫方盘">
               {result.palaces.map((item) => (
                 <li key={item.earth} data-earth={item.earth} data-noble={item.noble}>
-                  <strong>{item.general}</strong><span>天盘 {item.heaven}</span><span>地盘 {item.earth}</span>
+                  <strong>{item.general}</strong><span>天盘 <VoidBranch value={item.heaven} voidBranches={result.context.voidBranches} /></span><span>地盘 <VoidBranch value={item.earth} voidBranches={result.context.voidBranches} /></span>
                 </li>
               ))}
             </ul>

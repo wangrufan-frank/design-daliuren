@@ -2,10 +2,13 @@ import { useRef, useState } from "react";
 import type { ThreeTransmissionsResult, TransmissionPosition } from "../../domain/three-transmissions/types";
 import { generalForHeaven } from "../../domain/heavenly-generals/policy";
 import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/types";
+import type { EarthlyBranch } from "../../domain/chart/types";
+import { VoidBranch, voidAccessibleSuffix } from "../void-branch/VoidBranch";
 
 interface ThreeTransmissionsReviewProps {
   result: ThreeTransmissionsResult;
   generals?: HeavenlyGeneralsResult;
+  voidBranches: readonly [EarthlyBranch, EarthlyBranch];
   onReviewFourLessons: () => void;
   onReviewHeavenEarth: () => void;
 }
@@ -15,6 +18,7 @@ const SHARED_EVIDENCE_PHASES = new Set(["plate", "lessons", "candidates", "selec
 export function ThreeTransmissionsReview({
   result,
   generals,
+  voidBranches,
   onReviewFourLessons,
   onReviewHeavenEarth,
 }: ThreeTransmissionsReviewProps) {
@@ -63,11 +67,11 @@ export function ThreeTransmissionsReview({
                   aria-pressed={selectedPosition === transmission.position}
                   aria-expanded={evidenceOpen && selectedPosition === transmission.position}
                   aria-controls="three-transmissions-evidence"
-                  aria-label={`${transmission.label}，${transmission.branch}，${transmission.relation}，天将${general}`}
+                  aria-label={`${transmission.label}，${transmission.branch}${voidAccessibleSuffix(transmission.branch, voidBranches)}，${transmission.relation}，天将${general}`}
                   onClick={(event) => selectTransmission(transmission.position, event.currentTarget)}
                 >
                   <span>{general}</span>
-                  <strong>{transmission.branch}</strong>
+                  <strong><VoidBranch value={transmission.branch} voidBranches={voidBranches} /></strong>
                   <small>{transmission.label}</small>
                   <em>{transmission.relation}</em>
                   <p>{transmission.derivation}</p>

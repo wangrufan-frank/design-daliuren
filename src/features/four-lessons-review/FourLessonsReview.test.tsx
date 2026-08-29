@@ -10,14 +10,34 @@ import { FourLessonsReview } from "./FourLessonsReview";
 
 const result = referenceSession.snapshots["four-lessons"]!.value as FourLessonsResult;
 const generals = referenceSession.snapshots["heavenly-generals"]!.value as HeavenlyGeneralsResult;
+const voidBranches = referenceSession.snapshots.calendar!.value.voidBranches;
 
 afterEach(cleanup);
 
 describe("FourLessonsReview", () => {
+  it("marks void upper and lower branches in the four lessons", () => {
+    const voidResult = structuredClone(result);
+    voidResult.lessons[0].upper = "子";
+    voidResult.lessons[0].lower = { kind: "branch", value: "丑" };
+
+    render(
+      <FourLessonsReview
+        result={voidResult}
+        voidBranches={["子", "丑"]}
+        onReviewCalendar={vi.fn()}
+        onReviewHeavenEarth={vi.fn()}
+      />,
+    );
+
+    const lesson = screen.getByRole("button", { name: /一课，上神子（空亡），下神丑（空亡）/ });
+    expect(within(lesson).getAllByLabelText("空亡")).toHaveLength(2);
+  });
+
   it("uses the supplied heavenly-generals snapshot in every lesson accessible name", () => {
     render(
       <FourLessonsReview
         result={result}
+        voidBranches={voidBranches}
         generals={generals}
         onReviewCalendar={vi.fn()}
         onReviewHeavenEarth={vi.fn()}
@@ -32,13 +52,13 @@ describe("FourLessonsReview", () => {
   });
 
   it("keeps the pre-stage placeholder when no heavenly-generals snapshot is supplied", () => {
-    render(<FourLessonsReview result={result} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
+    render(<FourLessonsReview result={result} voidBranches={voidBranches} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
 
     expect(screen.getAllByText("待天将加临")).toHaveLength(4);
   });
 
   it("renders four vertical cards in traditional visual order", () => {
-    render(<FourLessonsReview result={result} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
+    render(<FourLessonsReview result={result} voidBranches={voidBranches} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
     const list = screen.getByRole("list", { name: "四课课体" });
     const cards = within(list).getAllByRole("button");
     expect(cards.map((card) => card.getAttribute("data-lesson"))).toEqual(["fourth", "third", "second", "first"]);
@@ -51,7 +71,7 @@ describe("FourLessonsReview", () => {
   });
 
   it("closes the initially open evidence and restores focus to 一课", async () => {
-    render(<FourLessonsReview result={result} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
+    render(<FourLessonsReview result={result} voidBranches={voidBranches} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
     const first = screen.getByRole("button", { name: /一课，上神辰，下神辛/ });
 
     await userEvent.click(screen.getByRole("button", { name: "关闭证据" }));
@@ -61,7 +81,7 @@ describe("FourLessonsReview", () => {
   });
 
   it("shows selected evidence and restores focus after close", async () => {
-    render(<FourLessonsReview result={result} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
+    render(<FourLessonsReview result={result} voidBranches={voidBranches} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
     const user = userEvent.setup();
     const fourth = screen.getByRole("button", { name: /四课，上神酉，下神卯/ });
     await user.click(fourth);
@@ -73,7 +93,7 @@ describe("FourLessonsReview", () => {
   it("explains the stem residence and exposes both upstream review actions", async () => {
     const onReviewCalendar = vi.fn();
     const onReviewHeavenEarth = vi.fn();
-    render(<FourLessonsReview result={result} onReviewCalendar={onReviewCalendar} onReviewHeavenEarth={onReviewHeavenEarth} />);
+    render(<FourLessonsReview result={result} voidBranches={voidBranches} onReviewCalendar={onReviewCalendar} onReviewHeavenEarth={onReviewHeavenEarth} />);
     const evidence = screen.getByRole("complementary", { name: "一课证据" });
     const records = within(evidence).getAllByRole("listitem");
     expect(records).toHaveLength(2);
@@ -92,7 +112,7 @@ describe("FourLessonsReview", () => {
   });
 
   it("shows the approved lower-source relationship for every derived lesson", async () => {
-    render(<FourLessonsReview result={result} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
+    render(<FourLessonsReview result={result} voidBranches={voidBranches} onReviewCalendar={vi.fn()} onReviewHeavenEarth={vi.fn()} />);
     const user = userEvent.setup();
     const expectedInputs = [
       ["二课，上神戌，下神辰", "二课：下神来自一课上神辰，查地盘辰宫"],

@@ -59,6 +59,7 @@ button, input, select { font: inherit; }
 .course-sheet__copy { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--patina); }
 .course-sheet__copy button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--ru-celadon); border-radius: 0; background: transparent; color: var(--ash); cursor: pointer; }
 .course-sheet__copy [role="alert"] { color: var(--error); }
+.void-branch__mark { display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; margin-inline-start: .32em; border: 1px solid var(--old-gold); color: var(--old-gold); font-family: var(--font-utility); font-size: .42em; font-weight: 600; line-height: 1; vertical-align: .42em; }
 @media (max-width: 760px) {
   .course-sheet { padding: 16px; }
   .course-sheet__summary, .course-sheet__body { grid-template-columns: minmax(0, 1fr); }
@@ -123,7 +124,7 @@ button, input, select { font: inherit; }
 .calendar-review__header p { margin: 0; color: var(--ru-celadon); font-size: 0.78rem; letter-spacing: 0.12em; }
 .calendar-review__header p:last-child { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .calendar-review__header h2 { margin: 0; color: var(--ash); font-size: clamp(1.5rem, 3vw, 2.3rem); font-weight: 600; letter-spacing: 0.1em; }
-.calendar-review__time-band { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-block: 1px solid var(--patina); }
+.calendar-review__time-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; border-block: 1px solid var(--patina); }
 .calendar-review__time-band > div { min-width: 0; padding: 13px 16px; border-inline-end: 1px solid var(--patina); }
 .calendar-review__time-band > div:last-child { border-inline-end: 0; }
 .calendar-review__time-band dt, .calendar-review__cell-label, .calendar-review__evidence-label { color: var(--ru-celadon); font-size: 0.75rem; letter-spacing: 0.12em; }

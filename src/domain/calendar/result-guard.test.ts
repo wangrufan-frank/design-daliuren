@@ -14,6 +14,13 @@ it.each(["lunarDate", "monthBuild"])("rejects a calendar result missing %s evide
   expect(isCalendarResult(value)).toBe(false);
 });
 
+it("rejects void branches that do not match the effective day pillar", () => {
+  const value = structuredClone(referenceSession.snapshots.calendar!.value);
+  value.voidBranches = ["戌", "亥"];
+
+  expect(isCalendarResult(value)).toBe(false);
+});
+
 it.each<[string, (snapshot: CalendarSnapshot) => void]>([
   ["value", (snapshot) => { snapshot.value.pillars.day.effective = "甲丑" as never; }],
   ["stage", (snapshot) => { snapshot.stage = "heaven-earth" as never; }],

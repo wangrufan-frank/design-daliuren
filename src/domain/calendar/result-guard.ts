@@ -7,7 +7,7 @@ import {
   ZHONG_QI_TO_MONTH_GENERAL,
   isStemBranch,
 } from "./constants";
-import { deriveHourBranch, deriveHourPillar, deriveMonthPillar } from "./policy";
+import { deriveHourBranch, deriveHourPillar, deriveMonthPillar, deriveVoidBranches } from "./policy";
 import type {
   BeijingDateTime,
   CalendarPrimitives,
@@ -194,6 +194,10 @@ export function isCalendarResult(value: unknown): value is CalendarResult {
   if (!isReviewed(value.pillars.month, validPillar, (automatic, effective) => automatic === effective)) return false;
   if (!isReviewed(value.pillars.day, validPillar, (automatic, effective) => automatic === effective)) return false;
   if (!isReviewed(value.pillars.hour, validPillar, (automatic, effective) => automatic === effective)) return false;
+  const expectedVoidBranches = deriveVoidBranches(value.pillars.day.effective);
+  if (!Array.isArray(value.voidBranches)
+    || value.voidBranches.length !== 2
+    || value.voidBranches.some((branch, index) => branch !== expectedVoidBranches[index])) return false;
   if (!isReviewed(
     value.monthGeneral,
     validMonthGeneral,

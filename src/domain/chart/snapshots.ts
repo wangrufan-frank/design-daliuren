@@ -87,7 +87,7 @@ export function isCourseSnapshotForCurrentInputs(
     && lessons && isFourLessonsResult(lessons.value)
     && transmissions && isThreeTransmissionsResult(transmissions.value)
     && generals && isHeavenlyGeneralsResult(generals.value)
-    && snapshot.source === courseResultSource([calendar.source, lessons.source, transmissions.source, generals.source])
+    && snapshot.source === courseResultSource([contextInput.natal.source, calendar.source, lessons.source, transmissions.source, generals.source])
     && isCourseResult(snapshot.value)
     && matchesCourseInputs(snapshot.value, contextInput, calendar.value, lessons.value, transmissions.value, generals.value)
   );
@@ -220,6 +220,7 @@ export function validateSession(session: CourseSession): readonly string[] {
           && transmissions && isThreeTransmissionsResult(transmissions.value)
           && generals && isHeavenlyGeneralsResult(generals.value)) {
           const expectedSource = courseResultSource([
+            session.input.natal.source,
             calendar.source,
             lessons.source,
             transmissions.source,
@@ -230,7 +231,11 @@ export function validateSession(session: CourseSession): readonly string[] {
           }
           if (!matchesCourseInputs(
             snapshot.value,
-            { reason: session.input.reason, ...(session.input.locationName && { locationName: session.input.locationName }) },
+            {
+              reason: session.input.reason,
+              natal: session.input.natal,
+              ...(session.input.locationName && { locationName: session.input.locationName }),
+            },
             calendar.value,
             lessons.value,
             transmissions.value,

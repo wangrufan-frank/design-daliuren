@@ -22,6 +22,7 @@ export interface ArtifactDisplayState {
     monthGeneral: string;
     monthGeneralBranch: EarthlyBranch;
     divinationHour: EarthlyBranch;
+    voidBranches: readonly [EarthlyBranch, EarthlyBranch];
     manualFields: readonly string[];
   };
   plate: { offset: number; palaces: readonly { earth: EarthlyBranch; heaven: EarthlyBranch }[] };

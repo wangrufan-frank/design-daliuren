@@ -18,9 +18,11 @@ const EXPECTED_PALACES = [
   { earth: "卯", heaven: "申" },
   { earth: "辰", heaven: "酉" },
 ] as const;
+const VOID_BRANCHES = new Set<string>(["寅", "卯"]);
 
 async function submitOrdinaryInput(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("出生年份").fill("1990");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "生成完整课式" }).click();
@@ -93,7 +95,7 @@ for (const viewport of VIEWPORTS) {
       const palace = palaces.nth(index);
       await expect(palace).toHaveAttribute("data-earth", earth);
       await expect(palace).toHaveAccessibleName(
-        `天盘${heaven}加临地盘${earth}${earth === "未" ? "，占时宫" : ""}`,
+        `天盘${heaven}加临地盘${earth}${earth === "未" ? "，占时宫" : ""}${VOID_BRANCHES.has(heaven) ? "，天盘空亡" : ""}${VOID_BRANCHES.has(earth) ? "，地盘空亡" : ""}`,
       );
 
       await palace.click();
@@ -163,8 +165,8 @@ test("mobile fallback keeps all twelve palace comparisons on two stacked lines a
   for (const [index, layout] of layouts.entries()) {
     const palace = EXPECTED_PALACES[index];
     expect(layout).toMatchObject({ display: "grid", lineCount: 2, stacked: true });
-    expect(layout.firstText).toBe(`天盘 ${palace.heaven}`);
-    expect(layout.secondText).toBe(`地盘 ${palace.earth}`);
+    expect(layout.firstText).toBe(`天盘 ${palace.heaven}${VOID_BRANCHES.has(palace.heaven) ? "空" : ""}`);
+    expect(layout.secondText).toBe(`地盘 ${palace.earth}${VOID_BRANCHES.has(palace.earth) ? "空" : ""}`);
   }
 
   const palace = page.getByRole("list", { name: "天地盘十二宫" }).getByRole("button", { name: /天盘戌加临地盘巳/ });

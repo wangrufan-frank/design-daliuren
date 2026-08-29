@@ -13,6 +13,7 @@ const baseInput: CourseInput = {
   timeZone: "Asia/Shanghai",
   locationName: "北京",
   reason: "商务决策复盘",
+  natal: { birthYear: 1990, branch: "午", source: "automatic" },
   corrections: {},
 };
 
@@ -118,8 +119,16 @@ describe("computeCalendar", () => {
 
     expect(result).toMatchObject({ ok: false, error: { code: "SOLAR_TERM_BOUNDARY_FAILURE" } });
     expect(result).not.toHaveProperty("snapshot");
+    });
   });
-});
+
+  it("recomputes void branches from the effective manually corrected day pillar", () => {
+    const result = computeCalendar(setCalendarCorrection(baseInput, "dayPillar", "甲子"), adapter);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.voidBranches).toEqual(["戌", "亥"]);
+  });
 
 describe("isCalendarResult", () => {
   it("rejects malformed values at every strict runtime boundary", () => {

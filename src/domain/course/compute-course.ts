@@ -67,7 +67,7 @@ export function computeCourse(
         stage: "course",
         dependsOn: ["calendar", "four-lessons", "three-transmissions", "heavenly-generals"],
         ruleId: COURSE_SNAPSHOT_RULE_ID,
-        source: courseResultSource([calendar.source, lessons.source, transmissions.source, generals.source]),
+        source: courseResultSource([contextInput.natal.source, calendar.source, lessons.source, transmissions.source, generals.source]),
         value,
       },
     };
@@ -90,7 +90,11 @@ export function runCourseStage(session: CourseSession): CourseStageOutcome {
   }
   const invalidated = invalidateFrom(session, "course");
   const outcome = computeCourse(
-    { reason: session.input.reason, ...(session.input.locationName && { locationName: session.input.locationName }) },
+    {
+      reason: session.input.reason,
+      natal: session.input.natal,
+      ...(session.input.locationName && { locationName: session.input.locationName }),
+    },
     session.snapshots.calendar as CalendarSnapshot,
     session.snapshots["four-lessons"] as FourLessonsSnapshot,
     session.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot,

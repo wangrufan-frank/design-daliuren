@@ -4,12 +4,34 @@ import { parseCourseInput } from "./schema";
 function formData(values: Record<string, string> = {}): FormData {
   const form = new FormData();
   form.set("civilDateTime", "2026-08-15T00:30");
+  form.set("birthYear", "1990");
   form.set("reason", "起课测试");
   for (const [key, value] of Object.entries(values)) form.set(key, value);
   return form;
 }
 
 describe("parseCourseInput", () => {
+  it("derives the natal branch from the Gregorian birth year", () => {
+    expect(parseCourseInput(formData({ birthYear: "1990" }))).toMatchObject({
+      natal: { birthYear: 1990, branch: "午", source: "automatic" },
+    });
+  });
+
+  it("keeps an explicit manual natal branch override", () => {
+    expect(parseCourseInput(formData({ birthYear: "1990", natalBranch: "子" }))).toMatchObject({
+      natal: { birthYear: 1990, branch: "子", source: "manual" },
+    });
+  });
+
+  it("rejects an invalid birth year or manual natal branch", () => {
+    expect(parseCourseInput(formData({ birthYear: "1899" }))).toEqual({
+      birthYear: "请输入 1900 年至今年之间的出生年份",
+    });
+    expect(parseCourseInput(formData({ natalBranch: "甲" }))).toEqual({
+      natalBranch: "本命必须是十二地支之一",
+    });
+  });
+
   it("normalizes minute-only input and preserves second-level input", () => {
     const minuteOnly = formData({ civilDateTime: "2024-02-10T14:30", locationName: "北京" });
     const secondLevel = formData({ civilDateTime: "2024-02-10T14:30:45", locationName: "北京" });

@@ -86,7 +86,11 @@ export function App() {
   const hasHeavenlyGenerals = heavenlyGeneralsResult !== undefined;
   const courseResult = isCourseSnapshotForCurrentInputs(
     courseSnapshot,
-    session ? { reason: session.input.reason, ...(session.input.locationName && { locationName: session.input.locationName }) } : undefined,
+    session ? {
+      reason: session.input.reason,
+      natal: session.input.natal,
+      ...(session.input.locationName && { locationName: session.input.locationName }),
+    } : undefined,
     session?.snapshots.calendar,
     session?.snapshots["four-lessons"],
     session?.snapshots["three-transmissions"],
@@ -288,22 +292,24 @@ export function App() {
               onReviewFourLessons={() => setReviewStage("four-lessons")}
               onReviewThreeTransmissions={() => setReviewStage("three-transmissions")}
             />
-          ) : reviewStage === "three-transmissions" && hasThreeTransmissions ? (
+          ) : reviewStage === "three-transmissions" && hasThreeTransmissions && hasCalendar ? (
             <ThreeTransmissionsReview
               result={threeTransmissionsResult}
+              voidBranches={calendarResult.voidBranches}
               generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
               onReviewFourLessons={() => setReviewStage("four-lessons")}
               onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
             />
-          ) : reviewStage === "four-lessons" && hasFourLessons ? (
+          ) : reviewStage === "four-lessons" && hasFourLessons && hasCalendar ? (
             <FourLessonsReview
               result={fourLessonsResult}
+              voidBranches={calendarResult.voidBranches}
               generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
               onReviewCalendar={() => setReviewStage("calendar")}
               onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
             />
-          ) : reviewStage === "heaven-earth" && hasHeavenEarth ? (
-            <HeavenEarthReview result={heavenEarthResult} />
+          ) : reviewStage === "heaven-earth" && hasHeavenEarth && hasCalendar ? (
+            <HeavenEarthReview result={heavenEarthResult} voidBranches={calendarResult.voidBranches} />
           ) : hasCalendar ? (
             <CalendarReview
               result={calendarResult}

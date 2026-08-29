@@ -10,9 +10,11 @@ const EXPECTED_VISUAL_LESSONS = [
   { id: "second", label: "二课", upper: "子", lower: "未", general: "螣蛇" },
   { id: "first", label: "一课", upper: "未", lower: "甲", general: "天空" },
 ] as const;
+const VOID_BRANCHES = new Set<string>(["寅", "卯"]);
 
 async function submitOrdinaryInput(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("出生年份").fill("1990");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "生成完整课式" }).click();
@@ -70,7 +72,9 @@ for (const viewport of VIEWPORTS) {
     for (const [index, lesson] of EXPECTED_VISUAL_LESSONS.entries()) {
       const card = cards.nth(index);
       await expect(card).toHaveAttribute("data-lesson", lesson.id);
-      await expect(card).toHaveAccessibleName(`${lesson.label}，上神${lesson.upper}，下神${lesson.lower}，天将${lesson.general}`);
+      const upper = `${lesson.upper}${VOID_BRANCHES.has(lesson.upper) ? "（空亡）" : ""}`;
+      const lower = `${lesson.lower}${VOID_BRANCHES.has(lesson.lower) ? "（空亡）" : ""}`;
+      await expect(card).toHaveAccessibleName(`${lesson.label}，上神${upper}，下神${lower}，天将${lesson.general}`);
       await expect(card.locator(":scope > *")).toHaveCount(4);
     }
     const cardPositions = await cards.evaluateAll((items) => items.map((item) => {

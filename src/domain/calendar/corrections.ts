@@ -1,6 +1,6 @@
 import type { CourseInput, EarthlyBranch } from "../chart/types";
 import { CALENDAR_RULE_IDS, EARTHLY_BRANCHES, ZHONG_QI_TO_MONTH_GENERAL, isStemBranch } from "./constants";
-import type { AutomaticCalendarResult } from "./policy";
+import { deriveVoidBranches, type AutomaticCalendarResult } from "./policy";
 import {
   CalendarDomainError,
   type CalendarCorrectionField,
@@ -127,6 +127,7 @@ export function applyCalendarCorrections(
       day: reviewed(automatic.pillars.day, dayPillar),
       hour: reviewed(automatic.pillars.hour, hourPillar),
     },
+    voidBranches: deriveVoidBranches(dayPillar ?? automatic.pillars.day),
     monthGeneral: reviewed(automatic.monthGeneral, monthGeneral),
     divinationHour: reviewed(automatic.divinationHour, divinationHour),
     evidence: [...automatic.evidence, ...correctionEvidence],

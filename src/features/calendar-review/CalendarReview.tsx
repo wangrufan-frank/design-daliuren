@@ -119,6 +119,10 @@ export function CalendarReview({ result, onSetCorrection, onResetCorrection, cor
           <dt>生效干支日期</dt>
           <dd>{result.effectiveGanzhiDate}</dd>
         </div>
+        <div>
+          <dt>旬空</dt>
+          <dd>{result.voidBranches.join("　")}</dd>
+        </div>
       </dl>
 
       <div className="calendar-review__main">

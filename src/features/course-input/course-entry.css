@@ -44,6 +44,11 @@
 .course-generation-progress__stages { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; margin: 0; padding: 0; background: var(--patina); list-style: none; }
 .course-generation-progress__stages li { padding: 12px 8px; background: var(--panel); color: var(--ash); font-family: var(--font-utility); font-size: 0.78rem; line-height: 1.5; animation: course-generation-stage 120ms step-end both; }
 
+.course-input__natal { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; margin: 2px 0 8px; padding: 12px; border-inline-start: 2px solid var(--old-gold); background: color-mix(in srgb, var(--old-gold) 7%, transparent); }
+.course-input__natal p { margin: 0; color: var(--old-gold); font-family: var(--font-utility); letter-spacing: .08em; }
+.course-input__natal button { min-height: 40px; padding: 7px 11px; border: 1px solid var(--patina); border-radius: 0; background: transparent; color: var(--ash); cursor: pointer; }
+.course-input__natal label, .course-input__natal select { grid-column: 1 / -1; }
+
 @keyframes course-generation-stage {
   to { color: var(--ink); background: var(--action-fill); }
 }

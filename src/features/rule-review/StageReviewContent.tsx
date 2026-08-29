@@ -31,11 +31,11 @@ export function StageReviewContent({
     case "calendar":
       return <CalendarReview result={source.calendar} onSetCorrection={onSetCalendarCorrection} onResetCorrection={onResetCalendarCorrection} correctionError={calendarCorrectionError} />;
     case "heaven-earth":
-      return <HeavenEarthReview result={source.plate} />;
+      return <HeavenEarthReview result={source.plate} voidBranches={source.calendar.voidBranches} />;
     case "four-lessons":
-      return <FourLessonsReview result={source.lessons} generals={source.generals} onReviewCalendar={() => onSelectStage("calendar")} onReviewHeavenEarth={() => onSelectStage("heaven-earth")} />;
+      return <FourLessonsReview result={source.lessons} generals={source.generals} voidBranches={source.calendar.voidBranches} onReviewCalendar={() => onSelectStage("calendar")} onReviewHeavenEarth={() => onSelectStage("heaven-earth")} />;
     case "three-transmissions":
-      return <ThreeTransmissionsReview result={source.transmissions} generals={source.generals} onReviewFourLessons={() => onSelectStage("four-lessons")} onReviewHeavenEarth={() => onSelectStage("heaven-earth")} />;
+      return <ThreeTransmissionsReview result={source.transmissions} generals={source.generals} voidBranches={source.calendar.voidBranches} onReviewFourLessons={() => onSelectStage("four-lessons")} onReviewHeavenEarth={() => onSelectStage("heaven-earth")} />;
     case "heavenly-generals":
       return <HeavenlyGeneralsReview result={source.generals} fourLessons={source.lessons} threeTransmissions={source.transmissions} onReviewCalendar={() => onSelectStage("calendar")} onReviewHeavenEarth={() => onSelectStage("heaven-earth")} onReviewFourLessons={() => onSelectStage("four-lessons")} onReviewThreeTransmissions={() => onSelectStage("three-transmissions")} />;
     case "course":

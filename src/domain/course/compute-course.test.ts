@@ -17,7 +17,7 @@ const withoutCourse: CourseSession = {
 describe("course computation", () => {
   it("composes a guarded canonical course snapshot", () => {
     const outcome = computeCourse(
-      { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName },
+      { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName, natal: withoutCourse.input.natal },
       withoutCourse.snapshots.calendar as CalendarSnapshot,
       withoutCourse.snapshots["four-lessons"] as FourLessonsSnapshot,
       withoutCourse.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot,
@@ -46,7 +46,7 @@ describe("course computation", () => {
     const wrongRelation = { ...value, transmissions: value.transmissions.map((item: any, index: number) => index ? item : { ...item, relation: item.relation === "父母" ? "子孙" : "父母" }) };
     const wrongGeneral = { ...value, palaces: value.palaces.map((item: any, index: number) => index ? item : { ...item, general: item.general === "贵人" ? "螣蛇" : "贵人" }) };
     expect(isCourseResult(wrongRelation)).toBe(true);
-    const contextInput = { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName };
+    const contextInput = { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName, natal: withoutCourse.input.natal };
     expect(matchesCourseInputs(wrongRelation, contextInput, calendar.value, lessons.value, transmissions.value, generals.value)).toBe(false);
     expect(matchesCourseInputs(wrongGeneral, contextInput, calendar.value, lessons.value, transmissions.value, generals.value)).toBe(false);
   });
@@ -60,6 +60,7 @@ describe("course computation", () => {
 
     expect(isCourseResult({ ...value, context: contextWithoutLocation })).toBe(true);
     expect(isCourseResult({ ...value, context: { ...value.context, extra: "forged" } })).toBe(false);
+    expect(isCourseResult({ ...value, context: { ...value.context, voidBranches: ["寅", "卯"] } })).toBe(false);
   });
 
   it.each([
@@ -81,12 +82,26 @@ describe("course computation", () => {
 
   it("propagates a direct manual source into the composed snapshot", () => {
     const outcome = computeCourse(
-      { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName },
+      { reason: withoutCourse.input.reason, locationName: withoutCourse.input.locationName, natal: withoutCourse.input.natal },
       withoutCourse.snapshots.calendar as CalendarSnapshot,
       withoutCourse.snapshots["four-lessons"] as FourLessonsSnapshot,
       withoutCourse.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot,
       { ...(withoutCourse.snapshots["heavenly-generals"] as HeavenlyGeneralsSnapshot), source: "manual" },
     );
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error(outcome.error.message);
+    expect(outcome.snapshot.source).toBe("manual");
+  });
+
+  it("marks the composed snapshot manual when the natal branch is manually selected", () => {
+    const outcome = computeCourse(
+      { reason: withoutCourse.input.reason, natal: { ...withoutCourse.input.natal, branch: "亥", source: "manual" } },
+      withoutCourse.snapshots.calendar as CalendarSnapshot,
+      withoutCourse.snapshots["four-lessons"] as FourLessonsSnapshot,
+      withoutCourse.snapshots["three-transmissions"] as ThreeTransmissionsSnapshot,
+      withoutCourse.snapshots["heavenly-generals"] as HeavenlyGeneralsSnapshot,
+    );
+
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) throw new Error(outcome.error.message);
     expect(outcome.snapshot.source).toBe("manual");

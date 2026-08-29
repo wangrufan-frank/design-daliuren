@@ -13,6 +13,7 @@ const VISUALS_DIRECTORY = path.resolve(
 async function submitCourse(page: Page) {
   // Chromium canonicalizes zero seconds out of datetime-local values; the schema restores :00.
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("出生年份").fill("1990");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "生成完整课式" }).click();
@@ -341,6 +342,20 @@ test("the filled submit action keeps readable contrast", async ({ page }) => {
   await page.goto("/");
 
   await expectContrastAtLeast(page.getByRole("button", { name: "生成完整课式" }), 4.5);
+});
+
+test("converts birth year to natal branch and allows a manual override", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("出生年份").fill("1990");
+  await expect(page.getByText("自动换算：午命")).toBeVisible();
+
+  await page.getByRole("button", { name: "手动选择本命" }).click();
+  await page.getByLabel("本命地支").selectOption("亥");
+  await expect(page.getByText("手动选择：亥命")).toBeVisible();
+
+  await page.getByRole("button", { name: "恢复自动换算" }).click();
+  await expect(page.getByText("自动换算：午命")).toBeVisible();
+  await expect(page.getByLabel("本命地支")).toHaveCount(0);
 });
 
 test("the pressed course view keeps readable contrast", async ({ page }) => {

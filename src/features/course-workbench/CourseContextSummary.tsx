@@ -67,6 +67,10 @@ export function CourseContextSummary({ input, onRestart }: CourseContextSummaryP
               </div>
             ) : null}
             <div>
+              <dt>当事人本命</dt>
+              <dd>{input.natal.birthYear}年 · {input.natal.branch}命 · {input.natal.source === "manual" ? "手动选择" : "自动换算"}</dd>
+            </div>
+            <div>
               <dt>历法修正</dt>
               <dd className="course-context__corrections">
                 {corrections.length === 0

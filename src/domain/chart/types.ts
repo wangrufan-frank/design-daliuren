@@ -16,11 +16,18 @@ export type RuleStageId =
 
 export type ValueSource = "automatic" | "manual";
 
+export interface NatalInfo {
+  birthYear: number;
+  branch: EarthlyBranch;
+  source: ValueSource;
+}
+
 export interface CourseInput {
   civilDateTime: string;
   timeZone: "Asia/Shanghai";
   locationName?: string;
   reason: string;
+  natal: NatalInfo;
   corrections: Partial<{
     yearPillar: StemBranch;
     monthPillar: StemBranch;
@@ -34,6 +41,7 @@ export interface CourseInput {
 export interface CourseContextInput {
   locationName?: string;
   reason: string;
+  natal: NatalInfo;
 }
 
 export interface RuleSnapshot<T, Stage extends RuleStageId = RuleStageId> {

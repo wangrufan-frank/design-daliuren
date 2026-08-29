@@ -1,11 +1,13 @@
 import { EARTHLY_BRANCHES, HEAVENLY_STEMS, ZHONG_QI_TO_MONTH_GENERAL } from "../calendar/constants";
 import type { CalendarResult } from "../calendar/types";
 import type { CourseContextInput, EarthlyBranch, ValueSource } from "../chart/types";
+import { deriveNatalBranch } from "../chart/natal";
 import type { FourLessonsResult } from "../four-lessons/types";
 import { GENERAL_ORDER } from "../heavenly-generals/policy";
 import type { HeavenlyGeneralsResult } from "../heavenly-generals/types";
 import type { SixRelation, TransmissionMethod, TransmissionSubtype, TransmissionVariant } from "../three-transmissions/types";
 import type { StemBranch } from "../calendar/types";
+import { deriveVoidBranches } from "../calendar/policy";
 import type { CourseResult } from "./types";
 import { COURSE_LESSON_ORDER, COURSE_PALACE_ORDER, deriveCourse } from "./policy";
 
@@ -75,11 +77,25 @@ function isStemBranch(value: unknown): value is StemBranch {
 
 function isContext(value: unknown): boolean {
   if (!isRecord(value)) return false;
-  const keys = ["civilDateTime", "effectiveGanzhiDate", "reason", "lunarDateDisplay", "pillars", "monthBuild", "monthGeneral", "divinationHour"];
+  const keys = ["civilDateTime", "effectiveGanzhiDate", "reason", "lunarDateDisplay", "pillars", "voidBranches", "natal", "monthBuild", "monthGeneral", "divinationHour"];
   const expectedKeys = typeof value.locationName === "string" ? [...keys, "locationName"] : keys;
   if (!hasExactKeys(value, expectedKeys)) return false;
   if (typeof value.civilDateTime !== "string" || typeof value.effectiveGanzhiDate !== "string" || typeof value.reason !== "string" || typeof value.lunarDateDisplay !== "string") return false;
   if (!isRecord(value.pillars) || !hasExactKeys(value.pillars, ["year", "month", "day", "hour"]) || !Object.values(value.pillars).every(isStemBranch)) return false;
+  if (!Array.isArray(value.voidBranches)
+    || value.voidBranches.length !== 2
+    || !value.voidBranches.every(isBranch)
+    || new Set(value.voidBranches).size !== 2) return false;
+  const expectedVoidBranches = deriveVoidBranches(value.pillars.day as StemBranch);
+  if (value.voidBranches.some((branch, index) => branch !== expectedVoidBranches[index])) return false;
+  if (!isRecord(value.natal)
+    || !hasExactKeys(value.natal, ["birthYear", "branch", "source"])
+    || !Number.isInteger(value.natal.birthYear)
+    || Number(value.natal.birthYear) < 1900
+    || Number(value.natal.birthYear) > new Date().getFullYear()
+    || !isBranch(value.natal.branch)
+    || (value.natal.source !== "automatic" && value.natal.source !== "manual")
+    || (value.natal.source === "automatic" && value.natal.branch !== deriveNatalBranch(Number(value.natal.birthYear)))) return false;
   if (!isRecord(value.monthGeneral) || !hasExactKeys(value.monthGeneral, ["name", "branch"]) || !monthGeneralNames.has(value.monthGeneral.name as never) || !isBranch(value.monthGeneral.branch)) return false;
   return isBranch(value.monthBuild) && isBranch(value.divinationHour);
 }

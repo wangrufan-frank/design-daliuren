@@ -1,5 +1,5 @@
 import type { StemBranch, MonthGeneralName } from "../calendar/types";
-import type { CourseSession, EarthlyBranch, RuleSnapshot, RuleStageId } from "../chart/types";
+import type { CourseSession, EarthlyBranch, NatalInfo, RuleSnapshot, RuleStageId } from "../chart/types";
 import type { FourLessonId, FourLessonLabel, FourLessonLower } from "../four-lessons/types";
 import type { GeneralDirection, HeavenlyGeneral, NobleDayNight } from "../heavenly-generals/types";
 import type { SixRelation, TransmissionMethod, TransmissionPosition, TransmissionSubtype, TransmissionVariant } from "../three-transmissions/types";
@@ -12,6 +12,8 @@ export interface CourseResult {
     reason: string;
     lunarDateDisplay: string;
     pillars: { year: StemBranch; month: StemBranch; day: StemBranch; hour: StemBranch };
+    voidBranches: readonly [EarthlyBranch, EarthlyBranch];
+    natal: NatalInfo;
     monthBuild: EarthlyBranch;
     monthGeneral: { name: MonthGeneralName; branch: EarthlyBranch };
     divinationHour: EarthlyBranch;

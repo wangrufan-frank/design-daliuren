@@ -15,6 +15,7 @@ const input: CourseInput = {
   timeZone: "Asia/Shanghai",
   locationName: "北京",
   reason: "这是一段需要完整保留的商务决策复盘事由",
+  natal: { birthYear: 1990, branch: "午", source: "automatic" },
   corrections: { dayPillar: "乙巳", monthGeneral: "亥" },
 };
 
@@ -25,6 +26,7 @@ it("shows the full coordinate-free course context and correction markers", () =>
   expect(region).toHaveTextContent(input.reason);
   expect(region).toHaveTextContent("北京");
   expect(region).toHaveTextContent("2026-08-14 23:57:00");
+  expect(region).toHaveTextContent("1990年 · 午命 · 自动换算");
   expect(region).toHaveTextContent("日柱 · 人工修正");
   expect(region).toHaveTextContent("月将 · 人工修正");
   expect(region).not.toHaveTextContent(/经度|纬度|longitude|latitude/i);

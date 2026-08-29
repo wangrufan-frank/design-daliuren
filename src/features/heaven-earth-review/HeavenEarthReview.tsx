@@ -2,9 +2,11 @@ import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { EarthlyBranch } from "../../domain/chart/types";
 import type { HeavenEarthResult } from "../../domain/heaven-earth/types";
+import { VoidBranch, voidAccessibleSuffix } from "../void-branch/VoidBranch";
 
 interface HeavenEarthReviewProps {
   result: HeavenEarthResult;
+  voidBranches: readonly [EarthlyBranch, EarthlyBranch];
 }
 
 const VISUAL_EARTH_ORDER = [
@@ -15,7 +17,7 @@ function sourceLabel(source: "automatic" | "manual") {
   return source === "manual" ? "人工修正" : "自动计算";
 }
 
-export function HeavenEarthReview({ result }: HeavenEarthReviewProps) {
+export function HeavenEarthReview({ result, voidBranches }: HeavenEarthReviewProps) {
   const [selectedEarth, setSelectedEarth] = useState<EarthlyBranch>(VISUAL_EARTH_ORDER[0]);
   const [evidenceOpen, setEvidenceOpen] = useState(true);
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -73,7 +75,7 @@ export function HeavenEarthReview({ result }: HeavenEarthReviewProps) {
           {palaces.map((palace, index) => {
             const isMonthGeneral = palace.heaven === result.monthGeneral.branch;
             const isDivinationHour = palace.earth === result.divinationHour.branch;
-            const ariaLabel = `天盘${palace.heaven}加临地盘${palace.earth}${isDivinationHour ? "，占时宫" : ""}`;
+            const ariaLabel = `天盘${palace.heaven}加临地盘${palace.earth}${isDivinationHour ? "，占时宫" : ""}${voidBranches.includes(palace.heaven) ? "，天盘空亡" : ""}${voidBranches.includes(palace.earth) ? "，地盘空亡" : ""}`;
             return (
               <li key={palace.earth}>
                 <button
@@ -90,8 +92,8 @@ export function HeavenEarthReview({ result }: HeavenEarthReviewProps) {
                   onFocus={(event) => selectPalace(palace.earth, event.currentTarget)}
                   onKeyDown={(event) => moveFocus(event, index)}
                 >
-                  <strong>{palace.heaven}</strong>
-                  <span>地盘 {palace.earth}</span>
+                  <strong><VoidBranch value={palace.heaven} voidBranches={voidBranches} /></strong>
+                  <span>地盘 <VoidBranch value={palace.earth} voidBranches={voidBranches} /></span>
                   <span className="heaven-earth-review__markers" aria-hidden="true">
                     {isMonthGeneral ? <b>月将</b> : null}
                     {isDivinationHour ? <b>占时</b> : null}
@@ -111,8 +113,8 @@ export function HeavenEarthReview({ result }: HeavenEarthReviewProps) {
         <ul className="heaven-earth-review__fallback" aria-label="十二宫文字对照">
           {palaces.map((palace) => (
             <li key={palace.earth}>
-              <p>天盘 {palace.heaven}</p>
-              <p>地盘 {palace.earth}</p>
+              <p>天盘 <VoidBranch value={palace.heaven} voidBranches={voidBranches} /></p>
+              <p>地盘 <VoidBranch value={palace.earth} voidBranches={voidBranches} /></p>
             </li>
           ))}
         </ul>
@@ -141,8 +143,8 @@ export function HeavenEarthReview({ result }: HeavenEarthReviewProps) {
             <dt>有效占时</dt>
             <dd>{result.divinationHour.branch} · {sourceLabel(result.divinationHour.source)}</dd>
           </div>
-          <div><dt>天盘</dt><dd>{selectedPalace.heaven}</dd></div>
-          <div><dt>地盘</dt><dd>{selectedPalace.earth}</dd></div>
+          <div><dt>天盘</dt><dd>{selectedPalace.heaven}{voidAccessibleSuffix(selectedPalace.heaven, voidBranches)}</dd></div>
+          <div><dt>地盘</dt><dd>{selectedPalace.earth}{voidAccessibleSuffix(selectedPalace.earth, voidBranches)}</dd></div>
         </dl>
         <ol>
           {evidence.map((step) => (

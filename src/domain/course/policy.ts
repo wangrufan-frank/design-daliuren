@@ -39,6 +39,8 @@ export function deriveCourse(
           day: calendar.pillars.day.effective,
           hour: calendar.pillars.hour.effective,
         },
+        voidBranches: [...calendar.voidBranches],
+        natal: { ...contextInput.natal },
         monthBuild: calendar.monthBuild,
         monthGeneral: { ...calendar.monthGeneral.effective },
         divinationHour: calendar.divinationHour.effective,
@@ -91,6 +93,10 @@ export function serializeCourseText(result: CourseResult): string {
   const method = [result.method.method, result.method.subtype, result.method.variants.length ? result.method.variants.join("/") : undefined]
     .filter((value): value is string => Boolean(value))
     .join(" · ");
+  const markVoid = (branch: string) => result.context.voidBranches.includes(branch as EarthlyBranch)
+    ? `${branch}（空）`
+    : branch;
+  const natalSource = result.context.natal.source === "manual" ? "手动选择" : "自动换算";
   return [
     "大六壬标准课式",
     `时间：${result.context.civilDateTime}`,
@@ -98,17 +104,19 @@ export function serializeCourseText(result: CourseResult): string {
     ...(result.context.locationName ? [`地点：${result.context.locationName}`] : []),
     `农历：${result.context.lunarDateDisplay}`,
     `四柱：${result.context.pillars.year}　${result.context.pillars.month}　${result.context.pillars.day}　${result.context.pillars.hour}`,
+    `旬空：${result.context.voidBranches.join("　")}`,
+    `本命：${result.context.natal.birthYear}年　${result.context.natal.branch}命（${natalSource}）`,
     `月建：${result.context.monthBuild}`,
     `月将：${result.context.monthGeneral.name}（${result.context.monthGeneral.branch}）　占时：${result.context.divinationHour}`,
     "",
     `三传取法：${method}`,
-    ...result.transmissions.map((item) => `${item.label}：${item.general}　${item.branch}　${item.relation}`),
+    ...result.transmissions.map((item) => `${item.label}：${item.general}　${markVoid(item.branch)}　${item.relation}`),
     "",
     "四课",
-    ...result.lessons.map((item) => `${item.label}：${item.general}　上神${item.upper}　下神${item.lower.value}`),
+    ...result.lessons.map((item) => `${item.label}：${item.general}　上神${markVoid(item.upper)}　下神${markVoid(item.lower.value)}`),
     "",
     "十二宫",
-    ...result.palaces.map((item) => `${item.earth}宫：${item.general}　天盘${item.heaven}　地盘${item.earth}`),
+    ...result.palaces.map((item) => `${item.earth}宫：${item.general}　天盘${markVoid(item.heaven)}　地盘${markVoid(item.earth)}`),
     "",
     `贵人：${dayNightText[result.noble.dayNight]}贵${result.noble.nobleHeaven}　落${result.noble.nobleEarth}宫　${directionText[result.noble.direction]}布`,
   ].join("\n");

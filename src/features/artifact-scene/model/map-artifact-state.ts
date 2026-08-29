@@ -113,7 +113,8 @@ function assertCalendarAndPlateMatch(source: ArtifactSourceResults): void {
     || context.monthBuild !== calendar.monthBuild
     || context.monthGeneral.name !== calendar.monthGeneral.effective.name
     || context.monthGeneral.branch !== calendar.monthGeneral.effective.branch
-    || context.divinationHour !== calendar.divinationHour.effective) {
+    || context.divinationHour !== calendar.divinationHour.effective
+    || context.voidBranches.some((branch, index) => branch !== calendar.voidBranches[index])) {
     throw new Error("course calendar context does not match upstream");
   }
   assertEqual(calendar.pillars.day.effective, lessons.dayPillar, "calendar day pillar does not match lessons");
@@ -160,6 +161,7 @@ export function mapArtifactState(source: ArtifactSourceResults): ArtifactDisplay
       monthGeneral: calendar.monthGeneral.effective.name,
       monthGeneralBranch: calendar.monthGeneral.effective.branch,
       divinationHour: calendar.divinationHour.effective,
+      voidBranches: Object.freeze([...calendar.voidBranches]) as ArtifactDisplayState["calendar"]["voidBranches"],
       manualFields: Object.freeze([...manualFields]),
     },
     plate: { offset: plate.offset, palaces: Object.freeze(plate.palaces.map((palace) => ({ ...palace }))) },

@@ -2,17 +2,20 @@ import { useRef, useState } from "react";
 import type { FourLessonId, FourLessonsResult } from "../../domain/four-lessons/types";
 import { generalForHeaven } from "../../domain/heavenly-generals/policy";
 import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/types";
+import type { EarthlyBranch } from "../../domain/chart/types";
+import { VoidBranch, voidAccessibleSuffix } from "../void-branch/VoidBranch";
 
 const VISUAL_LESSON_ORDER = ["fourth", "third", "second", "first"] as const;
 
 interface FourLessonsReviewProps {
   result: FourLessonsResult;
   generals?: HeavenlyGeneralsResult;
+  voidBranches: readonly [EarthlyBranch, EarthlyBranch];
   onReviewCalendar: () => void;
   onReviewHeavenEarth: () => void;
 }
 
-export function FourLessonsReview({ result, generals, onReviewCalendar, onReviewHeavenEarth }: FourLessonsReviewProps) {
+export function FourLessonsReview({ result, generals, voidBranches, onReviewCalendar, onReviewHeavenEarth }: FourLessonsReviewProps) {
   const [selectedLesson, setSelectedLesson] = useState<FourLessonId>("first");
   const [evidenceOpen, setEvidenceOpen] = useState(true);
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -49,12 +52,12 @@ export function FourLessonsReview({ result, generals, onReviewCalendar, onReview
                   data-lesson={lesson.id}
                   aria-pressed={selectedLesson === lesson.id}
                   aria-controls="four-lessons-evidence"
-                  aria-label={`${lesson.label}，上神${lesson.upper}，下神${lesson.lower.value}，天将${general}`}
+                  aria-label={`${lesson.label}，上神${lesson.upper}${voidAccessibleSuffix(lesson.upper, voidBranches)}，下神${lesson.lower.value}${voidAccessibleSuffix(lesson.lower.value, voidBranches)}，天将${general}`}
                   onClick={(event) => selectLesson(lesson.id, event.currentTarget)}
                 >
                   <span className="four-lessons-review__general">{general}</span>
-                  <strong>{lesson.upper}</strong>
-                  <span className="four-lessons-review__lower">{lesson.lower.value}</span>
+                  <strong><VoidBranch value={lesson.upper} voidBranches={voidBranches} /></strong>
+                  <span className="four-lessons-review__lower"><VoidBranch value={lesson.lower.value} voidBranches={voidBranches} /></span>
                   <small>{lesson.label}</small>
                 </button>
               </li>

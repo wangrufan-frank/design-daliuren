@@ -27,6 +27,7 @@ it("copies every visible fact without recomputing", () => {
     monthGeneral: "胜光",
     monthGeneralBranch: "午",
     divinationHour: "子",
+    voidBranches: ["子", "丑"],
     manualFields: [],
   });
   expect(state.plate.offset).toBe(6);

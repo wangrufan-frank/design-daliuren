@@ -22,6 +22,7 @@ export interface AutomaticCalendarResult {
   effectiveGanzhiDate: string;
   lunarDate: LunarDateValue;
   pillars: { year: StemBranch; month: StemBranch; day: StemBranch; hour: StemBranch };
+  voidBranches: readonly [EarthlyBranch, EarthlyBranch];
   monthBuild: EarthlyBranch;
   monthGeneral: { name: MonthGeneralName; branch: EarthlyBranch };
   divinationHour: EarthlyBranch;
@@ -96,6 +97,16 @@ export function deriveHourPillar(dayPillar: StemBranch, time: BeijingDateTime): 
   return `${HEAVENLY_STEMS[hourStemIndex]}${EARTHLY_BRANCHES[hourBranchIndex]}` as StemBranch;
 }
 
+export function deriveVoidBranches(dayPillar: StemBranch): readonly [EarthlyBranch, EarthlyBranch] {
+  const cycleIndex = JIA_ZI.indexOf(dayPillar);
+  if (cycleIndex < 0) throw new Error(`无效干支：${dayPillar}`);
+  const xunStartBranchIndex = modulo(-Math.floor(cycleIndex / 10) * 2, EARTHLY_BRANCHES.length);
+  return [
+    EARTHLY_BRANCHES[modulo(xunStartBranchIndex - 2, EARTHLY_BRANCHES.length)],
+    EARTHLY_BRANCHES[modulo(xunStartBranchIndex - 1, EARTHLY_BRANCHES.length)],
+  ];
+}
+
 export function deriveMonthGeneral(zhongQiName: string): { name: MonthGeneralName; branch: EarthlyBranch } {
   const monthGeneral = ZHONG_QI_TO_MONTH_GENERAL[zhongQiName as keyof typeof ZHONG_QI_TO_MONTH_GENERAL];
   if (!monthGeneral) throw new Error(`未知中气：${zhongQiName}`);
@@ -108,6 +119,7 @@ export function deriveAutomaticCalendar({ time, primitives }: CalendarEngineInpu
   const yearPillar = deriveYearPillar(time, primitives.liChun);
   const monthPillar = deriveMonthPillar(yearPillar, jie.name);
   const dayPillar = deriveDayPillar(primitives.civilDayPillar, time);
+  const voidBranches = deriveVoidBranches(dayPillar);
   const hourPillar = deriveHourPillar(dayPillar, time);
   const divinationHour = deriveHourBranch(time);
   const monthBuild = JIE_TO_MONTH_BUILD[jie.name as keyof typeof JIE_TO_MONTH_BUILD];
@@ -185,6 +197,7 @@ export function deriveAutomaticCalendar({ time, primitives }: CalendarEngineInpu
     effectiveGanzhiDate,
     lunarDate: primitives.lunarDate,
     pillars: { year: yearPillar, month: monthPillar, day: dayPillar, hour: hourPillar },
+    voidBranches,
     monthBuild,
     monthGeneral,
     divinationHour,

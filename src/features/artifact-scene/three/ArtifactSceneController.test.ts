@@ -178,6 +178,7 @@ const displayState = {
     monthGeneral: "登明",
     monthGeneralBranch: "亥",
     divinationHour: "卯",
+    voidBranches: ["寅", "卯"],
     manualFields: ["monthGeneral"],
   },
   plate: { offset: 0, palaces: [] },
@@ -469,12 +470,12 @@ describe("ArtifactSceneController", () => {
     expect(canvasContext.fillText).toHaveBeenCalledWith("◆", expect.any(Number), expect.any(Number));
     expect(canvasContext.fillText).toHaveBeenCalledWith("↺", expect.any(Number), expect.any(Number));
     expect(canvasContext.fillText).toHaveBeenCalledWith(
-      "月建寅　月将登明亥　占时卯　昼贵丑",
+      "月建寅　月将登明亥　占时卯　旬空寅卯　昼贵丑",
       expect.any(Number),
       expect.any(Number),
     );
     expect(canvasContext.fillText).toHaveBeenCalledWith(
-      "贵人　寅/卯　查地盘子",
+      "贵人　寅（空）/卯（空）　查地盘子",
       expect.any(Number),
       expect.any(Number),
     );

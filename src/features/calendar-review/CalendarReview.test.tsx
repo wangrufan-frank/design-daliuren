@@ -14,6 +14,7 @@ const ordinaryInput: CourseInput = {
   timeZone: "Asia/Shanghai",
   locationName: "北京",
   reason: "商务决策复盘",
+  natal: { birthYear: 1990, branch: "午", source: "automatic" },
   corrections: {},
 };
 const jiaZi = [
@@ -52,6 +53,7 @@ describe("CalendarReview", () => {
       expect(button.parentElement).toBe(item);
     });
     expect(screen.getByText("calendar/zi-initial-rollover-v1")).toBeVisible();
+    expect(within(review).getByText("旬空").nextElementSibling).toHaveTextContent(/寅\s+卯/);
     expect(screen.queryByRole("button", { name: /批准|审核通过/ })).not.toBeInTheDocument();
   });
 

@@ -23,6 +23,7 @@ const referenceInput: CourseInput = {
   timeZone: "Asia/Shanghai",
   locationName: "参考课式",
   reason: "商务决策复盘",
+  natal: { birthYear: 1990, branch: "午", source: "automatic" },
   corrections: {},
 };
 const calendarSnapshot = {
@@ -46,6 +47,7 @@ const calendarSnapshot = {
       day: { automatic: "辛酉", effective: "辛酉", source: "automatic" },
       hour: { automatic: "戊子", effective: "戊子", source: "automatic" },
     },
+    voidBranches: ["子", "丑"],
     monthBuild: "申",
     monthGeneral: {
       automatic: { name: "胜光", branch: "午" },
@@ -181,7 +183,7 @@ const heavenlyGeneralsSnapshot = {
 } as const satisfies HeavenlyGeneralsSnapshot;
 
 const courseValue = deriveCourse(
-  { reason: referenceInput.reason, locationName: referenceInput.locationName },
+  { reason: referenceInput.reason, locationName: referenceInput.locationName, natal: referenceInput.natal },
   calendarSnapshot.value,
   fourLessonsSnapshot.value,
   threeTransmissionsSnapshot.value,

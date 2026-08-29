@@ -20,6 +20,7 @@ it("associates each invalid base input with its own error", async () => {
   render(<CourseInputForm onSubmit={vi.fn()} />);
   const fields = [
     { label: "日期与时间", errorId: "civilDateTime-error", message: "请输入日期与时间" },
+    { label: "出生年份", errorId: "birthYear-error", message: "请输入 1900 年至今年之间的出生年份" },
     { label: "起课事由", errorId: "reason-error", message: "请输入起课事由" },
   ];
 
@@ -47,6 +48,27 @@ it("accepts second-level Beijing time within the supported range", () => {
   expect(input).toHaveAttribute("max", "2100-12-31T23:59:59");
 });
 
+it("derives the natal branch from birth year and allows a manual override", async () => {
+  const onSubmit = vi.fn();
+  render(<CourseInputForm onSubmit={onSubmit} />);
+
+  const birthYear = screen.getByRole("spinbutton", { name: "出生年份" });
+  await userEvent.type(birthYear, "1990");
+  expect(screen.getByText("自动换算：午命")).toBeVisible();
+
+  await userEvent.click(screen.getByRole("button", { name: "手动选择本命" }));
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "本命地支" }), "子");
+  expect(screen.getByText("手动选择：子命")).toBeVisible();
+
+  await userEvent.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
+  await userEvent.type(screen.getByLabelText("起课事由"), "商务决策复盘");
+  await userEvent.click(screen.getByRole("button", { name: "生成完整课式" }));
+
+  expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+    natal: { birthYear: 1990, branch: "子", source: "manual" },
+  }));
+});
+
 it("keeps ordinary entry to base context fields and submits empty corrections", async () => {
   const onSubmit = vi.fn();
   render(<CourseInputForm onSubmit={onSubmit} />);
@@ -55,6 +77,7 @@ it("keeps ordinary entry to base context fields and submits empty corrections", 
   expect(screen.queryByLabelText("占时")).not.toBeInTheDocument();
 
   await userEvent.type(screen.getByLabelText("日期与时间"), "2024-02-10T14:30:00");
+  await userEvent.type(screen.getByRole("spinbutton", { name: "出生年份" }), "1990");
   await userEvent.type(screen.getByLabelText("地点（选填）"), "北京");
   await userEvent.type(screen.getByLabelText("起课事由"), "商务决策复盘");
   await userEvent.click(screen.getByRole("button", { name: "生成完整课式" }));

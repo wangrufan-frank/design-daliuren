@@ -63,6 +63,7 @@ export interface CalendarResult {
     day: ReviewedValue<StemBranch>;
     hour: ReviewedValue<StemBranch>;
   };
+  voidBranches: readonly [EarthlyBranch, EarthlyBranch];
   monthBuild: EarthlyBranch;
   monthGeneral: ReviewedValue<{ name: MonthGeneralName; branch: EarthlyBranch }>;
   divinationHour: ReviewedValue<EarthlyBranch>;

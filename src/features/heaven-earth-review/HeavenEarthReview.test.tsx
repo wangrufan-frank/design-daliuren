@@ -13,13 +13,22 @@ const visualEarthOrder = [
 function renderReview() {
   const calendar = referenceSession.snapshots.calendar!.value;
   const result = deriveHeavenEarth(calendar);
-  render(<HeavenEarthReview result={result} />);
+  render(<HeavenEarthReview result={result} voidBranches={calendar.voidBranches} />);
   return result;
 }
 
 afterEach(cleanup);
 
 describe("HeavenEarthReview", () => {
+  it("marks void branches on both the heaven and earth plates", () => {
+    renderReview();
+    const plate = screen.getByRole("list", { name: "天地盘十二宫" });
+
+    expect(within(plate).getByRole("button", { name: /天盘子加临地盘午，天盘空亡/ })).toBeVisible();
+    expect(within(plate).getByRole("button", { name: /天盘午加临地盘子，占时宫，地盘空亡/ })).toBeVisible();
+    expect(within(plate).getAllByLabelText("空亡")).toHaveLength(4);
+  });
+
   it("renders twelve snapshot palaces in the traditional square perimeter order", () => {
     const result = renderReview();
     const plate = screen.getByRole("list", { name: "天地盘十二宫" });
@@ -30,7 +39,7 @@ describe("HeavenEarthReview", () => {
     expect(buttons).toHaveLength(12);
     expect(buttons.map((button) => button.getAttribute("data-earth"))).toEqual(visualEarthOrder);
     expect(within(plate).getByRole("button", {
-      name: "天盘午加临地盘子，占时宫",
+      name: "天盘午加临地盘子，占时宫，地盘空亡",
     })).toBeVisible();
     expect(screen.getByText("上南 · 下北 · 左东 · 右西")).toBeVisible();
     expect(screen.getByText("胜光（午）加临占时子")).toBeVisible();

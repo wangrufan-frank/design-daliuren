@@ -5,7 +5,7 @@ import { evaluateStageReplay } from "./evaluate-stage-replay";
 import { reviewStageFor } from "./review-stages";
 
 const referenceState: ArtifactDisplayState = {
-  calendar: { pillars: ["丙午", "丙申", "辛酉", "戊子"], monthBuild: "申", monthGeneral: "胜光", monthGeneralBranch: "午", divinationHour: "子", manualFields: [] },
+  calendar: { pillars: ["丙午", "丙申", "辛酉", "戊子"], monthBuild: "申", monthGeneral: "胜光", monthGeneralBranch: "午", divinationHour: "子", voidBranches: ["子", "丑"], manualFields: [] },
   plate: { offset: 6, palaces: ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"].map((earth) => ({ earth, heaven: earth })) as ArtifactDisplayState["plate"]["palaces"] },
   lessons: [] as unknown as ArtifactDisplayState["lessons"],
   transmissions: [] as unknown as ArtifactDisplayState["transmissions"],
