@@ -1,10 +1,12 @@
 import hashlib
+import math
 import sys
 import tempfile
 from array import array
 from pathlib import Path
 
 import bpy
+from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -21,12 +23,14 @@ REVIEW_OUTPUTS = (
     "oblique",
     "material-closeup",
     "rotation-evidence",
+    "legibility",
 )
 CAMERAS = {
     "camera/overall": ((0.78, -0.96, 0.68), (0.0, 0.0, 0.055), 58.0),
     "camera/oblique": ((-0.72, -0.82, 0.40), (0.0, -0.01, 0.055), 62.0),
     "camera/material-closeup": ((0.22, -0.105, 0.175), (0.153, 0.0, 0.085), 70.0),
     "camera/rotation-evidence": ((0.75, -0.94, 0.63), (0.0, 0.0, 0.065), 62.0),
+    "camera/legibility": ((0.78, -0.96, 0.68), (0.0, 0.0, 0.055), 58.0),
 }
 CAMERA_NAMES = tuple(CAMERAS)
 VISUAL_EVIDENCE = (
@@ -86,7 +90,7 @@ def _configure_render():
     scene.render.use_file_extension = True
     scene.view_settings.view_transform = "AgX"
     scene.view_settings.look = "AgX - Medium High Contrast"
-    scene.view_settings.exposure = 0.0
+    scene.view_settings.exposure = -1.0
     scene.view_settings.gamma = 1.0
     scene.use_nodes = False
 
@@ -155,9 +159,9 @@ def _add_museum_lights():
         "light/key",
         (-0.55, -0.58, 0.72),
         target,
-        55.0,
+        90.0,
         "DISK",
-        0.45,
+        0.80,
     )
     key.data.use_temperature = True
     key.data.temperature = 4300.0
@@ -166,9 +170,9 @@ def _add_museum_lights():
         "light/fill",
         (0.48, -0.28, 0.36),
         target,
-        16.5,
+        36.0,
         "DISK",
-        0.68,
+        1.00,
     )
     fill.data.use_temperature = True
     fill.data.temperature = 5200.0
@@ -177,7 +181,7 @@ def _add_museum_lights():
         "light/rim",
         (0.0, 0.52, 0.40),
         target,
-        40.0,
+        18.0,
         "RECTANGLE",
         0.46,
         0.07,
@@ -204,10 +208,6 @@ def configure_material_closeup():
         scene.view_settings.exposure,
         *(bpy.data.objects[name].data.energy for name in ("light/key", "light/fill", "light/rim")),
     )
-    scene.view_settings.exposure = -1.0
-    bpy.data.objects["light/key"].data.energy = 30.0
-    bpy.data.objects["light/fill"].data.energy = 9.0
-    bpy.data.objects["light/rim"].data.energy = 16.0
     return state
 
 
@@ -225,6 +225,116 @@ def _render(camera_name, output_path, width=2560, height=1440):
     scene.render.resolution_percentage = 100
     scene.render.filepath = str(output_path)
     bpy.ops.render.render(write_still=True)
+
+
+def legibility_metrics(
+    overall_luminances,
+    functional_luminances,
+    surround_luminances,
+):
+    if not overall_luminances or not functional_luminances or not surround_luminances:
+        raise ValueError("Legibility metrics require overall, functional, and surround samples")
+    return {
+        "mean_luminance": math.fsum(overall_luminances) / len(overall_luminances),
+        "dark_pixel_ratio": sum(value < 0.08 for value in overall_luminances)
+        / len(overall_luminances),
+        "functional_text_contrast_ratio": (
+            max(functional_luminances) + 0.05
+        )
+        / (min(surround_luminances) + 0.05),
+    }
+
+
+def validate_legibility_metrics(metrics):
+    failures = []
+    if metrics["mean_luminance"] <= 0.18:
+        failures.append("mean luminance must be > 0.18")
+    if metrics["dark_pixel_ratio"] >= 0.28:
+        failures.append("dark pixel ratio must be < 0.28")
+    if metrics["functional_text_contrast_ratio"] <= 4.0:
+        failures.append("functional text contrast ratio must be > 4.0")
+    if failures:
+        raise ValueError("; ".join(failures))
+    return metrics
+
+
+def _pixel_luminance(pixels, width, height, x, y):
+    x = max(0, min(width - 1, int(round(x))))
+    y = max(0, min(height - 1, int(round(y))))
+    index = (y * width + x) * 4
+    red, green, blue = pixels[index:index + 3]
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def analyze_legibility_image(path, camera_name="camera/legibility"):
+    image = bpy.data.images.load(str(path), check_existing=False)
+    try:
+        width, height = image.size[:]
+        pixels = image.pixels[:]
+        pixel_count = width * height
+        stride = max(1, pixel_count // 16000)
+        overall = [
+            _pixel_luminance(
+                pixels,
+                width,
+                height,
+                pixel_index % width,
+                pixel_index // width,
+            )
+            for pixel_index in range(0, pixel_count, stride)
+        ]
+
+        scene = bpy.context.scene
+        camera = bpy.data.objects[camera_name]
+        functional = []
+        surround = []
+        branches = [
+            obj
+            for obj in scene.objects
+            if obj.get("surface_treatment") == "recessed-inlay"
+        ]
+        for obj in branches:
+            projected_bounds = [
+                world_to_camera_view(scene, camera, obj.matrix_world @ Vector(corner))
+                for corner in obj.bound_box
+            ]
+            minimum_x = min(point.x for point in projected_bounds) * width
+            maximum_x = max(point.x for point in projected_bounds) * width
+            minimum_y = min(point.y for point in projected_bounds) * height
+            maximum_y = max(point.y for point in projected_bounds) * height
+            obj.data.calc_loop_triangles()
+            for triangle in obj.data.loop_triangles:
+                if obj.data.polygons[triangle.polygon_index].normal.z <= 0.9:
+                    continue
+                center = sum(
+                    (obj.data.vertices[index].co for index in triangle.vertices),
+                    Vector(),
+                ) / 3
+                projected = world_to_camera_view(
+                    scene,
+                    camera,
+                    obj.matrix_world @ center,
+                )
+                functional.append(
+                    _pixel_luminance(
+                        pixels,
+                        width,
+                        height,
+                        projected.x * width,
+                        projected.y * height,
+                    )
+                )
+            margin = 5.0
+            for x, y in (
+                (minimum_x - margin, minimum_y - margin),
+                (minimum_x - margin, maximum_y + margin),
+                (maximum_x + margin, minimum_y - margin),
+                (maximum_x + margin, maximum_y + margin),
+            ):
+                surround.append(_pixel_luminance(pixels, width, height, x, y))
+        return legibility_metrics(overall, functional, surround)
+    finally:
+        bpy.data.images.remove(image)
 
 
 def _set_stamp(label):
@@ -332,7 +442,8 @@ def write_review_manifest(
         "- Engine: `CYCLES`",
         "- Samples: `64`, Cycles denoising enabled",
         "- Color management: `AgX`, `AgX - Medium High Contrast`",
-        "- Lighting: `4300 K` key, `30%` fill, narrow rectangular rim",
+        "- Lighting: fixed `4300 K` wide key, `40%` front fill, low rectangular rim",
+        "- Exposure: fixed `-1.0 EV` for every frame; no animated lights",
         "- Resolution: `2560 x 1440` PNG, opaque background, bloom disabled",
         "",
         "## Review frames",
@@ -364,6 +475,9 @@ def render_lookdev_images(output_dir=None):
 
     apply_pose("closed")
     _render("camera/overall", output_dir / "overall.png")
+    _render("camera/legibility", output_dir / "legibility.png")
+    metrics = analyze_legibility_image(output_dir / "legibility.png")
+    validate_legibility_metrics(metrics)
 
     apply_pose("generals", plate_offset=5, general_direction="reverse")
     _render("camera/oblique", output_dir / "oblique.png")
@@ -399,7 +513,18 @@ def render_lookdev_images(output_dir=None):
     _set_stamp(None)
 
     image_paths = tuple(output_dir / f"{name}.png" for name in REVIEW_OUTPUTS)
-    write_review_manifest(output_dir, image_paths)
+    write_review_manifest(
+        output_dir,
+        image_paths,
+        visual_results={
+            "readable functional inscription": (
+                "PASS "
+                f"(mean={metrics['mean_luminance']:.3f}, "
+                f"dark={metrics['dark_pixel_ratio']:.3f}, "
+                f"contrast={metrics['functional_text_contrast_ratio']:.2f})"
+            ),
+        },
+    )
     bpy.context.scene.render.resolution_x = 2560
     bpy.context.scene.render.resolution_y = 1440
     return image_paths

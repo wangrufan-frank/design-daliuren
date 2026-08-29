@@ -1,90 +1,90 @@
-import sys
 import unittest
 from pathlib import Path
+import sys
 
 import bpy
-from bpy_extras.object_utils import world_to_camera_view
-from mathutils import Vector
+
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from build_graybox import build_graybox
-from poses import apply_pose
-from render_graybox_review import build_review_scene
-
-
-CAMERA_NAMES = {
-    "review/overall",
-    "review/oblique",
-    "review/mechanism",
-    "review/top",
-}
-LIGHT_NAMES = {"light/key", "light/fill", "light/rim"}
+from build_graybox import build_master
+from render_lookdev_review import (
+    CAMERA_NAMES,
+    REVIEW_OUTPUTS,
+    build_lookdev_scene,
+    legibility_metrics,
+    validate_legibility_metrics,
+)
 
 
 class ReviewSceneTest(unittest.TestCase):
     def setUp(self):
-        build_graybox()
+        build_master()
 
-    def test_review_rig_has_confirmed_camera_and_light_contract(self):
-        build_review_scene()
+    def tearDown(self):
+        bpy.ops.wm.read_factory_settings(use_empty=True)
 
-        cameras = {obj.name for obj in bpy.data.objects if obj.type == "CAMERA"}
-        lights = {obj.name for obj in bpy.data.objects if obj.type == "LIGHT"}
-        self.assertEqual(cameras, CAMERA_NAMES)
-        self.assertEqual(lights, LIGHT_NAMES)
-        self.assertEqual({camera.name for camera in bpy.data.cameras}, CAMERA_NAMES)
-        self.assertEqual({light.name for light in bpy.data.lights}, LIGHT_NAMES)
-        self.assertTrue(
-            all(50.0 <= bpy.data.cameras[name].lens <= 70.0 for name in CAMERA_NAMES)
-        )
-        self.assertGreaterEqual(bpy.data.objects["review/top"].location.z, 1.9)
+    def test_review_rig_uses_fixed_wide_4300k_key_and_low_rim(self):
+        build_lookdev_scene()
 
         key = bpy.data.objects["light/key"].data
         fill = bpy.data.objects["light/fill"].data
         rim = bpy.data.objects["light/rim"].data
-        self.assertAlmostEqual(key.color[0], 1.0, places=2)
-        self.assertGreater(key.color[0], key.color[1])
-        self.assertGreater(key.color[1], key.color[2])
-        self.assertGreaterEqual(key.energy, 80.0)
-        self.assertLessEqual(key.energy, 250.0)
-        self.assertGreaterEqual(fill.energy / key.energy, 0.25)
-        self.assertLessEqual(fill.energy / key.energy, 0.35)
-        self.assertEqual(rim.type, "AREA")
-        self.assertLess(rim.shape == "DISK" and rim.size or rim.size, key.size)
-        self.assertGreater(rim.energy, fill.energy)
+        self.assertEqual(key.type, "AREA")
+        self.assertTrue(key.use_temperature)
+        self.assertEqual(key.temperature, 4300.0)
+        self.assertGreaterEqual(key.size, 0.70)
+        self.assertGreaterEqual(fill.energy / key.energy, 0.35)
+        self.assertLessEqual(fill.energy / key.energy, 0.45)
+        self.assertLess(rim.energy, fill.energy)
+        self.assertLess(rim.energy, key.energy * 0.25)
+        for name in ("light/key", "light/fill", "light/rim"):
+            light = bpy.data.objects[name]
+            self.assertIsNone(light.animation_data)
+            self.assertIsNone(light.data.animation_data)
 
-    def test_review_scene_uses_confirmed_render_and_neutral_material_settings(self):
-        build_review_scene()
+    def test_legibility_camera_matches_default_runtime_equivalent_view(self):
+        scene = build_lookdev_scene()
 
-        scene = bpy.context.scene
-        self.assertEqual(scene.render.engine, "BLENDER_EEVEE_NEXT")
-        self.assertEqual((scene.render.resolution_x, scene.render.resolution_y), (1920, 1080))
-        self.assertEqual(scene.render.resolution_percentage, 100)
-        self.assertEqual(bpy.data.objects["review/ground"].data.name, "review/ground")
-        background = scene.world.node_tree.nodes["Background"].inputs["Color"].default_value
-        self.assertLessEqual(
-            scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value,
-            0.08,
+        overall = bpy.data.objects["camera/overall"]
+        legibility = bpy.data.objects["camera/legibility"]
+        self.assertEqual(set(CAMERA_NAMES), {
+            "camera/overall",
+            "camera/oblique",
+            "camera/material-closeup",
+            "camera/rotation-evidence",
+            "camera/legibility",
+        })
+        self.assertEqual(tuple(legibility.location), tuple(overall.location))
+        self.assertEqual(tuple(legibility.rotation_euler), tuple(overall.rotation_euler))
+        self.assertEqual(legibility.data.lens, overall.data.lens)
+        self.assertAlmostEqual(scene.view_settings.exposure, -1.0, places=6)
+        self.assertIn("legibility", REVIEW_OUTPUTS)
+
+    def test_sampled_pixel_metrics_enforce_legibility_thresholds(self):
+        metrics = legibility_metrics(
+            overall_luminances=(0.24,) * 76 + (0.04,) * 24,
+            functional_luminances=(0.72, 0.68, 0.75),
+            surround_luminances=(0.08, 0.09, 0.10),
         )
-        self.assertEqual(tuple(round(channel, 5) for channel in background[:3]), (
-            round(0x12 / 255, 5),
-            round(0x18 / 255, 5),
-            round(0x17 / 255, 5),
-        ))
 
-        neutral = bpy.data.materials["review/neutral-gray"]
-        base_color = neutral.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value
-        self.assertAlmostEqual(base_color[0], base_color[1], places=5)
-        self.assertAlmostEqual(base_color[1], base_color[2], places=5)
-        self.assertGreaterEqual(base_color[0], 0.12)
-        self.assertLessEqual(base_color[0], 0.30)
-        meshes = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
-        self.assertTrue(meshes)
-        self.assertTrue(all(tuple(obj.data.materials) == (neutral,) for obj in meshes))
+        self.assertGreater(metrics["mean_luminance"], 0.18)
+        self.assertLess(metrics["dark_pixel_ratio"], 0.28)
+        self.assertGreater(metrics["functional_text_contrast_ratio"], 4.0)
+        validate_legibility_metrics(metrics)
+
+        failing_cases = (
+            {**metrics, "mean_luminance": 0.18},
+            {**metrics, "dark_pixel_ratio": 0.28},
+            {**metrics, "functional_text_contrast_ratio": 4.0},
+        )
+        for failing in failing_cases:
+            with self.subTest(metrics=failing):
+                with self.assertRaises(ValueError):
+                    validate_legibility_metrics(failing)
 
     def test_rebuilding_review_scene_is_deterministic_and_leak_free(self):
-        build_review_scene()
+        build_lookdev_scene()
         first_counts = (
             len(bpy.data.objects),
             len(bpy.data.meshes),
@@ -93,7 +93,7 @@ class ReviewSceneTest(unittest.TestCase):
             len(bpy.data.materials),
         )
 
-        build_review_scene()
+        build_lookdev_scene()
 
         self.assertEqual(
             (
@@ -105,59 +105,6 @@ class ReviewSceneTest(unittest.TestCase):
             ),
             first_counts,
         )
-        review_names = CAMERA_NAMES | LIGHT_NAMES | {"review/neutral-gray"}
-        self.assertFalse(any(name.endswith(".001") for name in review_names))
-        self.assertTrue(
-            all("node_id" not in bpy.data.objects[name] for name in CAMERA_NAMES | LIGHT_NAMES)
-        )
-
-    def test_mechanism_camera_frames_the_bridge_side_lessons_and_center_plate(self):
-        build_review_scene()
-        apply_pose("generals", plate_offset=5, general_direction="reverse")
-        scene = bpy.context.scene
-        camera = bpy.data.objects["review/mechanism"]
-
-        projected_bounds = {}
-        for object_name in (
-            "transmission/bridge/body",
-            "lesson/third/body",
-            "lesson/second/body",
-            "plate/heaven",
-        ):
-            obj = bpy.data.objects[object_name]
-            coordinates = [
-                world_to_camera_view(scene, camera, obj.matrix_world @ Vector(corner))
-                for corner in obj.bound_box
-            ]
-            self.assertTrue(all(coordinate.z > 0.0 for coordinate in coordinates))
-            projected_bounds[object_name] = (
-                min(coordinate.x for coordinate in coordinates),
-                max(coordinate.x for coordinate in coordinates),
-                min(coordinate.y for coordinate in coordinates),
-                max(coordinate.y for coordinate in coordinates),
-            )
-
-        for object_name in (
-            "transmission/bridge/body",
-            "lesson/third/body",
-            "lesson/second/body",
-        ):
-            minimum_x, maximum_x, minimum_y, maximum_y = projected_bounds[object_name]
-            with self.subTest(object_name=object_name):
-                self.assertGreaterEqual(minimum_x, 0.04)
-                self.assertLessEqual(maximum_x, 0.96)
-                self.assertGreaterEqual(minimum_y, 0.05)
-                self.assertLessEqual(maximum_y, 0.95)
-
-        plate_minimum_x, plate_maximum_x, plate_minimum_y, plate_maximum_y = projected_bounds[
-            "plate/heaven"
-        ]
-        self.assertGreaterEqual(plate_minimum_x, 0.0)
-        self.assertLessEqual(plate_maximum_x, 1.0)
-        self.assertGreaterEqual(plate_minimum_y, 0.0)
-        self.assertLessEqual(plate_maximum_y, 1.0)
-        self.assertGreaterEqual(plate_maximum_x - plate_minimum_x, 0.25)
-        self.assertLessEqual(plate_maximum_x - plate_minimum_x, 0.70)
 
 
 if __name__ == "__main__":

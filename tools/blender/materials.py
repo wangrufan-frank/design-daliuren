@@ -12,6 +12,8 @@ MATERIAL_NAMES = (
     "M_Celadon",
     "M_OldGold",
     "M_AshText",
+    "M_EarthVoid",
+    "M_HeavenVoid",
 )
 MASK_NAMES = (
     "mask_contact_wear",
@@ -20,12 +22,14 @@ MASK_NAMES = (
     "mask_celadon_crackle",
 )
 PALETTE = {
-    "ink": "#121817",
-    "bronze": "#26322F",
-    "patina": "#435C53",
-    "celadon": "#879B92",
-    "ash": "#C2C6BB",
-    "oldGold": "#80704C",
+    "ink": "#18201D",
+    "bronze": "#4A5A53",
+    "patina": "#60736A",
+    "celadon": "#91A69C",
+    "ash": "#DFE8E4",
+    "oldGold": "#B39B69",
+    "earthVoid": "#8A563B",
+    "heavenVoid": "#477B9D",
 }
 MASK_ATTRIBUTES = {
     "mask_contact_wear": "causal_contact_wear",
@@ -238,6 +242,7 @@ def _base_material(name, color, metallic, roughness):
     material.use_nodes = True
     material.diffuse_color = srgb_hex(color)
     material["physical_role"] = name.removeprefix("M_").lower()
+    material["material_family"] = name
     nodes = material.node_tree.nodes
     nodes.clear()
     output = nodes.new("ShaderNodeOutputMaterial")
@@ -252,20 +257,9 @@ def _base_material(name, color, metallic, roughness):
 
 
 def _build_bronze():
-    material, shader = _base_material("M_Bronze", PALETTE["bronze"], 1.0, 0.58)
+    material, shader = _base_material("M_Bronze", PALETTE["bronze"], 1.0, 0.62)
     nodes = material.node_tree.nodes
     links = material.node_tree.links
-    contact = _group_node(nodes, "mask_contact_wear", "Causal contact polish", 0.78)
-    roughness = nodes.new("ShaderNodeMapRange")
-    roughness.name = "Contact-polished roughness"
-    roughness.inputs["From Min"].default_value = 0.0
-    roughness.inputs["From Max"].default_value = 1.0
-    roughness.inputs["To Min"].default_value = 0.58
-    roughness.inputs["To Max"].default_value = 0.31
-    roughness.clamp = True
-    links.new(contact.outputs["Factor"], roughness.inputs["Value"])
-    links.new(roughness.outputs["Result"], _socket(shader, "Roughness"))
-
     recess = _group_node(nodes, "mask_recess_oxidation", "Causal recess tint", 0.52)
     tint = nodes.new("ShaderNodeMixRGB")
     tint.name = "Bronze to recessed patina"
@@ -278,19 +272,7 @@ def _build_bronze():
 
 
 def _build_patina():
-    material, shader = _base_material("M_Patina", PALETTE["patina"], 1.0, 0.72)
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
-    recess = _group_node(nodes, "mask_recess_oxidation", "Causal oxidation coverage", 0.9)
-    roughness = nodes.new("ShaderNodeMapRange")
-    roughness.name = "Oxidation roughness"
-    roughness.inputs["From Min"].default_value = 0.0
-    roughness.inputs["From Max"].default_value = 1.0
-    roughness.inputs["To Min"].default_value = 0.72
-    roughness.inputs["To Max"].default_value = 0.84
-    roughness.clamp = True
-    links.new(recess.outputs["Factor"], roughness.inputs["Value"])
-    links.new(roughness.outputs["Result"], _socket(shader, "Roughness"))
+    material, _ = _base_material("M_Patina", PALETTE["patina"], 1.0, 0.78)
     return material
 
 
@@ -357,14 +339,19 @@ def _build_celadon():
 
 
 def _build_old_gold():
-    material, shader = _base_material("M_OldGold", PALETTE["oldGold"], 1.0, 0.38)
+    material, shader = _base_material("M_OldGold", PALETTE["oldGold"], 1.0, 0.48)
     _socket(shader, "Coat Weight").default_value = 0.04
     return material
 
 
 def _build_ash_text():
-    material, shader = _base_material("M_AshText", PALETTE["ash"], 0.0, 0.68)
+    material, shader = _base_material("M_AshText", PALETTE["ash"], 0.0, 0.48)
     _socket(shader, "Specular IOR Level").default_value = 0.24
+    return material
+
+
+def _build_void(name, palette_key):
+    material, _ = _base_material(name, PALETTE[palette_key], 0.0, 0.52)
     return material
 
 
@@ -384,13 +371,17 @@ def build_master_materials():
         _build_celadon(),
         _build_old_gold(),
         _build_ash_text(),
+        _build_void("M_EarthVoid", "earthVoid"),
+        _build_void("M_HeavenVoid", "heavenVoid"),
     )
 
 
 def _physical_material_name(obj):
     role = obj.get("inscription_role")
-    if role == "mechanical-scale":
+    if role == "earth-branch":
         return "M_OldGold"
+    if role == "heaven-branch":
+        return "M_AshText"
     if role:
         return "M_AshText"
     detail_id = obj.get("detail_id")
@@ -541,8 +532,13 @@ def apply_master_materials(root):
 
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
         name = _physical_material_name(obj)
+        material = bpy.data.materials[name]
+        if obj.get("inscription_role") in {"earth-branch", "heaven-branch"}:
+            material = material.copy()
+            material.name = f"{name}/{obj['node_id']}"
+            material["material_family"] = name
         obj.data.materials.clear()
-        obj.data.materials.append(bpy.data.materials[name])
+        obj.data.materials.append(material)
         obj["material_role"] = name
 
         detail_id = obj.get("detail_id")
@@ -592,17 +588,13 @@ def _board_ground_material():
     return material
 
 
-def _review_emission_material(name, color, strength):
+def _review_principled_material(name, color, _strength):
     material = bpy.data.materials.new(name)
     material.use_nodes = True
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
-    nodes.clear()
-    output = nodes.new("ShaderNodeOutputMaterial")
-    emission = nodes.new("ShaderNodeEmission")
-    emission.inputs["Color"].default_value = color
-    emission.inputs["Strength"].default_value = strength
-    links.new(emission.outputs["Emission"], output.inputs["Surface"])
+    shader = material.node_tree.nodes.get("Principled BSDF")
+    shader.inputs["Base Color"].default_value = color
+    shader.inputs["Metallic"].default_value = 0.0
+    shader.inputs["Roughness"].default_value = 0.55
     return material
 
 
@@ -767,17 +759,17 @@ def build_material_board_scene():
     _look_at(camera, (0.0, 0.0, 0.7))
     bpy.context.view_layer.update()
     inset_region = (790, 2, 1300, 360)
-    frame_material = _review_emission_material(
+    frame_material = _review_principled_material(
         "review/celadon-inset-frame-material",
         srgb_hex(PALETTE["celadon"]),
         0.32,
     )
-    panel_material = _review_emission_material(
+    panel_material = _review_principled_material(
         "review/celadon-inset-panel-material",
         srgb_hex(PALETTE["ink"]),
         0.12,
     )
-    label_material = _review_emission_material(
+    label_material = _review_principled_material(
         "review/celadon-inset-label-material",
         srgb_hex(PALETTE["ash"]),
         0.62,

@@ -112,7 +112,9 @@
       "M_Patina",
       "M_Celadon",
       "M_OldGold",
-      "M_AshText"
+      "M_AshText",
+      "M_EarthVoid",
+      "M_HeavenVoid"
     ],
     "requiredTextureExtension": "KHR_texture_basisu",
     "dynamicLabelOwners": {

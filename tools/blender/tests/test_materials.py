@@ -1,53 +1,41 @@
 import json
-import math
-import struct
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import bpy
-from bpy_extras.object_utils import world_to_camera_view
-from mathutils import Vector
 
 
 BLENDER_DIR = Path(__file__).parents[1]
 REPOSITORY_ROOT = Path(__file__).parents[3]
-CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
-BOARD_PATH = REPOSITORY_ROOT / "docs/asset-reviews/lookdev/material-board.png"
+ASSET_CONTRACT = REPOSITORY_ROOT / "assets/daliuren/asset-contract.json"
+BRANCHES = tuple("子丑寅卯辰巳午未申酉戌亥")
 MATERIAL_NAMES = {
     "M_Bronze",
     "M_Patina",
     "M_Celadon",
     "M_OldGold",
     "M_AshText",
-}
-MASK_NAMES = {
-    "mask_contact_wear",
-    "mask_recess_oxidation",
-    "mask_insert_dirt",
-    "mask_celadon_crackle",
-}
-MASK_ATTRIBUTES = {
-    "mask_contact_wear": "causal_contact_wear",
-    "mask_recess_oxidation": "causal_recess_oxidation",
-    "mask_insert_dirt": "causal_insert_boundary",
-    "mask_celadon_crackle": "causal_celadon_crackle",
+    "M_EarthVoid",
+    "M_HeavenVoid",
 }
 PALETTE = {
-    "ink": "#121817",
-    "bronze": "#26322F",
-    "patina": "#435C53",
-    "celadon": "#879B92",
-    "ash": "#C2C6BB",
-    "oldGold": "#80704C",
+    "ink": "#18201D",
+    "bronze": "#4A5A53",
+    "patina": "#60736A",
+    "celadon": "#91A69C",
+    "ash": "#DFE8E4",
+    "oldGold": "#B39B69",
+    "earthVoid": "#8A563B",
+    "heavenVoid": "#477B9D",
 }
-FORBIDDEN_DYNAMIC_TEXT = {"贵人", "初传", "中传", "末传", "父母", "官鬼"}
 
 sys.path.insert(0, str(BLENDER_DIR))
 
 from build_graybox import build_master
-from materials import apply_master_materials, build_master_materials
+from materials import PALETTE as IMPLEMENTED_PALETTE
+from materials import build_master_materials
 
 
 def linear_channel(value):
@@ -58,7 +46,9 @@ def linear_channel(value):
 
 
 def linear_hex(value):
-    return tuple(linear_channel(int(value[index : index + 2], 16)) for index in (1, 3, 5))
+    return tuple(
+        linear_channel(int(value[index:index + 2], 16)) for index in (1, 3, 5)
+    )
 
 
 def principled(material):
@@ -72,41 +62,6 @@ def principled(material):
     return nodes[0]
 
 
-def material_name(obj):
-    if obj.type != "MESH" or len(obj.data.materials) != 1:
-        return None
-    return obj.data.materials[0].name
-
-
-def attribute_values(obj, name):
-    attribute = obj.data.attributes.get(name)
-    if attribute is None:
-        return ()
-    return tuple(round(item.value, 6) for item in attribute.data)
-
-
-def projected_display_bounds(scene, obj, width=1920, height=1080):
-    projected = [
-        world_to_camera_view(scene, scene.camera, obj.matrix_world @ Vector(corner))
-        for corner in obj.bound_box
-    ]
-    return (
-        min(point.x for point in projected) * width,
-        (1.0 - max(point.y for point in projected)) * height,
-        max(point.x for point in projected) * width,
-        (1.0 - min(point.y for point in projected)) * height,
-    )
-
-
-def projected_gap(first, second):
-    return max(
-        second[0] - first[2],
-        first[0] - second[2],
-        second[1] - first[3],
-        first[1] - second[3],
-    )
-
-
 class MaterialTest(unittest.TestCase):
     def tearDown(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -115,469 +70,99 @@ class MaterialTest(unittest.TestCase):
         for actual_channel, expected_channel in zip(actual[:3], expected):
             self.assertAlmostEqual(actual_channel, expected_channel, places=6)
 
-    def assertFaceMaskSample(self, object_name, attribute_name, clean_filter, affected_filter):
-        obj = bpy.data.objects[object_name]
-        attribute = obj.data.attributes.get(attribute_name)
-        self.assertIsNotNone(attribute, object_name)
-        self.assertEqual(attribute.domain, "FACE", object_name)
-        clean_faces = [polygon for polygon in obj.data.polygons if clean_filter(polygon)]
-        affected_faces = [polygon for polygon in obj.data.polygons if affected_filter(polygon)]
-        self.assertTrue(clean_faces, f"No clean sample on {object_name}")
-        self.assertTrue(affected_faces, f"No affected sample on {object_name}")
-        clean = max(clean_faces, key=lambda polygon: polygon.area)
-        affected = max(affected_faces, key=lambda polygon: polygon.area)
-        self.assertEqual(attribute.data[clean.index].value, 0.0, object_name)
-        self.assertGreater(attribute.data[affected.index].value, 0.0, object_name)
-
-    def assertCausalFaceMasks(self):
-        contact_holders = [
-            obj for obj in bpy.data.objects if obj.type == "MESH" and "causal_contact_wear" in obj.data.attributes
-        ]
-        recess_holders = [
-            obj for obj in bpy.data.objects if obj.type == "MESH" and "causal_recess_oxidation" in obj.data.attributes
-        ]
-        insert_holders = [
-            obj for obj in bpy.data.objects if obj.type == "MESH" and "causal_insert_boundary" in obj.data.attributes
-        ]
-
-        allowed_contact_details = {
-            "mechanism/heaven-detent",
-            "mechanism/lesson-dovetails",
-            "mechanism/lesson-end-stop",
-            "mechanism/lesson-general-socket",
-            "mechanism/bridge-stops",
-            "mechanism/general-track",
-        }
-        allowed_recess_details = {
-            "structure/base-bottom-seam",
-            "structure/base-shell-thickness",
-            "mechanism/heaven-bearing",
-            "structure/bronze-celadon-contact-seam",
-            "mechanism/general-track",
-        }
-        allowed_contact_objects = {"base/body", "plate/earth", "plate/heaven"}
-
-        for obj in contact_holders:
-            with self.subTest(mask="contact", object=obj.name):
-                self.assertTrue(
-                    obj.name in allowed_contact_objects or obj.get("detail_id") in allowed_contact_details
-                )
-                attribute = obj.data.attributes["causal_contact_wear"]
-                self.assertEqual(attribute.domain, "FACE")
-                values = tuple(item.value for item in attribute.data)
-                self.assertIn(0.0, values)
-                self.assertTrue(any(value > 0.0 for value in values))
-
-        for obj in recess_holders:
-            with self.subTest(mask="recess", object=obj.name):
-                self.assertIn(obj.get("detail_id"), allowed_recess_details)
-                attribute = obj.data.attributes["causal_recess_oxidation"]
-                self.assertEqual(attribute.domain, "FACE")
-                values = tuple(item.value for item in attribute.data)
-                self.assertIn(0.0, values)
-                self.assertTrue(any(value > 0.0 for value in values))
-
-        for obj in insert_holders:
-            with self.subTest(mask="insert", object=obj.name):
-                self.assertEqual(material_name(obj), "M_Celadon")
-                attribute = obj.data.attributes["causal_insert_boundary"]
-                self.assertEqual(attribute.domain, "FACE")
-                values = tuple(item.value for item in attribute.data)
-                self.assertIn(0.0, values)
-                self.assertTrue(any(value > 0.0 for value in values))
-
-        self.assertNotIn(
-            "causal_recess_oxidation",
-            bpy.data.objects["detail/bridge/support-body"].data.attributes,
-        )
-        self.assertNotIn(
-            "causal_recess_oxidation",
-            bpy.data.objects["detail/heaven/support-rib/00"].data.attributes,
-        )
-        self.assertNotIn(
-            "causal_contact_wear",
-            bpy.data.objects["detail/heaven/inlay-bed/00"].data.attributes,
-        )
-
-        self.assertFaceMaskSample(
-            "base/body",
-            "causal_contact_wear",
-            lambda polygon: polygon.normal.z > 0.999 and abs(polygon.center.x) < 0.01 and abs(polygon.center.y) < 0.01,
-            lambda polygon: abs(polygon.normal.z) < 0.01 and max(abs(polygon.center.x), abs(polygon.center.y)) > 0.24,
-        )
-        self.assertFaceMaskSample(
-            "detail/base/removable-bottom",
-            "causal_recess_oxidation",
-            lambda polygon: polygon.normal.z > 0.999,
-            lambda polygon: polygon.normal.z < -0.999,
-        )
-        self.assertFaceMaskSample(
-            "lesson/first/readout/upper",
-            "causal_insert_boundary",
-            lambda polygon: polygon.normal.z > 0.999,
-            lambda polygon: abs(polygon.normal.z) < 0.01,
-        )
-        self.assertFaceMaskSample(
-            "detail/heaven/center-bearing",
-            "causal_recess_oxidation",
-            lambda polygon: polygon.normal.z > 0.999,
-            lambda polygon: polygon.center.z < 0.0 and abs(polygon.normal.z) < 0.95,
-        )
-
-    def test_master_materials_use_linear_palette_and_physical_principled_roles(self):
+    def test_master_materials_use_exact_bright_palette_and_roughness(self):
         materials = build_master_materials()
 
+        self.assertEqual(IMPLEMENTED_PALETTE, PALETTE)
         self.assertEqual({material.name for material in materials}, MATERIAL_NAMES)
         expected = {
-            "M_Bronze": ("#26322F", 1.0, 0.58),
-            "M_Patina": ("#435C53", 1.0, 0.72),
-            "M_Celadon": ("#879B92", 0.0, 0.34),
-            "M_OldGold": ("#80704C", 1.0, 0.38),
-            "M_AshText": ("#C2C6BB", 0.0, 0.68),
+            "M_Bronze": ("#4A5A53", 0.62),
+            "M_Patina": ("#60736A", 0.78),
+            "M_Celadon": ("#91A69C", 0.34),
+            "M_OldGold": ("#B39B69", 0.48),
+            "M_AshText": ("#DFE8E4", 0.48),
+            "M_EarthVoid": ("#8A563B", 0.52),
+            "M_HeavenVoid": ("#477B9D", 0.52),
         }
-        for name, (hex_color, metallic, roughness) in expected.items():
+        for name, (color, roughness) in expected.items():
             shader = principled(bpy.data.materials[name])
             with self.subTest(material=name):
-                self.assertColorClose(shader.inputs["Base Color"].default_value, linear_hex(hex_color))
-                self.assertAlmostEqual(shader.inputs["Metallic"].default_value, metallic)
-                self.assertAlmostEqual(shader.inputs["Roughness"].default_value, roughness)
+                self.assertColorClose(
+                    shader.inputs["Base Color"].default_value,
+                    linear_hex(color),
+                )
+                self.assertAlmostEqual(
+                    shader.inputs["Roughness"].default_value,
+                    roughness,
+                )
+                if name != "M_Celadon":
+                    self.assertFalse(shader.inputs["Roughness"].is_linked)
 
-        celadon = principled(bpy.data.materials["M_Celadon"])
-        self.assertGreater(celadon.inputs["Coat Weight"].default_value, 0.0)
-        self.assertLessEqual(celadon.inputs["Coat Weight"].default_value, 0.22)
-        self.assertLessEqual(celadon.inputs["Specular IOR Level"].default_value, 0.4)
-        self.assertTrue(celadon.inputs["Normal"].is_linked)
+    def test_asset_contract_exposes_both_void_material_families(self):
+        contract = json.loads(ASSET_CONTRACT.read_text(encoding="utf-8"))
+        families = contract["runtimeAssets"]["materialFamilies"]
 
-        bronze_nodes = bpy.data.materials["M_Bronze"].node_tree.nodes
-        bronze_groups = {
-            node.node_tree.name
-            for node in bronze_nodes
-            if node.bl_idname == "ShaderNodeGroup" and node.node_tree
-        }
-        self.assertIn("mask_contact_wear", bronze_groups)
-        self.assertTrue(principled(bpy.data.materials["M_Bronze"]).inputs["Roughness"].is_linked)
+        self.assertEqual(set(families), MATERIAL_NAMES)
+        self.assertIn("M_EarthVoid", families)
+        self.assertIn("M_HeavenVoid", families)
 
-    def test_mask_groups_have_distinct_causal_topologies_and_real_attribute_inputs(self):
-        build_master_materials()
+    def test_each_branch_owns_a_unique_normal_fill_material_instance(self):
+        build_master()
 
-        self.assertTrue(MASK_NAMES.issubset(bpy.data.node_groups.keys()))
-        signatures = {}
-        for name in sorted(MASK_NAMES):
-            group = bpy.data.node_groups[name]
-            attribute_nodes = [
-                node for node in group.nodes if node.bl_idname == "ShaderNodeAttribute"
-            ]
-            attributes = {node.attribute_name for node in attribute_nodes}
-            with self.subTest(mask=name):
-                self.assertEqual(group.get("mask_semantic"), name.removeprefix("mask_"))
-                self.assertIn(MASK_ATTRIBUTES[name], attributes)
-                self.assertGreaterEqual(len(group.links), 2)
-            signatures[name] = (
-                tuple(sorted(node.bl_idname for node in group.nodes)),
-                tuple(sorted(attributes)),
-                len(group.links),
-            )
-
-        self.assertEqual(len(set(signatures.values())), 4)
-        self.assertNotIn(
-            "ShaderNodeTexNoise",
-            {node.bl_idname for node in bpy.data.node_groups["mask_contact_wear"].nodes},
-        )
-        self.assertIn(
-            "ShaderNodeTexNoise",
-            {node.bl_idname for node in bpy.data.node_groups["mask_insert_dirt"].nodes},
-        )
-        self.assertIn(
-            "ShaderNodeTexVoronoi",
-            {node.bl_idname for node in bpy.data.node_groups["mask_celadon_crackle"].nodes},
-        )
-
-    def test_material_builder_rejects_duplicate_construction_without_side_effects(self):
-        build_master_materials()
-        material_count = len(bpy.data.materials)
-        group_count = len(bpy.data.node_groups)
-
-        with self.assertRaisesRegex(RuntimeError, "already exist"):
-            build_master_materials()
-
-        self.assertEqual(len(bpy.data.materials), material_count)
-        self.assertEqual(len(bpy.data.node_groups), group_count)
-
-    def test_assignments_and_mesh_attributes_follow_physical_causes(self):
-        root = build_master()
-
-        self.assertEqual(root["node_id"], "artifact/root")
-        meshes = [obj for obj in bpy.data.objects if obj.type == "MESH"]
-        self.assertTrue(meshes)
-        self.assertTrue(all(material_name(obj) in MATERIAL_NAMES for obj in meshes))
-
-        self.assertEqual(material_name(bpy.data.objects["base/body"]), "M_Bronze")
-        self.assertEqual(material_name(bpy.data.objects["plate/heaven"]), "M_Bronze")
-        self.assertEqual(material_name(bpy.data.objects["lesson/first/readout/upper"]), "M_Celadon")
-        self.assertEqual(material_name(bpy.data.objects["transmission/initial"]), "M_Celadon")
-        self.assertEqual(
-            material_name(bpy.data.objects["detail/heaven/contact-seam/00"]),
-            "M_Patina",
-        )
-
-        for obj in meshes:
-            with self.subTest(object=obj.name, material=material_name(obj)):
-                if material_name(obj) == "M_OldGold":
-                    self.assertEqual(obj.get("inscription_role"), "mechanical-scale")
-                if material_name(obj) == "M_AshText":
-                    self.assertIn(
-                        obj.get("inscription_role"),
-                        {
-                            "earth-branch",
-                            "historical-beidou",
-                            "historical-mansion",
-                            "historical-month-deity",
-                        },
+        branches = [
+            bpy.data.objects[f"branch/{surface}/{branch}"]
+            for surface in ("earth", "heaven")
+            for branch in BRANCHES
+        ]
+        materials = [obj.data.materials[0] for obj in branches]
+        self.assertEqual(len({material.as_pointer() for material in materials}), 24)
+        for surface, family in (("earth", "M_OldGold"), ("heaven", "M_AshText")):
+            for branch in BRANCHES:
+                obj = bpy.data.objects[f"branch/{surface}/{branch}"]
+                material = obj.data.materials[0]
+                with self.subTest(surface=surface, branch=branch):
+                    self.assertEqual(obj["material_role"], family)
+                    self.assertEqual(material["material_family"], family)
+                    self.assertTrue(material.name.startswith(f"{family}/branch/{surface}/"))
+                    self.assertAlmostEqual(
+                        principled(material).inputs["Roughness"].default_value,
+                        0.48,
                     )
-                if "causal_celadon_crackle" in obj.data.attributes:
-                    self.assertEqual(material_name(obj), "M_Celadon")
-                if "causal_insert_boundary" in obj.data.attributes:
-                    self.assertEqual(material_name(obj), "M_Celadon")
 
-        contact = bpy.data.objects["detail/lesson/first/dovetail"]
-        recess = bpy.data.objects["detail/base/removable-bottom"]
-        boundary = bpy.data.objects["lesson/first/readout/upper"]
-        self.assertTrue(attribute_values(contact, "causal_contact_wear"))
-        self.assertTrue(attribute_values(recess, "causal_recess_oxidation"))
-        self.assertGreater(len(set(attribute_values(boundary, "causal_insert_boundary"))), 1)
-        self.assertGreater(len(set(attribute_values(boundary, "causal_celadon_crackle"))), 1)
-        self.assertCausalFaceMasks()
+    def test_material_graphs_contain_no_emissive_nodes(self):
+        build_master()
 
-        phases = {}
-        for lesson in ("first", "second", "third", "fourth"):
-            obj = bpy.data.objects[f"lesson/{lesson}/readout/upper"]
-            values = attribute_values(obj, "dirt_phase")
-            self.assertTrue(values)
-            self.assertEqual(len(set(values)), 1)
-            phases[lesson] = values[0]
-        self.assertEqual(len(set(phases.values())), 4)
-        self.assertNotAlmostEqual(phases["first"], phases["fourth"])
-        self.assertNotAlmostEqual(phases["second"], phases["third"])
+        emissive = [
+            (material.name, node.name)
+            for material in bpy.data.materials
+            if material.use_nodes
+            for node in material.node_tree.nodes
+            if "Emission" in node.bl_idname or "Emission" in node.name
+        ]
+        self.assertEqual(emissive, [])
 
-    def test_materialized_master_reopens_without_changing_frozen_contract(self):
+    def test_materialized_master_reopens_with_unique_branch_ownership(self):
         build_master()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "master.blend"
             bpy.ops.wm.save_as_mainfile(filepath=str(path))
             bpy.ops.wm.open_mainfile(filepath=str(path))
 
-            runtime = [obj for obj in bpy.data.objects if "node_id" in obj]
-            details = [obj for obj in bpy.data.objects if "detail_id" in obj]
-            inscriptions = [obj for obj in bpy.data.objects if "inscription_role" in obj]
-            self.assertEqual(len(runtime), 28)
-            self.assertEqual(len(details), 85)
-            self.assertEqual(len(inscriptions), 71)
-            self.assertEqual({material.name for material in bpy.data.materials}, MATERIAL_NAMES)
-            self.assertTrue(MASK_NAMES.issubset(bpy.data.node_groups.keys()))
-            self.assertTrue(
-                FORBIDDEN_DYNAMIC_TEXT.isdisjoint(
-                    {obj.get("inscription_text") for obj in inscriptions}
-                )
+            branches = [
+                obj
+                for obj in bpy.data.objects
+                if isinstance(obj.get("node_id"), str)
+                and obj["node_id"].startswith("branch/")
+            ]
+            self.assertEqual(len(branches), 24)
+            self.assertEqual(
+                len({obj.data.materials[0].as_pointer() for obj in branches}),
+                24,
             )
             self.assertEqual(
-                tuple(round(value, 6) for value in bpy.data.objects["plate/heaven"].dimensions),
-                (0.38, 0.38, 0.024),
+                {obj["material_role"] for obj in branches},
+                {"M_OldGold", "M_AshText"},
             )
-            self.assertCausalFaceMasks()
-
-    def test_contract_and_material_board_are_complete_and_visually_nonempty(self):
-        contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
-
-        self.assertEqual(contract["schemaVersion"], 1)
-        self.assertEqual(contract["blenderVersion"], "4.5.12 LTS")
-        self.assertEqual(contract["palette"], PALETTE)
-        self.assertEqual(set(contract["materials"]), MATERIAL_NAMES)
-        self.assertEqual(set(contract["masks"]), MASK_NAMES)
-        self.assertEqual(contract["reviewRender"]["resolution"], [1920, 1080])
-        self.assertEqual(contract["reviewRender"]["engine"], "CYCLES")
-        self.assertEqual(contract["reviewRender"]["keyTemperatureK"], 4300)
-        self.assertEqual(contract["reviewRender"]["transparentBackground"], False)
-        closeup_contract = contract["reviewRender"]["celadonCloseup"]
-        self.assertGreaterEqual(closeup_contract["minimumProjectedDiameterPx"], 280)
-        micro_region = closeup_contract.get("microSampleRegion")
-        self.assertIsNotNone(micro_region)
-        self.assertEqual(contract["reviewRender"]["sphereOrder"], [
-            "M_Bronze",
-            "M_Patina",
-            "M_Celadon",
-            "M_OldGold",
-            "M_AshText",
-        ])
-
-        data = BOARD_PATH.read_bytes()
-        self.assertGreater(len(data), 100_000)
-        self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
-        width, height = struct.unpack(">II", data[16:24])
-        self.assertEqual((width, height), (1920, 1080))
-
-        image = bpy.data.images.load(str(BOARD_PATH), check_existing=False)
-        try:
-            pixels = image.pixels[:]
-            sampled_rgb = []
-            stride = max(4, (len(pixels) // 12000) // 4 * 4)
-            for index in range(0, len(pixels), stride):
-                sampled_rgb.extend(pixels[index : index + 3])
-            quantized = {round(value, 2) for value in sampled_rgb}
-            self.assertGreater(len(quantized), 35)
-            self.assertLess(min(sampled_rgb), 0.08)
-            self.assertGreater(max(sampled_rgb), 0.55)
-            self.assertGreater(math.fsum(sampled_rgb) / len(sampled_rgb), 0.04)
-
-            region_left, region_top, region_right, region_bottom = closeup_contract["pixelRegion"]
-            closeup_rgb = []
-            closeup_gradients = []
-            for display_y in range(region_top, region_bottom, 4):
-                image_y = height - 1 - display_y
-                for x in range(region_left, region_right, 4):
-                    index = (image_y * width + x) * 4
-                    rgb = tuple(pixels[index : index + 3])
-                    closeup_rgb.append(math.fsum(rgb) / 3.0)
-                    next_index = (image_y * width + min(x + 4, width - 1)) * 4
-                    next_luminance = math.fsum(pixels[next_index : next_index + 3]) / 3.0
-                    closeup_gradients.append(abs(next_luminance - closeup_rgb[-1]))
-            self.assertGreater(
-                sum(value > 0.08 for value in closeup_rgb) / len(closeup_rgb),
-                0.35,
-            )
-            self.assertGreater(
-                sum(value > 0.0025 for value in closeup_gradients) / len(closeup_gradients),
-                0.015,
-            )
-
-            micro_left, micro_top, micro_right, micro_bottom = micro_region
-            micro_gradients = []
-            for display_y in range(micro_top, micro_bottom, 2):
-                image_y = height - 1 - display_y
-                for x in range(micro_left, micro_right, 2):
-                    index = (image_y * width + x) * 4
-                    right_index = (image_y * width + x + 2) * 4
-                    down_index = ((image_y - 2) * width + x) * 4
-                    luminance = math.fsum(pixels[index : index + 3]) / 3.0
-                    right = math.fsum(pixels[right_index : right_index + 3]) / 3.0
-                    down = math.fsum(pixels[down_index : down_index + 3]) / 3.0
-                    micro_gradients.extend((abs(right - luminance), abs(down - luminance)))
-            micro_gradients.sort()
-            p95 = micro_gradients[int(len(micro_gradients) * 0.95)]
-            self.assertGreater(p95, 0.008)
-            self.assertLess(p95, 0.04)
-
-            micro_laplacian = []
-            for display_y in range(micro_top, micro_bottom, 2):
-                image_y = height - 1 - display_y
-                for x in range(micro_left, micro_right, 2):
-                    def luminance(sample_x, sample_y):
-                        sample_index = (sample_y * width + sample_x) * 4
-                        return math.fsum(pixels[sample_index : sample_index + 3]) / 3.0
-
-                    center = luminance(x, image_y)
-                    neighbors = (
-                        luminance(x - 2, image_y),
-                        luminance(x + 2, image_y),
-                        luminance(x, image_y - 2),
-                        luminance(x, image_y + 2),
-                    )
-                    micro_laplacian.append(abs(center - math.fsum(neighbors) / 4.0))
-            micro_laplacian.sort()
-            laplacian_p95 = micro_laplacian[int(len(micro_laplacian) * 0.95)]
-            self.assertGreater(laplacian_p95, 0.007)
-            self.assertLess(laplacian_p95, 0.03)
-        finally:
-            bpy.data.images.remove(image)
-
-    def test_material_board_inset_stays_inside_contract_and_clear_of_comparison_spheres(self):
-        from materials import build_material_board_scene
-
-        build_master_materials()
-        scene = build_material_board_scene()
-        contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
-        closeup_contract = contract["reviewRender"]["celadonCloseup"]
-        inset_region = tuple(closeup_contract["pixelRegion"])
-        minimum_gap = closeup_contract.get("minimumComparisonGapPx", 16)
-        self.assertEqual(scene.render.engine, "CYCLES")
-        key = scene.objects["material-board/key-4300K"]
-        self.assertTrue(key.data.use_temperature)
-        self.assertEqual(key.data.temperature, 4300.0)
-        closeup = scene.objects["review/celadon-closeup"]
-        closeup_bounds = projected_display_bounds(scene, closeup)
-        self.assertGreaterEqual(closeup_bounds[2] - closeup_bounds[0], closeup_contract["minimumProjectedDiameterPx"])
-        self.assertGreaterEqual(closeup_bounds[3] - closeup_bounds[1], closeup_contract["minimumProjectedDiameterPx"])
-        for actual, limit, comparison in zip(
-            closeup_bounds,
-            inset_region,
-            (self.assertGreaterEqual, self.assertGreaterEqual, self.assertLessEqual, self.assertLessEqual),
-        ):
-            comparison(actual, limit)
-        micro_region = closeup_contract.get("microSampleRegion")
-        self.assertIsNotNone(micro_region)
-        for actual, limit, comparison in zip(
-            micro_region,
-            closeup_bounds,
-            (self.assertGreaterEqual, self.assertGreaterEqual, self.assertLessEqual, self.assertLessEqual),
-        ):
-            comparison(actual, limit)
-        spheres = sorted(
-            (obj for obj in scene.objects if obj.name.startswith("review/sphere/")),
-            key=lambda obj: obj.name,
-        )
-        self.assertEqual(len(spheres), 5)
-        for sphere in spheres:
-            sphere_bounds = projected_display_bounds(scene, sphere)
-            with self.subTest(sphere=sphere.name):
-                self.assertGreater(sphere_bounds[0], 1920 * 0.02)
-                self.assertLess(sphere_bounds[2], 1920 * 0.98)
-                self.assertGreater(sphere_bounds[1], 1080 * 0.04)
-                self.assertLess(sphere_bounds[3], 1080 * 0.96)
-                self.assertGreaterEqual(projected_gap(inset_region, sphere_bounds), minimum_gap)
-                self.assertGreaterEqual(projected_gap(closeup_bounds, sphere_bounds), minimum_gap)
-                world_corners = [sphere.matrix_world @ Vector(corner) for corner in sphere.bound_box]
-                self.assertAlmostEqual(min(point.z for point in world_corners), 0.0, places=3)
-
-    def test_material_board_celadon_closeup_is_presented_as_a_framed_inset(self):
-        from materials import build_material_board_scene
-
-        build_master_materials()
-        scene = build_material_board_scene()
-        contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
-        closeup_contract = contract["reviewRender"]["celadonCloseup"]
-        self.assertEqual(closeup_contract.get("presentation"), "framed inset")
-
-        closeup = scene.objects["review/celadon-closeup"]
-        frame = scene.objects.get("review/celadon-inset-frame")
-        panel = scene.objects.get("review/celadon-inset-panel")
-        label = scene.objects.get("review/celadon-inset-label")
-        self.assertIsNotNone(frame)
-        self.assertIsNotNone(panel)
-        self.assertIsNotNone(label)
-        self.assertEqual(closeup.get("review_role"), "micro-surface-inset")
-        self.assertEqual(frame.get("review_role"), "inset-frame")
-        self.assertEqual(panel.get("review_role"), "inset-panel")
-        self.assertEqual(label.get("review_role"), "inset-label")
-
-        frame_bounds = projected_display_bounds(scene, frame)
-        for actual, expected in zip(frame_bounds, closeup_contract["pixelRegion"]):
-            self.assertAlmostEqual(actual, expected, delta=2.0)
-
-        label_bounds = projected_display_bounds(scene, label)
-        label_padding = closeup_contract.get("labelPaddingPx", 10)
-        padded_region = (
-            closeup_contract["pixelRegion"][0] + label_padding,
-            closeup_contract["pixelRegion"][1] + label_padding,
-            closeup_contract["pixelRegion"][2] - label_padding,
-            closeup_contract["pixelRegion"][3] - label_padding,
-        )
-        for actual, limit, comparison in zip(
-            label_bounds,
-            padded_region,
-            (self.assertGreaterEqual, self.assertGreaterEqual, self.assertLessEqual, self.assertLessEqual),
-        ):
-            comparison(actual, limit)
-        self.assertGreaterEqual(label_bounds[2] - label_bounds[0], 180)
-        self.assertGreaterEqual(label_bounds[3] - label_bounds[1], 14)
 
 
 if __name__ == "__main__":

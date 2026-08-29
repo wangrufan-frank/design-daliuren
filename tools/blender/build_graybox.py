@@ -7,7 +7,7 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from daliuren_contract import BRANCHES, DIMENSIONS, POSE_IDS
+from daliuren_contract import DIMENSIONS, POSE_IDS
 from geometry import add_beveled_box, add_disc
 from high_detail_geometry import upgrade_to_high_detail
 from inscriptions import build_fixed_inscriptions
@@ -196,32 +196,6 @@ def add_generals(base):
         general["closed_rotation_euler"] = tuple(general.rotation_euler)
 
 
-def add_branch_inlays(earth, heaven):
-    for surface, parent, radius, depth in (
-        ("earth", earth, 0.202, 0.0012),
-        ("heaven", heaven, 0.164, 0.0012),
-    ):
-        surface_top = parent.dimensions.z / 2
-        for index, branch in enumerate(BRANCHES):
-            angle = math.radians(90.0 - index * 30.0)
-            inlay = add_disc(
-                f"branch/{surface}/{branch}",
-                0.011,
-                depth,
-                (
-                    radius * math.cos(angle),
-                    radius * math.sin(angle),
-                    surface_top - depth / 2,
-                ),
-                0.0003,
-            )
-            inlay.parent = parent
-            inlay["surface"] = surface
-            inlay["branch"] = branch
-            inlay["ring_index"] = index
-            inlay["surface_treatment"] = "graybox-inlay"
-
-
 def _add_course_curve_mesh(name, z, bevel_depth):
     curve = bpy.data.curves.new(f"{name}/curve", "CURVE")
     curve.dimensions = "3D"
@@ -316,16 +290,15 @@ def build_graybox():
     add_lesson_slips(root, base_height)
     add_transmission_slips(root, base_height)
     add_generals(base)
-    add_branch_inlays(earth, heaven)
     add_course_trace(earth)
+    repository_root = Path(__file__).parents[2]
+    font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
+    build_fixed_inscriptions(earth, heaven, font_path)
     return root
 
 
 def build_master():
     root = build_graybox()
-    repository_root = Path(__file__).parents[2]
-    font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
-    build_fixed_inscriptions(bpy.data.objects["plate/heaven"], font_path)
     upgrade_to_high_detail(root)
     build_master_materials()
     apply_master_materials(root)
