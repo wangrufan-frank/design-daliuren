@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -120,6 +120,71 @@ it("keeps the selected stage when text mode opens and closes on mobile", async (
   expect(screen.queryByRole("region", { name: "移动工具面板" })).not.toBeInTheDocument();
   expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
   expect(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "三维推演" })).toHaveAttribute("aria-pressed", "true");
+});
+
+it.each(["关闭按钮", "Escape"] as const)("returns focus to the top text-course trigger after %s", async (closeMethod) => {
+  vi.stubGlobal("innerWidth", 390);
+  const user = userEvent.setup();
+
+  render(
+    <CourseWorkbench
+      input={referenceSession.input}
+      source={source}
+      selectedStage="course"
+      onSelectStage={vi.fn()}
+      onRestart={vi.fn()}
+    />,
+  );
+  const topTrigger = within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" });
+  const dockTrigger = within(screen.getByRole("toolbar", { name: "工作台工具" })).getByRole("button", { name: "文字课式" });
+  expect(topTrigger).not.toBe(dockTrigger);
+  await user.click(topTrigger);
+  expect(screen.getByRole("region", { name: "移动工具面板" })).toBeVisible();
+
+  if (closeMethod === "关闭按钮") {
+    await user.click(screen.getByRole("button", { name: "关闭移动工具面板" }));
+  } else {
+    await user.keyboard("{Escape}");
+  }
+
+  expect(screen.queryByRole("region", { name: "移动工具面板" })).not.toBeInTheDocument();
+  expect(topTrigger).toHaveFocus();
+  expect(dockTrigger).not.toHaveFocus();
+});
+
+it("mounts one calendar review when an open desktop evidence drawer moves to mobile", async () => {
+  vi.stubGlobal("innerWidth", 1024);
+  const user = userEvent.setup();
+
+  render(
+    <CourseWorkbench
+      input={referenceSession.input}
+      source={source}
+      selectedStage="calendar"
+      onSelectStage={vi.fn()}
+      onRestart={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "查看阶段证据" }));
+  expect(document.querySelectorAll("#calendar-review-title")).toHaveLength(1);
+
+  act(() => {
+    vi.stubGlobal("innerWidth", 390);
+    window.dispatchEvent(new Event("resize"));
+  });
+  await user.click(within(screen.getByRole("toolbar", { name: "工作台工具" })).getByRole("button", { name: "阶段证据" }));
+
+  for (const id of ["calendar-review-title", "calendar-evidence", "calendar-correction-yearPillar"]) {
+    expect(document.querySelectorAll(`#${id}`), id).toHaveLength(1);
+  }
+  const mobilePanel = screen.getByRole("region", { name: "移动工具面板" });
+  const correctionLabel = within(mobilePanel).getByText("修正年柱", { selector: "label" }) as HTMLLabelElement;
+  const correctionSelect = within(mobilePanel).getByRole("combobox", { name: "修正年柱" });
+  expect(correctionLabel.control).toBe(correctionSelect);
+  expect(document.getElementById(correctionLabel.htmlFor)).toBe(correctionSelect);
+
+  await user.click(correctionLabel);
+  expect(correctionSelect).toHaveFocus();
 });
 
 it("keeps mobile navigation and opens the real text course after artifact loading fails", async () => {

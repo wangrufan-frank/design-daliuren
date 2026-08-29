@@ -73,9 +73,11 @@ export function CourseWorkbench({
               timelineHostId,
             } : undefined}
           />
-          <StageEvidenceDrawer stage={stage}>
-            {evidence}
-          </StageEvidenceDrawer>
+          {!mobileLayout ? (
+            <StageEvidenceDrawer stage={stage}>
+              {evidence}
+            </StageEvidenceDrawer>
+          ) : null}
         </section>
         <nav className="course-workbench__stages" aria-label="推演阶段">
           <p>六阶段校准</p>

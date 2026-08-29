@@ -53,6 +53,7 @@ export function MobileWorkbenchTools({
   const panelRef = useRef<HTMLDivElement>(null);
   const stageNavigationRef = useRef<HTMLElement>(null);
   const triggerRefs = useRef<Partial<Record<MobileToolId, HTMLButtonElement | null>>>({});
+  const openerRef = useRef<HTMLElement | null>(null);
   const lastActiveToolRef = useRef<MobileToolId | undefined>(undefined);
   const content = { context, parts, timeline, evidence, course };
   const panelIdFor = (tool: MobileToolId) => `${panelId}-${tool}`;
@@ -65,11 +66,20 @@ export function MobileWorkbenchTools({
   useEffect(() => {
     if (activeTool) {
       lastActiveToolRef.current = activeTool;
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement && activeElement !== document.body) {
+        openerRef.current = activeElement;
+      } else {
+        openerRef.current ??= triggerRefs.current[activeTool] ?? null;
+      }
       panelRef.current?.focus();
       return;
     }
     const lastActiveTool = lastActiveToolRef.current;
-    if (lastActiveTool) triggerRefs.current[lastActiveTool]?.focus();
+    const opener = openerRef.current;
+    if (opener?.isConnected) opener.focus();
+    else if (lastActiveTool) triggerRefs.current[lastActiveTool]?.focus();
+    openerRef.current = null;
     lastActiveToolRef.current = undefined;
   }, [activeTool]);
 
