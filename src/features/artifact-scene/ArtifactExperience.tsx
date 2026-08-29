@@ -304,8 +304,8 @@ export function ArtifactExperience({
       controller.setDisplayState(displayStateRef.current);
       controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, reducedMotionRef.current);
       if (controllerRef.current !== controller) return;
-      resizeController();
       applyAt(timeRef.current);
+      resizeController();
       setStatus("ready");
       frameRef.current = requestAnimationFrame(frame);
     }).catch(() => {
@@ -345,6 +345,7 @@ export function ArtifactExperience({
     reducedMotionRef.current = reducedMotion;
     setAutoCamera(!reducedMotion && !userControlledRef.current);
     const stageReplay = stageReplayRef.current;
+    let cameraAppliedImmediately = false;
     if (reducedMotion && stageReplay) {
       const replayState = evaluateStageReplay(stageReplay.stage, stageReplay.elapsedMs, true);
       stageReplayRef.current = undefined;
@@ -352,9 +353,10 @@ export function ArtifactExperience({
       accumulatedTimeRef.current = replayState.timelineTimeMs;
       setTimeMs(replayState.timelineTimeMs);
       controllerRef.current?.applyCameraPreset(stageReplay.stage.camera, true);
-      measureBranchProjection();
+      cameraAppliedImmediately = true;
     }
     applyAt(timeRef.current);
+    if (cameraAppliedImmediately) measureBranchProjection();
   }, [applyAt, measureBranchProjection, reducedMotion]);
 
   const seek = useCallback((nextTime: number) => {
@@ -379,8 +381,8 @@ export function ArtifactExperience({
     setTimeMs(replayState.timelineTimeMs);
     stopPlayback();
     controllerRef.current?.applyCameraPreset(stage.camera, reducedMotionRef.current);
-    if (reducedMotionRef.current) measureBranchProjection();
     applyAt(replayState.timelineTimeMs);
+    if (reducedMotionRef.current) measureBranchProjection();
   }, [applyAt, displayState, measureBranchProjection, selectedStage, stopPlayback]);
 
   const togglePlayback = () => {

@@ -606,13 +606,18 @@ describe("ArtifactExperience", () => {
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "25");
   });
 
-  it("updates branch projection observability after an immediate reduced-motion camera preset", async () => {
+  it("measures branch projection after applying the current pose on setup and immediate stage changes", async () => {
     installMatchMedia(true);
     const { rerender } = render(
       <ArtifactExperience source={referenceSourceResults} selectedStage="calendar" onShowCourse={vi.fn()} />,
     );
     await screen.findByRole("slider", { name: "推演时间轴" });
+    expect(latestController().applyPose.mock.invocationCallOrder[0]).toBeLessThan(
+      latestController().measureMinimumBranchProjectionPx.mock.invocationCallOrder[0],
+    );
     latestController().measureMinimumBranchProjectionPx.mockReturnValue(27.4);
+    const applyCount = latestController().applyPose.mock.calls.length;
+    const measureCount = latestController().measureMinimumBranchProjectionPx.mock.calls.length;
 
     rerender(
       <ArtifactExperience source={referenceSourceResults} selectedStage="heaven-earth" onShowCourse={vi.fn()} />,
@@ -621,6 +626,9 @@ describe("ArtifactExperience", () => {
     expect(latestController().applyCameraPreset).toHaveBeenLastCalledWith(
       reviewStageFor("heaven-earth").camera,
       true,
+    );
+    expect(latestController().applyPose.mock.invocationCallOrder[applyCount]).toBeLessThan(
+      latestController().measureMinimumBranchProjectionPx.mock.invocationCallOrder[measureCount],
     );
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "27");
   });
