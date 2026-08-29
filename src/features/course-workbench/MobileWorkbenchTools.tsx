@@ -73,14 +73,17 @@ export function MobileWorkbenchTools({
     lastActiveToolRef.current = undefined;
   }, [activeTool]);
 
+  useEffect(() => {
+    if (!activeTool) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onActiveToolChange(undefined);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [activeTool, onActiveToolChange]);
+
   return (
-    <section
-      className="mobile-workbench-tools"
-      aria-label="移动工作台"
-      onKeyDown={(event) => {
-        if (activeTool && event.key === "Escape") onActiveToolChange(undefined);
-      }}
-    >
+    <section className="mobile-workbench-tools" aria-label="移动工作台">
       <nav ref={stageNavigationRef} className="mobile-workbench-tools__stages" aria-label="移动推演阶段">
         <RuleStageRail completed={RULE_STAGE_ORDER} selected={selectedStage} onSelect={onSelectStage} />
       </nav>
