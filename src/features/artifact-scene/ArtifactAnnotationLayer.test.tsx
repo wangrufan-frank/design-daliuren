@@ -76,6 +76,32 @@ describe("ArtifactAnnotationLayer", () => {
     expect(document.querySelectorAll(".artifact-annotations__anchor")).toHaveLength(3);
   });
 
+  it("keeps newly mounted density cards hidden until their first layout frame", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    const fixture = sourceFixture(
+      allIds.map((id, index) => anchor(id, index % 2 === 0 ? 180 : 1_020, 100 + (index % 11) * 60)),
+      { width: 1_200, height: 800 },
+    );
+
+    render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} />);
+
+    const initialCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    expect(initialCards).toHaveLength(featuredIds.length);
+    initialCards.forEach((card) => expect(card).not.toBeVisible());
+
+    frames.step(16);
+    initialCards.forEach((card) => expect(card).toBeVisible());
+
+    await user.click(screen.getByRole("button", { name: "全部" }));
+    const allCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
+    expect(allCards).toHaveLength(22);
+    allCards.forEach((card) => expect(card).not.toBeVisible());
+
+    frames.step(32);
+    allCards.forEach((card) => expect(card).toBeVisible());
+  });
+
   it("updates coordinates and occlusion state through refs without replacing semantic nodes", () => {
     const frames = installAnimationFrames();
     const fixture = sourceFixture([anchor("calendar/slip", 240, 180)]);

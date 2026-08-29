@@ -46,6 +46,7 @@ function safeAreaFor(viewport: AnnotationViewport, compact: boolean): Annotation
 
 function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnotationLayerProps) {
   const [density, setDensity] = useState<AnnotationDensity>("stage");
+  const [laidOutIdsKey, setLaidOutIdsKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const cardRefs = useRef(new Map<ArtifactAnnotationId, HTMLButtonElement>());
@@ -113,6 +114,7 @@ function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnot
             dot.classList.toggle("is-occluded", layout.occluded);
           }
         }
+        setLaidOutIdsKey((current) => current === idsKey ? current : idsKey);
       } catch (error) {
         root.setAttribute("data-annotation-error", error instanceof Error ? error.message : String(error));
       }
@@ -161,6 +163,7 @@ function AnnotationLayer({ source, featuredIds, allowAll = true }: ArtifactAnnot
             }}
             type="button"
             className="artifact-annotations__card"
+            hidden={laidOutIdsKey !== idsKey}
             aria-label={`${descriptor.label}：${descriptor.detail}`}
             onClick={() => source.focusNode(descriptor.nodeId)}
           >

@@ -472,28 +472,6 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
   await page.getByRole("group", { name: "标注密度" }).getByRole("button", { name: "全部" }).click();
   const cards = page.locator(".artifact-annotations__card");
   await expect(cards).toHaveCount(22);
-  const visibleCardCount = () => cards.evaluateAll((elements) => elements.filter((element) => {
-    const bounds = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    return style.display !== "none" && style.visibility !== "hidden" && bounds.width > 0 && bounds.height > 0;
-  }).length);
-  await expect.poll(visibleCardCount).toBe(22);
-  const viewportBounds = await artifactViewport.boundingBox();
-  const cardBounds = await cards.evaluateAll((elements) => elements.filter((element) => {
-    const bounds = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    return style.display !== "none" && style.visibility !== "hidden" && bounds.width > 0 && bounds.height > 0;
-  }).map((element) => {
-    const bounds = element.getBoundingClientRect();
-    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
-  }));
-  expect(viewportBounds).not.toBeNull();
-  const subject = {
-    x: viewportBounds!.x + viewportBounds!.width * 0.27,
-    y: viewportBounds!.y + viewportBounds!.height * 0.2,
-    width: viewportBounds!.width * 0.46,
-    height: viewportBounds!.height * 0.6,
-  };
   const rectanglesOverlap = (
     left: { x: number; y: number; width: number; height: number },
     right: { x: number; y: number; width: number; height: number },
@@ -501,11 +479,81 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
     && left.x + left.width > right.x
     && left.y < right.y + right.height
     && left.y + left.height > right.y;
+  const readAnnotationGeometry = () => artifactViewport.evaluate((viewport) => {
+    const viewportRect = viewport.getBoundingClientRect();
+    const cardElements = [...viewport.querySelectorAll<HTMLElement>(".artifact-annotations__card")];
+    const cardBounds = cardElements.filter((element) => {
+      const bounds = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return style.display !== "none" && style.visibility !== "hidden" && bounds.width > 0 && bounds.height > 0;
+    }).map((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+    });
+    const viewportBounds = {
+      x: viewportRect.x,
+      y: viewportRect.y,
+      width: viewportRect.width,
+      height: viewportRect.height,
+    };
+    const subject = {
+      x: viewportBounds.x + viewportBounds.width * 0.27,
+      y: viewportBounds.y + viewportBounds.height * 0.2,
+      width: viewportBounds.width * 0.46,
+      height: viewportBounds.height * 0.6,
+    };
+    const overlaps = (
+      left: { x: number; y: number; width: number; height: number },
+      right: { x: number; y: number; width: number; height: number },
+    ) => left.x < right.x + right.width
+      && left.x + left.width > right.x
+      && left.y < right.y + right.height
+      && left.y + left.height > right.y;
+    const safeCardCount = cardBounds.filter((bounds) => (
+      bounds.x >= viewportBounds.x + 12 - 0.5
+      && bounds.y >= viewportBounds.y + 72 - 0.5
+      && bounds.x + bounds.width <= viewportBounds.x + viewportBounds.width - 12 + 0.5
+      && bounds.y + bounds.height <= viewportBounds.y + viewportBounds.height - 128 + 0.5
+    )).length;
+    const subjectClear = cardBounds.every((bounds) => !overlaps(bounds, subject));
+    const pairwiseClear = cardBounds.every((bounds, index) => (
+      cardBounds.slice(index + 1).every((other) => !overlaps(bounds, other))
+    ));
+
+    return {
+      cardCount: cardElements.length,
+      visibleCardCount: cardBounds.length,
+      safeCardCount,
+      subjectClear,
+      pairwiseClear,
+      viewportBounds,
+      subject,
+      cardBounds,
+    };
+  });
+  await expect.poll(async () => {
+    const geometry = await readAnnotationGeometry();
+    return {
+      cardCount: geometry.cardCount,
+      visibleCardCount: geometry.visibleCardCount,
+      safeCardCount: geometry.safeCardCount,
+      subjectClear: geometry.subjectClear,
+      pairwiseClear: geometry.pairwiseClear,
+    };
+  }).toEqual({
+    cardCount: 22,
+    visibleCardCount: 22,
+    safeCardCount: 22,
+    subjectClear: true,
+    pairwiseClear: true,
+  });
+  const { cardBounds, subject, viewportBounds } = await readAnnotationGeometry();
+  expect(cardBounds).toHaveLength(22);
   cardBounds.forEach((bounds, index) => {
-    expect(bounds.x).toBeGreaterThanOrEqual(viewportBounds!.x + 12 - 0.5);
-    expect(bounds.y).toBeGreaterThanOrEqual(viewportBounds!.y + 72 - 0.5);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewportBounds!.x + viewportBounds!.width - 12 + 0.5);
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewportBounds!.y + viewportBounds!.height - 128 + 0.5);
+    expect(bounds.x).toBeGreaterThanOrEqual(viewportBounds.x + 12 - 0.5);
+    expect(bounds.y).toBeGreaterThanOrEqual(viewportBounds.y + 72 - 0.5);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewportBounds.x + viewportBounds.width - 12 + 0.5);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewportBounds.y + viewportBounds.height - 128 + 0.5);
     expect(rectanglesOverlap(bounds, subject)).toBe(false);
     cardBounds.slice(index + 1).forEach((other) => expect(rectanglesOverlap(bounds, other)).toBe(false));
   });
