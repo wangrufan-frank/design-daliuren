@@ -111,6 +111,8 @@ export function ArtifactExperience({
   const reducedMotion = useReducedMotion();
   const compactLayout = useCompactArtifactLayout();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const onShowCourseRef = useRef(onShowCourse);
+  const fallbackRequestedRef = useRef(false);
   const controllerRef = useRef<ArtifactSceneController | undefined>(undefined);
   const displayStateRef = useRef(displayState);
   const reducedMotionRef = useRef(reducedMotion);
@@ -131,6 +133,16 @@ export function ArtifactExperience({
   const [sourceLinesActive, setSourceLinesActive] = useState(false);
   const [annotationError, setAnnotationError] = useState<string | undefined>(undefined);
   const [mobileHosts, setMobileHosts] = useState<{ parts: HTMLElement; timeline: HTMLElement }>();
+
+  useEffect(() => {
+    onShowCourseRef.current = onShowCourse;
+  }, [onShowCourse]);
+
+  useEffect(() => {
+    if (status !== "error" || fallbackRequestedRef.current) return;
+    fallbackRequestedRef.current = true;
+    onShowCourseRef.current();
+  }, [status]);
 
   useEffect(() => {
     if (!mobileToolHosts) {

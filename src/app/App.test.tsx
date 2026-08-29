@@ -227,12 +227,10 @@ it("keeps the completed text course usable when the guarded artifact bundle is i
 it("escapes from artifact loading failure to the ordinary text course", async () => {
   artifactLoader.loadArtifact.mockRejectedValueOnce(new Error("missing GLB"));
   render(<App />);
-  const user = await submitCourse();
+  await submitCourse();
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("三维器物无法加载");
-  await user.click(screen.getByRole("button", { name: "查看文字课式" }));
-
-  expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
+  expect(await screen.findByRole("article", { name: "标准文字课式" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "文字课式", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
 });
 

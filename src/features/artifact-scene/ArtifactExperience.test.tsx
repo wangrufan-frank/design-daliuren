@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CalendarResult } from "../../domain/calendar/types";
 import type { CourseResult } from "../../domain/course/types";
@@ -270,18 +271,66 @@ describe("ArtifactExperience", () => {
     expect(container.querySelectorAll("#artifact-timeline-range")).toHaveLength(1);
   });
 
-  it("disposes the renderer after loader failure and removes the empty canvas", async () => {
+  it("automatically requests the text course once after loader failure", async () => {
     const renderer = { domElement: document.createElement("canvas"), dispose: vi.fn() };
     mocks.createRenderer.mockReturnValue(renderer);
     mocks.loadArtifact.mockRejectedValue(new Error("404"));
+    const onShowCourse = vi.fn();
+    const replacementOnShowCourse = vi.fn();
 
-    const { unmount } = render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    const { rerender, unmount } = render(
+      <StrictMode>
+        <ArtifactExperience source={referenceSourceResults} onShowCourse={onShowCourse} />
+      </StrictMode>,
+    );
 
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查看文字课式" })).toBeVisible();
+    await waitFor(() => expect(onShowCourse).toHaveBeenCalledOnce());
+
+    rerender(
+      <StrictMode>
+        <ArtifactExperience source={referenceSourceResults} onShowCourse={replacementOnShowCourse} />
+      </StrictMode>,
+    );
+    expect(onShowCourse).toHaveBeenCalledOnce();
+    expect(replacementOnShowCourse).not.toHaveBeenCalled();
+
     unmount();
-    expect(renderer.dispose).toHaveBeenCalledOnce();
+    expect(renderer.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it("automatically requests the text course once after WebGL context loss", async () => {
+    const onShowCourse = vi.fn();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={onShowCourse} />);
+    await waitFor(() => expect(mocks.controllers).toHaveLength(1));
+
+    act(() => {
+      latestController().callbacks.onContextLost();
+      latestController().callbacks.onContextLost();
+    });
+
+    expect(await screen.findByRole("alert")).toBeVisible();
+    await waitFor(() => expect(onShowCourse).toHaveBeenCalledOnce());
+    expect(latestController().dispose).toHaveBeenCalledOnce();
+  });
+
+  it("requests automatic fallback again when a new 3D attempt fails", async () => {
+    const onShowCourse = vi.fn();
+    const firstAttempt = render(
+      <ArtifactExperience source={referenceSourceResults} onShowCourse={onShowCourse} />,
+    );
+    await waitFor(() => expect(mocks.controllers).toHaveLength(1));
+
+    act(() => latestController().callbacks.onContextLost());
+    await waitFor(() => expect(onShowCourse).toHaveBeenCalledOnce());
+    firstAttempt.unmount();
+
+    mocks.loadArtifact.mockRejectedValueOnce(new Error("404"));
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={onShowCourse} />);
+
+    await waitFor(() => expect(onShowCourse).toHaveBeenCalledTimes(2));
   });
 
   it("keeps the fallback when display-state setup reports a controller error", async () => {

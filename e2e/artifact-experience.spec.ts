@@ -10,9 +10,8 @@ async function completeReferenceCourse(page: Page) {
 }
 
 async function expectTextFallback(page: Page) {
-  await expect(page.getByRole("alert")).toContainText("三维器物无法加载");
-  await page.getByRole("button", { name: "查看文字课式" }).click();
   await expect(page.getByLabel("标准文字课式")).toContainText("初传");
+  await expect(page.getByRole("button", { name: "文字课式", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "复制课式" })).toBeEnabled();
 }
 
