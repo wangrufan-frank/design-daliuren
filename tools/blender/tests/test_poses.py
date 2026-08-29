@@ -151,6 +151,30 @@ class PoseTest(unittest.TestCase):
         runtime_objects = [obj for obj in bpy.data.objects if "node_id" in obj]
         self.assertEqual({obj["node_id"] for obj in runtime_objects}, set(NODE_IDS))
 
+    def test_pose_preview_collections_preserve_each_stage_visibility(self):
+        meshes_by_node = {
+            node_id: tuple(
+                obj.name
+                for obj in (
+                    bpy.data.objects[node_id],
+                    *bpy.data.objects[node_id].children_recursive,
+                )
+                if obj.type == "MESH"
+            )
+            for node_id in DYNAMIC_IDS
+        }
+        build_pose_previews()
+
+        for pose_id, expected_visible in EXPECTED_VISIBLE.items():
+            with self.subTest(pose_id=pose_id):
+                for node_id, mesh_names in meshes_by_node.items():
+                    expected_hidden = node_id not in expected_visible
+                    self.assertTrue(mesh_names, node_id)
+                    for mesh_name in mesh_names:
+                        preview = bpy.data.objects[f"preview/{pose_id}/{mesh_name}"]
+                        self.assertEqual(preview.hide_viewport, expected_hidden)
+                        self.assertEqual(preview.hide_render, expected_hidden)
+
     def test_default_entry_point_builds_current_graybox_and_pose_previews(self):
         original_argv = sys.argv
         try:

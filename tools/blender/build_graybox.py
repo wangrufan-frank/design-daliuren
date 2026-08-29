@@ -327,8 +327,8 @@ def build_pose_previews():
             preview = source.copy()
             preview.data = source.data
             preview.name = f"preview/{pose_id}/{source.name}"
-            preview.hide_viewport = False
-            preview.hide_render = False
+            preview.hide_viewport = source.hide_viewport
+            preview.hide_render = source.hide_render
             for key in list(preview.keys()):
                 del preview[key]
             world_matrix = source.matrix_world.copy()

@@ -29,6 +29,7 @@ from uv_and_bake import (
     MATERIAL_FAMILIES,
     MOVING_NODE_IDS,
     _add_dynamic_surfaces,
+    _family_buffers,
     _has_unbounded_uv_issues,
     _native_texel_coverage_failures,
     _object_texel_coverage_failures,
@@ -141,6 +142,11 @@ def pixel(rows, x, y):
 
 def uv_pixel(rows, x, y):
     return pixel(rows, x, len(rows) - 1 - y)
+
+
+def buffer_pixel(buffer, dimension, x, y):
+    offset = (y * dimension + x) * 3
+    return tuple(buffer[offset : offset + 3])
 
 
 def object_atlas(runtime, obj):
@@ -890,6 +896,51 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         bpy.ops.wm.read_factory_settings(use_empty=True)
         cls.temporary.cleanup()
 
+    def _low_resolution_source_material_fixture(
+        self,
+        family,
+        atlas_id,
+        causal_recess_oxidation=None,
+        source_name=None,
+    ):
+        source = bpy.data.objects[source_name] if source_name else next(
+            obj
+            for obj in bpy.data.objects
+            if obj.type == "MESH"
+            and obj.get("runtime_texture_family") == family
+            and obj.data.materials
+            and obj.data.materials[0] is not None
+        )
+        mesh = bpy.data.meshes.new(f"fixture/{atlas_id}/mesh")
+        mesh.from_pydata(
+            ((-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0)),
+            (),
+            ((0, 1, 2, 3),),
+        )
+        mesh.update()
+        layer = mesh.uv_layers.new(name="UVMap")
+        layer.active_render = True
+        for loop, coordinate in zip(
+            layer.data,
+            ((0.125, 0.125), (0.875, 0.125), (0.875, 0.875), (0.125, 0.875)),
+        ):
+            loop.uv = coordinate
+        fixture = bpy.data.objects.new(f"fixture/{atlas_id}", mesh)
+        bpy.context.scene.collection.objects.link(fixture)
+        mesh.materials.append(source.data.materials[0])
+        fixture["runtime_texture_family"] = family
+        fixture["runtime_atlas_id"] = atlas_id
+        if causal_recess_oxidation is not None:
+            attribute = mesh.attributes.new("causal_recess_oxidation", "FLOAT", "FACE")
+            attribute.data[0].value = causal_recess_oxidation
+
+        def cleanup():
+            bpy.data.objects.remove(fixture, do_unlink=True)
+            bpy.data.meshes.remove(mesh)
+
+        self.addCleanup(cleanup)
+        return fixture
+
     def test_every_export_mesh_has_one_valid_non_overlapping_primary_uv_set(self):
         meshes = [obj for obj in bpy.data.objects if obj.type == "MESH"]
         self.assertGreater(len(meshes), 130)
@@ -899,7 +950,45 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                 self.assertTrue(obj.data.uv_layers["UVMap"].active_render)
                 self.assertFalse(_has_unbounded_uv_issues(obj))
 
-    def legacy_frozen_heaven_and_moving_atlases_rebake_with_bounded_native_variance_without_repacking(self):
+    def test_current_source_low_resolution_bake_is_byte_deterministic_without_repacking(self):
+        atlas_id = "task4-test/deterministic-bronze"
+        fixture = self._low_resolution_source_material_fixture("M_Bronze", atlas_id)
+        uv_before = tuple(tuple(loop.uv) for loop in fixture.data.uv_layers["UVMap"].data)
+
+        first = _family_buffers("M_Bronze", 32, atlas_id)
+        second = _family_buffers("M_Bronze", 32, atlas_id)
+
+        self.assertEqual(first, second)
+        self.assertEqual(
+            tuple(tuple(loop.uv) for loop in fixture.data.uv_layers["UVMap"].data),
+            uv_before,
+        )
+
+    def test_current_source_low_resolution_texture_contract_maps_all_physical_families(self):
+        expected_metallic = {
+            "M_Bronze": 255,
+            "M_Patina": 255,
+            "M_Celadon": 0,
+            "M_OldGold": 255,
+            "M_AshText": 0,
+        }
+        base_colors = set()
+        for family, metallic in expected_metallic.items():
+            atlas_id = f"task4-test/{family}"
+            self._low_resolution_source_material_fixture(family, atlas_id)
+            buffers = _family_buffers(family, 32, atlas_id)
+            with self.subTest(family=family):
+                self.assertEqual(set(buffers), {"baseColor", "orm", "normal"})
+                self.assertTrue(all(len(buffer) == 32 * 32 * 3 for buffer in buffers.values()))
+                self.assertEqual(buffer_pixel(buffers["orm"], 32, 16, 16)[2], metallic)
+                base_colors.add(buffer_pixel(buffers["baseColor"], 32, 16, 16))
+        self.assertGreaterEqual(len(base_colors), 4)
+
+    @unittest.skip(
+        "Task 8 owns the frozen 8192px master-atlas comparison; "
+        "Task 4 covers byte determinism from current source at 32px"
+    )
+    def test_frozen_heaven_and_moving_atlases_rebake_with_bounded_native_variance_without_repacking(self):
         output = self.directory / "frozen-rebake"
         atlas_ids = {"M_Bronze:heaven", "M_Bronze:moving"}
         rebuilt = generate_runtime_textures(output, atlas_ids=atlas_ids)
@@ -1109,7 +1198,11 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         self.assertIn("M_EarthVoid", bpy.data.materials)
         self.assertIn("M_HeavenVoid", bpy.data.materials)
 
-    def legacy_texture_contract_and_known_object_uv_regions_match_physical_materials(self):
+    @unittest.skip(
+        "Task 8 owns committed texture hashes and frozen physical-region samples; "
+        "Task 4 covers all current-source material mappings at 32px"
+    )
+    def test_texture_contract_and_known_object_uv_regions_match_physical_materials(self):
         runtime = self.contract["runtimeTextures"]
         self.assertEqual(runtime["channels"], {
             "baseColor": "sRGB RGB",
@@ -1281,47 +1374,34 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                         with self.subTest(family=family, atlas=atlas_id, role=role, x=x, y=y):
                             self.assertEqual(pixel(target_rows, x, y), expected)
 
-    def legacy_source_causal_face_mutation_changes_only_its_family_region(self):
-        bronze = bpy.data.objects["base/body"]
-        attribute = bronze.data.attributes["causal_contact_wear"]
-        bronze.data.calc_loop_triangles()
-        triangle = max(
-            (
-                item
-                for item in bronze.data.loop_triangles
-                if attribute.data[item.polygon_index].value > 0.0
-            ),
-            key=lambda item: uv_triangle_area(bronze, item),
+    def test_source_causal_face_mutation_changes_only_its_atlas(self):
+        changed_atlas = "task4-test/causal-changed"
+        control_atlas = "task4-test/causal-control"
+        changed = self._low_resolution_source_material_fixture(
+            "M_Bronze",
+            changed_atlas,
+            causal_recess_oxidation=1.0,
+            source_name="base/body",
         )
-        bronze_atlas = object_atlas(self.contract["runtimeTextures"], bronze)
-        bronze_atlas_id = bronze["runtime_atlas_id"]
-        dimension = bronze_atlas["lod0"]["orm"]["dimensions"][0]
-        sample_x, sample_y = triangle_interior_pixel(bronze, triangle, dimension)
-        before_record = bronze_atlas["lod0"]["orm"]
-        _, _, before_rows = png_rgb(self.texture_root / before_record["file"])
+        self._low_resolution_source_material_fixture(
+            "M_Bronze",
+            control_atlas,
+            causal_recess_oxidation=1.0,
+            source_name="base/body",
+        )
+        changed_before = _family_buffers("M_Bronze", 32, changed_atlas)["baseColor"]
+        control_before = _family_buffers("M_Bronze", 32, control_atlas)["baseColor"]
 
-        attribute.data[triangle.polygon_index].value = 0.0
-        mutated_root = self.directory / "mutated"
-        mutated = generate_runtime_textures(mutated_root, atlas_ids={bronze_atlas_id})
-        mutated_atlas = mutated["M_Bronze"]["atlases"][bronze_atlas_id]
-        _, _, after_rows = png_rgb(mutated_root / mutated_atlas["lod0"]["orm"]["file"])
+        changed.data.attributes["causal_recess_oxidation"].data[0].value = 0.0
+        changed_after = _family_buffers("M_Bronze", 32, changed_atlas)["baseColor"]
+        control_after = _family_buffers("M_Bronze", 32, control_atlas)["baseColor"]
 
+        self.assertNotEqual(changed_after, changed_before)
         self.assertNotEqual(
-            mutated_atlas["lod0"]["orm"]["sha256"],
-            before_record["sha256"],
+            buffer_pixel(changed_after, 32, 16, 16),
+            buffer_pixel(changed_before, 32, 16, 16),
         )
-        self.assertGreater(
-            uv_pixel(after_rows, sample_x, sample_y)[1],
-            uv_pixel(before_rows, sample_x, sample_y)[1],
-        )
-        self.assertEqual(
-            {path.relative_to(mutated_root).as_posix() for path in mutated_root.rglob("*.png")},
-            {
-                mutated_atlas[lod][role]["file"]
-                for lod in ("lod0", "lod2")
-                for role in ("baseColor", "orm", "normal")
-            },
-        )
+        self.assertEqual(control_after, control_before)
 
 
 if __name__ == "__main__":
