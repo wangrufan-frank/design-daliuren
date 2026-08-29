@@ -9,7 +9,7 @@ import type { FourLessonsResult } from "../../domain/four-lessons/types";
 import type { HeavenlyGeneralsResult } from "../../domain/heavenly-generals/types";
 import type { HeavenEarthResult } from "../../domain/heaven-earth/types";
 import type { ThreeTransmissionsResult } from "../../domain/three-transmissions/types";
-import type { ArtifactSourceResults } from "./model/types";
+import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { reviewStageFor } from "./timeline/review-stages";
 import type { ArtifactPose } from "./timeline/types";
 import { referenceSession } from "../../test/reference-session";
@@ -52,6 +52,7 @@ const mocks = {
   loadArtifact: vi.fn(),
   disposeArtifact: vi.fn(),
   evaluateArtifactPose: vi.fn(),
+  mapArtifactState: vi.fn(),
   onControllerCreate: undefined as ((controller: ControllerDouble) => void) | undefined,
 };
 const resizeObservers: TestResizeObserver[] = [];
@@ -114,6 +115,11 @@ beforeAll(async () => {
     ...timeline,
     evaluateArtifactPose: (...args: Parameters<typeof timeline.evaluateArtifactPose>) => mocks.evaluateArtifactPose(...args),
   }));
+  const artifactState = await vi.importActual<typeof import("./model/map-artifact-state")>("./model/map-artifact-state");
+  mocks.mapArtifactState.mockImplementation(artifactState.mapArtifactState);
+  vi.doMock("./model/map-artifact-state", () => ({
+    mapArtifactState: (...args: Parameters<typeof artifactState.mapArtifactState>) => mocks.mapArtifactState(...args),
+  }));
   ({ ArtifactExperience } = await import("./ArtifactExperience"));
 });
 
@@ -122,6 +128,7 @@ afterAll(() => {
   vi.doUnmock("./three/dispose-artifact");
   vi.doUnmock("./three/ArtifactSceneController");
   vi.doUnmock("./timeline/evaluate-pose");
+  vi.doUnmock("./model/map-artifact-state");
 });
 
 const referenceSourceResults: ArtifactSourceResults = {
@@ -535,10 +542,35 @@ describe("ArtifactExperience", () => {
     const facts = await screen.findByTestId("artifact-accessible-facts");
     expect(facts).toHaveTextContent("月将 胜光午");
     expect(facts).toHaveTextContent("旬空 子、丑");
-    expect(facts).toHaveTextContent(/天将 .*[子丑]（空）/);
+    expect(facts).toHaveTextContent("天将 螣蛇 丑（天盘空）/未");
     expect(facts).toHaveTextContent("四课");
     expect(facts).toHaveTextContent("查地盘 卯");
     expect(facts).toHaveTextContent("夜贵寅");
+  });
+
+  it("identifies void branches by their source plate in assistive text", async () => {
+    const plateAwareState = mocks.mapArtifactState(referenceSourceResults) as ArtifactDisplayState;
+    const source = { ...referenceSourceResults };
+    mocks.mapArtifactState.mockImplementationOnce(() => ({
+      ...plateAwareState,
+      calendar: { ...plateAwareState.calendar, voidBranches: ["寅", "卯"] },
+      transmissions: [{ ...plateAwareState.transmissions[0], branch: "寅" }, ...plateAwareState.transmissions.slice(1)],
+      generals: plateAwareState.generals.map((item) => item.general === "天后"
+        ? { ...item, heaven: "寅", earth: "酉" }
+        : item.general === "太阴" ? { ...item, heaven: "卯", earth: "戌" } : item),
+    }));
+    render(
+      <ArtifactExperience
+        source={source}
+        onShowCourse={vi.fn()}
+      />,
+    );
+
+    const facts = await screen.findByTestId("artifact-accessible-facts");
+    expect(facts).toHaveTextContent("天后 寅（天盘空）/酉");
+    expect(facts).toHaveTextContent("太阴 卯（天盘空）/戌");
+    expect(facts).toHaveTextContent(/初传 .*寅（空）/);
+    expect(facts).toHaveTextContent("旬空 寅、卯");
   });
 
   it("selects the initial LOD from viewport width instead of canvas width", async () => {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { createPortal } from "react-dom";
 import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
-import { formatVoidBranch } from "./model/format-void-branch";
+import { formatVoidBranch, type VoidSurface } from "./model/format-void-branch";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
 import { evaluateStageReplay } from "./timeline/evaluate-stage-replay";
@@ -89,13 +89,17 @@ function poseHash(state: ArtifactAppliedState): string {
 }
 
 function AccessibleFacts({ state }: { state: ArtifactDisplayState }) {
-  const markVoid = (branch: string) => formatVoidBranch(branch, state.calendar.voidBranches);
+  const markVoid = (branch: string, surface: VoidSurface = "neutral") => formatVoidBranch(
+    branch,
+    state.calendar.voidBranches,
+    surface,
+  );
   return (
     <ul className="artifact-visually-hidden" data-testid="artifact-accessible-facts">
       <li>{`四柱 ${state.calendar.pillars.join("、")}；月建 ${state.calendar.monthBuild}；月将 ${state.calendar.monthGeneral}${state.calendar.monthGeneralBranch}；占时 ${state.calendar.divinationHour}；旬空 ${state.calendar.voidBranches.join("、")}`}</li>
-      {state.lessons.map((lesson) => <li key={lesson.id}>{`${lesson.label} ${lesson.general} ${markVoid(lesson.upper)}/${markVoid(lesson.lower.value)}；查地盘 ${lesson.lookupEarth}`}</li>)}
+      {state.lessons.map((lesson) => <li key={lesson.id}>{`${lesson.label} ${lesson.general} ${markVoid(lesson.upper, "heaven")}/${lesson.lower.kind === "branch" ? markVoid(lesson.lower.value, "earth") : lesson.lower.value}；查地盘 ${lesson.lookupEarth}`}</li>)}
       {state.transmissions.map((item) => <li key={item.position}>{`${item.label} ${item.general} ${markVoid(item.branch)} ${item.relation}`}</li>)}
-      {state.generals.map((item) => <li key={item.general}>{`天将 ${item.general} ${markVoid(item.heaven)}/${markVoid(item.earth)}`}</li>)}
+      {state.generals.map((item) => <li key={item.general}>{`天将 ${item.general} ${markVoid(item.heaven, "heaven")}/${markVoid(item.earth, "earth")}`}</li>)}
       <li>{`贵人 ${dayNightText[state.noble.dayNight]}贵${state.noble.nobleHeaven}；落${state.noble.nobleEarth}宫；${directionText[state.noble.direction]}布`}</li>
     </ul>
   );
