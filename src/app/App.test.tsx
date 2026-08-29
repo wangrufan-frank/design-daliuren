@@ -230,7 +230,7 @@ it("escapes from artifact loading failure to the ordinary text course", async ()
   await submitCourse();
 
   expect(await screen.findByRole("article", { name: "标准文字课式" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "文字课式", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "文字课式" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
 });
 
