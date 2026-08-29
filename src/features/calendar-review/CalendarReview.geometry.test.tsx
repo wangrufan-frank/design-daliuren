@@ -147,11 +147,37 @@ describe("CalendarReview connector geometry", () => {
     }
 
     await activate(page, 0);
-    const manualStyle = await page.locator(".calendar-review__cell").first().evaluate((button) => ({
-      border: getComputedStyle(button).borderColor,
-      indicator: getComputedStyle(button, "::before").backgroundColor,
-    }));
-    expect(manualStyle).toEqual({ border: "rgb(154, 120, 66)", indicator: "rgb(84, 125, 112)" });
+    const manualStyle = await page.locator(".calendar-review__cell").first().evaluate((button) => {
+      const parseColor = (value: string) => {
+        const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+        return value.startsWith("rgb(") ? channels.map((channel) => channel / 255) : channels;
+      };
+      const luminance = (channels: number[]) => channels
+        .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+      const value = getComputedStyle(button.querySelector("strong")!).color;
+      const foreground = luminance(parseColor(value));
+      const background = luminance(parseColor(getComputedStyle(button).backgroundColor));
+      return {
+        border: getComputedStyle(button).borderColor,
+        contrast: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
+        indicator: getComputedStyle(button, "::before").backgroundColor,
+        source: getComputedStyle(button.querySelector(".calendar-review__source")!).color,
+        value,
+        valueChannels: parseColor(value),
+      };
+    });
+    expect(manualStyle).toMatchObject({
+      border: "rgb(154, 120, 66)",
+      indicator: "rgb(84, 125, 112)",
+    });
+    expect(manualStyle.source).toBe(manualStyle.value);
+    expect(manualStyle.value).not.toBe("rgb(84, 125, 112)");
+    expect(manualStyle.contrast).toBeGreaterThanOrEqual(4.5);
+    manualStyle.valueChannels.forEach((channel, index) => {
+      expect(channel).toBeGreaterThan([30, 39, 35][index] / 255);
+      expect(channel).toBeLessThan([154, 120, 66][index] / 255);
+    });
 
     await activate(page, 1);
     const automaticStyle = await page.locator(".calendar-review__cell").nth(1).evaluate((button) => ({

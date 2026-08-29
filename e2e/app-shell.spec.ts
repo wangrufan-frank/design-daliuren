@@ -373,13 +373,68 @@ test("desktop keeps a center-led three-column workbench and a vertical stage rai
 test("mobile exposes stages and workbench tools before the document footer", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setSafeAreaInsetsOverride", {
+    insets: { top: 0, left: 0, bottom: 24, right: 0 },
+  });
   await page.goto("/");
   await generateCourse(page);
 
+  const stageNames = [
+    "历法与月将，已完成",
+    "天地盘加临，已完成",
+    "四课生成，已完成",
+    "三传取法，已完成",
+    "天将排列，已完成",
+    "复制结课，已完成",
+  ] as const;
+  const toolNames = ["上下文", "部件", "时间轴", "阶段证据", "文字课式"] as const;
+  const dock = page.getByRole("region", { name: "移动工作台" });
   const stageDock = page.getByRole("navigation", { name: "移动推演阶段" });
   const tools = page.getByRole("toolbar", { name: "工作台工具" });
-  await expect(stageDock).toBeInViewport();
-  await expect(tools).toBeInViewport();
+  for (const name of stageNames) {
+    await expect(stageDock.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  for (const name of toolNames) {
+    await expect(tools.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+
+  async function expectFullyInsideViewport(locator: Locator) {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-0.5);
+    expect(box!.y).toBeGreaterThanOrEqual(-0.5);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390.5);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(844.5);
+  }
+  await expectFullyInsideViewport(stageDock);
+  await expectFullyInsideViewport(tools);
+
+  const dockStyle = await dock.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const backgroundChannels = style.backgroundColor.match(/[\d.]+/g)?.map(Number) ?? [];
+    return {
+      backgroundAlpha: backgroundChannels[3] ?? 1,
+      bottom: style.bottom,
+      paddingBottom: Number.parseFloat(style.paddingBottom),
+      position: style.position,
+    };
+  });
+  expect(dockStyle).toEqual({
+    backgroundAlpha: 1,
+    bottom: "0px",
+    paddingBottom: 24,
+    position: "sticky",
+  });
+
+  const coursePanelId = await tools.getByRole("button", { name: "文字课式" }).getAttribute("aria-controls");
+  expect(coursePanelId).not.toBeNull();
+  const courseFooter = page.locator(`[id="${coursePanelId}"]`).locator(".course-sheet__copy");
+  const footerHandle = await courseFooter.elementHandle();
+  expect(footerHandle).not.toBeNull();
+  expect(await dock.evaluate((element, footer) => Boolean(
+    element.compareDocumentPosition(footer as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ), footerHandle)).toBe(true);
 
   const viewport = page.locator(".artifact-experience__viewport");
   const viewportLayout = await viewport.evaluate((element) => {
@@ -398,8 +453,14 @@ test("mobile exposes stages and workbench tools before the document footer", asy
   await tools.getByRole("button", { name: "文字课式" }).click();
   const textCourse = page.getByRole("article", { name: "标准文字课式" });
   await expect(textCourse).toBeVisible();
-  await expect(stageDock).toBeInViewport();
-  await expect(tools).toBeInViewport();
+  await expectFullyInsideViewport(stageDock);
+  await expectFullyInsideViewport(tools);
+  for (const name of stageNames) {
+    await expect(stageDock.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  for (const name of toolNames) {
+    await expect(tools.getByRole("button", { name, exact: true })).toBeVisible();
+  }
 });
 
 for (const viewport of VIEWPORTS) {
