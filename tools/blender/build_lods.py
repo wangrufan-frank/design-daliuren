@@ -3,9 +3,11 @@ from pathlib import Path
 
 import bpy
 
+from build_graybox import build_master
+from daliuren_contract import BRANCH_INLAY_NODE_IDS, NODE_IDS
+from uv_and_bake import DYNAMIC_LABEL_OWNERS, _add_dynamic_surfaces, assign_primary_uvs
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
-MASTER_PATH = REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend"
 MATERIAL_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
 TEXTURE_ROOT = REPOSITORY_ROOT / "assets/daliuren/textures"
 SOURCE_MARKER = "daliuren_lod_source"
@@ -16,7 +18,20 @@ def _source_objects():
     if source:
         return source
 
-    bpy.ops.wm.open_mainfile(filepath=str(MASTER_PATH))
+    runtime_ids = {
+        obj["node_id"]
+        for obj in bpy.context.scene.objects
+        if obj.get("node_id")
+    }
+    dynamic_ids = {
+        obj["dynamic_label_id"]
+        for obj in bpy.context.scene.objects
+        if obj.get("dynamic_label_id")
+    }
+    if runtime_ids != set(NODE_IDS) or dynamic_ids != set(DYNAMIC_LABEL_OWNERS):
+        build_master()
+        surfaces = _add_dynamic_surfaces()
+        assign_primary_uvs(surfaces)
     source = tuple(bpy.context.scene.objects)
     for obj in source:
         obj[SOURCE_MARKER] = True
@@ -72,30 +87,11 @@ def _reduce_lod(collection, level):
         if obj.get("inscription_role"):
             continue
 
-        detail_id = obj.get("detail_id")
         if level == 1:
-            if obj.get("node_id") or detail_id in {
-                "mechanism/general-seal-interface",
-                "mechanism/heaven-bearing",
-                "mechanism/heaven-detent",
-                "mechanism/general-track",
-                "mechanism/lesson-general-socket",
-                "structure/bronze-celadon-contact-seam",
-                "structure/heaven-bronze-rim",
-            }:
+            if obj.get("node_id"):
                 _decimate(obj, 0.65)
         elif obj.get("node_id"):
             _decimate(obj, 0.25)
-        elif detail_id in {
-            "mechanism/general-seal-interface",
-            "mechanism/heaven-bearing",
-            "mechanism/heaven-detent",
-            "mechanism/general-track",
-            "mechanism/lesson-general-socket",
-            "structure/bronze-celadon-contact-seam",
-            "structure/heaven-bronze-rim",
-        }:
-            _decimate(obj, 0.2)
 
 
 def _gltf_material_output_group():
@@ -173,7 +169,19 @@ def _bind_runtime_textures(collection, level):
             _runtime_material(atlas_id, family, texture_lod, atlas),
         )
         obj.data.materials.clear()
-        obj.data.materials.append(material)
+        if obj.get("node_id") in BRANCH_INLAY_NODE_IDS:
+            branch_material = material.copy()
+            branch_material.name = f"{material.name}/{obj['node_id']}"
+            branch_material["branch_node_id"] = obj["node_id"]
+            void_family = (
+                "M_EarthVoid"
+                if obj["node_id"].startswith("branch/earth/")
+                else "M_HeavenVoid"
+            )
+            obj.data.materials.append(branch_material)
+            obj.data.materials.append(bpy.data.materials[void_family])
+        else:
+            obj.data.materials.append(material)
 
 
 def build_lod(level: int) -> bpy.types.Collection:

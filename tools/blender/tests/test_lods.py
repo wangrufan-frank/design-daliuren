@@ -14,7 +14,7 @@ MATERIAL_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-c
 sys.path.insert(0, str(BLENDER_DIR))
 
 from build_lods import build_lod
-from daliuren_contract import NODE_IDS
+from daliuren_contract import BRANCH_INLAY_NODE_IDS, NODE_IDS
 from export_graybox import export_lod
 from uv_and_bake import DYNAMIC_LABEL_OWNERS
 
@@ -92,6 +92,29 @@ class LodTests(unittest.TestCase):
         self.assertLess(counts[2], counts[1])
         self.assertLessEqual(counts[2], 80_000)
 
+    def test_lods_preserve_branch_material_slots_and_both_void_families(self):
+        for level, collection in enumerate(self.lods):
+            branches = {
+                obj["node_id"]: obj
+                for obj in collection.all_objects
+                if obj.get("node_id") in BRANCH_INLAY_NODE_IDS
+            }
+            with self.subTest(level=level):
+                self.assertEqual(set(branches), set(BRANCH_INLAY_NODE_IDS))
+                self.assertEqual(
+                    len({obj.data.materials[0].as_pointer() for obj in branches.values()}),
+                    24,
+                )
+                self.assertEqual(
+                    {obj.data.materials[1]["material_family"] for obj in branches.values()},
+                    {"M_EarthVoid", "M_HeavenVoid"},
+                )
+            for node_id, obj in branches.items():
+                with self.subTest(level=level, node_id=node_id):
+                    self.assertEqual(len(obj.data.materials), 2)
+                    expected_void = "M_EarthVoid" if node_id.startswith("branch/earth/") else "M_HeavenVoid"
+                    self.assertEqual(obj.data.materials[1]["material_family"], expected_void)
+
     def test_lods_preserve_all_dynamic_label_surfaces(self):
         expected = set(DYNAMIC_LABEL_OWNERS)
 
@@ -100,7 +123,7 @@ class LodTests(unittest.TestCase):
                 self.assertEqual(dynamic_ids(collection), expected)
                 self.assertEqual(len(dynamic_ids(collection)), 21)
 
-    def test_lods_bind_each_atlas_to_the_frozen_runtime_textures(self):
+    def test_lods_bind_each_current_source_atlas_to_the_frozen_runtime_textures(self):
         contract = json.loads(MATERIAL_CONTRACT_PATH.read_text(encoding="utf-8"))
         runtime = contract["runtimeTextures"]
 
@@ -117,7 +140,8 @@ class LodTests(unittest.TestCase):
                     atlas[texture_lod][role]["file"]
                     for role in ("baseColor", "orm", "normal")
                 }
-                self.assertEqual(len(obj.data.materials), 1)
+                expected_slots = 2 if obj.get("node_id") in BRANCH_INLAY_NODE_IDS else 1
+                self.assertEqual(len(obj.data.materials), expected_slots)
                 material = obj.data.materials[0]
                 image_files = {
                     node.image.filepath.replace("\\", "/").split("/textures/", 1)[-1]
@@ -127,7 +151,7 @@ class LodTests(unittest.TestCase):
                 self.assertEqual(image_files, expected_files)
                 bound_atlases.add(atlas_id)
             with self.subTest(level=level):
-                self.assertEqual(len(bound_atlases), 10)
+                self.assertEqual(len(bound_atlases), 9)
 
     def test_exported_lod_contains_runtime_and_texture_extras(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -147,7 +171,7 @@ class LodTests(unittest.TestCase):
         }
         self.assertEqual(runtime, set(NODE_IDS))
         self.assertEqual(dynamic, set(DYNAMIC_LABEL_OWNERS))
-        self.assertEqual(len(payload["images"]), 30)
+        self.assertEqual(len(payload["images"]), 27)
         self.assertLessEqual(glb_triangle_count(payload), 80_000)
 
 

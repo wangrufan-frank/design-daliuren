@@ -5,20 +5,50 @@ import bpy
 from daliuren_contract import NODE_IDS
 
 
-POSE_PROGRESS = {
-    "closed": (0, 0, 0, 0, 0),
-    "calendar": (1, 0, 0, 0, 0),
-    "plate": (1, 1, 0, 0, 0),
-    "lessons": (1, 1, 1, 0, 0),
-    "transmissions": (1, 1, 1, 1, 0),
-    "generals": (1, 1, 1, 1, 1),
-}
-
 LESSON_IDS = ("lesson/first", "lesson/second", "lesson/third", "lesson/fourth")
+TRANSMISSION_IDS = (
+    "transmission/initial",
+    "transmission/middle",
+    "transmission/final",
+)
+GENERAL_IDS = (
+    "general/noble",
+    "general/snake",
+    "general/vermilion-bird",
+    "general/harmony",
+    "general/hook-array",
+    "general/azure-dragon",
+    "general/void",
+    "general/white-tiger",
+    "general/constant",
+    "general/black-tortoise",
+    "general/yin",
+    "general/queen-of-heaven",
+)
+DYNAMIC_IDS = (
+    "calendar/slip",
+    *LESSON_IDS,
+    *TRANSMISSION_IDS,
+    "transmission/method",
+    *GENERAL_IDS,
+)
+POSE_VISIBLE_IDS = {
+    "closed": frozenset(),
+    "calendar": frozenset({"calendar/slip"}),
+    "plate": frozenset({"calendar/slip"}),
+    "lessons": frozenset({"calendar/slip", *LESSON_IDS}),
+    "transmissions": frozenset({
+        "calendar/slip",
+        *LESSON_IDS,
+        *TRANSMISSION_IDS,
+        "transmission/method",
+    }),
+    "generals": frozenset(DYNAMIC_IDS),
+}
 
 
 def _validate_pose_inputs(pose_id, plate_offset, general_direction):
-    if pose_id not in POSE_PROGRESS:
+    if pose_id not in POSE_VISIBLE_IDS:
         raise ValueError(f"Unknown pose_id: {pose_id!r}")
     if isinstance(plate_offset, bool) or not isinstance(plate_offset, int):
         raise TypeError("plate_offset must be an integer from 0 through 11")
@@ -28,78 +58,25 @@ def _validate_pose_inputs(pose_id, plate_offset, general_direction):
         raise ValueError("general_direction must be 'forward' or 'reverse'")
 
 
-def _set_translation_absolute(node_id, progress):
-    obj = bpy.data.objects[node_id]
-    closed = obj["closed_location"]
-    axis = obj["motion_axis"]
-    travel = obj["travel_m"]
-    obj.location = tuple(
-        closed[coordinate] + axis[coordinate] * travel * progress
-        for coordinate in range(3)
-    )
-
-
-def set_calendar_absolute(progress):
-    _set_translation_absolute("calendar/slip", progress)
-
-
 def set_plate_absolute(progress, plate_offset):
     plate = bpy.data.objects["plate/heaven"]
     closed_rotation = plate["closed_rotation_euler"]
-    plate.rotation_euler = closed_rotation
     plate.rotation_euler.z = closed_rotation[2] + math.radians(30.0 * plate_offset) * progress
 
 
-def set_lessons_absolute(progress):
-    for node_id in LESSON_IDS:
-        _set_translation_absolute(node_id, progress)
-        for readout in ("upper", "lower"):
-            obj = bpy.data.objects[f"{node_id}/readout/{readout}"]
-            closed = obj["closed_location"]
-            opened = obj["open_location"]
-            obj.location = tuple(
-                closed[coordinate] + (opened[coordinate] - closed[coordinate]) * progress
-                for coordinate in range(3)
-            )
-
-
-def set_transmissions_absolute(progress):
-    _set_translation_absolute("transmission/bridge", progress)
-
-
-def set_generals_absolute(progress, general_direction):
-    generals = sorted(
-        (obj for obj in bpy.data.objects if obj.get("domain") == "general"),
-        key=lambda obj: obj["ring_index"],
-    )
-    for general in generals:
-        index = general["ring_index"]
-        target_index = index if general_direction == "forward" else (-index) % len(generals)
-        target_slot = generals[target_index]
-        if progress:
-            target_xy = target_slot["closed_location"]
-            closed = general["closed_location"]
-            axis = general["motion_axis"]
-            travel = general["travel_m"]
-            general.location = (
-                target_xy[0],
-                target_xy[1],
-                closed[2] + axis[2] * travel * progress,
-            )
-            general.rotation_euler = target_slot["closed_rotation_euler"]
-        else:
-            general.location = general["closed_location"]
-            general.rotation_euler = general["closed_rotation_euler"]
+def _set_dynamic_visibility(visible_ids):
+    for node_id in DYNAMIC_IDS:
+        hidden = node_id not in visible_ids
+        root = bpy.data.objects[node_id]
+        for obj in (root, *root.children_recursive):
+            obj.hide_viewport = hidden
+            obj.hide_render = hidden
 
 
 def apply_pose(pose_id: str, plate_offset: int = 0, general_direction: str = "forward") -> None:
     _validate_pose_inputs(pose_id, plate_offset, general_direction)
-    calendar, plate, lessons, transmissions, generals = POSE_PROGRESS[pose_id]
-    set_calendar_absolute(calendar)
-    set_plate_absolute(plate, plate_offset)
-    set_lessons_absolute(lessons)
-    set_transmissions_absolute(transmissions)
-    set_generals_absolute(generals, general_direction)
+    set_plate_absolute(pose_id in {"plate", "lessons", "transmissions", "generals"}, plate_offset)
+    _set_dynamic_visibility(POSE_VISIBLE_IDS[pose_id])
     bpy.context.view_layer.update()
 
 

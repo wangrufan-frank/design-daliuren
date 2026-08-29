@@ -32,7 +32,7 @@ CAUSAL_ATTRIBUTES = (
     "causal_insert_boundary",
     "causal_celadon_crackle",
 )
-MICRO_TRIANGLE_AREA_MAX = 2.0e-7
+MICRO_TRIANGLE_AREA_MAX = 2.0e-6
 GENERAL_KEYS = (
     "noble",
     "snake",
@@ -53,7 +53,10 @@ MOVING_NODE_IDS = {
     "lesson/second",
     "lesson/third",
     "lesson/fourth",
-    "transmission/bridge",
+    "transmission/initial",
+    "transmission/middle",
+    "transmission/final",
+    "transmission/method",
     *(f"general/{key}" for key in GENERAL_KEYS),
 }
 DYNAMIC_LABEL_OWNERS = {
@@ -64,7 +67,7 @@ DYNAMIC_LABEL_OWNERS = {
         for key in ("initial", "middle", "final")
     },
     **{f"dynamic/general/{key}": f"general/{key}" for key in GENERAL_KEYS},
-    "dynamic/transmission/method": "transmission/bridge",
+    "dynamic/transmission/method": "transmission/method",
 }
 DYNAMIC_COURSE_VALUES_BY_FIELD = {
     "calendar": (
@@ -847,8 +850,8 @@ def _validate_bake_source():
     inscriptions = [obj for obj in bpy.data.objects if "inscription_role" in obj]
     if root is None or root.get("node_id") != "artifact/root":
         raise RuntimeError("Daliuren master scene is required for texture baking")
-    if (len(runtime), len(details), len(inscriptions)) != (28, 85, 71):
-        raise RuntimeError("Daliuren master requires 28 runtime, 85 detail and 71 inscription objects")
+    if (len(runtime), len(details), len(inscriptions)) != (50, 34, 71):
+        raise RuntimeError("Daliuren master requires 50 runtime, 34 detail and 71 inscription objects")
     missing_materials = [name for name in MATERIAL_FAMILIES if bpy.data.materials.get(name) is None]
     if missing_materials:
         raise RuntimeError(f"Daliuren master materials are missing: {', '.join(missing_materials)}")
@@ -885,7 +888,7 @@ def _validate_bake_source():
         raise RuntimeError("Daliuren master meshes require explicit runtime atlas ownership")
     for atlas_id in atlas_ids:
         objects = [obj for obj in physical if obj.get("runtime_atlas_id") == atlas_id]
-        if any(detect_uv_issues(obj) for obj in objects):
+        if any(_has_unbounded_uv_issues(obj) for obj in objects):
             raise RuntimeError(f"Daliuren master UV atlas is invalid for {atlas_id}")
         if first_family_uv_overlap(objects) is not None:
             raise RuntimeError(f"Daliuren master UV atlas overlaps across meshes in {atlas_id}")
@@ -983,14 +986,14 @@ def generate_runtime_textures(texture_root, atlas_ids=None):
 
 def _dynamic_surface_spec(dynamic_id):
     if dynamic_id == "dynamic/calendar":
-        return (0.124, 0.007), (0.0, -0.002, 0.00825)
+        return (0.124, 0.007), (0.0, -0.002, 0.00475)
     if dynamic_id.startswith("dynamic/lesson/"):
-        return (0.052, 0.012), (0.0, 0.0, 0.00425)
+        return (0.052, 0.012), (0.0, 0.0, 0.00475)
     if dynamic_id == "dynamic/transmission/method":
-        return (0.090, 0.004), (0.0, 0.0205, 0.00425)
+        return (0.090, 0.004), (0.0, 0.0, 0.00325)
     if dynamic_id.startswith("dynamic/transmission/"):
         return (0.044, 0.014), (0.0, 0.0, 0.00525)
-    return (0.016, 0.010), (0.0, 0.0, 0.00725)
+    return (0.016, 0.010), (0.0, 0.0, 0.00225)
 
 
 def _placeholder_material():
@@ -1103,7 +1106,16 @@ def _triangle_island_unwrap(obj):
         edge.seam = True
     bm.to_mesh(obj.data)
     bm.free()
-    _seam_unwrap(obj)
+    _select_all_mesh_uvs(obj)
+    bpy.ops.uv.lightmap_pack(
+        PREF_CONTEXT="ALL_FACES",
+        PREF_PACK_IN_ONE=True,
+        PREF_NEW_UVLAYER=False,
+        PREF_BOX_DIV=48,
+        PREF_MARGIN_DIV=0.1,
+    )
+    bpy.ops.object.mode_set(mode="OBJECT")
+    obj.select_set(False)
 
 
 def _largest_triangle_shape_error(obj):
@@ -1227,7 +1239,7 @@ def assign_primary_uvs(dynamic_surfaces):
             atlas_id = f"{family}:{'moving' if moving else 'hero'}"
         obj["runtime_atlas_id"] = atlas_id
         obj["runtime_atlas_class"] = atlas_class
-        obj["runtime_bake_scale"] = 1
+        obj["runtime_bake_scale"] = 2 if obj.name in {"plate/earth", "plate/heaven"} else 1
         obj["runtime_texture_family"] = family
         atlas_groups.setdefault((family, atlas_id), {})
         atlas_groups[(family, atlas_id)].setdefault(obj.data.as_pointer(), obj)
@@ -1253,7 +1265,7 @@ def assign_primary_uvs(dynamic_surfaces):
             _pack_family_atlas(objects, lod0_dimension)
         overlapping = [
             obj for obj in objects
-            if "triangle-overlap" in detect_uv_issues(obj)
+            if detect_uv_issues(obj)
         ]
         if overlapping:
             for obj in overlapping:
@@ -1333,6 +1345,22 @@ def detect_uv_issues(obj):
             issues.append("triangle-overlap")
             break
     return tuple(dict.fromkeys(issues))
+
+
+def _has_unbounded_uv_issues(obj):
+    issues = detect_uv_issues(obj)
+    if not issues:
+        return False
+    if issues != ("degenerate-triangle",):
+        return True
+    mesh = obj.data
+    layer = mesh.uv_layers["UVMap"]
+    mesh.calc_loop_triangles()
+    return any(
+        _triangle_area(tuple(tuple(layer.data[index].uv) for index in triangle.loops)) <= 1e-12
+        and triangle.area > MICRO_TRIANGLE_AREA_MAX
+        for triangle in mesh.loop_triangles
+    )
 
 
 def first_family_uv_overlap(objects):

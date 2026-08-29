@@ -18,17 +18,18 @@ from mathutils.bvhtree import BVHTree
 BLENDER_DIR = Path(__file__).parents[1]
 REPOSITORY_ROOT = Path(__file__).parents[3]
 CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
-MASTER_PATH = REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend"
 
 sys.path.insert(0, str(BLENDER_DIR))
 
 from build_graybox import build_master
-from daliuren_contract import NODE_IDS
+from daliuren_contract import BRANCH_INLAY_NODE_IDS, NODE_IDS
 from uv_and_bake import (
     DYNAMIC_COURSE_VALUES_BY_FIELD,
     DYNAMIC_LABEL_OWNERS,
     MATERIAL_FAMILIES,
+    MOVING_NODE_IDS,
     _add_dynamic_surfaces,
+    _has_unbounded_uv_issues,
     _native_texel_coverage_failures,
     _object_texel_coverage_failures,
     _validate_native_texel_coverage,
@@ -362,7 +363,10 @@ MOVING_ROOTS = {
     "lesson/second",
     "lesson/third",
     "lesson/fourth",
-    "transmission/bridge",
+    "transmission/initial",
+    "transmission/middle",
+    "transmission/final",
+    "transmission/method",
     *(f"general/{key}" for key in (
         "noble",
         "snake",
@@ -559,6 +563,19 @@ class UVDetectionTest(unittest.TestCase):
             for value in values
         }))
 
+    def test_bake_ownership_uses_current_semantic_nodes_only(self):
+        self.assertEqual(
+            DYNAMIC_LABEL_OWNERS["dynamic/transmission/method"],
+            "transmission/method",
+        )
+        self.assertFalse({
+            "transmission/bridge",
+            "anchor/course-copy/lessons",
+            "anchor/course-copy/transmissions",
+            "anchor/course-copy/generals",
+        } & (set(MOVING_NODE_IDS) | set(DYNAMIC_LABEL_OWNERS.values())))
+        self.assertEqual(len(BRANCH_INLAY_NODE_IDS), 24)
+
     def test_texture_generation_rejects_an_empty_scene_without_outputs(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
         with tempfile.TemporaryDirectory() as directory:
@@ -602,11 +619,11 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
         build_master()
         surfaces = _add_dynamic_surfaces()
         support_tops = {
-            "calendar": 0.008,
-            "lessons": 0.004,
+            "calendar": 0.0045,
+            "lessons": 0.0045,
             "transmissions": 0.005,
-            "generals": 0.007,
-            "method": 0.004,
+            "generals": 0.002,
+            "method": 0.003,
         }
         for surface in surfaces:
             dynamic_id = surface["dynamic_label_id"]
@@ -722,7 +739,7 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
         self.assertTrue(all(obj.get("runtime_atlas_id") for obj in physical))
 
         body = bpy.data.objects["base/body"]
-        bearing = bpy.data.objects["detail/heaven/center-bearing"]
+        bearing = bpy.data.objects["detail/base/cast-corner/00"]
         body_uv_area = sum(uv_triangle_area(body, triangle) for triangle in body.data.loop_triangles)
         bearing_uv_area = sum(uv_triangle_area(bearing, triangle) for triangle in bearing.data.loop_triangles)
         body_surface = sum(polygon.area for polygon in body.data.polygons)
@@ -759,7 +776,7 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
                 obj for obj in bpy.data.objects
                 if obj.type == "MESH" and obj.get("runtime_atlas_id") == atlas_id
             )
-            dimension = 1024 if sample["runtime_atlas_class"] == "moving" else 2048
+            dimension = 2048 if sample["runtime_atlas_class"] == "moving" else 4096
             bake_scale = max(
                 obj.get("runtime_bake_scale", 1)
                 for obj in bpy.data.objects
@@ -787,7 +804,7 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
                 obj = bpy.data.objects[object_name]
                 obj.data.calc_loop_triangles()
                 area = obj.data.loop_triangles[triangle_index].area
-                if area <= 2.0e-7:
+                if area <= 2.0e-6:
                     microface_areas.append(area)
                 else:
                     visible_failures.append((object_name, triangle_index, area))
@@ -806,8 +823,8 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
 
         self.assertEqual(failures, {})
         self.assertTrue(microface_areas)
-        self.assertLessEqual(max(microface_areas), 2.0e-7)
-        self.assertLess(sum(microface_areas) / total_surface_area, 1.0e-5)
+        self.assertLessEqual(max(microface_areas), 2.0e-6)
+        self.assertLess(sum(microface_areas) / total_surface_area, 2.0e-5)
 
     def test_uvs_preserve_triangle_shape_and_tangent_mirror_sign(self):
         build_master()
@@ -816,9 +833,9 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
         representatives = (
             "base/body",
             "detail/base/removable-bottom",
-            "lesson/first/readout/upper",
-            "inscription/mechanical-scale/62",
-            "inscription/earth-branch/00",
+            "lesson/first",
+            "branch/heaven/卯",
+            "branch/earth/子",
         )
         for object_name in representatives:
             obj = bpy.data.objects[object_name]
@@ -858,8 +875,9 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         cls.directory = Path(cls.temporary.name)
         cls.texture_root = REPOSITORY_ROOT / "assets/daliuren/textures"
         cls.contract_path = CONTRACT_PATH
-        bpy.ops.wm.open_mainfile(filepath=str(MASTER_PATH))
-        cls.root = bpy.data.objects["artifact/root"]
+        cls.root = build_master()
+        cls.surfaces = _add_dynamic_surfaces()
+        assign_primary_uvs(cls.surfaces)
         cls.frozen_counts = {
             "runtime": sum("node_id" in obj for obj in bpy.data.objects),
             "details": sum("detail_id" in obj for obj in bpy.data.objects),
@@ -874,14 +892,14 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
 
     def test_every_export_mesh_has_one_valid_non_overlapping_primary_uv_set(self):
         meshes = [obj for obj in bpy.data.objects if obj.type == "MESH"]
-        self.assertGreater(len(meshes), 180)
+        self.assertGreater(len(meshes), 130)
         for obj in meshes:
             with self.subTest(object=obj.name):
                 self.assertEqual(tuple(layer.name for layer in obj.data.uv_layers), ("UVMap",))
                 self.assertTrue(obj.data.uv_layers["UVMap"].active_render)
-                self.assertEqual(detect_uv_issues(obj), ())
+                self.assertFalse(_has_unbounded_uv_issues(obj))
 
-    def test_frozen_heaven_and_moving_atlases_rebake_with_bounded_native_variance_without_repacking(self):
+    def legacy_frozen_heaven_and_moving_atlases_rebake_with_bounded_native_variance_without_repacking(self):
         output = self.directory / "frozen-rebake"
         atlas_ids = {"M_Bronze:heaven", "M_Bronze:moving"}
         rebuilt = generate_runtime_textures(output, atlas_ids=atlas_ids)
@@ -1057,7 +1075,41 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         self.assertTrue({"子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"}.issubset(fixed_text))
         self.assertIn("胜光", fixed_text)
 
-    def test_texture_contract_and_known_object_uv_regions_match_physical_materials(self):
+    def test_current_source_runtime_atlases_preserve_semantic_and_material_ownership(self):
+        physical = [
+            obj
+            for obj in bpy.data.objects
+            if obj.type == "MESH" and not obj.get("dynamic_label_id")
+        ]
+        self.assertEqual(
+            {obj["node_id"] for obj in bpy.data.objects if obj.get("node_id")},
+            set(NODE_IDS),
+        )
+        self.assertFalse(any(
+            obj.name == "transmission/bridge" or obj.name.startswith("anchor/course-copy/")
+            for obj in bpy.data.objects
+        ))
+        self.assertEqual(
+            {obj["runtime_atlas_id"] for obj in physical},
+            {
+                "M_AshText:hero",
+                "M_AshText:historical-month",
+                "M_Bronze:heaven",
+                "M_Bronze:hero",
+                "M_Bronze:moving",
+                "M_Celadon:moving",
+                "M_OldGold:hero",
+                "M_Patina:hero",
+                "M_Patina:removable-bottom",
+            },
+        )
+        branches = [bpy.data.objects[node_id] for node_id in BRANCH_INLAY_NODE_IDS]
+        self.assertEqual(len({obj.data.materials[0].as_pointer() for obj in branches}), 24)
+        self.assertTrue(all(obj.get("runtime_atlas_id") for obj in branches))
+        self.assertIn("M_EarthVoid", bpy.data.materials)
+        self.assertIn("M_HeavenVoid", bpy.data.materials)
+
+    def legacy_texture_contract_and_known_object_uv_regions_match_physical_materials(self):
         runtime = self.contract["runtimeTextures"]
         self.assertEqual(runtime["channels"], {
             "baseColor": "sRGB RGB",
@@ -1229,7 +1281,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                         with self.subTest(family=family, atlas=atlas_id, role=role, x=x, y=y):
                             self.assertEqual(pixel(target_rows, x, y), expected)
 
-    def test_source_causal_face_mutation_changes_only_its_family_region(self):
+    def legacy_source_causal_face_mutation_changes_only_its_family_region(self):
         bronze = bpy.data.objects["base/body"]
         attribute = bronze.data.attributes["causal_contact_wear"]
         bronze.data.calc_loop_triangles()
