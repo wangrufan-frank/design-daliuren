@@ -260,6 +260,7 @@ def build_fixed_inscriptions(
     earth_plate: bpy.types.Object,
     heaven_plate: bpy.types.Object,
     font_path: Path | str,
+    roles=None,
 ) -> list[bpy.types.Object]:
     _validate_fixed_parent(earth_plate)
     _validate_fixed_parent(heaven_plate)
@@ -272,8 +273,12 @@ def build_fixed_inscriptions(
     if not font_path.is_file():
         raise FileNotFoundError(font_path)
 
-    items = load_fixed_inscriptions(FIXED_INSCRIPTIONS_PATH)
-    for item in items:
+    indexed_items = tuple(enumerate(load_fixed_inscriptions(FIXED_INSCRIPTIONS_PATH)))
+    if roles is not None:
+        indexed_items = tuple(
+            (index, item) for index, item in indexed_items if item.role in roles
+        )
+    for _, item in indexed_items:
         if item.role in FUNCTIONAL_ROLES:
             node_id = f"branch/{ROLE_PARENTS[item.role]}/{item.text}"
             if bpy.data.objects.get(node_id) is not None:
@@ -283,7 +288,7 @@ def build_fixed_inscriptions(
     parents = {"earth": earth_plate, "heaven": heaven_plate}
     objects = [
         _add_mesh_text(item, index, parents[ROLE_PARENTS[item.role]], font)
-        for index, item in enumerate(items)
+        for index, item in indexed_items
     ]
     for obj in objects:
         if obj.get("inscription_role") in FUNCTIONAL_ROLES:

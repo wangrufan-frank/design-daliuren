@@ -26,9 +26,16 @@ BRANCHES = tuple("子丑寅卯辰巳午未申酉戌亥")
 
 sys.path.insert(0, str(BLENDER_DIR))
 
-from build_graybox import build_graybox
+from build_graybox import build_graybox, build_master
 import inscriptions
-from inscriptions import ROLE_ANGLES, TEXT_SIZES, build_fixed_inscriptions, load_fixed_inscriptions
+from inscriptions import (
+    FUNCTIONAL_ROLES,
+    HISTORICAL_ROLES,
+    ROLE_ANGLES,
+    TEXT_SIZES,
+    build_fixed_inscriptions,
+    load_fixed_inscriptions,
+)
 
 
 def sha256(path):
@@ -162,6 +169,35 @@ class InscriptionTest(unittest.TestCase):
                     self.assertEqual(obj["ring_index"], index)
                     self.assertEqual(obj["angular_index"], index)
                     self.assertEqual(obj["surface_treatment"], "recessed-inlay")
+
+    def test_graybox_contains_only_the_twenty_four_functional_inscriptions(self):
+        build_graybox()
+
+        inscriptions_by_role = [
+            obj.get("inscription_role")
+            for obj in bpy.data.objects
+            if obj.get("inscription_role") is not None
+        ]
+        self.assertEqual(len(inscriptions_by_role), 24)
+        self.assertEqual(set(inscriptions_by_role), FUNCTIONAL_ROLES)
+
+    def test_master_adds_all_forty_seven_historical_inscriptions(self):
+        build_master()
+
+        inscriptions_by_role = [
+            obj.get("inscription_role")
+            for obj in bpy.data.objects
+            if obj.get("inscription_role") is not None
+        ]
+        self.assertEqual(len(inscriptions_by_role), 71)
+        self.assertEqual(
+            sum(role in FUNCTIONAL_ROLES for role in inscriptions_by_role),
+            24,
+        )
+        self.assertEqual(
+            sum(role in HISTORICAL_ROLES for role in inscriptions_by_role),
+            47,
+        )
 
     def test_branch_glyphs_are_recessed_and_plate_faces_are_boolean_cut_away(self):
         build_graybox()

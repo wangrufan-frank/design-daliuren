@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from daliuren_contract import DIMENSIONS, POSE_IDS
 from geometry import add_beveled_box, add_disc
 from high_detail_geometry import upgrade_to_high_detail
-from inscriptions import build_fixed_inscriptions
+from inscriptions import FUNCTIONAL_ROLES, HISTORICAL_ROLES, build_fixed_inscriptions
 from materials import apply_master_materials, build_master_materials
 from poses import apply_pose
 
@@ -293,12 +293,20 @@ def build_graybox():
     add_course_trace(earth)
     repository_root = Path(__file__).parents[2]
     font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
-    build_fixed_inscriptions(earth, heaven, font_path)
+    build_fixed_inscriptions(earth, heaven, font_path, roles=FUNCTIONAL_ROLES)
     return root
 
 
 def build_master():
     root = build_graybox()
+    repository_root = Path(__file__).parents[2]
+    font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
+    build_fixed_inscriptions(
+        bpy.data.objects["plate/earth"],
+        bpy.data.objects["plate/heaven"],
+        font_path,
+        roles=HISTORICAL_ROLES,
+    )
     upgrade_to_high_detail(root)
     build_master_materials()
     apply_master_materials(root)

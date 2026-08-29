@@ -47,6 +47,10 @@ const ASSET_CONTRACT = JSON.parse(
 const PACKAGE = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
+const ASSET_REQUIREMENTS = await readFile(
+  new URL("../tools/python/requirements-assets.txt", import.meta.url),
+  "utf8",
+).catch(() => "");
 
 test("asset contract freezes the non-mechanical runtime ids and six pose ids", () => {
   assert.equal(ASSET_CONTRACT.schemaVersion, 1);
@@ -71,7 +75,7 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   assert.deepEqual(ASSET_CONTRACT.poseIds, [
     "closed", "calendar", "plate", "lessons", "transmissions", "generals",
   ]);
-  assert.deepEqual(ASSET_CONTRACT.triangleBudget, { min: 7000, max: 10000 });
+  assert.deepEqual(ASSET_CONTRACT.triangleBudget, { min: 7000, max: 35000 });
   assert.deepEqual(ASSET_CONTRACT.allowedFixedRoles, ["fixed-historical-inscription"]);
   assert.deepEqual(ASSET_CONTRACT.allowedFixedReferences, ["reference/historical-ring"]);
   assert.deepEqual(ASSET_CONTRACT.forbiddenDynamicKeys, [
@@ -93,6 +97,28 @@ function fakeMesh(name, primitives) {
   };
 }
 
+function localBoundsMesh(min, max) {
+  const positions = [
+    min,
+    max,
+  ];
+  return {
+    getName: () => "local-bounds-mesh",
+    getExtras: () => ({}),
+    listPrimitives: () => [{
+      getMode: () => 4,
+      getIndices: () => null,
+      getAttribute: (semantic) => semantic === "POSITION" ? {
+        getCount: () => positions.length,
+        getElement: (index, target) => {
+          target.splice(0, 3, ...positions[index]);
+          return target;
+        },
+      } : null,
+    }],
+  };
+}
+
 function fakeDocument(nodes, {
   sceneCount = 1,
   sceneBounds,
@@ -101,7 +127,14 @@ function fakeDocument(nodes, {
   textures = [],
   extensionsUsed = [],
 } = {}) {
-  const properties = nodes.map(({ name, extras = {}, bounds, triangles = 0, mesh }) => {
+  const properties = nodes.map(({
+    name,
+    extras = {},
+    bounds,
+    triangles = 0,
+    mesh,
+    worldMatrix,
+  }) => {
     const nodeMesh = mesh ?? (triangles
       ? fakeMesh(`${name}/mesh`, [{ mode: 4, count: triangles * 3 }])
       : null);
@@ -110,6 +143,12 @@ function fakeDocument(nodes, {
       getExtras: () => extras,
       getBounds: bounds ? () => bounds : undefined,
       getMesh: () => nodeMesh,
+      getWorldMatrix: () => worldMatrix ?? [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+      ],
     };
   });
   const scenes = Array.from({ length: sceneCount }, (_, index) => ({
@@ -217,6 +256,24 @@ test("reports a key node dimension outside the literal tolerance", () => {
   ]);
 });
 
+test("measures a mesh node locally instead of including child geometry", () => {
+  const contract = {
+    ...BASE_CONTRACT,
+    dimensionsMeters: { "plate/heaven": [1, 2, 3] },
+  };
+  const fake = fakeDocument([
+    { name: "root", extras: { node_id: "artifact/root" } },
+    {
+      name: "heaven",
+      extras: { node_id: "plate/heaven" },
+      bounds: { min: [0, 0, 0], max: [1, 2.5, 3] },
+      mesh: localBoundsMesh([0, 0, 0], [1, 2, 3]),
+    },
+  ]);
+
+  assert.deepEqual(validateArtifactDocument(fake, contract), []);
+});
+
 test("reports triangle counts below and above the declared budget", () => {
   const contract = { ...BASE_CONTRACT, triangleBudget: { min: 5, max: 10 } };
   const nodes = (triangles) => [
@@ -229,6 +286,22 @@ test("reports triangle counts below and above the declared budget", () => {
   ]);
   assert.deepEqual(validateArtifactDocument(fakeDocument(nodes(11)), contract), [
     "triangle budget: expected 5..10, got 11",
+  ]);
+});
+
+test("enforces the approved thirty-five-thousand graybox triangle ceiling", () => {
+  const contract = {
+    ...BASE_CONTRACT,
+    triangleBudget: ASSET_CONTRACT.triangleBudget,
+  };
+  const nodes = (triangles) => [
+    { name: "root", extras: { node_id: "artifact/root" } },
+    { name: "heaven", extras: { node_id: "plate/heaven" }, triangles },
+  ];
+
+  assert.deepEqual(validateArtifactDocument(fakeDocument(nodes(35000)), contract), []);
+  assert.deepEqual(validateArtifactDocument(fakeDocument(nodes(35001)), contract), [
+    "triangle budget: expected 7000..35000, got 35001",
   ]);
 });
 
@@ -321,15 +394,28 @@ test("asset contract declares final LOD budgets and runtime texture validation",
   });
   assert.deepEqual(ASSET_CONTRACT.runtimeAssets.materialFamilies, [
     "M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText",
+    "M_EarthVoid", "M_HeavenVoid",
   ]);
   assert.equal(ASSET_CONTRACT.runtimeAssets.requiredTextureExtension, "KHR_texture_basisu");
   assert.equal(Object.keys(ASSET_CONTRACT.runtimeAssets.dynamicLabelOwners).length, 21);
 });
 
 test("package exposes the LOD export and validation toolchain", () => {
-  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod0/);
-  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod1/);
-  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lod2/);
+  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:install-python-tools/);
+  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:bake-textures/);
+  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:export-lods:raw/);
+  assert.match(PACKAGE.scripts["asset:export-lods"], /asset:compress-lods/);
+  assert.match(PACKAGE.scripts["asset:export-lods:raw"], /asset:export-lod0/);
+  assert.match(PACKAGE.scripts["asset:export-lods:raw"], /asset:export-lod1/);
+  assert.match(PACKAGE.scripts["asset:export-lods:raw"], /asset:export-lod2/);
+  assert.match(PACKAGE.scripts["asset:bake-textures"], /uv_and_bake\.py/);
+  assert.match(PACKAGE.scripts["asset:compress-lods"], /compress-daliuren-glbs\.mjs/);
+  assert.match(PACKAGE.scripts["asset:install-python-tools"], /requirements-assets\.txt/);
+  assert.match(ASSET_REQUIREMENTS, /^alktx2==0\.1\.7/m);
+  assert.match(
+    ASSET_REQUIREMENTS,
+    /sha256:a0952acacaeb7de1ef15e157fcf9de368eabe687fb1d358d50fd5c3a05c6cb05/,
+  );
   assert.match(PACKAGE.scripts["asset:validate"], /daliuren-artifact-lod0\.glb/);
   assert.match(PACKAGE.scripts["asset:validate"], /daliuren-artifact-lod1\.glb/);
   assert.match(PACKAGE.scripts["asset:validate"], /daliuren-artifact-lod2\.glb/);

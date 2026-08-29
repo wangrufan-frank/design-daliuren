@@ -145,13 +145,21 @@ class HighDetailGeometryTest(unittest.TestCase):
 
     def test_high_detail_stays_within_fixed_scene_height(self):
         upgrade_to_high_detail(self.root)
+        minimum_z = min(
+            (obj.matrix_world @ Vector(corner)).z
+            for obj in bpy.data.objects
+            if obj.type == "MESH"
+            for corner in obj.bound_box
+        )
         maximum_z = max(
             (obj.matrix_world @ Vector(corner)).z
             for obj in bpy.data.objects
             if obj.type == "MESH"
             for corner in obj.bound_box
         )
+        self.assertGreaterEqual(minimum_z, -0.00005)
         self.assertLessEqual(maximum_z, 0.09205)
+        self.assertAlmostEqual(maximum_z - minimum_z, 0.092, delta=0.0001)
 
     def test_saved_master_reopens_with_recessed_branch_nodes_and_no_cutters(self):
         build_master()

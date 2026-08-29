@@ -19,8 +19,49 @@ function formatNumber(value) {
   return Number(value.toFixed(6)).toString();
 }
 
+function transformPoint(point, matrix) {
+  const [x, y, z] = point;
+  const w = matrix[3] * x + matrix[7] * y + matrix[11] * z + matrix[15];
+  const divisor = w && w !== 1 ? w : 1;
+  return [
+    (matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12]) / divisor,
+    (matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13]) / divisor,
+    (matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14]) / divisor,
+  ];
+}
+
+function localMeshBounds(node) {
+  const mesh = node.getMesh?.();
+  if (!mesh) return null;
+  const matrix = node.getWorldMatrix();
+  const bounds = {
+    min: [Infinity, Infinity, Infinity],
+    max: [-Infinity, -Infinity, -Infinity],
+  };
+  const localPosition = [0, 0, 0];
+  for (const primitive of mesh.listPrimitives()) {
+    const position = primitive.getAttribute("POSITION");
+    if (!position) continue;
+    const indices = primitive.getIndices();
+    const count = indices?.getCount() ?? position.getCount();
+    for (let offset = 0; offset < count; offset += 1) {
+      const index = indices ? indices.getScalar(offset) : offset;
+      position.getElement(index, localPosition);
+      const worldPosition = transformPoint(localPosition, matrix);
+      for (let axis = 0; axis < 3; axis += 1) {
+        bounds.min[axis] = Math.min(bounds.min[axis], worldPosition[axis]);
+        bounds.max[axis] = Math.max(bounds.max[axis], worldPosition[axis]);
+      }
+    }
+  }
+  return bounds.min.every(Number.isFinite) && bounds.max.every(Number.isFinite)
+    ? bounds
+    : null;
+}
+
 function nodeBounds(node) {
-  return typeof node.getBounds === "function" ? node.getBounds() : getBounds(node);
+  return localMeshBounds(node)
+    ?? (typeof node.getBounds === "function" ? node.getBounds() : getBounds(node));
 }
 
 function triangleCount(document) {

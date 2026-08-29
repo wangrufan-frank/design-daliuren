@@ -74,7 +74,7 @@
   ],
   "triangleBudget": {
     "min": 7000,
-    "max": 10000
+    "max": 35000
   },
   "triangleCountingRule": "sum of triangle primitives across unique glTF mesh definitions",
   "lods": {
