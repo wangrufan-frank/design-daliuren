@@ -8,7 +8,7 @@ const COMPACT_CARD = { width: 180, height: 44, inset: 8 } as const;
 const DENSE_CARD = { width: 144, height: 44, inset: 4 } as const;
 const CARD_GAP = 8;
 const HYSTERESIS_PX = 12;
-const MIN_CARD_WIDTH = 24;
+const MIN_CARD_WIDTH = 44;
 const MIN_DENSE_COLUMN_WIDTH = 64;
 const MIN_LAYOUT_WIDTH = DENSE_CARD.inset * 2 + CARD_GAP + MIN_CARD_WIDTH * 2;
 
@@ -216,7 +216,7 @@ export function layoutArtifactAnnotations(
     const x = side === "left"
       ? rail.start + density.inset + columnOffset
       : rail.end - density.width - density.inset - columnOffset;
-    const cardEdgeX = side === "left" ? x + density.width : x;
+    const cardEdgeX = side === "left" ? x + density.width - 1 : x + 1;
     const bendX = clamp((anchor.x + cardEdgeX) / 2, 0, viewport.width);
     const cardCenterY = y + density.height / 2;
     return {

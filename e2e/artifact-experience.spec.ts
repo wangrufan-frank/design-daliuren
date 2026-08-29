@@ -28,16 +28,24 @@ async function expectArtifactCanvasReady(page: Page) {
 }
 
 test("model labels and text course use the same verified facts", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
   await completeReferenceCourse(page);
   await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
-  await expectArtifactReady(page);
+  const timeline = await expectArtifactReady(page);
+  const experience = page.getByTestId("artifact-experience");
+  await timeline.fill("27000");
+  await expect(timeline).toHaveValue("27000");
+  await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
+    .toBeGreaterThanOrEqual(20);
   const facts = page.getByTestId("artifact-accessible-facts");
+  await expect(facts).toContainText("天盘空");
+  await expect(facts).toContainText("地盘空");
   await expect(facts).toContainText("初传");
   await expect(facts).toContainText("贵人");
   await expect(facts).toContainText("月将 神后子");
   await expect(facts).toContainText("旬空 寅、卯");
-  await expect(facts).toContainText("四课 天后 寅（空）/酉；查地盘 酉");
-  await expect(facts).toContainText("天将 太阴 卯（空）/戌");
+  await expect(facts).toContainText("四课 天后 寅（天盘空）/酉；查地盘 酉");
+  await expect(facts).toContainText("天将 太阴 卯（天盘空）/戌");
   await expect(facts).toContainText("贵人 昼贵丑；落申宫；逆布");
   const labels = await facts.textContent();
 
@@ -51,18 +59,27 @@ test("model labels and text course use the same verified facts", async ({ page }
   expect(labels).toContain("贵人");
 });
 
-test("absolute seeking is repeatable and a real pointer drag disables auto camera", async ({ page }) => {
+test("exact stage seeks are repeatable and a real pointer drag disables auto camera", async ({ page }) => {
   await completeReferenceCourse(page);
   const experience = page.getByTestId("artifact-experience");
   const timeline = await expectArtifactReady(page);
+  const seekTimes = ["8000", "13000", "18000", "24000", "27000"] as const;
+  const hashes = new Map<string, string>();
 
-  await timeline.fill("8450");
-  await expect(experience).toHaveAttribute("data-pose-hash", /\S+/);
-  const firstPoseHash = await experience.getAttribute("data-pose-hash");
-  await timeline.fill("0");
-  await timeline.fill("8450");
-  await expect(experience).toHaveAttribute("data-pose-hash", firstPoseHash!);
-  await timeline.fill("11400");
+  for (const time of seekTimes) {
+    await timeline.fill(time);
+    await expect(timeline).toHaveValue(time);
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    await expect(experience).toHaveAttribute("data-pose-hash", /^[\da-f]{8}$/);
+    hashes.set(time, (await experience.getAttribute("data-pose-hash"))!);
+  }
+  for (const time of seekTimes) {
+    await timeline.fill(time);
+    await expect(timeline).toHaveValue(time);
+    await expect(experience).toHaveAttribute("data-pose-hash", hashes.get(time)!);
+  }
+
+  await timeline.fill("25200");
   await expect(experience).toHaveAttribute("data-source-lines", "active");
 
   const canvas = page.getByLabel("大六壬三维器物");
@@ -86,7 +103,8 @@ test("reduced motion retains final facts and disables source lines", async ({ pa
   await expect(facts).toContainText("末传");
   await expect(facts).toContainText("贵人");
   await expect(experience).toHaveAttribute("data-auto-camera", "false");
-  await page.getByRole("slider", { name: "推演时间轴" }).fill("11400");
+  await page.getByRole("slider", { name: "推演时间轴" }).fill("27000");
+  await expect(page.getByRole("slider", { name: "推演时间轴" })).toHaveValue("27000");
   await expect(experience).toHaveAttribute("data-source-lines", "disabled");
 });
 
@@ -95,13 +113,21 @@ test("mobile review keeps stage callouts and reaches every part through the dire
   await completeReferenceCourse(page);
   await expectArtifactCanvasReady(page);
 
+  const experience = page.getByTestId("artifact-experience");
+  const tools = page.getByRole("toolbar", { name: "工作台工具" });
+  await tools.getByRole("button", { name: "时间轴", exact: true }).click();
+  const timeline = page.getByRole("slider", { name: "推演时间轴" });
+  await timeline.fill("27000");
+  await expect(timeline).toHaveValue("27000");
+  await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
+    .toBeGreaterThanOrEqual(18);
+
   const callouts = page.locator(".artifact-annotations__card");
   const calloutCount = await callouts.count();
   expect(calloutCount).toBeGreaterThanOrEqual(3);
   expect(calloutCount).toBeLessThanOrEqual(6);
   await expect(page.getByRole("button", { name: "全部" })).toHaveCount(0);
 
-  const tools = page.getByRole("toolbar", { name: "工作台工具" });
   await tools.getByRole("button", { name: "部件", exact: true }).click();
   const toolPanel = page.getByRole("region", { name: "移动工具面板" });
   await expect(toolPanel).toBeVisible();
@@ -201,6 +227,23 @@ test("repeated text round trips keep one usable canvas without KTX2 loader warni
   }
 
   expect(warnings.filter((message) => message.includes("Multiple active KTX2 loaders"))).toEqual([]);
+});
+
+test("the settled canvas is byte-stable across a 30-second idle hold", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await completeReferenceCourse(page);
+  await expectArtifactCanvasReady(page);
+  const timeline = await expectArtifactReady(page);
+  await timeline.fill("27000");
+  await expect(timeline).toHaveValue("27000");
+
+  const canvas = page.getByLabel("大六壬三维器物");
+  const before = await canvas.screenshot();
+  await page.waitForTimeout(30_000);
+  const after = await canvas.screenshot();
+
+  expect(after.equals(before)).toBe(true);
 });
 
 test("a GLB 404 falls back to the existing text course", async ({ page }) => {

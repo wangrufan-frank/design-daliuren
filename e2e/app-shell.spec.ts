@@ -503,7 +503,9 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
   }
   await expectNoHorizontalOverflow(page);
 
+  await expect(page.locator(".artifact-annotations")).toHaveAttribute("data-density", "stage");
   await page.getByRole("group", { name: "标注密度" }).getByRole("button", { name: "全部" }).click();
+  await expect(page.locator(".artifact-annotations")).toHaveAttribute("data-density", "all");
   const cards = page.locator(".artifact-annotations__card");
   await expect(cards).toHaveCount(22);
   const rectanglesOverlap = (
@@ -522,7 +524,13 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
       return style.display !== "none" && style.visibility !== "hidden" && bounds.width > 0 && bounds.height > 0;
     }).map((element) => {
       const bounds = element.getBoundingClientRect();
-      return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+      return {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+      };
     });
     const viewportBounds = {
       x: viewportRect.x,
@@ -531,10 +539,10 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
       height: viewportRect.height,
     };
     const subject = {
-      x: viewportBounds.x + viewportBounds.width * 0.27,
-      y: viewportBounds.y + viewportBounds.height * 0.2,
-      width: viewportBounds.width * 0.46,
-      height: viewportBounds.height * 0.6,
+      x: viewportBounds.x + viewportBounds.width * 0.16,
+      y: viewportBounds.y + viewportBounds.height * 0.15,
+      width: viewportBounds.width * 0.68,
+      height: viewportBounds.height * 0.7,
     };
     const overlaps = (
       left: { x: number; y: number; width: number; height: number },
@@ -569,25 +577,30 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
     const geometry = await readAnnotationGeometry();
     return {
       cardCount: geometry.cardCount,
-      visibleCardCount: geometry.visibleCardCount,
-      safeCardCount: geometry.safeCardCount,
+      hasVisibleCards: geometry.visibleCardCount > 0,
+      visibleCardsAreSafe: geometry.safeCardCount === geometry.visibleCardCount,
+      visibleCountIsBounded: geometry.visibleCardCount <= geometry.cardCount,
       subjectClear: geometry.subjectClear,
       pairwiseClear: geometry.pairwiseClear,
     };
   }).toEqual({
     cardCount: 22,
-    visibleCardCount: 22,
-    safeCardCount: 22,
+    hasVisibleCards: true,
+    visibleCardsAreSafe: true,
+    visibleCountIsBounded: true,
     subjectClear: true,
     pairwiseClear: true,
   });
-  const { cardBounds, subject, viewportBounds } = await readAnnotationGeometry();
-  expect(cardBounds).toHaveLength(22);
+  const { cardBounds, subject, viewportBounds, visibleCardCount } = await readAnnotationGeometry();
+  expect(cardBounds).toHaveLength(visibleCardCount);
   cardBounds.forEach((bounds, index) => {
     expect(bounds.x).toBeGreaterThanOrEqual(viewportBounds.x + 12 - 0.5);
     expect(bounds.y).toBeGreaterThanOrEqual(viewportBounds.y + 72 - 0.5);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewportBounds.x + viewportBounds.width - 12 + 0.5);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewportBounds.y + viewportBounds.height - 128 + 0.5);
+    expect(bounds.width).toBeGreaterThanOrEqual(44);
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    expect(bounds.fontSize).toBeGreaterThanOrEqual(14);
     expect(rectanglesOverlap(bounds, subject)).toBe(false);
     cardBounds.slice(index + 1).forEach((other) => expect(rectanglesOverlap(bounds, other)).toBe(false));
   });

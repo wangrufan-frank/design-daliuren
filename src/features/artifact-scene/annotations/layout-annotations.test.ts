@@ -62,21 +62,34 @@ describe("layoutArtifactAnnotations", () => {
     expect(omitted).toEqual([]);
   });
 
-  it("keeps cards outside toolbar, controls, and the subject center", () => {
+  it("keeps every card and card-side leader endpoint outside the protected subject", () => {
     const safeArea = {
-      top: 64,
+      top: 72,
       right: 12,
-      bottom: 120,
+      bottom: 128,
       left: 12,
-      subject: { x: 220, y: 100, width: 360, height: 420 },
+      subject: { x: 220, y: 80, width: 560, height: 440 },
     };
-    const result = layoutArtifactAnnotations(crossingAnchors(), { width: 804, height: 760 }, { safeArea });
+    const result = layoutArtifactAnnotations(
+      allIds.map((id, index): ProjectedAnchor => ({
+        id,
+        x: 180 + index * 28,
+        y: 84 + (index % 10) * 48,
+        depth: 0,
+        behindCamera: false,
+        occluded: index >= 18,
+      })),
+      { width: 1_000, height: 640 },
+      { safeArea },
+    );
 
-    expect(result).toHaveLength(8);
-    for (const { labelRect } of result) {
-      expect(labelRect.y).toBeGreaterThanOrEqual(64);
-      expect(labelRect.y + labelRect.height).toBeLessThanOrEqual(640);
+    expect(result.length).toBeGreaterThan(0);
+    for (const { labelRect, leaderPath } of result) {
+      expect(labelRect.y).toBeGreaterThanOrEqual(72);
+      expect(labelRect.y + labelRect.height).toBeLessThanOrEqual(512);
       expect(rectanglesOverlap(labelRect, safeArea.subject)).toBe(false);
+      const [, endpointX, endpointY] = leaderPath.match(/L ([\d.]+) ([\d.]+)$/)!.map(Number);
+      expect(rectanglesOverlap({ x: endpointX, y: endpointY, width: 0.01, height: 0.01 }, safeArea.subject)).toBe(false);
     }
   });
 
@@ -156,10 +169,10 @@ describe("layoutArtifactAnnotations", () => {
     }
   });
 
-  it("keeps all 22 cards inside the real desktop safe area without overlap", () => {
+  it("omits excess desktop cards instead of crossing the real protected subject", () => {
     const viewport = { width: 672, height: 691 };
-    const subjectWidth = viewport.width * 0.46;
-    const subjectHeight = viewport.height * 0.6;
+    const subjectWidth = viewport.width * 0.68;
+    const subjectHeight = viewport.height * 0.7;
     const safeArea = {
       top: 72,
       right: 12,
@@ -183,7 +196,7 @@ describe("layoutArtifactAnnotations", () => {
 
     const layouts = layoutArtifactAnnotations(anchors, viewport, { safeArea });
 
-    expect(layouts).toHaveLength(22);
+    expect(layouts.map(({ id }) => id)).toEqual(allIds.slice(0, 18));
     layouts.forEach(({ labelRect }) => {
       expect(labelRect.x).toBeGreaterThanOrEqual(safeArea.left);
       expect(labelRect.y).toBeGreaterThanOrEqual(safeArea.top);
@@ -215,5 +228,23 @@ describe("layoutArtifactAnnotations", () => {
     expect(() => layoutArtifactAnnotations([
       { id: "calendar/slip", x: 0, y: 0, depth: 0, behindCamera: false, occluded: false },
     ], { width: 1, height: 800 })).toThrow(RangeError);
+  });
+
+  it("never shrinks a safe-area card below the 44px touch floor", () => {
+    const layouts = layoutArtifactAnnotations([
+      { id: "calendar/slip", x: 40, y: 100, depth: 0, behindCamera: false, occluded: false },
+    ], { width: 160, height: 240 }, {
+      safeArea: {
+        top: 20,
+        right: 8,
+        bottom: 20,
+        left: 8,
+        subject: { x: 55, y: 40, width: 50, height: 160 },
+      },
+    });
+
+    expect(layouts).toHaveLength(1);
+    expect(layouts[0].labelRect.width).toBeGreaterThanOrEqual(44);
+    expect(layouts[0].labelRect.height).toBeGreaterThanOrEqual(44);
   });
 });

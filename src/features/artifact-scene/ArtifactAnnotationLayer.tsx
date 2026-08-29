@@ -28,8 +28,8 @@ function sameIds(left: readonly ArtifactAnnotationId[], right: readonly Artifact
 }
 
 function safeAreaFor(viewport: AnnotationViewport, compact: boolean): AnnotationSafeArea {
-  const subjectWidth = viewport.width * (compact ? 0.34 : 0.46);
-  const subjectHeight = viewport.height * (compact ? 0.52 : 0.6);
+  const subjectWidth = viewport.width * (compact ? 0.58 : 0.68);
+  const subjectHeight = viewport.height * (compact ? 0.58 : 0.7);
   return {
     top: compact ? 56 : 72,
     right: compact ? 8 : 12,

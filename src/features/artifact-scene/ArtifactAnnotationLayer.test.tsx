@@ -51,6 +51,26 @@ function sourceFixture(initialAnchors: ProjectedAnchor[], viewport = { width: 90
   };
 }
 
+function cardRectangle(card: HTMLButtonElement) {
+  const [x, y] = card.style.transform.match(/translate3d\(([-\d.]+)px, ([-\d.]+)px/)!.slice(1).map(Number);
+  return { x, y, width: Number.parseFloat(card.style.width), height: Number.parseFloat(card.style.height) };
+}
+
+function rectanglesOverlap(
+  left: { x: number; y: number; width: number; height: number },
+  right: { x: number; y: number; width: number; height: number },
+) {
+  return left.x < right.x + right.width
+    && left.x + left.width > right.x
+    && left.y < right.y + right.height
+    && left.y + left.height > right.y;
+}
+
+function visibleCards() {
+  return [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")]
+    .filter((card) => !card.hidden && card.style.display !== "none");
+}
+
 beforeEach(() => installAnimationFrames());
 
 afterEach(() => {
@@ -193,6 +213,9 @@ describe("ArtifactAnnotationLayer", () => {
     render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} />);
     frames.step(16);
 
+    expect(document.querySelector(".artifact-annotations")).toHaveAttribute("data-density", "stage");
+    expect(screen.getByRole("button", { name: "本阶段" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "全部" })).toBeInTheDocument();
     const stageCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
     expect(stageCards).toHaveLength(featuredIds.length);
     expect(stageCards.map((card) => card.getAttribute("aria-label"))).toEqual([
@@ -215,14 +238,66 @@ describe("ArtifactAnnotationLayer", () => {
     expect(fixture.source.focusNode).toHaveBeenCalledWith("calendar/slip");
   });
 
+  it("protects the centered desktop subject across stage changes without exposing stale cards", () => {
+    const frames = installAnimationFrames();
+    const viewport = { width: 1_000, height: 640 };
+    const protectedSubject = { x: 160, y: 96, width: 680, height: 448 };
+    const fixture = sourceFixture([
+      anchor("calendar/slip", 100, 120),
+      anchor("plate/earth", 500, 280),
+      anchor("plate/heaven", 900, 440),
+      anchor("lesson/first", 120, 160),
+      anchor("lesson/second", 420, 260),
+      anchor("lesson/third", 620, 360),
+      anchor("lesson/fourth", 880, 460),
+    ], viewport);
+    const { rerender } = render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} />);
+    frames.step(16);
+
+    const initialCards = visibleCards();
+    expect(initialCards).toHaveLength(3);
+    initialCards.forEach((card) => {
+      const rectangle = cardRectangle(card);
+      expect(rectangle.x).toBeGreaterThanOrEqual(12);
+      expect(rectangle.y).toBeGreaterThanOrEqual(72);
+      expect(rectangle.x + rectangle.width).toBeLessThanOrEqual(988);
+      expect(rectangle.y + rectangle.height).toBeLessThanOrEqual(512);
+      expect(rectanglesOverlap(rectangle, protectedSubject)).toBe(false);
+    });
+
+    rerender(
+      <ArtifactAnnotationLayer
+        source={fixture.source}
+        featuredIds={["lesson/first", "lesson/second", "lesson/third", "lesson/fourth"]}
+      />,
+    );
+    expect(visibleCards()).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "历书：记载占时与月将的历法依据。" })).not.toBeInTheDocument();
+
+    frames.step(32);
+    const nextCards = visibleCards();
+    expect(nextCards).toHaveLength(4);
+    nextCards.forEach((card) => expect(rectanglesOverlap(cardRectangle(card), protectedSubject)).toBe(false));
+  });
+
   it("limits compact layouts to current-stage or hidden annotations", async () => {
     const frames = installAnimationFrames();
     const user = userEvent.setup();
-    const fixture = sourceFixture(featuredIds.map((id, index) => anchor(id, 240 + index * 120, 160 + index * 90)));
+    const viewport = { width: 900, height: 600 };
+    const protectedSubject = { x: 189, y: 126, width: 522, height: 348 };
+    const fixture = sourceFixture(featuredIds.map((id, index) => anchor(id, 240 + index * 120, 160 + index * 90)), viewport);
     render(<ArtifactAnnotationLayer source={fixture.source} featuredIds={featuredIds} allowAll={false} />);
     frames.step(16);
 
-    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(3);
+    expect(visibleCards()).toHaveLength(3);
+    visibleCards().forEach((card) => {
+      const rectangle = cardRectangle(card);
+      expect(rectangle.x).toBeGreaterThanOrEqual(8);
+      expect(rectangle.y).toBeGreaterThanOrEqual(56);
+      expect(rectangle.x + rectangle.width).toBeLessThanOrEqual(892);
+      expect(rectangle.y + rectangle.height).toBeLessThanOrEqual(584);
+      expect(rectanglesOverlap(rectangle, protectedSubject)).toBe(false);
+    });
     expect(screen.queryByRole("button", { name: "全部" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "隐藏" }));
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);

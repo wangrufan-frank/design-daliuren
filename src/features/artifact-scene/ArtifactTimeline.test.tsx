@@ -25,7 +25,7 @@ describe("ArtifactTimeline", () => {
 
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("min", "0");
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "12500");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "27000");
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("step", "1");
     await user.click(screen.getByRole("button", { name: "重置视角" }));
     await user.click(screen.getByRole("button", { name: "查看文字课式" }));
@@ -42,7 +42,7 @@ describe("ArtifactTimeline", () => {
     await user.click(screen.getByRole("button", { name: "下一阶段" }));
 
     expect(callbacks.onSeek).toHaveBeenNthCalledWith(1, 3_200);
-    expect(callbacks.onSeek).toHaveBeenNthCalledWith(2, 7_600);
+    expect(callbacks.onSeek).toHaveBeenNthCalledWith(2, 8_000);
   });
 
   it("sends integer range seeks and playback intent without hidden replay", async () => {
