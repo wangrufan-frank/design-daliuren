@@ -4,7 +4,7 @@ async function submitReferenceCourse(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
-  await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "生成完整课式" }).click();
 }
 
 test("reviews heavenly generals and returns to upstream evidence", async ({ page }) => {
@@ -29,7 +29,8 @@ test("390x844 preserves approved order and has no overflow", async ({ page }) =>
   await page.goto("/");
   await submitReferenceCourse(page);
   await page.getByRole("button", { name: /天将排列，已完成/ }).click();
-  await page.getByRole("button", { name: "查看阶段证据" }).click();
+  await page.getByRole("toolbar", { name: "工作台工具" })
+    .getByRole("button", { name: "阶段证据" }).click();
   const order = await page.locator("[data-heavenly-generals-section]").evaluateAll(
     (nodes) => nodes.map((node) => node.getAttribute("data-heavenly-generals-section")),
   );

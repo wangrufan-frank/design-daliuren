@@ -42,8 +42,14 @@ async function submitReferenceCourse(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
-  await page.getByRole("button", { name: "建立起课上下文" }).click();
-  await page.getByRole("button", { name: "文字课式", exact: true }).click();
+  await page.getByRole("button", { name: "生成完整课式" }).click();
+  await expect(page.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
+  const mobileTools = page.getByRole("toolbar", { name: "工作台工具" });
+  if (await mobileTools.count()) {
+    await mobileTools.getByRole("button", { name: "文字课式", exact: true }).click();
+  } else {
+    await page.getByRole("button", { name: "文字课式", exact: true }).click();
+  }
 }
 
 test("renders, copies, and navigates the completed standard course", async ({ context, page }) => {
@@ -71,7 +77,8 @@ test("390x844 preserves approved order, hierarchy, and square without overflow",
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await submitReferenceCourse(page);
-  expect(await page.locator("[data-course-section]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-course-section"))))
+  const mobilePanel = page.getByRole("region", { name: "移动工具面板" });
+  expect(await mobilePanel.locator("[data-course-section]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-course-section"))))
     .toEqual(["summary", "transmissions", "lessons", "palaces", "copy"]);
   const plate = page.getByRole("list", { name: "标准课式十二宫方盘" });
   await expect(plate).toHaveCSS("grid-template-columns", /.+ .+ .+ .+/);

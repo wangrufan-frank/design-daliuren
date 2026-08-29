@@ -15,7 +15,7 @@ async function submitOrdinaryInput(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
-  await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "生成完整课式" }).click();
 }
 
 function isNonLocalNetworkUrl(url: string) {
@@ -55,7 +55,12 @@ for (const viewport of VIEWPORTS) {
     isOffline = true;
     await submitOrdinaryInput(page);
     await page.getByRole("button", { name: "四课生成，已完成" }).click();
-    await page.getByRole("button", { name: "查看阶段证据" }).click();
+    const mobileTools = page.getByRole("toolbar", { name: "工作台工具" });
+    if (await mobileTools.count()) {
+      await mobileTools.getByRole("button", { name: "阶段证据" }).click();
+    } else {
+      await page.getByRole("button", { name: "查看阶段证据" }).click();
+    }
 
     const review = page.getByRole("region", { name: "四课生成" });
     const list = review.getByRole("list", { name: "四课课体" });

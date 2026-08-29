@@ -4,7 +4,7 @@ async function submitReferenceCourse(page: Page) {
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
-  await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "生成完整课式" }).click();
 }
 
 async function expectVerticalTransmissionOrder(list: Locator) {
@@ -51,7 +51,8 @@ test("390x844 keeps the vertical transmission order without document overflow", 
   await page.goto("/");
   await submitReferenceCourse(page);
   await page.getByRole("button", { name: /三传取法，已完成/ }).click();
-  await page.getByRole("button", { name: "查看阶段证据" }).click();
+  await page.getByRole("toolbar", { name: "工作台工具" })
+    .getByRole("button", { name: "阶段证据" }).click();
 
   const transmissions = page.getByRole("list", { name: "三传" });
   await expectVerticalTransmissionOrder(transmissions);
