@@ -209,7 +209,13 @@ const completeDisplayState = {
   transmissions: ["initial", "middle", "final"].map((position, index) => ({
     position, label: ["初传", "中传", "末传"][index], branch: "辰", relation: "父母", general: "贵人",
   })),
-  generals: generals.map(([general], order) => ({ general, order, earth: "子", heaven: "丑", evidenceId: `${order}` })),
+  generals: generals.map(([general], order) => ({
+    general,
+    order,
+    earth: order === 0 ? "卯" : "子",
+    heaven: order === 0 ? "寅" : "丑",
+    evidenceId: `${order}`,
+  })),
 } as unknown as ArtifactDisplayState;
 
 describe("ArtifactSceneController", () => {
@@ -476,6 +482,16 @@ describe("ArtifactSceneController", () => {
     );
     expect(canvasContext.fillText).toHaveBeenCalledWith(
       "贵人　寅（空）/卯（空）　查地盘子",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(canvasContext.fillText).toHaveBeenCalledWith(
+      "寅（空）/卯（空）",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(canvasContext.fillText).toHaveBeenCalledWith(
+      expect.stringContaining("贵人卯（空）"),
       expect.any(Number),
       expect.any(Number),
     );

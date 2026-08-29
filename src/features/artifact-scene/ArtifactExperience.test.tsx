@@ -534,6 +534,8 @@ describe("ArtifactExperience", () => {
 
     const facts = await screen.findByTestId("artifact-accessible-facts");
     expect(facts).toHaveTextContent("月将 胜光午");
+    expect(facts).toHaveTextContent("旬空 子、丑");
+    expect(facts).toHaveTextContent(/天将 .*[子丑]（空）/);
     expect(facts).toHaveTextContent("四课");
     expect(facts).toHaveTextContent("查地盘 卯");
     expect(facts).toHaveTextContent("夜贵寅");

@@ -358,6 +358,25 @@ test("converts birth year to natal branch and allows a manual override", async (
   await expect(page.getByLabel("本命地支")).toHaveCount(0);
 });
 
+test("propagates a manually selected natal branch into context and copied text", async ({ context, page }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("出生年份").fill("1990");
+  await page.getByRole("button", { name: "手动选择本命" }).click();
+  await page.getByLabel("本命地支").selectOption("亥");
+  await page.getByLabel("起课事由").fill("本命手动校准");
+  await page.getByRole("button", { name: "生成完整课式" }).click();
+
+  await expect(page.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "起课上下文" })).toContainText("1990年 · 亥命 · 手动选择");
+  await page.getByRole("button", { name: "文字课式", exact: true }).click();
+  await page.getByRole("button", { name: "复制课式" }).click();
+  await expect(page.getByRole("status")).toHaveText("课式已复制");
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain("本命：1990年　亥命（手动选择）");
+});
+
 test("the pressed course view keeps readable contrast", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.emulateMedia({ reducedMotion: "reduce" });

@@ -35,7 +35,9 @@ test("model labels and text course use the same verified facts", async ({ page }
   await expect(facts).toContainText("初传");
   await expect(facts).toContainText("贵人");
   await expect(facts).toContainText("月将 神后子");
-  await expect(facts).toContainText("四课 天后 寅/酉；查地盘 酉");
+  await expect(facts).toContainText("旬空 寅、卯");
+  await expect(facts).toContainText("四课 天后 寅（空）/酉；查地盘 酉");
+  await expect(facts).toContainText("天将 太阴 卯（空）/戌");
   await expect(facts).toContainText("贵人 昼贵丑；落申宫；逆布");
   const labels = await facts.textContent();
 

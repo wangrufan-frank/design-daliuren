@@ -4,6 +4,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
+import { formatVoidBranch } from "../model/format-void-branch";
 import type { ArtifactPose } from "../timeline/types";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "../annotations/descriptors";
 import { projectArtifactAnnotations } from "../annotations/project-annotations";
@@ -349,9 +350,7 @@ export class ArtifactSceneController {
   setDisplayState(state: ArtifactDisplayState): void {
     if (this.disposed) return;
     try {
-      const markVoid = (branch: string) => state.calendar.voidBranches.some((item) => item === branch)
-        ? `${branch}（空）`
-        : branch;
+      const markVoid = (branch: string) => formatVoidBranch(branch, state.calendar.voidBranches);
       const calendarMarker = state.calendar.manualFields.length > 0 ? "manual" : undefined;
       this.bindLabel("dynamic/calendar", {
         text: `${state.calendar.pillars.join("　")}\n月建${state.calendar.monthBuild}　月将${state.calendar.monthGeneral}${state.calendar.monthGeneralBranch}　占时${state.calendar.divinationHour}　旬空${state.calendar.voidBranches.join("")}　${DAY_NIGHT_TEXT[state.noble.dayNight]}贵${state.noble.nobleHeaven}`,
@@ -381,7 +380,7 @@ export class ArtifactSceneController {
       });
       for (const placement of state.generals) {
         this.bindLabel(GENERAL_DYNAMIC_IDS[placement.general], {
-          text: `${placement.general}\n${placement.heaven}/${placement.earth}`,
+          text: `${placement.general}\n${markVoid(placement.heaven)}/${markVoid(placement.earth)}`,
           style: placement.general === "贵人" ? "old-gold" : "ash",
           ...LABEL_SIZE,
           marker: placement.general === "贵人" ? "noble" : undefined,
@@ -398,7 +397,7 @@ export class ArtifactSceneController {
         ...COPY_LABEL_SIZE,
       });
       this.bindCopyLabel("generals", {
-        text: state.generals.map((item) => `${item.general}${item.earth}`).join("　"),
+        text: state.generals.map((item) => `${item.general}${markVoid(item.earth)}`).join("　"),
         style: "old-gold",
         ...COPY_LABEL_SIZE,
         marker: state.noble.direction === "forward" ? "direction-forward" : "direction-reverse",
