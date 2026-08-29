@@ -5,6 +5,7 @@
   --dark-bronze: #dce5df;
   --patina: #afc5bc;
   --ru-celadon: #547d70;
+  --action-fill: color-mix(in srgb, var(--ru-celadon) 94%, var(--ash));
   --ash: #1e2723;
   --old-gold: #9a7842;
   --error: #8f3e36;

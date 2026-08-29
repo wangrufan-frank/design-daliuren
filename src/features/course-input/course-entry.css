@@ -40,12 +40,12 @@
 .course-landing-preview__copy li { padding: 10px; background: var(--ink); color: var(--ash); font-family: var(--font-utility); font-size: 0.78rem; line-height: 1.5; }
 
 .course-generation-progress { display: grid; gap: 20px; width: min(100%, 620px); padding: 32px; border: 1px solid var(--patina); background: var(--panel); }
-.course-generation-progress__status { margin: 0; color: var(--ink); font-family: var(--font-utility); letter-spacing: 0.08em; }
+.course-generation-progress__status { margin: 0; color: var(--ash); font-family: var(--font-utility); letter-spacing: 0.08em; }
 .course-generation-progress__stages { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; margin: 0; padding: 0; background: var(--patina); list-style: none; }
-.course-generation-progress__stages li { padding: 12px 8px; background: var(--panel); color: color-mix(in srgb, var(--ink) 55%, transparent); font-family: var(--font-utility); font-size: 0.78rem; line-height: 1.5; opacity: 0.45; animation: course-generation-stage 120ms ease-out both; }
+.course-generation-progress__stages li { padding: 12px 8px; background: var(--panel); color: var(--ash); font-family: var(--font-utility); font-size: 0.78rem; line-height: 1.5; animation: course-generation-stage 120ms step-end both; }
 
 @keyframes course-generation-stage {
-  to { color: var(--ink); background: var(--ru-celadon); opacity: 1; }
+  to { color: var(--ink); background: var(--action-fill); }
 }
 
 @media (max-width: 600px) {

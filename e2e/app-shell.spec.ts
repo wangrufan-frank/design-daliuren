@@ -10,12 +10,16 @@ const VISUALS_DIRECTORY = path.resolve(
   ".superpowers/sdd/2026-08-15-calendar-month-general/visuals",
 );
 
-async function generateCourse(page: Page) {
+async function submitCourse(page: Page) {
   // Chromium canonicalizes zero seconds out of datetime-local values; the schema restores :00.
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "生成完整课式" }).click();
+}
+
+async function generateCourse(page: Page) {
+  await submitCourse(page);
   await expect(page.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
 }
 
@@ -318,6 +322,51 @@ async function expectVisibleControlsKeyboardReachable(page: Page) {
 
   return reviewControlCount;
 }
+
+test("live generation status keeps readable contrast before the 720ms transition completes", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await submitCourse(page);
+
+  const progress = page.getByRole("region", { name: "课式生成进度" });
+  const status = progress.getByRole("status");
+  await expect(progress).toBeVisible();
+  await expectContrastAtLeast(status, 4.5);
+  await expectContrastAtLeast(progress.getByRole("listitem").last(), 4.5);
+});
+
+test("the filled submit action keeps readable contrast", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+
+  await expectContrastAtLeast(page.getByRole("button", { name: "生成完整课式" }), 4.5);
+});
+
+test("the pressed course view keeps readable contrast", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await generateCourse(page);
+
+  await expectContrastAtLeast(page.getByRole("toolbar", { name: "课式视图" })
+    .getByRole("button", { name: "三维推演" }), 4.5);
+});
+
+test("the active annotation density keeps readable contrast", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await generateCourse(page);
+
+  await expect(page.getByRole("slider", { name: "推演时间轴" })).toBeVisible({ timeout: 15_000 });
+  const allAnnotations = page.getByRole("group", { name: "标注密度" })
+    .getByRole("button", { name: "全部" });
+  await allAnnotations.click();
+  await expect(allAnnotations).toHaveAttribute("aria-pressed", "true");
+  await expectContrastAtLeast(allAnnotations, 4.5);
+});
 
 test("product name keeps the first visual position after generation", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });

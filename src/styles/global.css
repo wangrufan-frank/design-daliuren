@@ -81,7 +81,7 @@ button, input, select { font: inherit; }
 .app-input-panel label { display: grid; gap: 5px; color: var(--ru-celadon); font-size: 0.9rem; }
 .app-input-panel input, .app-input-panel select, .app-input-panel form > button { width: 100%; min-height: 44px; border: 1px solid var(--patina); border-radius: 0; background: var(--dark-bronze); color: var(--ash); }
 .app-input-panel input, .app-input-panel select { padding: 8px; }
-.app-input-panel form > button { padding: 8px 12px; color: var(--ink); background: var(--ru-celadon); border-color: var(--ru-celadon); cursor: pointer; }
+.app-input-panel form > button { padding: 8px 12px; color: var(--ink); background: var(--action-fill); border-color: var(--action-fill); cursor: pointer; }
 .app-input-panel [role="alert"] { min-height: 1.25em; margin: -3px 0 0; color: var(--ash); font-size: 0.85rem; }
 .app-input-panel [role="alert"]:empty { display: none; }
 .app-stage { display: grid; align-content: center; min-height: 390px; padding: clamp(24px, 6vw, 72px); border: 1px solid var(--patina); background: var(--panel); }
@@ -94,7 +94,7 @@ button, input, select { font: inherit; }
 .course-experience__stage { min-width: 0; }
 .course-experience__modes { display: flex; z-index: 2; align-self: start; justify-self: end; gap: 1px; margin: 12px; padding: 4px; border: 1px solid var(--patina); background: color-mix(in srgb, var(--ink) 92%, transparent); }
 .course-experience__modes button { min-height: 44px; padding: 8px 13px; border: 0; border-radius: 0; background: transparent; color: var(--ru-celadon); cursor: pointer; }
-.course-experience__modes button[aria-pressed="true"] { background: var(--ru-celadon); color: var(--ink); }
+.course-experience__modes button[aria-pressed="true"] { background: var(--action-fill); color: var(--ink); }
 .course-experience__modes button:focus-visible { outline-color: var(--ash); outline-offset: -2px; }
 .course-experience .artifact-experience__viewport { min-height: clamp(520px, 52vw, 680px); }
 .rule-stage-rail { margin: 16px 0 0; padding: 0; list-style: none; border-left: 1px solid var(--patina); }

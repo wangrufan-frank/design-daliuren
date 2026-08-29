@@ -164,7 +164,7 @@
 }
 
 .artifact-annotations__density button[aria-pressed="true"] {
-  background: var(--ru-celadon);
+  background: var(--action-fill);
   color: var(--ink);
 }
 
