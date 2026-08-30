@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T14:05:37.316Z",
+  "generatedAt": "2026-08-30T14:59:30.157Z",
   "browser": {
     "name": "Google Chrome",
     "channel": "chrome",
@@ -47,7 +47,7 @@
       "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D59) Direct3D11 vs_5_0 ps_5_0, D3D11)",
       "hardwareRenderer": true,
       "medianFrameTimeMs": 4.2,
-      "p95FrameTimeMs": 4.2,
+      "p95FrameTimeMs": 4.3,
       "medianFps": 238.0952,
       "sampleCount": 300,
       "thresholdFps": 30,

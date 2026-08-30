@@ -2,20 +2,20 @@
 
 Date: 2026-08-30 (Asia/Shanghai)
 
-Status: COMPLETE after independent-review repair round 1/5. Graybox, master, baked authoring atlases, KTX2 runtime LODs, 15 review renders, runtime LOD screenshot gates, and benchmark evidence were rebuilt from their generating sources. Every final automated gate passes. No generated binary was patched directly.
+Status: COMPLETE after independent-review repair rounds 1–2/5. Graybox, master, baked authoring atlases, KTX2 runtime LODs, 15 review renders, three committed pure-canvas LOD captures, and benchmark evidence were verified from their generating sources. Every final automated gate passes. Round 2 changed runtime measurement/evidence and validation code only; no model or texture rebake was needed and no generated binary was patched directly.
 
 ## Outcome and final rulings
 
 - Graybox/master split: graybox contains exactly the 24 functional branch glyphs/beds; master adds all 47 historical inscriptions, for 71 inscriptions total. Graybox is 25,022 triangles against the fixed 35,000 ceiling. Runtime LOD budgets were not relaxed.
 - Static stage legibility: the calendar stage visibly raises the rear calendar slip into its two supports; the plate stage visibly rotates the heaven inscription ring by 60 degrees relative to the fixed earth ring. Four lessons and the initial/middle/final/method transmissions are separate, narrow, thick slips in individual shallow seats. They no longer form continuous wings, front panels, or a method rail.
-- Projection: `ArtifactSceneController` projects every actual branch-mesh vertex after its world transform. It no longer projects a world AABB. Floors remain desktop 20 CSS px and mobile 18 CSS px; final measurements are 20 px desktop and 19 px mobile. The original 49.6 mm functional glyphs, 194/164 mm ring radii, plate sizes, and camera are unchanged from the approved pre-review assets.
-- Camera ruling: an uncommitted 71 mm glyph / 149 mm ring experiment was stopped and fully reverted. The real issue was measuring before the default camera tween had settled. Re-measuring on the settling frame met the real-vertex floors while preserving the Task 7 protected subject areas and all frame/callout guards. The false diagnosis cost one discarded focused geometry/test cycle; it produced no committed or generated deliverable.
+- Projection: `ArtifactSceneController` projects every actual branch-mesh vertex after its world transform. It no longer projects a world AABB, and `ArtifactExperience` exposes the raw floating-point minimum rather than a rounded integer. Floors remain desktop 20 CSS px and mobile 18 CSS px; final settled values are LOD0 `29.26424553334844 px`, LOD1 `20.012207523729835 px`, and LOD2 `19.488450529944718 px`. A unit fixture proves `19.99` cannot pass the desktop floor.
+- Camera ruling: the original 49.6 mm functional glyphs, 194/164 mm ring radii, plate sizes, and target `[0, 0.05, 0]` remain unchanged. An uncommitted 71 mm glyph / 149 mm ring experiment was stopped and fully reverted. With true-vertex and raw-float measurement, the prior default camera left LOD1 at `19.920843395738405 px`; moving the camera 0.5% closer along the same sightline still produced `19.99549609011798 px` and correctly failed. The minimal total move was therefore 0.6%, from `[0.31, 0.73, 0.77]` to `[0.3081, 0.7259, 0.7654]`. It passes without changing the view direction, glyph geometry, thresholds, protected subject areas, or callout guards. The two under-floor trials cost two additional focused browser runs and prevented a false rounded pass.
 - Runtime dark-sector ruling: the near-black fan was not AO or KTX damage. Runtime raycasts identified the underside triangle of `plate/heaven`; the timeline rotated an exported XZ plate around Z, flipping its underside toward the camera. In-plane rotation is now around Y. The initial shared-material/AO hypothesis cost one diagnostic export plus triangle/raycast inspection; no atlas gate was weakened and no binary was patched.
 - Tangents: textured LODs export explicit tangents for every normal-mapped primitive, with triangulation frozen across all beveled runtime nodes. The untextured graybox does not request tangents, eliminating irrelevant exporter warnings there.
 - Atlas: the original microface ceiling is restored to `2e-7 m2`. Missing owners must be individually enumerated and proven no larger than the ceiling; aggregate missing area remains bounded. Final LOD0 and LOD2 each have 4,037 islands, 4,036 represented owners, and only microface owner 1348 as the allowed exception.
 - KTX2: asset-only `alktx2==0.1.7` is hash-pinned to Windows wheel SHA-256 `a0952acacaeb7de1ef15e157fcf9de368eabe687fb1d358d50fd5c3a05c6cb05`. Color slots are ETC1S/BasisLZ; normal/ORM data slots are UASTC/Zstd. The NSIS installer was not run and no runtime dependency was added.
 - Replacement: the compressor writes a same-directory candidate and calls rename-replace only after transformation succeeds. An injected interruption test proves the original remains and the candidate is removed. This report calls it rename-replace atomicity, not atomic copying.
-- Validation: committed KTX2 identifiers and headers are parsed. Scheme 1 is required for ETC1S color slots and scheme 2 for UASTC/Zstd data slots; MIME and `KHR_texture_basisu` declarations alone cannot pass.
+- Validation: committed KTX2 identifiers and headers are parsed. Every Basis texture requires `vkFormat=0`; DFD color model `163` plus supercompression scheme `1` is required for ETC1S color slots, while DFD color model `166` plus scheme `2` is required for UASTC/Zstd data slots. A synthetic valid-identifier file with `vkFormat=37` and scheme `2` is explicitly rejected, so MIME, `KHR_texture_basisu`, or scheme alone cannot pass.
 - Legacy lookdev: the regression remains enabled at the approved fixed 4300 K wide key, 40% front fill, low rectangular rim, fixed -1 EV, no animated lights, and no orbit.
 - Browser budget: two full WebGL scenarios take 26–28 seconds alone and 32–37 seconds under seven-worker contention. Only those tests received the existing heavyweight 60-second total budget; every assertion and the separate real 30-second idle hold remain unchanged.
 
@@ -51,7 +51,14 @@ The earlier generated commit `63f4c93` was the independently reviewed baseline a
 | `c89bcdd` | `fix: correct runtime artifact visibility` | Correct heaven rotation axis, settled-camera measurement, explicit textured-LOD tangents, centered near-black gate. |
 | `af6a785` | `fix: scope tangent export to textured lods` | Keep tangents on production LODs without requesting them from graybox. |
 | `0f0264e` | `test: budget final artifact browser gates` | Preserve all browser assertions while accommodating measured full-suite GPU contention. |
-| final generated commit | `feat: ship redesigned daliuren artifact assets` | Rebuilt binaries, atlases, 15 renders/manifests, benchmark JSON, and this report. |
+| `c09b3be` | `feat: ship redesigned daliuren artifact assets` | Rebuilt binaries, atlases, 15 renders/manifests, benchmark JSON, and the round-1 report. |
+
+### Independent-review repair round 2
+
+| Commit | Subject | Scope |
+| --- | --- | --- |
+| `0cc75a1` | `fix: harden artifact verification evidence` | Raw floating-point projection contract, minimal same-sightline camera correction, pure-canvas LOD capture/metrics, and KTX2 `vkFormat`/DFD validation with RED fixtures. |
+| round-2 evidence commit (this commit) | `docs: record artifact verification round two` | Three committed pure-canvas PNGs, final hardware benchmark JSON, runtime evidence index, and this updated report. |
 
 ## Reproducible generation and validation
 
@@ -64,7 +71,7 @@ node --test scripts/compress-daliuren-glbs.test.mjs scripts/validate-daliuren-gl
 python -m unittest tools/python/test_encode_ktx2.py
 ```
 
-Result: PASS. `alktx2 0.1.7` is installed only for asset tooling from the hash-pinned requirements file. Node: 29/29 in 468.870 ms. Python: 3/3. Tests cover color/data encoding assignment, real KTX2 header/supercompression parsing, same-directory rename replacement and interruption recovery, local component bounds, graybox/LOD triangle ceilings, and recognized-hardware benchmark policy.
+Result: PASS. `alktx2 0.1.7` is installed only for asset tooling from the hash-pinned requirements file. Final Node toolchain run: 30/30 in 424.320 ms. Python: 3/3. Tests cover color/data encoding assignment, real KTX2 `vkFormat`/DFD/supercompression parsing, rejection of the `vkFormat=37` + scheme-2 false positive, same-directory rename replacement and interruption recovery, local component bounds, graybox/LOD triangle ceilings, and recognized-hardware benchmark policy.
 
 ### Graybox and master
 
@@ -178,15 +185,15 @@ Numerical lookdev gate: mean luminance `0.374`, dark fraction `0.018`, functiona
 npx playwright test e2e/artifact-experience.spec.ts -g "model labels and text course|mobile review keeps|settled canvas" --workers=1 --reporter=html
 ```
 
-Result: PASS, 3/3 in 1.5 min. The tracked gate evaluates mean luminance, standard deviation, 5–95% range, and centered-subject near-black fraction `<0.18`, then attaches each screenshot.
+Result: PASS, 3/3 in 1.4 min. Every capture is read directly from the WebGL `HTMLCanvasElement` on the next rendered animation frame. The mobile tool drawer is closed first, but DOM pixels cannot enter the PNG in any case. The same gate derives the artifact subject rectangle from pixels differing from the known scene background and evaluates mean luminance, standard deviation, 5–95% range, and subject-region near-black fraction `<0.18`.
 
-| LOD | Local evidence path | Observation |
-| --- | --- | --- |
-| LOD0 | `playwright-report/data/db2914cf60ef0ae109ba0bd12996c8e7709c92d4.png` | Full desktop artifact is visible; top surface is continuous, glyph rings are legible, callouts do not hide the subject, and no dark fan appears. |
-| LOD1 | `playwright-report/data/f21788d590263e68b6454a1d7d14f85ec1291227.png` | Desktop stability frame preserves the same readable face/material separation with no black sector or blank atlas region. |
-| LOD2 | `playwright-report/data/d877d0e7057ddf06ac321d3f08f8754aef9d32a0.png` | Mobile frame retains a visible upper artifact, readable functional ring, and non-black plate while the timeline tool remains usable. |
+| LOD | Raw branch minimum / floor | Canvas and subject rectangle | Visible-face metrics | Committed evidence and observation |
+| --- | --- | --- | --- | --- |
+| LOD0 | `29.26424553334844 / 20 px` | `951 x 760`; `x=38..833, y=173..756` | mean `0.69235`, stddev `0.27033`, range `0.70196`, near-black `0.05765` | `docs/asset-reviews/runtime/runtime-lod0-canvas.png`: whole desktop artifact, continuous plate, readable rings, material separation, no DOM overlay or dark fan. |
+| LOD1 | `20.012207523729835 / 20 px` | `672 x 520`; `x=36..580, y=118..517` | mean `0.69982`, stddev `0.26691`, range `0.67843`, near-black `0.05325` | `docs/asset-reviews/runtime/runtime-lod1-canvas.png`: stable functional rings and surface response, no blank atlas region, DOM overlay, or black sector. |
+| LOD2 | `19.488450529944718 / 18 px` | `344 x 506`; `x=0..344, y=115..503` | mean `0.58302`, stddev `0.27978`, range `0.78431`, near-black `0.07717` | `docs/asset-reviews/runtime/runtime-lod2-canvas.png`: narrow portrait crop visibly retains center disk, functional ring, lessons, and transmissions; subject reaches the horizontal edges but no timeline or other DOM obscures it. |
 
-These HTML-report attachments are local scratch; the equivalent reproducible visibility gate and attachment generation are committed in `e2e/artifact-experience.spec.ts`.
+All three committed PNGs were opened locally at original detail. The first attempted direct `canvas.toDataURL()` read happened before the WebGL frame and produced a blank RED capture; deferring the read to the next animation frame produced the GREEN evidence above. That diagnosis cost one focused browser run and did not require a model or texture rebake.
 
 ## Complete application gate
 
@@ -200,12 +207,12 @@ npm run benchmark:artifact
 
 Results:
 
-- `npm test`: PASS, 56 files / 624 tests in 31.12 s.
-- `npm run build`: PASS, TypeScript + Vite, 113 modules, 2.72 s.
-- `npm run test:asset-runner`: PASS, 5/5 in 5.498 s, including real Blender failure propagation and save/reopen.
+- `npm test -- --reporter=dot`: PASS, 56 files / 624 tests in 30.79 s. The component-focused subset passed 32/32, including the `19.99` projection rejection.
+- `npm run build`: PASS, TypeScript + Vite, 113 modules, 2.74 s.
+- `npm run test:asset-runner`: PASS, 5/5 in 5.282 s, including real Blender failure propagation and save/reopen.
 - First full Playwright repair run: 39/41 in 3.5 min. Two scenarios reached their final click at 30.2/30.3 s under seven-worker GPU contention; neither failed an assertion. Focused RED diagnosis ran the complete scenarios in 26.3/27.6 s and passed 2/2.
-- After the isolated 60-second total-budget change, focused GREEN: 2/2 in 55.1 s; final full Playwright: PASS, 41/41 in 3.6 min. The same two scenarios took 32.0/36.6 s under contention. Exact-seek plus real pointer drag passed in 32.4 s.
-- The separate settled-canvas test passed in 48.4 s and retained the full real 30-second byte-stability hold. LOD0/1/2 KTX2 loads, true-vertex projection floors, visible-face metrics, reduced motion, annotations, text round trips, 404 fallback, and WebGL-context-loss fallback all passed.
+- After the isolated 60-second total-budget change, round-1 focused GREEN was 2/2 in 55.1 s. The final round-2 focused pure-canvas/projection run passed 3/3 in 1.4 min, and final full Playwright passed 41/41 in 2.9 min.
+- The round-2 settled-canvas scenario completed in 41.7 s and retained the unchanged real 30-second byte-stability hold. LOD0/1/2 KTX2 loads, raw true-vertex projection floors, pure-canvas visible-face metrics, reduced motion, annotations, text round trips, 404 fallback, and WebGL-context-loss fallback all passed.
 - `npm run benchmark:artifact`: PASS on recognized NVIDIA hardware; details below.
 
 ## Hardware benchmark
@@ -214,8 +221,8 @@ Results:
 - Renderer, both profiles: `ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D59) Direct3D11 vs_5_0 ps_5_0, D3D11)`.
 - `hardwareRenderer=true`; no SwiftShader, llvmpipe, software, unknown, or unavailable renderer was accepted.
 - Desktop: 1920 x 1080, DPR 1, LOD0, GLB 16,159,520 bytes, canvas 952 x 760, 300 samples, median 4.2 ms / `238.0952 FPS`, p95 8.4 ms, threshold 60 FPS, PASS.
-- Mobile: 390 x 844, DPR 3, LOD2, GLB 9,360,792 bytes, canvas 1036 x 1519, 300 samples, median 4.2 ms / `238.0952 FPS`, p95 4.2 ms, threshold 30 FPS, PASS.
-- Evidence: `docs/asset-reviews/runtime/benchmark.json`, generated at `2026-08-30T14:05:37.316Z`.
+- Mobile: 390 x 844, DPR 3, LOD2, GLB 9,360,792 bytes, canvas 1036 x 1519, 300 samples, median 4.2 ms / `238.0952 FPS`, p95 4.3 ms, threshold 30 FPS, PASS.
+- Evidence: `docs/asset-reviews/runtime/benchmark.json`, generated at `2026-08-30T14:59:30.157Z`.
 
 ## Generated sizes and contracts
 
@@ -238,7 +245,7 @@ All four GLBs contain 50 runtime nodes and final local-measured bounds `0.52 x 0
 - Baked authoring atlases: all 30 LOD0 and 30 LOD2 PNGs; LOD1 deliberately reuses the LOD0 atlas class.
 - Runtime: graybox GLB plus LOD0/1/2 KTX2 GLBs.
 - Visual evidence: ten graybox PNGs, five lookdev PNGs, updated graybox/lookdev manifests, and reproducible LOD0/1/2 runtime attachment gates.
-- Runtime evidence: `docs/asset-reviews/runtime/benchmark.json`.
+- Runtime evidence: `docs/asset-reviews/runtime/benchmark.json`, `docs/asset-reviews/runtime/README.md`, and three committed pure-WebGL-canvas PNGs for LOD0/1/2.
 - Process evidence: this report and the repair-round Rulings in `progress.md`.
 
 ## Self-review
@@ -246,9 +253,9 @@ All four GLBs contain 50 runtime nodes and final local-measured bounds `0.52 x 0
 - Scope: changes are limited to Task 8 geometry/pose sources, runtime visibility/projection, asset pipeline/validators/tests, generated assets, and their evidence. No publish, push, merge, NSIS install, runtime dependency, or unrelated refactor occurred.
 - Provenance: every `.blend`, `.glb`, atlas, and review PNG was generated by the documented commands. No binary was hand-edited.
 - Geometry: graybox 25,022 <35,000; LOD counts and `0.52 x 0.092 x 0.52 m` bounds pass. Calendar, plate rotation, individual slips/seats, recess raycasts, containment, separation, and stage differences are source-tested and visually inspected.
-- Projection/presentation: actual mesh vertices meet 20/19 px. Desktop subject was measured at 456.97 x 364 px with 107.52 x 78 px margins; mobile at 199.52 x 293.71 px with 72.24 x 106.34 px margins. Task 7 frame protection and callout non-overlap tests pass.
-- Textures: deterministic pin/hash, exact ETC1S/UASTC slot policy, real header validation, explicit tangents, `2e-7 m2` owner exceptions, frozen comparisons, browser loads, and file/texture budgets all pass.
-- Visual quality: 15/15 final renders and 3/3 runtime LOD frames were inspected. No unreadable, dead-black, flat, mechanical-wing/rail, coplanar, floating, or obscuring rejection condition remains.
+- Projection/presentation: actual mesh vertices are measured and exposed without rounding. Final LOD0/1/2 minima are `29.26424553334844`, `20.012207523729835`, and `19.488450529944718 px`; all meet their unchanged 20/20/18 px floors. The camera moved only 0.6% along the existing sightline after the raw LOD1 result exposed a real shortfall. Task 7 protected-frame and annotation non-overlap tests pass.
+- Textures: deterministic pin/hash, exact ETC1S/UASTC slot policy, `vkFormat=0`, DFD color-model validation, explicit tangents, `2e-7 m2` owner exceptions, frozen comparisons, browser loads, and file/texture budgets all pass.
+- Visual quality: 15/15 final renders and 3/3 committed pure-canvas runtime LOD frames were inspected. No unreadable, dead-black, flat, mechanical-wing/rail, coplanar, floating, or DOM-obscured rejection condition remains. The LOD2 subject reaches both horizontal canvas edges in the narrow portrait capture; its center disk, functional ring, lessons, and transmissions remain visible.
 - Verification: unit, build, asset-runner, Node/Python toolchain, all Blender suites, four validators, frozen atlas, fixed lookdev, full 41 browser tests including the real 30-second hold, and recognized-hardware benchmark pass.
 
 ## Concerns / non-blocking observations
@@ -256,7 +263,7 @@ All four GLBs contain 50 runtime nodes and final local-measured bounds `0.52 x 0
 - LOD1 intentionally uses the LOD0 atlas authoring tree, so no duplicated `assets/daliuren/textures/lod1` PNG directory is generated. This behavior is explicit, validated, and browser-tested.
 - Blender's glTF exporter still prints its pre-existing generic validity warning for generated cube/cylinder source meshes during the isolated LOD test. The exported files have 0 validator errors, load in Chrome for all LODs, retain explicit tangents, and pass visual/stability gates; no malformed runtime primitive was observed.
 - Vite prints the existing advisory that the main minified chunk exceeds 500 kB. It is unrelated to the asset budgets and does not affect measured FPS.
-- The persisted HTML runtime screenshots live in ignored local `playwright-report/` scratch; the committed e2e gate regenerates and validates them on demand.
+- The HTML report remains ignored local scratch, but it is no longer the sole visual evidence: the three reviewed pure-canvas PNGs are committed under `docs/asset-reviews/runtime/` and are reproducible through the committed e2e gate.
 
 ## Repository hygiene
 
@@ -267,4 +274,4 @@ assets/daliuren/source/daliuren-artifact-graybox.blend1
 assets/daliuren/source/daliuren-artifact-master.blend1
 ```
 
-They are not recoverable as backups, but both canonical `.blend` files are reproducibly generated by the commands above. Final `git diff --check` passed. The generated-deliverables commit uses the exact required subject `feat: ship redesigned daliuren artifact assets`; final status is clean apart from ignored local Playwright scratch.
+They are not recoverable as backups, but both canonical `.blend` files are reproducibly generated by the commands above. Final `git diff --check` passed. The generated-deliverables commit uses the exact required subject `feat: ship redesigned daliuren artifact assets`; the round-2 evidence commit is documentation/evidence-only. Final tracked status is clean; ignored local Playwright scratch is not part of the deliverable.
