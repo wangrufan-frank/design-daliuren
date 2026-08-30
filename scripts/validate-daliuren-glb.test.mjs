@@ -147,12 +147,15 @@ function fakeDocument(nodes, {
   textures = [],
   extensionsUsed = [],
 } = {}) {
+  let propertiesByName;
   const properties = nodes.map(({
     name,
     extras = {},
     bounds,
     triangles = 0,
     mesh,
+    children = [],
+    localMatrix,
     worldMatrix,
   }) => {
     const nodeMesh = mesh ?? (triangles
@@ -163,6 +166,13 @@ function fakeDocument(nodes, {
       getExtras: () => extras,
       getBounds: bounds ? () => bounds : undefined,
       getMesh: () => nodeMesh,
+      getMatrix: () => localMatrix ?? [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+      ],
+      listChildren: () => children.map((childName) => propertiesByName.get(childName)),
       getWorldMatrix: () => worldMatrix ?? [
         1, 0, 0, 0,
         0, 1, 0, 0,
@@ -171,6 +181,7 @@ function fakeDocument(nodes, {
       ],
     };
   });
+  propertiesByName = new Map(properties.map((property) => [property.getName(), property]));
   const scenes = Array.from({ length: sceneCount }, (_, index) => ({
     getName: () => `scene-${index}`,
     getExtras: () => ({}),
@@ -300,6 +311,40 @@ test("measures a mesh node locally instead of including child geometry", () => {
       extras: { node_id: "plate/heaven" },
       bounds: { min: [0, 0, 0], max: [1, 2.5, 3] },
       mesh: localBoundsMesh([0, 0, 0], [1, 2, 3]),
+    },
+  ]);
+
+  assert.deepEqual(validateArtifactDocument(fake, contract), []);
+});
+
+test("measures an empty component from descendant meshes in component-local space", () => {
+  const contract = {
+    ...BASE_CONTRACT,
+    nodeIds: ["artifact/root", "calendar/slip"],
+    dimensionsMeters: { "calendar/slip": [0.3, 0.009, 0.038] },
+    dimensionToleranceMeters: 0.0005,
+  };
+  const tenDegrees = Math.PI / 18;
+  const fake = fakeDocument([
+    { name: "root", extras: { node_id: "artifact/root" } },
+    {
+      name: "calendar",
+      extras: { node_id: "calendar/slip" },
+      children: ["calendar-body"],
+      localMatrix: [
+        1, 0, 0, 0,
+        0, Math.cos(tenDegrees), Math.sin(tenDegrees), 0,
+        0, -Math.sin(tenDegrees), Math.cos(tenDegrees), 0,
+        0, 0, 0, 1,
+      ],
+      bounds: {
+        min: [-0.15, -0.0075575, -0.0194925],
+        max: [0.15, 0.0075575, 0.0194925],
+      },
+    },
+    {
+      name: "calendar-body",
+      mesh: localBoundsMesh([-0.15, -0.0045, -0.019], [0.15, 0.0045, 0.019]),
     },
   ]);
 

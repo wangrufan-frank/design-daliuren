@@ -46,14 +46,26 @@ function transformPoint(point, matrix) {
   ];
 }
 
-function localMeshBounds(node) {
-  const mesh = node.getMesh?.();
-  if (!mesh) return null;
-  const matrix = node.getWorldMatrix();
-  const bounds = {
-    min: [Infinity, Infinity, Infinity],
-    max: [-Infinity, -Infinity, -Infinity],
-  };
+const IDENTITY_MATRIX = [
+  1, 0, 0, 0,
+  0, 1, 0, 0,
+  0, 0, 1, 0,
+  0, 0, 0, 1,
+];
+
+function multiplyMatrices(left, right) {
+  const result = new Array(16).fill(0);
+  for (let column = 0; column < 4; column += 1) {
+    for (let row = 0; row < 4; row += 1) {
+      for (let index = 0; index < 4; index += 1) {
+        result[column * 4 + row] += left[index * 4 + row] * right[column * 4 + index];
+      }
+    }
+  }
+  return result;
+}
+
+function extendMeshBounds(mesh, matrix, bounds) {
   const localPosition = [0, 0, 0];
   for (const primitive of mesh.listPrimitives()) {
     const position = primitive.getAttribute("POSITION");
@@ -63,11 +75,33 @@ function localMeshBounds(node) {
     for (let offset = 0; offset < count; offset += 1) {
       const index = indices ? indices.getScalar(offset) : offset;
       position.getElement(index, localPosition);
-      const worldPosition = transformPoint(localPosition, matrix);
+      const componentPosition = transformPoint(localPosition, matrix);
       for (let axis = 0; axis < 3; axis += 1) {
-        bounds.min[axis] = Math.min(bounds.min[axis], worldPosition[axis]);
-        bounds.max[axis] = Math.max(bounds.max[axis], worldPosition[axis]);
+        bounds.min[axis] = Math.min(bounds.min[axis], componentPosition[axis]);
+        bounds.max[axis] = Math.max(bounds.max[axis], componentPosition[axis]);
       }
+    }
+  }
+}
+
+function localMeshBounds(node) {
+  const bounds = {
+    min: [Infinity, Infinity, Infinity],
+    max: [-Infinity, -Infinity, -Infinity],
+  };
+  const mesh = node.getMesh?.();
+  if (mesh) {
+    extendMeshBounds(mesh, IDENTITY_MATRIX, bounds);
+  } else {
+    const visit = (child, matrix) => {
+      const childMesh = child.getMesh?.();
+      if (childMesh) extendMeshBounds(childMesh, matrix, bounds);
+      for (const grandchild of child.listChildren?.() ?? []) {
+        visit(grandchild, multiplyMatrices(matrix, grandchild.getMatrix()));
+      }
+    };
+    for (const child of node.listChildren?.() ?? []) {
+      visit(child, child.getMatrix());
     }
   }
   return bounds.min.every(Number.isFinite) && bounds.max.every(Number.isFinite)
