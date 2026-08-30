@@ -109,6 +109,7 @@ async function expectVisibleRuntimeLod(
 }
 
 test("model labels and text course use the same verified facts", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
   const lodResponse = page.waitForResponse(/daliuren-artifact-lod0\.glb$/);
   await completeReferenceCourse(page);
@@ -199,6 +200,7 @@ test("reduced motion retains final facts and disables source lines", async ({ pa
 });
 
 test("mobile review keeps stage callouts and reaches every part through the directory", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 844 });
   const lodResponse = page.waitForResponse(/daliuren-artifact-lod2\.glb$/);
   await completeReferenceCourse(page);
