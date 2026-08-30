@@ -273,7 +273,8 @@ export function ArtifactExperience({
         }
       }
       applyAt(timeRef.current);
-      controller.render(timestamp);
+      const cameraSettled = controller.render(timestamp);
+      if (cameraSettled) measureBranchProjection();
       if (controllerRef.current) frameRef.current = requestAnimationFrame(frame);
     };
 

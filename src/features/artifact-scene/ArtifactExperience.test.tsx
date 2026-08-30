@@ -96,7 +96,7 @@ beforeAll(async () => {
       }));
       focusNode = vi.fn();
       resetCamera = vi.fn();
-      render = vi.fn();
+      render = vi.fn(() => false);
       dispose = vi.fn();
 
       constructor(_renderer: unknown, _artifact: unknown, callbacks: typeof this.callbacks) {
@@ -631,6 +631,21 @@ describe("ArtifactExperience", () => {
       latestController().measureMinimumBranchProjectionPx.mock.invocationCallOrder[measureCount],
     );
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "27");
+  });
+
+  it("remeasures branch projection from the camera frame that finishes settling", async () => {
+    const frames = installAnimationFrames();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    const controller = latestController();
+    const initialMeasurements = controller.measureMinimumBranchProjectionPx.mock.calls.length;
+    controller.measureMinimumBranchProjectionPx.mockReturnValue(30.2);
+    controller.render.mockReturnValueOnce(true);
+
+    frames.step(700);
+
+    expect(controller.measureMinimumBranchProjectionPx).toHaveBeenCalledTimes(initialMeasurements + 1);
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "30");
   });
 
   it("disconnects its ResizeObserver during teardown", async () => {

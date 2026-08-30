@@ -15,10 +15,14 @@ const referenceState: ArtifactDisplayState = {
   noble: { dayNight: "day", nobleHeaven: "子", nobleEarth: "子", direction: "forward" },
 };
 
-it("uses the exact 27-second duration and keeps the heaven plate on its settled Z", () => {
+it("uses the exact 27-second duration and rotates the exported heaven plate in its horizontal plane", () => {
   const pose = evaluateArtifactPose(referenceState, ARTIFACT_DURATION_MS, false);
   expect(ARTIFACT_DURATION_MS).toBe(27_000);
-  expect(pose.nodes["plate/heaven"]).toMatchObject({ translationZ: 0, rotationZ: 6 * Math.PI / 6 });
+  expect(pose.nodes["plate/heaven"]).toMatchObject({
+    translationY: 0,
+    rotationY: 6 * Math.PI / 6,
+    rotationZ: 0,
+  });
   expect(pose.nodes["transmission/initial"].visible).toBe(true);
   expect(pose.courseTraceOpacity).toBe(0);
   expect(pose).not.toHaveProperty("copy");

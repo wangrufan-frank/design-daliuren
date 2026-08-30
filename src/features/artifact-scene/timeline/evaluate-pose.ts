@@ -72,7 +72,7 @@ export function evaluateArtifactPose(
   labelOpacity(labels, "dynamic/calendar", calendarProgress);
 
   const plateProgress = actionProgress(time, reviewStageFor("heaven-earth").startTimeMs, reviewStageFor("heaven-earth").settledTimeMs - reviewStageFor("heaven-earth").startTimeMs, reducedMotion);
-  nodes["plate/heaven"] = node({ rotationZ: state.plate.offset * Math.PI / 6 * plateProgress });
+  nodes["plate/heaven"] = node({ rotationY: state.plate.offset * Math.PI / 6 * plateProgress });
 
   LESSONS.forEach((lesson, index) => {
     const progress = actionProgress(time, LESSON_START_MS[index], LESSON_ACTION_MS, reducedMotion);

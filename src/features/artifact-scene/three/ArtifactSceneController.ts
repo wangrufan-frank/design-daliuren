@@ -481,15 +481,18 @@ export class ArtifactSceneController {
     };
   }
 
-  render(timestampMs = this.now()): void {
-    if (this.disposed || this.stopped) return;
+  render(timestampMs = this.now()): boolean {
+    if (this.disposed || this.stopped) return false;
+    const cameraWasMoving = this.cameraTween !== undefined;
     try {
       this.updateCameraTween(timestampMs);
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
+      return cameraWasMoving && this.cameraTween === undefined;
     } catch (error) {
       this.stopped = true;
       this.callbacks.onError(error);
+      return false;
     }
   }
 

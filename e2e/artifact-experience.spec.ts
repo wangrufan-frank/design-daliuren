@@ -69,10 +69,31 @@ async function expectVisibleRuntimeLod(
     };
     const mean = sum / count / 255;
     const variance = Math.max(0, squared / count - (sum / count) ** 2);
+    const subjectBounds = {
+      minimumX: Math.floor(surface.width * 0.18),
+      maximumX: Math.ceil(surface.width * 0.82),
+      minimumY: Math.floor(surface.height * 0.16),
+      maximumY: Math.ceil(surface.height * 0.80),
+    };
+    let subjectCount = 0;
+    let nearBlackCount = 0;
+    for (let y = subjectBounds.minimumY; y < subjectBounds.maximumY; y += 2) {
+      for (let x = subjectBounds.minimumX; x < subjectBounds.maximumX; x += 2) {
+        const offset = (y * surface.width + x) * 4;
+        const luminance = (
+          pixels[offset] * 0.2126
+          + pixels[offset + 1] * 0.7152
+          + pixels[offset + 2] * 0.0722
+        );
+        subjectCount += 1;
+        if (luminance < 32) nearBlackCount += 1;
+      }
+    }
     return {
       mean,
       standardDeviation: Math.sqrt(variance) / 255,
       percentileRange: percentile(0.95) - percentile(0.05),
+      nearBlackFraction: nearBlackCount / subjectCount,
     };
   }, screenshot.toString("base64"));
 
@@ -80,6 +101,7 @@ async function expectVisibleRuntimeLod(
   expect(metrics.mean).toBeLessThan(0.95);
   expect(metrics.standardDeviation).toBeGreaterThan(0.03);
   expect(metrics.percentileRange).toBeGreaterThan(0.12);
+  expect(metrics.nearBlackFraction).toBeLessThan(0.18);
   await testInfo.attach(`runtime-lod${lod}.png`, {
     body: screenshot,
     contentType: "image/png",

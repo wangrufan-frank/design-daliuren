@@ -50,6 +50,7 @@ def _export_objects(objects, output_path, apply_modifiers=False):
             use_selection=True,
             export_extras=True,
             export_apply=apply_modifiers,
+            export_tangents=True,
             export_animations=False,
         )
     finally:

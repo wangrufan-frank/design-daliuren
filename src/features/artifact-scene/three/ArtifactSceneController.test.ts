@@ -510,6 +510,17 @@ describe("ArtifactSceneController", () => {
     expect((trace.material as THREE.MeshStandardMaterial).opacity).toBe(0);
   });
 
+  it("reports the one frame on which a camera preset finishes settling", () => {
+    const { controller, setNow } = fixture();
+    controller.applyCameraPreset(reviewStageFor("course").camera);
+
+    setNow(699);
+    expect(controller.render()).toBe(false);
+    setNow(700);
+    expect(controller.render()).toBe(true);
+    expect(controller.render()).toBe(false);
+  });
+
   it("selects general destination palaces from frozen slots without pose history", () => {
     const { controller, generalNodes } = fixture();
     const targetSlot = generalNodes[3];

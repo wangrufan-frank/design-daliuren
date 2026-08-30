@@ -155,8 +155,8 @@ class LodTests(unittest.TestCase):
 
     def test_exported_lod_contains_runtime_and_texture_extras(self):
         with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "artifact-lod2.glb"
-            export_lod(2, output)
+            output = Path(directory) / "artifact-lod0.glb"
+            export_lod(0, output)
             payload = glb_json(output)
 
         runtime = {
@@ -172,7 +172,17 @@ class LodTests(unittest.TestCase):
         self.assertEqual(runtime, set(NODE_IDS))
         self.assertEqual(dynamic, set(DYNAMIC_LABEL_OWNERS))
         self.assertEqual(len(payload["images"]), 27)
-        self.assertLessEqual(glb_triangle_count(payload), 80_000)
+        self.assertLessEqual(glb_triangle_count(payload), 300_000)
+
+        normal_mapped_materials = {
+            index
+            for index, material in enumerate(payload["materials"])
+            if "normalTexture" in material
+        }
+        for mesh in payload["meshes"]:
+            for primitive in mesh["primitives"]:
+                if primitive.get("material") in normal_mapped_materials:
+                    self.assertIn("TANGENT", primitive["attributes"])
 
 
 if __name__ == "__main__":

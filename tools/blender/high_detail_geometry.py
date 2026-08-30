@@ -76,7 +76,7 @@ def _add_runtime_bevels():
         if node_id == "plate/heaven":
             weld = obj.modifiers.new(name="remove bevel slivers", type="WELD")
             weld.merge_threshold = 0.000002
-            obj.modifiers.new(name="freeze clean export triangles", type="TRIANGULATE")
+        obj.modifiers.new(name="freeze clean export triangles", type="TRIANGULATE")
 
 
 def _add_base_details():
