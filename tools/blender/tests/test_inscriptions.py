@@ -175,7 +175,13 @@ class InscriptionTest(unittest.TestCase):
 
         self.assertEqual(getattr(inscriptions, "FUNCTIONAL_GLYPH_SPAN", None), 0.0496)
         self.assertEqual(getattr(inscriptions, "FUNCTIONAL_GLYPH_MESH_SPAN", None), 0.044)
-        self.assertEqual(getattr(inscriptions, "BRANCH_BED_SPAN", None), 0.052)
+        self.assertEqual(
+            getattr(inscriptions, "BRANCH_BED_SPANS", None),
+            {
+                "earth": (0.052, 0.052),
+                "heaven": (0.052, 0.05199),
+            },
+        )
         self.assertEqual(getattr(inscriptions, "BRANCH_BED_MESH_SPAN", None), 0.048)
         for surface in ("earth", "heaven"):
             for branch in BRANCHES:
@@ -195,15 +201,20 @@ class InscriptionTest(unittest.TestCase):
                     bed_spans[axis] * bed.scale[axis]
                     for axis in (0, 1)
                 )
+                expected_bed_spans = inscriptions.BRANCH_BED_SPANS[surface]
                 with self.subTest(surface=surface, branch=branch):
                     self.assertAlmostEqual(glyph_spans[0], 0.044, places=6)
                     self.assertAlmostEqual(glyph_spans[1], 0.044, places=6)
                     self.assertAlmostEqual(glyph_spans[0] * glyph.scale.x, 0.0496, places=6)
                     self.assertAlmostEqual(glyph_spans[1] * glyph.scale.y, 0.0496, places=6)
-                    self.assertGreaterEqual(physical_bed_spans[0], 0.0496)
-                    self.assertGreaterEqual(physical_bed_spans[1], 0.0496)
-                    self.assertLessEqual(physical_bed_spans[0], 0.052 + 1e-6)
-                    self.assertLessEqual(physical_bed_spans[1], 0.052 + 1e-6)
+                    self.assertGreater(physical_bed_spans[0], 0.048)
+                    self.assertGreater(physical_bed_spans[1], 0.048)
+                    self.assertAlmostEqual(
+                        physical_bed_spans[0], expected_bed_spans[0], places=6
+                    )
+                    self.assertAlmostEqual(
+                        physical_bed_spans[1], expected_bed_spans[1], places=6
+                    )
 
     def test_functional_glyphs_and_beds_stay_inside_their_plates_without_overlap(self):
         build_graybox()

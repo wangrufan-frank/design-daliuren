@@ -49,8 +49,13 @@ TEXT_SIZES = {
 }
 FUNCTIONAL_GLYPH_SPAN = 0.0496
 FUNCTIONAL_GLYPH_MESH_SPAN = 0.044
-BRANCH_BED_SPAN = 0.052
+BRANCH_BED_SPANS = {
+    "earth": (0.052, 0.052),
+    "heaven": (0.052, 0.05199),
+}
 BRANCH_BED_MESH_SPAN = 0.048
+HEAVEN_BRANCH_BED_RADIUS_LIMIT = 0.18999
+HEAVEN_BRANCH_BED_ARC_SEGMENTS = 16
 BRANCH_RECESS = 0.00015
 BRANCH_CUTTER_OVERLAP = 0.00010
 BRANCH_BED_RECESS = 0.00100
@@ -234,18 +239,62 @@ def _recess_mesh_top(obj, depth):
     obj.data.update()
 
 
+def _add_heaven_branch_bed(name, radial_center):
+    span_x, span_y = BRANCH_BED_SPANS["heaven"]
+    half_x = span_x / 2
+    outer_y = HEAVEN_BRANCH_BED_RADIUS_LIMIT - radial_center
+    inner_y = outer_y - span_y
+    outline = [(-half_x, inner_y), (half_x, inner_y)]
+    for index in range(HEAVEN_BRANCH_BED_ARC_SEGMENTS + 1):
+        x = half_x - span_x * index / HEAVEN_BRANCH_BED_ARC_SEGMENTS
+        y = math.sqrt(HEAVEN_BRANCH_BED_RADIUS_LIMIT**2 - x**2) - radial_center
+        outline.append((x, y))
+
+    scale_x = span_x / BRANCH_BED_MESH_SPAN
+    scale_y = span_y / BRANCH_BED_MESH_SPAN
+    half_depth = BRANCH_BED_DEPTH / 2
+    vertices = [
+        (x / scale_x, y / scale_y, z)
+        for z in (-half_depth, half_depth)
+        for x, y in outline
+    ]
+    count = len(outline)
+    faces = [
+        tuple(reversed(range(count))),
+        tuple(range(count, count * 2)),
+        *(
+            (index, (index + 1) % count, count + (index + 1) % count, count + index)
+            for index in range(count)
+        ),
+    ]
+    mesh = bpy.data.meshes.new(f"{name}/mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.validate(clean_customdata=False)
+    mesh.update()
+    bed = bpy.data.objects.new(name, mesh)
+    bed["node_id"] = name
+    bpy.context.scene.collection.objects.link(bed)
+    return bed
+
+
 def _cut_branch_recess(parent, inlay):
     cutter = _duplicate_mesh(inlay, f"cutter/{inlay['node_id']}")
     _apply_exact_difference(parent, cutter, inlay["node_id"])
 
     bed_name = f"detail/branch-bed/{inlay['surface']}/{inlay['branch']}"
     surface_z = max(corner[2] for corner in parent.bound_box)
-    bed = add_beveled_box(
-        bed_name,
-        (BRANCH_BED_MESH_SPAN, BRANCH_BED_MESH_SPAN, BRANCH_BED_DEPTH),
-        (0.0, 0.0, 0.0),
-        0.0012,
-    )
+    if inlay["surface"] == "heaven":
+        bed = _add_heaven_branch_bed(
+            bed_name,
+            math.hypot(inlay.location.x, inlay.location.y),
+        )
+    else:
+        bed = add_beveled_box(
+            bed_name,
+            (BRANCH_BED_MESH_SPAN, BRANCH_BED_MESH_SPAN, BRANCH_BED_DEPTH),
+            (0.0, 0.0, 0.0),
+            0.0012,
+        )
     del bed["node_id"]
     bed.parent = parent
     bed.location = (
@@ -254,28 +303,9 @@ def _cut_branch_recess(parent, inlay):
         surface_z - BRANCH_BED_RECESS - BRANCH_BED_DEPTH / 2,
     )
     bed.rotation_euler.z = inlay.rotation_euler.z
-    bed.scale.x = BRANCH_BED_SPAN / BRANCH_BED_MESH_SPAN
-    bed.scale.y = BRANCH_BED_SPAN / BRANCH_BED_MESH_SPAN
-    if inlay["surface"] == "heaven":
-        angle = bed.rotation_euler.z
-        cosine = math.cos(angle)
-        sine = math.sin(angle)
-        radius_limit = parent.dimensions.x / 2 - 1e-6
-        for vertex in bed.data.vertices:
-            scaled_x = vertex.co.x * bed.scale.x
-            scaled_y = vertex.co.y * bed.scale.y
-            parent_x = bed.location.x + cosine * scaled_x - sine * scaled_y
-            parent_y = bed.location.y + sine * scaled_x + cosine * scaled_y
-            radius = math.hypot(parent_x, parent_y)
-            if radius <= radius_limit:
-                continue
-            parent_x *= radius_limit / radius
-            parent_y *= radius_limit / radius
-            delta_x = parent_x - bed.location.x
-            delta_y = parent_y - bed.location.y
-            vertex.co.x = (cosine * delta_x + sine * delta_y) / bed.scale.x
-            vertex.co.y = (-sine * delta_x + cosine * delta_y) / bed.scale.y
-        bed.data.update()
+    bed_span_x, bed_span_y = BRANCH_BED_SPANS[inlay["surface"]]
+    bed.scale.x = bed_span_x / BRANCH_BED_MESH_SPAN
+    bed.scale.y = bed_span_y / BRANCH_BED_MESH_SPAN
     bed["detail_id"] = "structure/bronze-inlay-branch-bed"
     bed["detail_index"] = inlay["ring_index"]
     bed["owner_node_id"] = parent["node_id"]
