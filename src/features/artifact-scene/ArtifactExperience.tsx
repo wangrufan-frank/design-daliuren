@@ -173,7 +173,7 @@ export function ArtifactExperience({
   const measureBranchProjection = useCallback(() => {
     if (!observableBuild()) return;
     const controller = controllerRef.current;
-    if (controller) setMinimumBranchProjectionPx(Math.round(controller.measureMinimumBranchProjectionPx()));
+    if (controller) setMinimumBranchProjectionPx(controller.measureMinimumBranchProjectionPx());
   }, []);
 
   const stopPlayback = useCallback(() => {

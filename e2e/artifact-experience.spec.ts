@@ -27,6 +27,33 @@ async function expectArtifactCanvasReady(page: Page) {
   await expect(page.getByText("正在加载三维器物")).toHaveCount(0, { timeout: 30_000 });
 }
 
+async function captureArtifactCanvas(page: Page) {
+  const encoded = await page.getByLabel("大六壬三维器物").evaluate(async (element) => {
+    if (!(element instanceof HTMLCanvasElement)) throw new Error("Artifact surface is not a canvas");
+    return new Promise<string>((resolve) => requestAnimationFrame(() => {
+      resolve(element.toDataURL("image/png").replace(/^data:image\/png;base64,/, ""));
+    }));
+  });
+  return Buffer.from(encoded, "base64");
+}
+
+async function expectMinimumBranchProjection(
+  page: Page,
+  testInfo: TestInfo,
+  lod: 0 | 1 | 2,
+  floor: number,
+) {
+  const experience = page.getByTestId("artifact-experience");
+  await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
+    .toBeGreaterThanOrEqual(floor);
+  const value = Number(await experience.getAttribute("data-min-branch-px"));
+  await testInfo.attach(`runtime-lod${lod}-projection.json`, {
+    body: Buffer.from(JSON.stringify({ value, floor }, null, 2)),
+    contentType: "application/json",
+  });
+  return value;
+}
+
 async function expectVisibleRuntimeLod(
   page: Page,
   testInfo: TestInfo,
@@ -69,12 +96,40 @@ async function expectVisibleRuntimeLod(
     };
     const mean = sum / count / 255;
     const variance = Math.max(0, squared / count - (sum / count) ** 2);
+    const cornerOffsets = [
+      0,
+      (surface.width - 1) * 4,
+      (surface.height - 1) * surface.width * 4,
+      (surface.height * surface.width - 1) * 4,
+    ];
+    const background = [0, 1, 2].map((channel) => (
+      cornerOffsets.reduce((total, offset) => total + pixels[offset + channel], 0) / cornerOffsets.length
+    ));
     const subjectBounds = {
-      minimumX: Math.floor(surface.width * 0.18),
-      maximumX: Math.ceil(surface.width * 0.82),
-      minimumY: Math.floor(surface.height * 0.16),
-      maximumY: Math.ceil(surface.height * 0.80),
+      minimumX: surface.width,
+      maximumX: 0,
+      minimumY: surface.height,
+      maximumY: 0,
     };
+    for (let y = 0; y < surface.height; y += 1) {
+      for (let x = 0; x < surface.width; x += 1) {
+        const offset = (y * surface.width + x) * 4;
+        const backgroundDistance = (
+          Math.abs(pixels[offset] - background[0])
+          + Math.abs(pixels[offset + 1] - background[1])
+          + Math.abs(pixels[offset + 2] - background[2])
+        );
+        if (backgroundDistance <= 18) continue;
+        subjectBounds.minimumX = Math.min(subjectBounds.minimumX, x);
+        subjectBounds.maximumX = Math.max(subjectBounds.maximumX, x + 1);
+        subjectBounds.minimumY = Math.min(subjectBounds.minimumY, y);
+        subjectBounds.maximumY = Math.max(subjectBounds.maximumY, y + 1);
+      }
+    }
+    if (
+      subjectBounds.minimumX >= subjectBounds.maximumX
+      || subjectBounds.minimumY >= subjectBounds.maximumY
+    ) throw new Error("Artifact projection is absent from the WebGL canvas");
     let subjectCount = 0;
     let nearBlackCount = 0;
     for (let y = subjectBounds.minimumY; y < subjectBounds.maximumY; y += 2) {
@@ -94,6 +149,7 @@ async function expectVisibleRuntimeLod(
       standardDeviation: Math.sqrt(variance) / 255,
       percentileRange: percentile(0.95) - percentile(0.05),
       nearBlackFraction: nearBlackCount / subjectCount,
+      subjectBounds,
     };
   }, screenshot.toString("base64"));
 
@@ -102,6 +158,10 @@ async function expectVisibleRuntimeLod(
   expect(metrics.standardDeviation).toBeGreaterThan(0.03);
   expect(metrics.percentileRange).toBeGreaterThan(0.12);
   expect(metrics.nearBlackFraction).toBeLessThan(0.18);
+  await testInfo.attach(`runtime-lod${lod}-metrics.json`, {
+    body: Buffer.from(JSON.stringify(metrics, null, 2)),
+    contentType: "application/json",
+  });
   await testInfo.attach(`runtime-lod${lod}.png`, {
     body: screenshot,
     contentType: "image/png",
@@ -119,13 +179,12 @@ test("model labels and text course use the same verified facts", async ({ page }
   const experience = page.getByTestId("artifact-experience");
   await timeline.fill("27000");
   await expect(timeline).toHaveValue("27000");
-  await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
-    .toBeGreaterThanOrEqual(20);
+  await expectMinimumBranchProjection(page, testInfo, 0, 20);
   await expectVisibleRuntimeLod(
     page,
     testInfo,
     0,
-    await page.getByLabel("大六壬三维器物").screenshot(),
+    await captureArtifactCanvas(page),
   );
   const facts = page.getByTestId("artifact-accessible-facts");
   await expect(facts).toContainText("天盘空");
@@ -207,19 +266,20 @@ test("mobile review keeps stage callouts and reaches every part through the dire
   expect((await lodResponse).ok()).toBe(true);
   await expectArtifactCanvasReady(page);
 
-  const experience = page.getByTestId("artifact-experience");
   const tools = page.getByRole("toolbar", { name: "工作台工具" });
+  const toolPanel = page.getByRole("region", { name: "移动工具面板" });
   await tools.getByRole("button", { name: "时间轴", exact: true }).click();
   const timeline = page.getByRole("slider", { name: "推演时间轴" });
   await timeline.fill("27000");
   await expect(timeline).toHaveValue("27000");
-  await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
-    .toBeGreaterThanOrEqual(18);
+  await expectMinimumBranchProjection(page, testInfo, 2, 18);
+  await tools.getByRole("button", { name: "时间轴", exact: true }).click();
+  await expect(toolPanel).toBeHidden();
   await expectVisibleRuntimeLod(
     page,
     testInfo,
     2,
-    await page.getByLabel("大六壬三维器物").screenshot(),
+    await captureArtifactCanvas(page),
   );
 
   const callouts = page.locator(".artifact-annotations__card");
@@ -229,7 +289,6 @@ test("mobile review keeps stage callouts and reaches every part through the dire
   await expect(page.getByRole("button", { name: "全部" })).toHaveCount(0);
 
   await tools.getByRole("button", { name: "部件", exact: true }).click();
-  const toolPanel = page.getByRole("region", { name: "移动工具面板" });
   await expect(toolPanel).toBeVisible();
   const directoryButton = toolPanel.getByRole("button", { name: "打开部件目录" });
   await expect(directoryButton).toBeVisible();
@@ -339,15 +398,12 @@ test("the settled canvas is byte-stable across a 30-second idle hold", async ({ 
   const timeline = await expectArtifactReady(page);
   await timeline.fill("27000");
   await expect(timeline).toHaveValue("27000");
-  await expect.poll(async () => Number(
-    await page.getByTestId("artifact-experience").getAttribute("data-min-branch-px"),
-  )).toBeGreaterThanOrEqual(20);
+  await expectMinimumBranchProjection(page, testInfo, 1, 20);
 
-  const canvas = page.getByLabel("大六壬三维器物");
-  const before = await canvas.screenshot();
+  const before = await captureArtifactCanvas(page);
   await expectVisibleRuntimeLod(page, testInfo, 1, before);
   await page.waitForTimeout(30_000);
-  const after = await canvas.screenshot();
+  const after = await captureArtifactCanvas(page);
 
   expect(after.equals(before)).toBe(true);
 });

@@ -11,7 +11,7 @@ export interface ArtifactReviewStage {
   annotationIds: readonly ArtifactAnnotationId[];
 }
 
-const STABLE_CAMERA = { position: [0.31, 0.73, 0.77] as const, target: [0, 0.05, 0] as const };
+const STABLE_CAMERA = { position: [0.3081, 0.7259, 0.7654] as const, target: [0, 0.05, 0] as const };
 
 export const ARTIFACT_REVIEW_STAGES = [
   {

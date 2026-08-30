@@ -585,7 +585,7 @@ describe("ArtifactExperience", () => {
     );
   });
 
-  it("resizes from current bounds and DPR when ResizeObserver reports a change", async () => {
+  it("resizes without rounding a 19.99 CSS px branch projection through the desktop floor", async () => {
     let width = 800;
     let height = 560;
     vi.spyOn(HTMLCanvasElement.prototype, "getBoundingClientRect").mockImplementation(() => ({
@@ -598,12 +598,14 @@ describe("ArtifactExperience", () => {
     width = 940;
     height = 620;
     vi.stubGlobal("devicePixelRatio", 2);
-    latestController().measureMinimumBranchProjectionPx.mockReturnValue(24.7);
+    latestController().measureMinimumBranchProjectionPx.mockReturnValue(19.99);
 
     act(() => resizeObservers[0].trigger());
 
     expect(latestController().resize).toHaveBeenLastCalledWith(940, 620, 2);
-    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "25");
+    const projection = screen.getByTestId("artifact-experience").getAttribute("data-min-branch-px");
+    expect(projection).toBe("19.99");
+    expect(Number(projection)).toBeLessThan(20);
   });
 
   it("measures branch projection after applying the current pose on setup and immediate stage changes", async () => {
@@ -630,7 +632,7 @@ describe("ArtifactExperience", () => {
     expect(latestController().applyPose.mock.invocationCallOrder[applyCount]).toBeLessThan(
       latestController().measureMinimumBranchProjectionPx.mock.invocationCallOrder[measureCount],
     );
-    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "27");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "27.4");
   });
 
   it("remeasures branch projection from the camera frame that finishes settling", async () => {
@@ -645,7 +647,7 @@ describe("ArtifactExperience", () => {
     frames.step(700);
 
     expect(controller.measureMinimumBranchProjectionPx).toHaveBeenCalledTimes(initialMeasurements + 1);
-    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "30");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "30.2");
   });
 
   it("disconnects its ResizeObserver during teardown", async () => {
@@ -666,7 +668,7 @@ describe("ArtifactExperience", () => {
     await screen.findByRole("slider", { name: "推演时间轴" });
 
     const firstHash = screen.getByTestId("artifact-experience").getAttribute("data-pose-hash");
-    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "22");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "21.6");
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "disabled");
     fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "25200" } });
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-source-lines", "active");
@@ -717,7 +719,7 @@ describe("ArtifactExperience", () => {
     await screen.findByRole("slider", { name: "推演时间轴" });
 
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-pose-hash", expect.stringMatching(/\S+/));
-    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "22");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-px", "21.6");
     frames.step(16);
     expect(observer).toHaveBeenCalledWith(16);
     delete window.__artifactFrameObserver;

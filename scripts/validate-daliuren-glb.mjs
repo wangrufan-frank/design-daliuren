@@ -17,6 +17,10 @@ const KTX2_ENCODING_NAMES = new Map([
   [1, "ETC1S/BasisLZ"],
   [2, "UASTC/Zstd"],
 ]);
+const KTX2_DFD_MODELS = {
+  etc1s: 163,
+  uastc: 166,
+};
 
 const ROOT_LIST_METHODS = [
   "listAccessors",
@@ -204,11 +208,17 @@ function extensionName(extension) {
 }
 
 function parseKtx2Header(image) {
-  if (!(image instanceof Uint8Array) || image.byteLength < 48) return null;
+  if (!(image instanceof Uint8Array) || image.byteLength < 80) return null;
   for (let index = 0; index < KTX2_IDENTIFIER.length; index += 1) {
     if (image[index] !== KTX2_IDENTIFIER[index]) return null;
   }
   const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
+  const dfdByteOffset = view.getUint32(48, true);
+  const dfdByteLength = view.getUint32(52, true);
+  if (
+    dfdByteLength < 28
+    || dfdByteOffset > image.byteLength - dfdByteLength
+  ) return null;
   const header = {
     vkFormat: view.getUint32(12, true),
     typeSize: view.getUint32(16, true),
@@ -217,6 +227,7 @@ function parseKtx2Header(image) {
     faceCount: view.getUint32(36, true),
     levelCount: view.getUint32(40, true),
     supercompressionScheme: view.getUint32(44, true),
+    dfdColorModel: view.getUint8(dfdByteOffset + 12),
   };
   if (
     header.pixelWidth === 0
@@ -239,13 +250,26 @@ export function validateKtx2Encoding(name, image, slots) {
     return [`texture encoding: ${name} has no supported material slots`];
   }
   const expectedScheme = hasColor ? 1 : 2;
-  if (header.supercompressionScheme === expectedScheme) return [];
-  const actual = KTX2_ENCODING_NAMES.get(header.supercompressionScheme)
-    ?? `supercompression scheme ${header.supercompressionScheme}`;
-  const expected = KTX2_ENCODING_NAMES.get(expectedScheme);
-  return [
-    `texture encoding: ${name} expected ${expected} for ${hasColor ? "color" : "data"} slots, got ${actual}`,
-  ];
+  const expectedModel = hasColor ? KTX2_DFD_MODELS.etc1s : KTX2_DFD_MODELS.uastc;
+  const expectedName = hasColor ? "ETC1S" : "UASTC";
+  const errors = [];
+  if (header.vkFormat !== 0) {
+    errors.push(`texture encoding: ${name} expected vkFormat 0, got ${header.vkFormat}`);
+  }
+  if (header.dfdColorModel !== expectedModel) {
+    errors.push(
+      `texture encoding: ${name} expected ${expectedName} DFD color model ${expectedModel}, got ${header.dfdColorModel}`,
+    );
+  }
+  if (header.supercompressionScheme !== expectedScheme) {
+    const actual = KTX2_ENCODING_NAMES.get(header.supercompressionScheme)
+      ?? `supercompression scheme ${header.supercompressionScheme}`;
+    const expected = KTX2_ENCODING_NAMES.get(expectedScheme);
+    errors.push(
+      `texture encoding: ${name} expected ${expected} for ${hasColor ? "color" : "data"} slots, got ${actual}`,
+    );
+  }
+  return errors;
 }
 
 function validateRuntimeAssets(document, contract, lodProfile) {

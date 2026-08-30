@@ -12,15 +12,32 @@ const KTX2_IDENTIFIER = Buffer.from([
   0x0D, 0x0A, 0x1A, 0x0A,
 ]);
 
-function ktx2Buffer(supercompressionScheme) {
-  const image = Buffer.alloc(80);
+function ktx2Buffer(
+  supercompressionScheme,
+  {
+    vkFormat = 0,
+    colorModel = supercompressionScheme === 1 ? 163 : 166,
+  } = {},
+) {
+  const dfdByteOffset = 104;
+  const dfdByteLength = 28;
+  const image = Buffer.alloc(dfdByteOffset + dfdByteLength);
   KTX2_IDENTIFIER.copy(image);
+  image.writeUInt32LE(vkFormat, 12);
   image.writeUInt32LE(1, 16);
   image.writeUInt32LE(4, 20);
   image.writeUInt32LE(4, 24);
   image.writeUInt32LE(1, 36);
   image.writeUInt32LE(1, 40);
   image.writeUInt32LE(supercompressionScheme, 44);
+  image.writeUInt32LE(dfdByteOffset, 48);
+  image.writeUInt32LE(dfdByteLength, 52);
+  image.writeUInt32LE(dfdByteLength, dfdByteOffset);
+  image.writeUInt16LE(0, dfdByteOffset + 4);
+  image.writeUInt16LE(0, dfdByteOffset + 6);
+  image.writeUInt16LE(2, dfdByteOffset + 8);
+  image.writeUInt16LE(24, dfdByteOffset + 10);
+  image.writeUInt8(colorModel, dfdByteOffset + 12);
   return image;
 }
 
@@ -212,14 +229,21 @@ function fakeDocument(nodes, {
           : name.includes("orm")
             ? ["occlusionTexture", "metallicRoughnessTexture"]
             : ["baseColorTexture"],
-      }) => ({
-        getName: () => name,
-        getExtras: () => ({}),
-        getMimeType: () => mimeType,
-        getSize: () => size,
-        getImage: () => ktx2Buffer(scheme),
-        listMaterialSlots: () => slots,
-      })),
+      }) => {
+        const dataTexture = slots.some((slot) => (
+          slot === "normalTexture"
+          || slot === "occlusionTexture"
+          || slot === "metallicRoughnessTexture"
+        ));
+        return {
+          getName: () => name,
+          getExtras: () => ({}),
+          getMimeType: () => mimeType,
+          getSize: () => size,
+          getImage: () => ktx2Buffer(scheme, { colorModel: dataTexture ? 166 : 163 }),
+          listMaterialSlots: () => slots,
+        };
+      }),
       listExtensionsUsed: () => extensionsUsed.map((extensionName) => ({ extensionName })),
     }),
   };
@@ -525,16 +549,35 @@ test("parses KTX2 supercompression and enforces ETC1S color versus UASTC data sl
     [],
   );
   assert.deepEqual(
-    validateKtx2Encoding("color", ktx2Buffer(2), ["baseColorTexture"]),
+    validateKtx2Encoding("color", ktx2Buffer(2, { colorModel: 163 }), ["baseColorTexture"]),
     ["texture encoding: color expected ETC1S/BasisLZ for color slots, got UASTC/Zstd"],
   );
   assert.deepEqual(
-    validateKtx2Encoding("data", ktx2Buffer(1), ["metallicRoughnessTexture"]),
+    validateKtx2Encoding("data", ktx2Buffer(1, { colorModel: 166 }), ["metallicRoughnessTexture"]),
     ["texture encoding: data expected UASTC/Zstd for data slots, got ETC1S/BasisLZ"],
   );
   assert.deepEqual(
     validateKtx2Encoding("broken", Buffer.from("not-ktx2"), ["baseColorTexture"]),
     ["texture encoding: broken has an invalid KTX2 header"],
+  );
+});
+
+test("rejects scheme-2 impostors without an undefined Vulkan format and UASTC DFD model", () => {
+  assert.deepEqual(
+    validateKtx2Encoding(
+      "vk-format-impostor",
+      ktx2Buffer(2, { vkFormat: 37, colorModel: 166 }),
+      ["normalTexture"],
+    ),
+    ["texture encoding: vk-format-impostor expected vkFormat 0, got 37"],
+  );
+  assert.deepEqual(
+    validateKtx2Encoding(
+      "dfd-impostor",
+      ktx2Buffer(2, { colorModel: 163 }),
+      ["normalTexture"],
+    ),
+    ["texture encoding: dfd-impostor expected UASTC DFD color model 166, got 163"],
   );
 });
 
