@@ -36,25 +36,25 @@
 
 | Evidence | Frame | Result |
 | --- | --- | --- |
-| real edge thickness | overall / oblique | PASS — plate rims, moving panels, and inlay beds retain separated silhouettes and contact shadows. |
-| continuous moving highlight | rotation-evidence | PASS — the 0° / 60° heaven-plate views move glyphs and specular highlights while the fixed base and lighting remain unchanged. |
-| bronze/celadon reflection difference | material-closeup | PASS — bronze reads warmer and sharper than the broader, cooler celadon reflection. |
-| contact-driven wear | oblique / material-closeup | PASS — wear follows exposed rims and seams without flattening the face colors. |
-| recess oxidation | oblique / material-closeup | PASS — dark oxidation stays inside the clean recessed beds with no sliver or coplanar artifacts. |
-| readable functional inscription | overall / material-closeup | PASS (mean=0.383, dark=0.018, contrast=10.04) |
-| lower-contrast historical inscription | overall / material-closeup | PASS — historical marks remain intentionally subordinate to the bright 24 functional branch glyphs. |
-| grounded contact shadow | overall / oblique | PASS — every visible layer and deployed panel casts a stable contact shadow; no broad face renders dead black. |
+| real edge thickness | overall / oblique | PASS — heaven/earth plate rims and every narrow lesson/transmission slip retain distinct side faces and grounded contact edges. |
+| continuous moving highlight | rotation-evidence | PASS — the 0°/60° pair moves the heaven glyph ring and its broad rim highlight together while the earth plate and fixed rig do not move. |
+| bronze/celadon reflection difference | material-closeup | PASS — warm gold earth glyphs, ash-white heaven glyphs, and muted celadon plates separate by hue, specular response, and roughness. |
+| contact-driven wear | oblique / material-closeup | PASS — restrained brightening follows exposed rims and slip contact edges without flattening the broad celadon faces. |
+| recess oxidation | oblique / material-closeup | PASS — dark recessed beds remain continuous behind both branch families with clean edges and no near-black fan artifact. |
+| readable functional inscription | overall / material-closeup | PASS (mean=0.374, dark=0.018, contrast=10.05) |
+| lower-contrast historical inscription | overall / material-closeup | PASS — the small historical marks remain subordinate to the bright 24 functional branch glyphs. |
+| grounded contact shadow | overall / oblique | PASS — plate, slips, seats, buttons, and base all show contact shadows; no part reads as floating or coplanar. |
 
 ## SHA-256
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `assets/daliuren/source/daliuren-artifact-master.blend` | `286416d53a0f7f67fba65f0c1565ff3a5a9f74ad77bcb2268e03ceae685de615` |
-| `public/models/daliuren/daliuren-artifact-lod0.glb` | `1978c061070f189eb04d9e682b00011b860127422a51aaa98a5426ccab119c2e` |
-| `public/models/daliuren/daliuren-artifact-lod1.glb` | `7e659323dbeade43f0b4d4f6672c1d8e9e7e8aa8cac3eb5e63e369f87b4702f7` |
-| `public/models/daliuren/daliuren-artifact-lod2.glb` | `388bf89cd3c4988ff143be07b75a01091f12f658bd2ce0023e49bb9d87010050` |
-| `docs/asset-reviews/lookdev/overall.png` | `1bc33c8acd071c7dbb6cc2734a5e39cf7aa8f2c44c31dd7fa5f090cf260cf48b` |
-| `docs/asset-reviews/lookdev/oblique.png` | `bf91edcb1f528b0109f7cca5ec0012b1485fc85e3714a40868a3ee19e5ac51a5` |
-| `docs/asset-reviews/lookdev/material-closeup.png` | `d8ac7a15cc46cf5424cb0b1fd1071b80d90f61039b6c4ba472484e0486e43dc2` |
-| `docs/asset-reviews/lookdev/rotation-evidence.png` | `23f2d0f59f3699b193d9a64a44ea0e8740cfe35eb845eea43e43461a4add9c26` |
-| `docs/asset-reviews/lookdev/legibility.png` | `1eb2f89a63a30fb177b289a23d1dee695e4bc27acbd1fbbc0e1607a6c760172b` |
+| `assets/daliuren/source/daliuren-artifact-master.blend` | `bdf657cb63d06c743e2c136c53091c6530fbad0b8f26c193a17eac3dd0351a2e` |
+| `public/models/daliuren/daliuren-artifact-lod0.glb` | `f3860779e53ab0a3419870f873a241836dcb61d582b99ad325a663035fe2d116` |
+| `public/models/daliuren/daliuren-artifact-lod1.glb` | `2ff55e9f2dc488fe809247d6c56478cb77b1709fce3ad9481156601fb2745213` |
+| `public/models/daliuren/daliuren-artifact-lod2.glb` | `3e7a7fa918391065fadaab66c7f959b5a3094ecb4c0b4901d3d495c2068862f6` |
+| `docs/asset-reviews/lookdev/overall.png` | `8252860e95d5939a30bb9f077bcf4e28b3a4613c3b6395458a37657f0a96caec` |
+| `docs/asset-reviews/lookdev/oblique.png` | `2819fc3a4df192cec30fd1859e0fbe1626c687a7686d412cf878fe7903554d81` |
+| `docs/asset-reviews/lookdev/material-closeup.png` | `a4b5caff96fdcdccc865932b5f76aebd25d5be716085d86eaa6073e7bfed4313` |
+| `docs/asset-reviews/lookdev/rotation-evidence.png` | `a1f0d1b873fed9913ff550737b09ab7e0b67298760e2cd2228108c8ad22866b8` |
+| `docs/asset-reviews/lookdev/legibility.png` | `cc73bd5df14772ccae19843657e35503b1eb048747dce749e6063e7d2af65114` |
