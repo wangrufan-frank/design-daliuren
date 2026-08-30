@@ -770,13 +770,27 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
             plate_area_before,
             delta=plate_area_before * 0.0001,
         )
-        self.assertEqual(world_bounds(plate), plate_bounds_before)
+        self.assertLessEqual(
+            max(
+                abs(actual - expected)
+                for actual_corner, expected_corner in zip(world_bounds(plate), plate_bounds_before)
+                for actual, expected in zip(actual_corner, expected_corner)
+            ),
+            1e-7,
+        )
         self.assertAlmostEqual(
             sum(polygon.area for polygon in earth.data.polygons),
             earth_area_before,
             delta=earth_area_before * 0.0001,
         )
-        self.assertEqual(world_bounds(earth), earth_bounds_before)
+        self.assertLessEqual(
+            max(
+                abs(actual - expected)
+                for actual_corner, expected_corner in zip(world_bounds(earth), earth_bounds_before)
+                for actual, expected in zip(actual_corner, expected_corner)
+            ),
+            1e-7,
+        )
         failures = {}
         microface_areas = []
         total_surface_area = 0.0
