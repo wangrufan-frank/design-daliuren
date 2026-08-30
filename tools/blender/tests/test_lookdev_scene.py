@@ -71,11 +71,17 @@ class LookdevSceneTest(unittest.TestCase):
         self.assertEqual(key.type, "AREA")
         self.assertTrue(key.use_temperature)
         self.assertEqual(key.temperature, 4300.0)
-        self.assertGreaterEqual(fill.energy / key.energy, 0.25)
-        self.assertLessEqual(fill.energy / key.energy, 0.35)
+        self.assertEqual(key.energy, 90.0)
+        self.assertEqual(fill.energy, 36.0)
+        self.assertEqual(rim.energy, 18.0)
+        self.assertAlmostEqual(fill.energy / key.energy, 0.40)
         self.assertEqual(rim.type, "AREA")
         self.assertEqual(rim.shape, "RECTANGLE")
         self.assertLess(rim.size_y, rim.size * 0.25)
+        for name in ("light/key", "light/fill", "light/rim"):
+            light = bpy.data.objects[name]
+            self.assertIsNone(light.animation_data)
+            self.assertIsNone(light.data.animation_data)
         self.assertIn("lookdev/ground", bpy.data.objects)
 
     def test_material_closeup_frames_four_materials_and_a_physical_seam(self):
@@ -84,26 +90,29 @@ class LookdevSceneTest(unittest.TestCase):
 
         scene = bpy.context.scene
         camera = bpy.data.objects["camera/material-closeup"]
-        self.assertLessEqual(scene.view_settings.exposure, -1.0)
-        self.assertLessEqual(bpy.data.objects["light/key"].data.energy, 30.0)
+        self.assertEqual(scene.view_settings.exposure, -1.0)
+        self.assertEqual(
+            tuple(bpy.data.objects[name].data.energy for name in ("light/key", "light/fill", "light/rim")),
+            (90.0, 36.0, 18.0),
+        )
         evidence = {
-            "detail/heaven/detent/03": "M_Bronze",
-            "detail/heaven/contact-seam/03": "M_Patina",
-            "detail/heaven/inlay-bed/03": "M_Celadon",
-            "inscription/mechanical-scale/62": "M_OldGold",
-            "inscription/historical-month-deity/50": "M_AshText",
+            "calendar/slip/body": "M_Bronze",
+            "detail/base/shell-return/00": "M_Patina",
+            "calendar/slip/readout": "M_Celadon",
+            "branch/earth/子": "M_OldGold",
+            "branch/heaven/子": "M_AshText",
         }
         for object_name, material_name in evidence.items():
             obj = bpy.data.objects[object_name]
             projected = world_to_camera_view(scene, camera, obj.matrix_world.translation)
             with self.subTest(object_name=object_name):
-                self.assertEqual(obj.data.materials[0].name, material_name)
+                self.assertEqual(obj.data.materials[0]["material_family"], material_name)
                 self.assertGreater(projected.z, 0.0)
                 self.assertGreaterEqual(projected.x, 0.04)
                 self.assertLessEqual(projected.x, 0.96)
                 self.assertGreaterEqual(projected.y, 0.04)
                 self.assertLessEqual(projected.y, 0.96)
-        functional = bpy.data.objects["inscription/mechanical-scale/62"]
+        functional = bpy.data.objects["branch/earth/子"]
         projected_corners = [
             world_to_camera_view(scene, camera, functional.matrix_world @ Vector(corner))
             for corner in functional.bound_box
@@ -113,9 +122,12 @@ class LookdevSceneTest(unittest.TestCase):
             max(point.y for point in projected_corners) - min(point.y for point in projected_corners),
         )
         self.assertGreaterEqual(projected_size, 0.012)
-        self.assertEqual(
-            bpy.data.objects["detail/heaven/contact-seam/03"].get("detail_id"),
-            "structure/bronze-celadon-contact-seam",
+        self.assertLess(
+            (
+                bpy.data.objects["calendar/slip/body"].matrix_world.translation
+                - bpy.data.objects["calendar/slip/readout"].matrix_world.translation
+            ).length,
+            0.005,
         )
         self.assertTrue(camera.data.dof.use_dof)
 
