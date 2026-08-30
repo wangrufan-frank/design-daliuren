@@ -244,6 +244,7 @@ def independent_atlas_owner_and_edge_distance(atlas_id, dimension, edge_band):
     owners = array("I", [0]) * (dimension * dimension)
     expected_owners = set()
     owner_max_triangle_area = {}
+    owner_sources = {}
     owner_centers = defaultdict(list)
     next_owner = 1
     for obj in representatives.values():
@@ -280,6 +281,7 @@ def independent_atlas_owner_and_edge_distance(atlas_id, dimension, edge_band):
             root = find(triangle.index)
             owner = roots.setdefault(root, next_owner + len(roots))
             expected_owners.add(owner)
+            owner_sources.setdefault(owner, f"{obj.name}:island-{root}")
             owner_max_triangle_area[owner] = max(
                 owner_max_triangle_area.get(owner, 0.0), triangle.area
             )
@@ -330,7 +332,7 @@ def independent_atlas_owner_and_edge_distance(atlas_id, dimension, edge_band):
                         edge_distance[target] = distance
                         following.append(target)
         frontier = following
-    return owners, edge_distance, expected_owners, owner_max_triangle_area
+    return owners, edge_distance, expected_owners, owner_max_triangle_area, owner_sources
 
 
 def largest_uv_triangle(obj, predicate=lambda triangle: True):
@@ -600,24 +602,32 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
         build_master()
         surfaces = _add_dynamic_surfaces()
         bpy.context.view_layer.update()
+        depsgraph = bpy.context.evaluated_depsgraph_get()
         physical_meshes = [
-            obj
+            (obj, BVHTree.FromObject(obj, depsgraph))
             for obj in bpy.data.objects
             if obj.type == "MESH" and not obj.get("dynamic_label_id")
         ]
         for surface in surfaces:
             center = surface.matrix_world @ surface.data.polygons[0].center
+            normal = (
+                surface.matrix_world.to_3x3() @ surface.data.polygons[0].normal
+            ).normalized()
+            origin = center + normal * 0.02
             owner = moving_root(surface)
             occluders = []
-            for obj in physical_meshes:
+            for obj, tree in physical_meshes:
                 if moving_root(obj) != owner:
                     continue
-                minimum, maximum = world_bounds(obj)
-                if (
-                    minimum[0] < center.x < maximum[0]
-                    and minimum[1] < center.y < maximum[1]
-                    and maximum[2] > center.z + 0.00001
-                ):
+                inverse = obj.matrix_world.inverted()
+                hit, _normal, _index, _distance = tree.ray_cast(
+                    inverse @ origin,
+                    (inverse.to_3x3() @ -normal).normalized(),
+                )
+                if hit is None:
+                    continue
+                hit_world = obj.matrix_world @ hit
+                if 0.0 < (origin - hit_world).dot(normal) < 0.01999:
                     occluders.append(obj.name)
             with self.subTest(dynamic_id=surface["dynamic_label_id"]):
                 self.assertEqual(occluders, [])
@@ -1019,7 +1029,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         for lod, padding, filter_footprint in (("lod0", 8, 0), ("lod2", 4, 1)):
             edge_band = padding + filter_footprint
             dimension = heaven_record[lod]["baseColor"]["dimensions"][0]
-            owners, distances, expected_owners, owner_max_triangle_area = independent_atlas_owner_and_edge_distance(
+            owners, distances, expected_owners, owner_max_triangle_area, owner_sources = independent_atlas_owner_and_edge_distance(
                 "M_Bronze:heaven", dimension, edge_band
             )
             observed_owners = set(owners)
@@ -1029,7 +1039,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                 owner_max_triangle_area[owner] <= MICRO_TRIANGLE_AREA_MAX
                 for owner in center_misses
             ), {
-                owner: owner_max_triangle_area[owner]
+                f"{owner_sources[owner]}#{owner}": owner_max_triangle_area[owner]
                 for owner in center_misses
             })
             print(

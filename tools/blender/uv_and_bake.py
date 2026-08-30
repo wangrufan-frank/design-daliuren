@@ -1202,7 +1202,9 @@ def _pack_family_atlas(objects, lod0_dimension):
         obj.select_set(False)
 
 
-def _stabilize_single_triangle_texels(obj, dimension):
+def _stabilize_single_triangle_texels(obj, dimensions):
+    dimensions = tuple(dimensions)
+    minimum_dimension = min(dimensions)
     mesh = obj.data
     layer = mesh.uv_layers["UVMap"]
     mesh.calc_loop_triangles()
@@ -1211,7 +1213,7 @@ def _stabilize_single_triangle_texels(obj, dimension):
     for island_id in island_ids.values():
         island_sizes[island_id] = island_sizes.get(island_id, 0) + 1
 
-    target_altitude = 3.0 / dimension
+    target_altitude = 3.0 / minimum_dimension
     for triangle in mesh.loop_triangles:
         if (
             triangle.area <= 1e-12
@@ -1219,7 +1221,7 @@ def _stabilize_single_triangle_texels(obj, dimension):
         ):
             continue
         points = [layer.data[index].uv.copy() for index in triangle.loops]
-        if _triangle_has_pixel_center(points, dimension):
+        if all(_triangle_has_pixel_center(points, dimension) for dimension in dimensions):
             continue
 
         first, second = max(
@@ -1254,7 +1256,10 @@ def _stabilize_single_triangle_texels(obj, dimension):
             )
 
         adjusted = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
-        if not _triangle_has_pixel_center(adjusted, dimension):
+        if not all(
+            _triangle_has_pixel_center(adjusted, dimension)
+            for dimension in dimensions
+        ):
             candidates = sorted(
                 (
                     abs(x_step) + abs(y_step),
@@ -1266,12 +1271,18 @@ def _stabilize_single_triangle_texels(obj, dimension):
                 if x_step or y_step
             )
             for _distance, x_step, y_step in candidates:
-                offset = (x_step / 16.0 / dimension, y_step / 16.0 / dimension)
+                offset = (
+                    x_step / 16.0 / minimum_dimension,
+                    y_step / 16.0 / minimum_dimension,
+                )
                 shifted = tuple(
                     (point[0] + offset[0], point[1] + offset[1])
                     for point in adjusted
                 )
-                if _triangle_has_pixel_center(shifted, dimension):
+                if all(
+                    _triangle_has_pixel_center(shifted, dimension)
+                    for dimension in dimensions
+                ):
                     for loop_index in triangle.loops:
                         layer.data[loop_index].uv += offset
                     break
@@ -1350,11 +1361,11 @@ def assign_primary_uvs(dynamic_surfaces):
             for obj in overlapping:
                 _triangle_island_unwrap(obj)
             _pack_family_atlas(objects, lod0_dimension)
-        working_dimension = lod0_dimension * max(
-            obj.get("runtime_bake_scale", 1) for obj in objects
-        )
         for obj in objects:
-            _stabilize_single_triangle_texels(obj, working_dimension)
+            _stabilize_single_triangle_texels(
+                obj,
+                (lod0_dimension, lod0_dimension // 2),
+            )
 
     for obj in dynamic_surfaces:
         mesh = obj.data
