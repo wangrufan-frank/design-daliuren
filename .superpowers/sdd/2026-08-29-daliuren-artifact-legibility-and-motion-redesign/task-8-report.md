@@ -2,14 +2,14 @@
 
 Date: 2026-08-30 (Asia/Shanghai)
 
-Status: COMPLETE after independent-review repair rounds 1–2/5. Graybox, master, baked authoring atlases, KTX2 runtime LODs, 15 review renders, three committed pure-canvas LOD captures, and benchmark evidence were verified from their generating sources. Every final automated gate passes. Round 2 changed runtime measurement/evidence and validation code only; no model or texture rebake was needed and no generated binary was patched directly.
+Status: COMPLETE after independent-review repair rounds 1–3/5. Graybox, master, baked authoring atlases, KTX2 runtime LODs, 15 review renders, three committed pure-canvas LOD captures, and benchmark evidence were verified from their generating sources. Every final automated gate passes. Rounds 2–3 changed runtime measurement, framing, evidence, and validation code only; no model or texture rebake was needed and no generated binary was patched directly.
 
 ## Outcome and final rulings
 
 - Graybox/master split: graybox contains exactly the 24 functional branch glyphs/beds; master adds all 47 historical inscriptions, for 71 inscriptions total. Graybox is 25,022 triangles against the fixed 35,000 ceiling. Runtime LOD budgets were not relaxed.
 - Static stage legibility: the calendar stage visibly raises the rear calendar slip into its two supports; the plate stage visibly rotates the heaven inscription ring by 60 degrees relative to the fixed earth ring. Four lessons and the initial/middle/final/method transmissions are separate, narrow, thick slips in individual shallow seats. They no longer form continuous wings, front panels, or a method rail.
-- Projection: `ArtifactSceneController` projects every actual branch-mesh vertex after its world transform. It no longer projects a world AABB, and `ArtifactExperience` exposes the raw floating-point minimum rather than a rounded integer. Floors remain desktop 20 CSS px and mobile 18 CSS px; final settled values are LOD0 `29.26424553334844 px`, LOD1 `20.012207523729835 px`, and LOD2 `19.488450529944718 px`. A unit fixture proves `19.99` cannot pass the desktop floor.
-- Camera ruling: the original 49.6 mm functional glyphs, 194/164 mm ring radii, plate sizes, and target `[0, 0.05, 0]` remain unchanged. An uncommitted 71 mm glyph / 149 mm ring experiment was stopped and fully reverted. With true-vertex and raw-float measurement, the prior default camera left LOD1 at `19.920843395738405 px`; moving the camera 0.5% closer along the same sightline still produced `19.99549609011798 px` and correctly failed. The minimal total move was therefore 0.6%, from `[0.31, 0.73, 0.77]` to `[0.3081, 0.7259, 0.7654]`. It passes without changing the view direction, glyph geometry, thresholds, protected subject areas, or callout guards. The two under-floor trials cost two additional focused browser runs and prevented a false rounded pass.
+- Projection: `ArtifactSceneController` projects every actual branch-mesh vertex after its world transform. It no longer projects a world AABB, and `ArtifactExperience` exposes the raw floating-point minimum rather than a rounded integer. Floors remain desktop 20 CSS px and mobile 18 CSS px; final settled values are LOD0 `29.26424553334844 px`, LOD1 `20.012207523729835 px`, and LOD2 `19.124706775338232 px`. A unit fixture proves `19.99` cannot pass the desktop floor. A second true-vertex metric requires every one of the 24 glyph meshes to stay at least 4 CSS px inside the canvas; the final LOD2 minimum is `56.59019821387625 px`.
+- Camera ruling: the original 49.6 mm functional glyphs, 194/164 mm ring radii, plate sizes, and desktop target `[0, 0.05, 0]` remain unchanged. An uncommitted 71 mm glyph / 149 mm ring experiment was stopped and fully reverted. With true-vertex and raw-float measurement, the prior default camera left LOD1 at `19.920843395738405 px`; moving the camera 0.5% closer along the same sightline still produced `19.99549609011798 px` and correctly failed. The minimal desktop move was therefore 0.6%, from `[0.31, 0.73, 0.77]` to `[0.3081, 0.7259, 0.7654]`. It passes without changing the view direction, glyph geometry, thresholds, protected subject areas, or callout guards. Round 3 proved that distance-only portrait moves of 5%, 8%, and 10% could not simultaneously contain the base and preserve 18 px glyph projection. The smallest verified portrait-only framing uses the same azimuth, a 60 degree elevation, 1.56 times distance, and a 16 mm camera-plus-target lateral shift; FOV, aspect, object geometry, and desktop framing remain unchanged. It preserves visible sidewall thickness, yields LOD2 `19.124706775338232 px`, and gives subject CSS margins `6 / 4 / 122.09 / 83.06 px` left/right/top/bottom. The rejected trials cost focused browser runs but prevented both a false rounded pass and a cropped mobile deliverable.
 - Runtime dark-sector ruling: the near-black fan was not AO or KTX damage. Runtime raycasts identified the underside triangle of `plate/heaven`; the timeline rotated an exported XZ plate around Z, flipping its underside toward the camera. In-plane rotation is now around Y. The initial shared-material/AO hypothesis cost one diagnostic export plus triangle/raycast inspection; no atlas gate was weakened and no binary was patched.
 - Tangents: textured LODs export explicit tangents for every normal-mapped primitive, with triangulation frozen across all beveled runtime nodes. The untextured graybox does not request tangents, eliminating irrelevant exporter warnings there.
 - Atlas: the original microface ceiling is restored to `2e-7 m2`. Missing owners must be individually enumerated and proven no larger than the ceiling; aggregate missing area remains bounded. Final LOD0 and LOD2 each have 4,037 islands, 4,036 represented owners, and only microface owner 1348 as the allowed exception.
@@ -58,7 +58,14 @@ The earlier generated commit `63f4c93` was the independently reviewed baseline a
 | Commit | Subject | Scope |
 | --- | --- | --- |
 | `0cc75a1` | `fix: harden artifact verification evidence` | Raw floating-point projection contract, minimal same-sightline camera correction, pure-canvas LOD capture/metrics, and KTX2 `vkFormat`/DFD validation with RED fixtures. |
-| round-2 evidence commit (this commit) | `docs: record artifact verification round two` | Three committed pure-canvas PNGs, final hardware benchmark JSON, runtime evidence index, and this updated report. |
+| `63a018c` | `docs: record artifact verification round two` | Three committed pure-canvas PNGs, hardware benchmark JSON, runtime evidence index, and the round-2 report. |
+
+### Independent-review repair round 3
+
+| Commit | Subject | Scope |
+| --- | --- | --- |
+| `abc375e` | `fix: keep mobile artifact inside canvas` | Portrait-only camera framing, true-vertex 24-glyph edge-margin metric, subject-margin gate, initialization ordering, and RED/GREEN tests. |
+| round-3 evidence commit (this commit) | `docs: record artifact verification round three` | Corrected pure-canvas LOD2 PNG, final hardware benchmark JSON, runtime evidence index, and this updated report. |
 
 ## Reproducible generation and validation
 
@@ -185,15 +192,15 @@ Numerical lookdev gate: mean luminance `0.374`, dark fraction `0.018`, functiona
 npx playwright test e2e/artifact-experience.spec.ts -g "model labels and text course|mobile review keeps|settled canvas" --workers=1 --reporter=html
 ```
 
-Result: PASS, 3/3 in 1.4 min. Every capture is read directly from the WebGL `HTMLCanvasElement` on the next rendered animation frame. The mobile tool drawer is closed first, but DOM pixels cannot enter the PNG in any case. The same gate derives the artifact subject rectangle from pixels differing from the known scene background and evaluates mean luminance, standard deviation, 5–95% range, and subject-region near-black fraction `<0.18`.
+Result: PASS, 3/3 in 1.5 min. Every capture is read directly from the WebGL `HTMLCanvasElement` on the next rendered animation frame. The mobile tool drawer is closed first, but DOM pixels cannot enter the PNG in any case. The same gate derives the artifact subject rectangle from columns/rows containing at least five foreground pixels, evaluates mean luminance, standard deviation, 5–95% range, and subject-region near-black fraction `<0.18`, and requires at least 4 CSS px of subject clearance on every edge. A separate true-mesh projection requires all 24 functional glyphs to remain at least 4 CSS px from every canvas edge.
 
-| LOD | Raw branch minimum / floor | Canvas and subject rectangle | Visible-face metrics | Committed evidence and observation |
+| LOD | Raw branch minimum / floor; branch edge minimum | Canvas, subject rectangle, and CSS margins L/R/T/B | Visible-face metrics | Committed evidence and observation |
 | --- | --- | --- | --- | --- |
-| LOD0 | `29.26424553334844 / 20 px` | `951 x 760`; `x=38..833, y=173..756` | mean `0.69235`, stddev `0.27033`, range `0.70196`, near-black `0.05765` | `docs/asset-reviews/runtime/runtime-lod0-canvas.png`: whole desktop artifact, continuous plate, readable rings, material separation, no DOM overlay or dark fan. |
-| LOD1 | `20.012207523729835 / 20 px` | `672 x 520`; `x=36..580, y=118..517` | mean `0.69982`, stddev `0.26691`, range `0.67843`, near-black `0.05325` | `docs/asset-reviews/runtime/runtime-lod1-canvas.png`: stable functional rings and surface response, no blank atlas region, DOM overlay, or black sector. |
-| LOD2 | `19.488450529944718 / 18 px` | `344 x 506`; `x=0..344, y=115..503` | mean `0.58302`, stddev `0.27978`, range `0.78431`, near-black `0.07717` | `docs/asset-reviews/runtime/runtime-lod2-canvas.png`: narrow portrait crop visibly retains center disk, functional ring, lessons, and transmissions; subject reaches the horizontal edges but no timeline or other DOM obscures it. |
+| LOD0 | `29.26424553334844 / 20 px`; edge `202.4384677565314 px` | `951 x 760`; `x=38..832, y=174..755`; `38.02 / 119.06 / 174.09 / 5.00 px` | mean `0.69235`, stddev `0.27033`, range `0.70196`, near-black `0.05767` | `docs/asset-reviews/runtime/runtime-lod0-canvas.png`: whole desktop artifact, continuous plate, readable rings, material separation, no DOM overlay or dark fan. |
+| LOD1 | `20.012207523729835 / 20 px`; edge `138.4365307799565 px` | `672 x 520`; `x=37..579, y=119..516`; `37.00 / 93.00 / 119.00 / 4.00 px` | mean `0.69982`, stddev `0.26691`, range `0.67843`, near-black `0.05398` | `docs/asset-reviews/runtime/runtime-lod1-canvas.png`: stable functional rings and surface response, no blank atlas region, DOM overlay, or black sector. |
+| LOD2 | `19.124706775338232 / 18 px`; edge `56.59019821387625 px` | `344 x 506`; `x=6..340, y=122..423`; `6.00 / 4.00 / 122.09 / 83.06 px` | mean `0.71917`, stddev `0.25706`, range `0.69020`, near-black `0.06642` | `docs/asset-reviews/runtime/runtime-lod2-canvas.png`: complete square base and sidewalls remain inside the portrait canvas; center disk, functional ring, lessons, and transmissions are visible without DOM obstruction or a dark sector. |
 
-All three committed PNGs were opened locally at original detail. The first attempted direct `canvas.toDataURL()` read happened before the WebGL frame and produced a blank RED capture; deferring the read to the next animation frame produced the GREEN evidence above. That diagnosis cost one focused browser run and did not require a model or texture rebake.
+All three committed PNGs were opened locally at original detail. The first attempted direct `canvas.toDataURL()` read happened before the WebGL frame and produced a blank RED capture; deferring the read to the next animation frame produced visible evidence. Independent review then correctly found that the earlier LOD2 subject rectangle `x=0..344` proved horizontal cropping despite passing brightness checks. The new 4 CSS px subject-margin RED failed at `0 px`; the corrected portrait framing produces the GREEN evidence above. Those diagnoses cost focused browser runs and did not require a model or texture rebake.
 
 ## Complete application gate
 
@@ -207,12 +214,12 @@ npm run benchmark:artifact
 
 Results:
 
-- `npm test -- --reporter=dot`: PASS, 56 files / 624 tests in 30.79 s. The component-focused subset passed 32/32, including the `19.99` projection rejection.
-- `npm run build`: PASS, TypeScript + Vite, 113 modules, 2.74 s.
+- `npm test -- --reporter=dot`: PASS, 56 files / 626 tests in 30.73 s. The focused Controller/Experience subset passed 55/55, including the `19.99` projection rejection, portrait-camera initialization, and 24-glyph edge-margin contract.
+- `npm run build`: PASS, TypeScript + Vite, 113 modules, 2.15 s.
 - `npm run test:asset-runner`: PASS, 5/5 in 5.282 s, including real Blender failure propagation and save/reopen.
 - First full Playwright repair run: 39/41 in 3.5 min. Two scenarios reached their final click at 30.2/30.3 s under seven-worker GPU contention; neither failed an assertion. Focused RED diagnosis ran the complete scenarios in 26.3/27.6 s and passed 2/2.
-- After the isolated 60-second total-budget change, round-1 focused GREEN was 2/2 in 55.1 s. The final round-2 focused pure-canvas/projection run passed 3/3 in 1.4 min, and final full Playwright passed 41/41 in 2.9 min.
-- The round-2 settled-canvas scenario completed in 41.7 s and retained the unchanged real 30-second byte-stability hold. LOD0/1/2 KTX2 loads, raw true-vertex projection floors, pure-canvas visible-face metrics, reduced motion, annotations, text round trips, 404 fallback, and WebGL-context-loss fallback all passed.
+- After the isolated 60-second total-budget change, round-1 focused GREEN was 2/2 in 55.1 s. The final round-3 focused pure-canvas/projection run passed 3/3 in 1.5 min, and final full Playwright passed 41/41 in 2.9 min.
+- The round-3 settled-canvas scenario retained the unchanged real 30-second byte-stability hold. LOD0/1/2 KTX2 loads, raw true-vertex projection floors, four-edge subject/glyph clearance, pure-canvas visible-face metrics, reduced motion, annotations, text round trips, 404 fallback, and WebGL-context-loss fallback all passed.
 - `npm run benchmark:artifact`: PASS on recognized NVIDIA hardware; details below.
 
 ## Hardware benchmark
@@ -222,7 +229,7 @@ Results:
 - `hardwareRenderer=true`; no SwiftShader, llvmpipe, software, unknown, or unavailable renderer was accepted.
 - Desktop: 1920 x 1080, DPR 1, LOD0, GLB 16,159,520 bytes, canvas 952 x 760, 300 samples, median 4.2 ms / `238.0952 FPS`, p95 8.4 ms, threshold 60 FPS, PASS.
 - Mobile: 390 x 844, DPR 3, LOD2, GLB 9,360,792 bytes, canvas 1036 x 1519, 300 samples, median 4.2 ms / `238.0952 FPS`, p95 4.3 ms, threshold 30 FPS, PASS.
-- Evidence: `docs/asset-reviews/runtime/benchmark.json`, generated at `2026-08-30T14:59:30.157Z`.
+- Evidence: `docs/asset-reviews/runtime/benchmark.json`, generated at `2026-08-30T15:47:59.297Z`.
 
 ## Generated sizes and contracts
 
@@ -253,9 +260,9 @@ All four GLBs contain 50 runtime nodes and final local-measured bounds `0.52 x 0
 - Scope: changes are limited to Task 8 geometry/pose sources, runtime visibility/projection, asset pipeline/validators/tests, generated assets, and their evidence. No publish, push, merge, NSIS install, runtime dependency, or unrelated refactor occurred.
 - Provenance: every `.blend`, `.glb`, atlas, and review PNG was generated by the documented commands. No binary was hand-edited.
 - Geometry: graybox 25,022 <35,000; LOD counts and `0.52 x 0.092 x 0.52 m` bounds pass. Calendar, plate rotation, individual slips/seats, recess raycasts, containment, separation, and stage differences are source-tested and visually inspected.
-- Projection/presentation: actual mesh vertices are measured and exposed without rounding. Final LOD0/1/2 minima are `29.26424553334844`, `20.012207523729835`, and `19.488450529944718 px`; all meet their unchanged 20/20/18 px floors. The camera moved only 0.6% along the existing sightline after the raw LOD1 result exposed a real shortfall. Task 7 protected-frame and annotation non-overlap tests pass.
+- Projection/presentation: actual mesh vertices are measured and exposed without rounding. Final LOD0/1/2 minima are `29.26424553334844`, `20.012207523729835`, and `19.124706775338232 px`; all meet their unchanged 20/20/18 px floors. The desktop camera moved only 0.6% along the existing sightline after the raw LOD1 result exposed a real shortfall. Portrait-only elevation/distance/lateral framing keeps the complete LOD2 subject at least 4 CSS px inside the canvas while all 24 glyph meshes remain at least `56.59019821387625 px` inside. Task 7 protected-frame and annotation non-overlap tests pass.
 - Textures: deterministic pin/hash, exact ETC1S/UASTC slot policy, `vkFormat=0`, DFD color-model validation, explicit tangents, `2e-7 m2` owner exceptions, frozen comparisons, browser loads, and file/texture budgets all pass.
-- Visual quality: 15/15 final renders and 3/3 committed pure-canvas runtime LOD frames were inspected. No unreadable, dead-black, flat, mechanical-wing/rail, coplanar, floating, or DOM-obscured rejection condition remains. The LOD2 subject reaches both horizontal canvas edges in the narrow portrait capture; its center disk, functional ring, lessons, and transmissions remain visible.
+- Visual quality: 15/15 final renders and 3/3 committed pure-canvas runtime LOD frames were inspected. Round 2's statement that no cropped rejection condition remained was incorrect: its LOD2 bounds touched both horizontal edges. The corrected LOD2 image contains the full square base and visible sidewalls with 6/4 CSS px horizontal clearance; no unreadable, cropped, dead-black, flat, mechanical-wing/rail, coplanar, floating, or DOM-obscured rejection condition remains in the final evidence.
 - Verification: unit, build, asset-runner, Node/Python toolchain, all Blender suites, four validators, frozen atlas, fixed lookdev, full 41 browser tests including the real 30-second hold, and recognized-hardware benchmark pass.
 
 ## Concerns / non-blocking observations
@@ -274,4 +281,4 @@ assets/daliuren/source/daliuren-artifact-graybox.blend1
 assets/daliuren/source/daliuren-artifact-master.blend1
 ```
 
-They are not recoverable as backups, but both canonical `.blend` files are reproducibly generated by the commands above. Final `git diff --check` passed. The generated-deliverables commit uses the exact required subject `feat: ship redesigned daliuren artifact assets`; the round-2 evidence commit is documentation/evidence-only. Final tracked status is clean; ignored local Playwright scratch is not part of the deliverable.
+They are not recoverable as backups, but both canonical `.blend` files are reproducibly generated by the commands above. Final `git diff --check` passed. The generated-deliverables commit uses the exact required subject `feat: ship redesigned daliuren artifact assets`; the round-2 and round-3 evidence commits are documentation/evidence-only. Final tracked status is clean; ignored local Playwright scratch is not part of the deliverable.

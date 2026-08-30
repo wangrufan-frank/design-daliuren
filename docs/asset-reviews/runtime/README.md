@@ -27,13 +27,13 @@ Both profiles reported `hardwareRenderer: true` for the NVIDIA/D3D11 renderer.
 
 The three PNGs below are read directly from `HTMLCanvasElement` on the next rendered animation frame. No DOM, annotation, timeline, or tool-drawer pixels can enter them; the mobile drawer is also closed before capture. The subject rectangle is derived from canvas pixels that differ from the known scene background, and every LOD uses the same capture and metric path.
 
-| LOD | Raw minimum branch projection | Canvas | Subject rectangle | Mean / standard deviation | 5–95% range | Near-black ratio | Evidence |
-| --- | ---: | --- | --- | --- | ---: | ---: | --- |
-| LOD0 | `29.26424553334844 px` (floor `20`) | `951 x 760` | `x=38..833, y=173..756` | `0.69235 / 0.27033` | `0.70196` | `0.05765` | [`runtime-lod0-canvas.png`](./runtime-lod0-canvas.png) |
-| LOD1 | `20.012207523729835 px` (floor `20`) | `672 x 520` | `x=36..580, y=118..517` | `0.69982 / 0.26691` | `0.67843` | `0.05325` | [`runtime-lod1-canvas.png`](./runtime-lod1-canvas.png) |
-| LOD2 | `19.488450529944718 px` (floor `18`) | `344 x 506` | `x=0..344, y=115..503` | `0.58302 / 0.27978` | `0.78431` | `0.07717` | [`runtime-lod2-canvas.png`](./runtime-lod2-canvas.png) |
+| LOD | Raw minimum branch projection | Minimum branch edge margin | Canvas | Subject rectangle; CSS margins L/R/T/B | Mean / standard deviation | 5–95% range | Near-black ratio | Evidence |
+| --- | ---: | ---: | --- | --- | --- | ---: | ---: | --- |
+| LOD0 | `29.26424553334844 px` (floor `20`) | `202.4384677565314 px` (floor `4`) | `951 x 760` | `x=38..832, y=174..755`; `38.02 / 119.06 / 174.09 / 5.00 px` | `0.69235 / 0.27033` | `0.70196` | `0.05767` | [`runtime-lod0-canvas.png`](./runtime-lod0-canvas.png) |
+| LOD1 | `20.012207523729835 px` (floor `20`) | `138.4365307799565 px` (floor `4`) | `672 x 520` | `x=37..579, y=119..516`; `37.00 / 93.00 / 119.00 / 4.00 px` | `0.69982 / 0.26691` | `0.67843` | `0.05398` | [`runtime-lod1-canvas.png`](./runtime-lod1-canvas.png) |
+| LOD2 | `19.124706775338232 px` (floor `18`) | `56.59019821387625 px` (floor `4`) | `344 x 506` | `x=6..340, y=122..423`; `6.00 / 4.00 / 122.09 / 83.06 px` | `0.71917 / 0.25706` | `0.69020` | `0.06642` | [`runtime-lod2-canvas.png`](./runtime-lod2-canvas.png) |
 
-Local original-resolution inspection found no timeline/callout contamination and no near-black fan in any image. LOD0 preserves the whole desktop artifact and material hierarchy; LOD1 preserves the functional rings and stable surface response; LOD2's narrow portrait crop still visibly contains the center disk, functional branch ring, lessons, and transmissions. Its subject touches both horizontal canvas edges, which is recorded rather than described as an uncropped full-object view.
+Local original-resolution inspection found no timeline/callout contamination and no near-black fan in any image. LOD0 preserves the whole desktop artifact and material hierarchy; LOD1 preserves the functional rings and stable surface response. The corrected portrait LOD2 frame contains the complete square base and its sidewalls with `6 px` left and `4 px` right CSS clearance; the center disk, functional branch ring, lessons, and transmissions remain readable. The tests independently require at least `4 CSS px` around both the detected artifact subject and every projected vertex of all 24 functional glyph meshes.
 
 ## Browser behavior
 
