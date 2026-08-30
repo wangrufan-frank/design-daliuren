@@ -1,6 +1,22 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { getBounds, NodeIO } from "@gltf-transform/core";
+import { listTextureSlots } from "@gltf-transform/functions";
+
+const KTX2_IDENTIFIER = [
+  0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB,
+  0x0D, 0x0A, 0x1A, 0x0A,
+];
+const COLOR_TEXTURE_SLOTS = new Set(["baseColorTexture", "emissiveTexture"]);
+const DATA_TEXTURE_SLOTS = new Set([
+  "normalTexture",
+  "occlusionTexture",
+  "metallicRoughnessTexture",
+]);
+const KTX2_ENCODING_NAMES = new Map([
+  [1, "ETC1S/BasisLZ"],
+  [2, "UASTC/Zstd"],
+]);
 
 const ROOT_LIST_METHODS = [
   "listAccessors",
@@ -153,6 +169,51 @@ function extensionName(extension) {
   return extension.extensionName ?? extension.constructor?.EXTENSION_NAME ?? "";
 }
 
+function parseKtx2Header(image) {
+  if (!(image instanceof Uint8Array) || image.byteLength < 48) return null;
+  for (let index = 0; index < KTX2_IDENTIFIER.length; index += 1) {
+    if (image[index] !== KTX2_IDENTIFIER[index]) return null;
+  }
+  const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
+  const header = {
+    vkFormat: view.getUint32(12, true),
+    typeSize: view.getUint32(16, true),
+    pixelWidth: view.getUint32(20, true),
+    pixelHeight: view.getUint32(24, true),
+    faceCount: view.getUint32(36, true),
+    levelCount: view.getUint32(40, true),
+    supercompressionScheme: view.getUint32(44, true),
+  };
+  if (
+    header.pixelWidth === 0
+    || header.pixelHeight === 0
+    || header.faceCount !== 1
+    || header.levelCount === 0
+  ) return null;
+  return header;
+}
+
+export function validateKtx2Encoding(name, image, slots) {
+  const header = parseKtx2Header(image);
+  if (!header) return [`texture encoding: ${name} has an invalid KTX2 header`];
+  const hasColor = slots.some((slot) => COLOR_TEXTURE_SLOTS.has(slot));
+  const hasData = slots.some((slot) => DATA_TEXTURE_SLOTS.has(slot));
+  if (hasColor && hasData) {
+    return [`texture encoding: ${name} is shared by color and data slots`];
+  }
+  if (!hasColor && !hasData) {
+    return [`texture encoding: ${name} has no supported material slots`];
+  }
+  const expectedScheme = hasColor ? 1 : 2;
+  if (header.supercompressionScheme === expectedScheme) return [];
+  const actual = KTX2_ENCODING_NAMES.get(header.supercompressionScheme)
+    ?? `supercompression scheme ${header.supercompressionScheme}`;
+  const expected = KTX2_ENCODING_NAMES.get(expectedScheme);
+  return [
+    `texture encoding: ${name} expected ${expected} for ${hasColor ? "color" : "data"} slots, got ${actual}`,
+  ];
+}
+
 function validateRuntimeAssets(document, contract, lodProfile) {
   const errors = [];
   const root = document.getRoot();
@@ -210,6 +271,10 @@ function validateRuntimeAssets(document, contract, lodProfile) {
     if (requiredExtension && mimeType !== "image/ktx2") {
       errors.push(`texture mime type: ${name} expected image/ktx2, got ${mimeType}`);
     }
+    const slots = typeof texture.listMaterialSlots === "function"
+      ? texture.listMaterialSlots()
+      : listTextureSlots(texture);
+    errors.push(...validateKtx2Encoding(name, texture.getImage?.(), slots));
     if (!limits) continue;
     const atlasClass = name.includes("-moving-") ? "moving" : "hero";
     const maximum = limits[atlasClass];

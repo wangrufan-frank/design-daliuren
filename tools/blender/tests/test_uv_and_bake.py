@@ -27,6 +27,7 @@ from uv_and_bake import (
     DYNAMIC_COURSE_VALUES_BY_FIELD,
     DYNAMIC_LABEL_OWNERS,
     MATERIAL_FAMILIES,
+    MICRO_TRIANGLE_AREA_MAX,
     MOVING_NODE_IDS,
     _add_dynamic_surfaces,
     _family_buffers,
@@ -629,7 +630,7 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
             "lessons": 0.0045,
             "transmissions": 0.005,
             "generals": 0.002,
-            "method": 0.003,
+            "method": 0.004,
         }
         for surface in surfaces:
             dynamic_id = surface["dynamic_label_id"]
@@ -833,7 +834,7 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
                 obj = bpy.data.objects[object_name]
                 obj.data.calc_loop_triangles()
                 area = obj.data.loop_triangles[triangle_index].area
-                if area <= 2.0e-6:
+                if area <= MICRO_TRIANGLE_AREA_MAX:
                     microface_areas.append(area)
                 else:
                     visible_failures.append((object_name, triangle_index, area))
@@ -852,8 +853,9 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
 
         self.assertEqual(failures, {})
         self.assertTrue(microface_areas)
-        self.assertLessEqual(max(microface_areas), 2.0e-6)
-        self.assertLess(sum(microface_areas) / total_surface_area, 2.0e-5)
+        self.assertEqual(MICRO_TRIANGLE_AREA_MAX, 2.0e-7)
+        self.assertLessEqual(max(microface_areas), MICRO_TRIANGLE_AREA_MAX)
+        self.assertLess(sum(microface_areas) / total_surface_area, 1.0e-5)
 
     def test_uvs_preserve_triangle_shape_and_tangent_mirror_sign(self):
         build_master()
@@ -1017,15 +1019,22 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         for lod, padding, filter_footprint in (("lod0", 8, 0), ("lod2", 4, 1)):
             edge_band = padding + filter_footprint
             dimension = heaven_record[lod]["baseColor"]["dimensions"][0]
-            owners, distances, expected_owners, _owner_max_triangle_area = independent_atlas_owner_and_edge_distance(
+            owners, distances, expected_owners, owner_max_triangle_area = independent_atlas_owner_and_edge_distance(
                 "M_Bronze:heaven", dimension, edge_band
             )
             observed_owners = set(owners)
             observed_owners.discard(0)
             center_misses = expected_owners - observed_owners
+            self.assertTrue(all(
+                owner_max_triangle_area[owner] <= MICRO_TRIANGLE_AREA_MAX
+                for owner in center_misses
+            ), {
+                owner: owner_max_triangle_area[owner]
+                for owner in center_misses
+            })
             print(
                 f"OWNER_MASK {lod} islands={len(expected_owners)} represented={len(observed_owners)} "
-                f"downsample_center_misses={len(center_misses)} padding={padding} "
+                f"microface_exceptions={sorted(center_misses)} padding={padding} "
                 f"downsample_footprint={filter_footprint} edge_band={edge_band}"
             )
             edge_masks[lod] = (dimension, edge_band, owners, distances, expected_owners)
@@ -1231,7 +1240,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                 self.assertEqual(atlas["bakeEngine"], "BLENDER_CYCLES_NATIVE")
                 self.assertEqual(atlas["uvLayoutSha256"], frozen_atlas_uv_hash(family, atlas_id))
                 self.assertEqual(atlas["marginPixels"], 8)
-                self.assertEqual(atlas["microTrianglePolicy"]["maxSurfaceAreaM2"], 2.0e-6)
+                self.assertEqual(atlas["microTrianglePolicy"]["maxSurfaceAreaM2"], 2.0e-7)
                 lod0_dimension = 2048 if atlas["class"] == "moving" else 4096
                 for lod, expected_dimension in (("lod0", lod0_dimension), ("lod2", lod0_dimension // 2)):
                     maps = atlas[lod]

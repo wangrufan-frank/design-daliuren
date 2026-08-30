@@ -1,12 +1,12 @@
 import { spawnSync } from "node:child_process";
 import {
-  copyFile,
   mkdtemp,
   readFile,
+  rename,
   rm,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
@@ -146,10 +146,14 @@ export async function compressGlb(inputPath, {
   python = process.env.DALIUREN_PYTHON ?? "python",
   run = defaultRun,
   transform = transformGlb,
+  replace = rename,
 } = {}) {
   const source = resolve(inputPath);
   const temporary = await mkdtemp(join(dirname(source), ".daliuren-ktx2-"));
-  const compressed = join(temporary, "compressed.glb");
+  const compressed = join(
+    dirname(source),
+    `.${basename(source)}.${basename(temporary)}.candidate.glb`,
+  );
   try {
     await transform(source, compressed, {
       temporary,
@@ -157,8 +161,9 @@ export async function compressGlb(inputPath, {
       python,
       run,
     });
-    await copyFile(compressed, source);
+    await replace(compressed, source);
   } finally {
+    await rm(compressed, { force: true });
     await rm(temporary, { recursive: true, force: true });
   }
   return source;

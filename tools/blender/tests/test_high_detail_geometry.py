@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 import bpy
+from mathutils.bvhtree import BVHTree
 from mathutils import Vector
 
 
@@ -78,6 +79,13 @@ def xy_overlap(first, second):
     )
 
 
+def world_mesh_bvh(obj):
+    obj.data.calc_loop_triangles()
+    vertices = [obj.matrix_world @ vertex.co for vertex in obj.data.vertices]
+    triangles = [tuple(triangle.vertices) for triangle in obj.data.loop_triangles]
+    return BVHTree.FromPolygons(vertices, triangles, all_triangles=True)
+
+
 class HighDetailGeometryTest(unittest.TestCase):
     def setUp(self):
         self.root = build_graybox()
@@ -116,7 +124,7 @@ class HighDetailGeometryTest(unittest.TestCase):
                     self.assertNotIn("node_id", obj)
                     self.assertEqual(obj["owner_node_id"], obj.parent["node_id"])
 
-    def test_exposed_detail_top_bounds_do_not_overlap_at_nearly_equal_z(self):
+    def test_exposed_detail_meshes_do_not_overlap_at_nearly_equal_z(self):
         upgrade_to_high_detail(self.root)
         exposed = [
             obj
@@ -132,6 +140,7 @@ class HighDetailGeometryTest(unittest.TestCase):
             )
         ]
         bounds = {obj.name: world_bounds(obj) for obj in exposed}
+        bvhs = {obj.name: world_mesh_bvh(obj) for obj in exposed}
         conflicts = []
         for index, first in enumerate(exposed):
             for second in exposed[index + 1:]:
@@ -139,7 +148,10 @@ class HighDetailGeometryTest(unittest.TestCase):
                     continue
                 first_top = bounds[first.name][1][2]
                 second_top = bounds[second.name][1][2]
-                if abs(first_top - second_top) < 0.0001:
+                if (
+                    abs(first_top - second_top) < 0.0001
+                    and bvhs[first.name].overlap(bvhs[second.name])
+                ):
                     conflicts.append((first.name, second.name, first_top, second_top))
         self.assertEqual(conflicts, [])
 

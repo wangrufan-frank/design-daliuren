@@ -414,16 +414,24 @@ export class ArtifactSceneController {
     this.camera.updateMatrixWorld(true);
     let minimum = Infinity;
     for (const mesh of this.branchMeshes.values()) {
-      const box = new THREE.Box3().setFromObject(mesh);
-      const projectedY = [box.min.x, box.max.x].flatMap((x) =>
-        [box.min.y, box.max.y].flatMap((y) =>
-          [box.min.z, box.max.z].map((z) => new THREE.Vector3(x, y, z).project(this.camera).y),
-        ),
-      );
-      minimum = Math.min(
-        minimum,
-        (Math.max(...projectedY) - Math.min(...projectedY)) * this.annotationViewport.height / 2,
-      );
+      const positions = mesh.geometry.getAttribute("position");
+      const vertex = new THREE.Vector3();
+      let minimumY = Infinity;
+      let maximumY = -Infinity;
+      for (let index = 0; index < positions.count; index += 1) {
+        vertex
+          .fromBufferAttribute(positions, index)
+          .applyMatrix4(mesh.matrixWorld)
+          .project(this.camera);
+        minimumY = Math.min(minimumY, vertex.y);
+        maximumY = Math.max(maximumY, vertex.y);
+      }
+      if (Number.isFinite(minimumY) && Number.isFinite(maximumY)) {
+        minimum = Math.min(
+          minimum,
+          (maximumY - minimumY) * this.annotationViewport.height / 2,
+        );
+      }
     }
     return Number.isFinite(minimum) ? minimum : 0;
   }

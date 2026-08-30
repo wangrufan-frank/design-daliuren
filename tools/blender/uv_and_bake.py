@@ -32,7 +32,7 @@ CAUSAL_ATTRIBUTES = (
     "causal_insert_boundary",
     "causal_celadon_crackle",
 )
-MICRO_TRIANGLE_AREA_MAX = 2.0e-6
+MICRO_TRIANGLE_AREA_MAX = 2.0e-7
 GENERAL_KEYS = (
     "noble",
     "snake",
@@ -990,7 +990,7 @@ def _dynamic_surface_spec(dynamic_id):
     if dynamic_id.startswith("dynamic/lesson/"):
         return (0.052, 0.012), (0.0, 0.0, 0.00475)
     if dynamic_id == "dynamic/transmission/method":
-        return (0.090, 0.004), (0.0, 0.0, 0.00325)
+        return (0.090, 0.004), (0.0, 0.0, 0.00425)
     if dynamic_id.startswith("dynamic/transmission/"):
         return (0.044, 0.014), (0.0, 0.0, 0.00525)
     return (0.016, 0.010), (0.0, 0.0, 0.00225)
@@ -1499,7 +1499,7 @@ def _update_material_contract(contract_path, families):
             "lod2": "deterministic 2x2 box-filter downsample of LOD0",
             "bakeEngine": "Blender 4.5.12 native Cycles",
             "padding": "8 pixels at LOD0; 4 pixels after LOD2 downsample",
-            "coverage": "all triangles above 2e-6 m2 require native texel coverage; smaller microfaces use physical family defaults",
+            "coverage": "all triangles above 2e-7 m2 require native texel coverage; smaller microfaces use physical family defaults",
             "rebakeDeterminism": "frozen artifact file hashes are authoritative; independent probes require exact UV and simple-atlas hashes plus full-atlas bounded complex Cycles variance (at most 1024 edge texels; representative interior texels remain within one byte)",
             "opaqueAlpha": "omitted",
             "emissive": "omitted because no runtime highlight assignment consumes it",

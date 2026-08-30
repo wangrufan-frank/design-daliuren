@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   copyFileSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Document } from "@gltf-transform/core";
 import {
   addVoidPaletteMaterials,
@@ -106,11 +107,44 @@ test("atomically replaces the source GLB only after transformation succeeds", as
   const directory = mkdtempSync(join(tmpdir(), "daliuren-compress-test-"));
   const input = join(directory, "lod0.glb");
   writeFileSync(input, "source");
-  const transform = async (_source, destination) => writeFileSync(destination, "compressed");
+  const transform = async (_source, destination) => {
+    assert.equal(dirname(destination), dirname(input));
+    assert.equal(readFileSync(input, "utf8"), "source");
+    writeFileSync(destination, "compressed");
+  };
 
   try {
     await compressGlb(input, { root: directory, transform });
     assert.equal(readFileSync(input, "utf8"), "compressed");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("keeps the original and removes the candidate when same-directory replacement is interrupted", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "daliuren-compress-replace-failure-"));
+  const input = join(directory, "lod0.glb");
+  writeFileSync(input, "source");
+  let candidate;
+  const transform = async (_source, destination) => {
+    candidate = destination;
+    writeFileSync(destination, "compressed");
+  };
+  const replace = async (from, to) => {
+    assert.equal(from, candidate);
+    assert.equal(to, input);
+    assert.equal(dirname(from), dirname(to));
+    assert.equal(readFileSync(to, "utf8"), "source");
+    throw new Error("replace interrupted");
+  };
+
+  try {
+    await assert.rejects(
+      compressGlb(input, { root: directory, transform, replace }),
+      /replace interrupted/,
+    );
+    assert.equal(readFileSync(input, "utf8"), "source");
+    assert.equal(existsSync(candidate), false);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

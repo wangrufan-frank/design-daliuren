@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 async function completeReferenceCourse(page: Page) {
   await page.goto("/");
@@ -27,9 +27,70 @@ async function expectArtifactCanvasReady(page: Page) {
   await expect(page.getByText("正在加载三维器物")).toHaveCount(0, { timeout: 30_000 });
 }
 
-test("model labels and text course use the same verified facts", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
+async function expectVisibleRuntimeLod(
+  page: Page,
+  testInfo: TestInfo,
+  lod: 0 | 1 | 2,
+  screenshot: Buffer,
+) {
+  const metrics = await page.evaluate(async (encoded) => {
+    const response = await fetch(`data:image/png;base64,${encoded}`);
+    const bitmap = await createImageBitmap(await response.blob());
+    const surface = document.createElement("canvas");
+    surface.width = bitmap.width;
+    surface.height = bitmap.height;
+    const context = surface.getContext("2d", { willReadFrequently: true })!;
+    context.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const pixels = context.getImageData(0, 0, surface.width, surface.height).data;
+    const histogram = new Uint32Array(256);
+    let count = 0;
+    let sum = 0;
+    let squared = 0;
+    for (let offset = 0; offset < pixels.length; offset += 16) {
+      const luminance = Math.round(
+        pixels[offset] * 0.2126
+        + pixels[offset + 1] * 0.7152
+        + pixels[offset + 2] * 0.0722,
+      );
+      histogram[luminance] += 1;
+      count += 1;
+      sum += luminance;
+      squared += luminance * luminance;
+    }
+    const percentile = (fraction: number) => {
+      const target = count * fraction;
+      let cumulative = 0;
+      for (let value = 0; value < histogram.length; value += 1) {
+        cumulative += histogram[value];
+        if (cumulative >= target) return value / 255;
+      }
+      return 1;
+    };
+    const mean = sum / count / 255;
+    const variance = Math.max(0, squared / count - (sum / count) ** 2);
+    return {
+      mean,
+      standardDeviation: Math.sqrt(variance) / 255,
+      percentileRange: percentile(0.95) - percentile(0.05),
+    };
+  }, screenshot.toString("base64"));
+
+  expect(metrics.mean).toBeGreaterThan(0.15);
+  expect(metrics.mean).toBeLessThan(0.95);
+  expect(metrics.standardDeviation).toBeGreaterThan(0.03);
+  expect(metrics.percentileRange).toBeGreaterThan(0.12);
+  await testInfo.attach(`runtime-lod${lod}.png`, {
+    body: screenshot,
+    contentType: "image/png",
+  });
+}
+
+test("model labels and text course use the same verified facts", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const lodResponse = page.waitForResponse(/daliuren-artifact-lod0\.glb$/);
   await completeReferenceCourse(page);
+  expect((await lodResponse).ok()).toBe(true);
   await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
   const timeline = await expectArtifactReady(page);
   const experience = page.getByTestId("artifact-experience");
@@ -37,6 +98,12 @@ test("model labels and text course use the same verified facts", async ({ page }
   await expect(timeline).toHaveValue("27000");
   await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
     .toBeGreaterThanOrEqual(20);
+  await expectVisibleRuntimeLod(
+    page,
+    testInfo,
+    0,
+    await page.getByLabel("大六壬三维器物").screenshot(),
+  );
   const facts = page.getByTestId("artifact-accessible-facts");
   await expect(facts).toContainText("天盘空");
   await expect(facts).toContainText("地盘空");
@@ -109,9 +176,11 @@ test("reduced motion retains final facts and disables source lines", async ({ pa
   await expect(experience).toHaveAttribute("data-source-lines", "disabled");
 });
 
-test("mobile review keeps stage callouts and reaches every part through the directory", async ({ page }) => {
+test("mobile review keeps stage callouts and reaches every part through the directory", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  const lodResponse = page.waitForResponse(/daliuren-artifact-lod2\.glb$/);
   await completeReferenceCourse(page);
+  expect((await lodResponse).ok()).toBe(true);
   await expectArtifactCanvasReady(page);
 
   const experience = page.getByTestId("artifact-experience");
@@ -122,6 +191,12 @@ test("mobile review keeps stage callouts and reaches every part through the dire
   await expect(timeline).toHaveValue("27000");
   await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
     .toBeGreaterThanOrEqual(18);
+  await expectVisibleRuntimeLod(
+    page,
+    testInfo,
+    2,
+    await page.getByLabel("大六壬三维器物").screenshot(),
+  );
 
   const callouts = page.locator(".artifact-annotations__card");
   const calloutCount = await callouts.count();
@@ -230,17 +305,23 @@ test("repeated text round trips keep one usable canvas without KTX2 loader warni
   expect(warnings.filter((message) => message.includes("Multiple active KTX2 loaders"))).toEqual([]);
 });
 
-test("the settled canvas is byte-stable across a 30-second idle hold", async ({ page }) => {
+test("the settled canvas is byte-stable across a 30-second idle hold", async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1280, height: 720 });
+  const lodResponse = page.waitForResponse(/daliuren-artifact-lod1\.glb$/);
   await completeReferenceCourse(page);
+  expect((await lodResponse).ok()).toBe(true);
   await expectArtifactCanvasReady(page);
   const timeline = await expectArtifactReady(page);
   await timeline.fill("27000");
   await expect(timeline).toHaveValue("27000");
+  await expect.poll(async () => Number(
+    await page.getByTestId("artifact-experience").getAttribute("data-min-branch-px"),
+  )).toBeGreaterThanOrEqual(20);
 
   const canvas = page.getByLabel("大六壬三维器物");
   const before = await canvas.screenshot();
+  await expectVisibleRuntimeLod(page, testInfo, 1, before);
   await page.waitForTimeout(30_000);
   const after = await canvas.screenshot();
 

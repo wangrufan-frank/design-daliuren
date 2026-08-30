@@ -3,9 +3,9 @@ DIMENSIONS = {
     "earth_plate": (0.440, 0.440, 0.014),
     "heaven_plate": (0.380, 0.026),
     "calendar_slip": (0.300, 0.038, 0.009),
-    "lesson_slip": (0.112, 0.066, 0.009),
-    "transmission_slip": (0.112, 0.052, 0.010),
-    "method_slip": (0.360, 0.026, 0.006),
+    "lesson_slip": (0.074, 0.034, 0.009),
+    "transmission_slip": (0.070, 0.036, 0.010),
+    "method_slip": (0.098, 0.024, 0.008),
     "general_inlay": (0.028, 0.004),
 }
 

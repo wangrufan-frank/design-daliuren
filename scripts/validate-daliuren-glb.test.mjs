@@ -2,7 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { validateArtifactDocument } from "./validate-daliuren-glb.mjs";
+import {
+  validateArtifactDocument,
+  validateKtx2Encoding,
+} from "./validate-daliuren-glb.mjs";
+
+const KTX2_IDENTIFIER = Buffer.from([
+  0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB,
+  0x0D, 0x0A, 0x1A, 0x0A,
+]);
+
+function ktx2Buffer(supercompressionScheme) {
+  const image = Buffer.alloc(80);
+  KTX2_IDENTIFIER.copy(image);
+  image.writeUInt32LE(1, 16);
+  image.writeUInt32LE(4, 20);
+  image.writeUInt32LE(4, 24);
+  image.writeUInt32LE(1, 36);
+  image.writeUInt32LE(1, 40);
+  image.writeUInt32LE(supercompressionScheme, 44);
+  return image;
+}
 
 const BASE_CONTRACT = {
   schemaVersion: 1,
@@ -171,11 +191,23 @@ function fakeDocument(nodes, {
       })),
       listMeshes: () => meshes ?? properties.map((node) => node.getMesh()).filter(Boolean),
       listSkins: () => [],
-      listTextures: () => textures.map(({ name, mimeType = "image/ktx2", size }) => ({
+      listTextures: () => textures.map(({
+        name,
+        mimeType = "image/ktx2",
+        size,
+        scheme = name.includes("normal") || name.includes("orm") ? 2 : 1,
+        slots = name.includes("normal")
+          ? ["normalTexture"]
+          : name.includes("orm")
+            ? ["occlusionTexture", "metallicRoughnessTexture"]
+            : ["baseColorTexture"],
+      }) => ({
         getName: () => name,
         getExtras: () => ({}),
         getMimeType: () => mimeType,
         getSize: () => size,
+        getImage: () => ktx2Buffer(scheme),
+        listMaterialSlots: () => slots,
       })),
       listExtensionsUsed: () => extensionsUsed.map((extensionName) => ({ extensionName })),
     }),
@@ -435,6 +467,53 @@ test("requires BasisU textures within the selected LOD dimensions", () => {
     "texture dimensions: bronze-hero-basecolor expected <= 2048x2048, got 4096x2048",
     "texture dimensions: celadon-moving-normal expected <= 1024x1024, got 2048x1024",
     "texture mime type: bronze-hero-basecolor expected image/ktx2, got image/png",
+  ]);
+});
+
+test("parses KTX2 supercompression and enforces ETC1S color versus UASTC data slots", () => {
+  assert.deepEqual(
+    validateKtx2Encoding("color", ktx2Buffer(1), ["baseColorTexture"]),
+    [],
+  );
+  assert.deepEqual(
+    validateKtx2Encoding("data", ktx2Buffer(2), ["normalTexture"]),
+    [],
+  );
+  assert.deepEqual(
+    validateKtx2Encoding("color", ktx2Buffer(2), ["baseColorTexture"]),
+    ["texture encoding: color expected ETC1S/BasisLZ for color slots, got UASTC/Zstd"],
+  );
+  assert.deepEqual(
+    validateKtx2Encoding("data", ktx2Buffer(1), ["metallicRoughnessTexture"]),
+    ["texture encoding: data expected UASTC/Zstd for data slots, got ETC1S/BasisLZ"],
+  );
+  assert.deepEqual(
+    validateKtx2Encoding("broken", Buffer.from("not-ktx2"), ["baseColorTexture"]),
+    ["texture encoding: broken has an invalid KTX2 header"],
+  );
+});
+
+test("runtime validation reads committed KTX2 bytes instead of trusting MIME declarations", () => {
+  const invalid = validLodDocument({
+    textures: [
+      {
+        name: "bronze-hero-basecolor",
+        size: [2048, 2048],
+        scheme: 2,
+        slots: ["baseColorTexture"],
+      },
+      {
+        name: "celadon-moving-normal",
+        size: [1024, 1024],
+        scheme: 1,
+        slots: ["normalTexture"],
+      },
+    ],
+  });
+
+  assert.deepEqual(validateArtifactDocument(invalid, LOD_CONTRACT, { lodId: "lod2" }), [
+    "texture encoding: bronze-hero-basecolor expected ETC1S/BasisLZ for color slots, got UASTC/Zstd",
+    "texture encoding: celadon-moving-normal expected UASTC/Zstd for data slots, got ETC1S/BasisLZ",
   ]);
 });
 

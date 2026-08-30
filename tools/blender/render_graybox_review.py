@@ -95,6 +95,30 @@ def _recess_material():
     return material
 
 
+def _heaven_plate_material():
+    material = bpy.data.materials.get("review/heaven-plate-gray")
+    if material is None:
+        material = bpy.data.materials.new("review/heaven-plate-gray")
+    material.use_nodes = True
+    principled = material.node_tree.nodes.get("Principled BSDF")
+    principled.inputs["Base Color"].default_value = (0.055, 0.060, 0.058, 1.0)
+    principled.inputs["Metallic"].default_value = 0.0
+    principled.inputs["Roughness"].default_value = 0.66
+    return material
+
+
+def _heaven_glyph_material():
+    material = bpy.data.materials.get("review/heaven-glyph-gray")
+    if material is None:
+        material = bpy.data.materials.new("review/heaven-glyph-gray")
+    material.use_nodes = True
+    principled = material.node_tree.nodes.get("Principled BSDF")
+    principled.inputs["Base Color"].default_value = (0.24, 0.24, 0.23, 1.0)
+    principled.inputs["Metallic"].default_value = 0.0
+    principled.inputs["Roughness"].default_value = 0.52
+    return material
+
+
 def _ground_material():
     material = bpy.data.materials.get("review/ground-gray")
     if material is None:
@@ -136,6 +160,8 @@ def build_review_scene():
     _configure_world_and_render()
     neutral = _neutral_material()
     recess = _recess_material()
+    heaven_plate = _heaven_plate_material()
+    heaven_glyph = _heaven_glyph_material()
     ground_material = _ground_material()
 
     bpy.ops.mesh.primitive_plane_add(size=4.0, location=(0.0, 0.0, -0.004))
@@ -149,8 +175,12 @@ def build_review_scene():
         obj.data.materials.clear()
         if obj == ground:
             obj.data.materials.append(ground_material)
-        elif obj.name.startswith("detail/branch-bed/"):
+        elif obj.name.startswith(("detail/branch-bed/", "detail/slip-seat/")) or obj.name == "calendar/slip/readout":
             obj.data.materials.append(recess)
+        elif obj.name == "plate/heaven":
+            obj.data.materials.append(heaven_plate)
+        elif obj.name.startswith("branch/heaven/"):
+            obj.data.materials.append(heaven_glyph)
         else:
             obj.data.materials.append(neutral)
 
@@ -269,7 +299,6 @@ def render_review_images(output_dir=None):
         _render(
             "review/oblique",
             output_dir / f"{output_name}.png",
-            label=pose_id.upper(),
         )
 
     _set_stamp(None)

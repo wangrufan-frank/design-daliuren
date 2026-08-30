@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 import bpy
+from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
@@ -49,9 +50,12 @@ class ComponentContractTest(unittest.TestCase):
 
     def test_calendar_is_a_rear_pivot_with_separate_readout(self):
         calendar = bpy.data.objects["calendar/slip"]
+        earth = bpy.data.objects["plate/earth"]
         self.assertEqual(calendar.type, "EMPTY")
         self.assertGreater(calendar.location.y, 0.0)
         self.assertEqual(calendar.parent, self.root)
+        self.assertGreater(math.degrees(calendar.rotation_euler.x), 5.0)
+        self.assertLess(math.degrees(calendar.rotation_euler.x), 15.0)
         self.assertEqual(
             {child.name for child in calendar.children},
             {"calendar/slip/body", "calendar/slip/readout"},
@@ -59,16 +63,43 @@ class ComponentContractTest(unittest.TestCase):
         readout = bpy.data.objects["calendar/slip/readout"]
         self.assertEqual(readout.type, "MESH")
         self.assertNotIn("node_id", readout)
+        seats = [
+            bpy.data.objects[f"detail/calendar/seat-{side}"]
+            for side in ("left", "right")
+        ]
+        self.assertEqual([round(seat.location.x, 3) for seat in seats], [-0.110, 0.110])
+        for seat in seats:
+            self.assertNotIn("node_id", seat)
+            self.assertEqual(seat.parent, bpy.data.objects["base/body"])
+            self.assertEqual(seat["surface_treatment"], "rear-slip-seat")
+        earth_top = earth.location.z + earth.dimensions.z / 2
+        calendar_bottom = min(
+            (child.matrix_world @ Vector(corner)).z
+            for child in calendar.children
+            if child.type == "MESH"
+            for corner in child.bound_box
+        )
+        calendar_top = max(
+            (child.matrix_world @ Vector(corner)).z
+            for child in calendar.children
+            if child.type == "MESH"
+            for corner in child.bound_box
+        )
+        self.assertGreater(calendar.location.z, earth_top + 0.006)
+        self.assertGreaterEqual(calendar_bottom, earth_top)
+        self.assertLessEqual(calendar_top, 0.092)
 
     def test_four_lessons_are_independent_slips_at_settled_positions(self):
         expected = {
-            "fourth": (-0.176, 0.132),
-            "third": (-0.176, -0.132),
-            "second": (0.176, -0.132),
-            "first": (0.176, 0.132),
+            "fourth": (-0.181, 0.167),
+            "third": (-0.181, -0.167),
+            "second": (0.181, -0.167),
+            "first": (0.181, 0.167),
         }
+        slips = []
         for visual_order, (lesson, xy) in enumerate(expected.items()):
             slip = bpy.data.objects[f"lesson/{lesson}"]
+            slips.append(slip)
             self.assertEqual(slip.type, "MESH")
             self.assertEqual(slip.parent, self.root)
             self.assertEqual(slip["visual_order"], visual_order)
@@ -76,23 +107,60 @@ class ComponentContractTest(unittest.TestCase):
             self.assertVectorAlmostEqual(slip.location[:2], xy)
             self.assertVectorAlmostEqual(slip["settled_location"], slip.location)
             self.assertEqual(len(slip.children), 0)
+            self.assertLessEqual(slip.dimensions.x, 0.075)
+            self.assertLessEqual(slip.dimensions.y, 0.036)
+            self.assertGreaterEqual(slip.dimensions.z, 0.008)
+            self.assert_shallow_seat(f"detail/slip-seat/lesson/{lesson}", slip)
+        self.assert_no_plan_overlap(slips)
 
-    def test_transmissions_are_independent_slips_with_method_strip(self):
+    def test_transmissions_are_independent_slips_with_compact_method_tablet(self):
+        slips = []
         for module_order, (module, x) in enumerate(
-            (("initial", -0.128), ("middle", 0.0), ("final", 0.128))
+            (("initial", -0.096), ("middle", 0.0), ("final", 0.096))
         ):
             slip = bpy.data.objects[f"transmission/{module}"]
+            slips.append(slip)
             self.assertEqual(slip.parent, self.root)
             self.assertEqual(slip.type, "MESH")
             self.assertEqual(slip["module_order"], module_order)
             self.assertVectorAlmostEqual(slip.dimensions, DIMENSIONS["transmission_slip"])
-            self.assertVectorAlmostEqual(slip.location[:2], (x, -0.205))
+            self.assertVectorAlmostEqual(slip.location[:2], (x, -0.194))
             self.assertVectorAlmostEqual(slip["settled_location"], slip.location)
+            self.assertLessEqual(slip.dimensions.x, 0.075)
+            self.assertLessEqual(slip.dimensions.y, 0.036)
+            self.assertGreaterEqual(slip.dimensions.z, 0.008)
+            self.assert_shallow_seat(f"detail/slip-seat/transmission/{module}", slip)
+        self.assert_no_plan_overlap(slips)
         method = bpy.data.objects["transmission/method"]
         self.assertEqual(method.parent, self.root)
         self.assertEqual(method.type, "MESH")
         self.assertVectorAlmostEqual(method.dimensions, DIMENSIONS["method_slip"])
-        self.assertVectorAlmostEqual(method.location[:2], (0.0, -0.247))
+        self.assertVectorAlmostEqual(method.location[:2], (0.0, -0.238))
+        self.assertLess(method.dimensions.x / method.dimensions.y, 4.5)
+        self.assert_shallow_seat("detail/slip-seat/transmission/method", method)
+
+    def assert_shallow_seat(self, seat_name, slip):
+        seat = bpy.data.objects[seat_name]
+        self.assertNotIn("node_id", seat)
+        self.assertEqual(seat["surface_treatment"], "shallow-slot")
+        self.assertVectorAlmostEqual(seat.location[:2], slip.location[:2])
+        self.assertAlmostEqual(seat.dimensions.x - slip.dimensions.x, 0.008, places=4)
+        self.assertAlmostEqual(seat.dimensions.y - slip.dimensions.y, 0.008, places=4)
+        self.assertAlmostEqual(seat.dimensions.z, 0.001, places=6)
+        seat_top = seat.matrix_world.translation.z + seat.dimensions.z / 2
+        slip_bottom = slip.matrix_world.translation.z - slip.dimensions.z / 2
+        self.assertLess(slip_bottom, seat_top)
+
+    def assert_no_plan_overlap(self, slips):
+        for index, first in enumerate(slips):
+            for second in slips[index + 1:]:
+                separated_x = abs(first.location.x - second.location.x) > (
+                    first.dimensions.x + second.dimensions.x
+                ) / 2
+                separated_y = abs(first.location.y - second.location.y) > (
+                    first.dimensions.y + second.dimensions.y
+                ) / 2
+                self.assertTrue(separated_x or separated_y, f"{first.name} overlaps {second.name}")
 
     def test_generals_are_independent_objects_on_one_shared_mesh(self):
         generals = [obj for obj in bpy.data.objects if obj.get("domain") == "general"]

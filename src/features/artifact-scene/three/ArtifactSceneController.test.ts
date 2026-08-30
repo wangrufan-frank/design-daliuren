@@ -174,16 +174,17 @@ function pose(translationX: number, rotationZ: number): ArtifactPose {
   };
 }
 
-function projectedBoxHeightPx(
-  object: THREE.Object3D,
+function projectedMeshHeightPx(
+  mesh: THREE.Mesh,
   camera: THREE.Camera,
   viewportHeight: number,
 ) {
-  const box = new THREE.Box3().setFromObject(object);
-  const projectedY = [box.min.x, box.max.x].flatMap((x) =>
-    [box.min.y, box.max.y].flatMap((y) =>
-      [box.min.z, box.max.z].map((z) => new THREE.Vector3(x, y, z).project(camera).y),
-    ),
+  const position = mesh.geometry.getAttribute("position");
+  const projectedY = Array.from({ length: position.count }, (_, index) =>
+    new THREE.Vector3()
+      .fromBufferAttribute(position, index)
+      .applyMatrix4(mesh.matrixWorld)
+      .project(camera).y,
   );
   return (Math.max(...projectedY) - Math.min(...projectedY)) * viewportHeight / 2;
 }
@@ -321,8 +322,19 @@ describe("ArtifactSceneController", () => {
       .toThrow("Invalid branch inlay branch/heaven/亥");
   });
 
-  it("measures the complete projected branch box deterministically after resize and an immediate preset", () => {
+  it("measures actual projected branch vertices instead of an inflated world AABB", () => {
     const { branchNodes, controller, renderer } = fixture();
+    const asymmetricGlyph = new THREE.BufferGeometry();
+    asymmetricGlyph.setAttribute("position", new THREE.Float32BufferAttribute([
+      -0.006, -0.016, -0.002,
+      0.021, 0.004, 0.001,
+      -0.004, 0.013, 0.017,
+    ], 3));
+    for (const branch of branchNodes.values()) {
+      branch.geometry = asymmetricGlyph;
+      branch.position.set(0.04, -0.02, 0.03);
+      branch.rotation.set(0.4, -0.3, 0.6);
+    }
     controller.resize(800, 600, 1);
     controller.applyCameraPreset({ position: [0.31, 0.73, 0.77], target: [0, 0.05, 0] }, true);
     controller.render();
@@ -330,10 +342,19 @@ describe("ArtifactSceneController", () => {
 
     const first = controller.measureMinimumBranchProjectionPx();
     const expected = Math.min(
-      ...[...branchNodes.values()].map((mesh) => projectedBoxHeightPx(mesh, camera, 600)),
+      ...[...branchNodes.values()].map((mesh) => projectedMeshHeightPx(mesh, camera, 600)),
     );
+    const inflatedAabb = new THREE.Box3().setFromObject(branchNodes.values().next().value!);
+    const inflatedY = [inflatedAabb.min.x, inflatedAabb.max.x].flatMap((x) =>
+      [inflatedAabb.min.y, inflatedAabb.max.y].flatMap((y) =>
+        [inflatedAabb.min.z, inflatedAabb.max.z].map((z) =>
+          new THREE.Vector3(x, y, z).project(camera).y),
+      ),
+    );
+    const inflatedHeight = (Math.max(...inflatedY) - Math.min(...inflatedY)) * 300;
     expect(first).toBeCloseTo(expected);
-    expect(first).toBeGreaterThan(18);
+    expect(first).toBeLessThan(inflatedHeight * 0.95);
+    expect(first).toBeGreaterThan(0);
     expect(controller.measureMinimumBranchProjectionPx()).toBe(first);
 
     controller.resize(800, 300, 1);

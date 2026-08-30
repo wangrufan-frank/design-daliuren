@@ -1,13 +1,16 @@
 import unittest
 from pathlib import Path
 import sys
+import math
 
 import bpy
+from bpy_extras.object_utils import world_to_camera_view
 
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_master
+from poses import apply_pose
 from render_graybox_review import STAGE_PREVIEW_OUTPUTS, build_review_scene
 from render_lookdev_review import (
     CAMERA_NAMES,
@@ -91,6 +94,34 @@ class ReviewSceneTest(unittest.TestCase):
         self.assertEqual(
             bpy.data.objects["review/ground"].data.materials[0].name,
             "review/ground-gray",
+        )
+
+    def test_plate_endpoint_is_self_evident_from_real_glyph_motion_and_contrast(self):
+        scene = build_review_scene()
+        camera = bpy.data.objects["review/oblique"]
+        heaven_branch = bpy.data.objects["branch/heaven/子"]
+
+        apply_pose("calendar", plate_offset=0)
+        before = world_to_camera_view(scene, camera, heaven_branch.matrix_world.translation)
+        apply_pose("plate", plate_offset=5)
+        after = world_to_camera_view(scene, camera, heaven_branch.matrix_world.translation)
+        displacement_px = math.hypot(
+            (after.x - before.x) * scene.render.resolution_x,
+            (after.y - before.y) * scene.render.resolution_y,
+        )
+
+        self.assertGreater(displacement_px, 120.0)
+        self.assertEqual(
+            heaven_branch.data.materials[0].name,
+            "review/heaven-glyph-gray",
+        )
+        self.assertNotEqual(
+            heaven_branch.data.materials[0],
+            bpy.data.objects["plate/heaven"].data.materials[0],
+        )
+        self.assertNotEqual(
+            heaven_branch.data.materials[0],
+            bpy.data.objects["branch/earth/子"].data.materials[0],
         )
 
     def test_sampled_pixel_metrics_enforce_legibility_thresholds(self):

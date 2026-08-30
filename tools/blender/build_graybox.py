@@ -78,6 +78,22 @@ def configure_motion(obj, closed_location, motion_axis, travel_m):
     obj["closed_rotation_euler"] = tuple(obj.rotation_euler)
 
 
+def add_shallow_seat(name, parent, slip, world_z):
+    seat = add_beveled_box(
+        name,
+        (slip.dimensions.x + 0.008, slip.dimensions.y + 0.008, 0.001),
+        (slip.location.x, slip.location.y, world_z),
+        0.0002,
+    )
+    del seat["node_id"]
+    world_matrix = seat.matrix_world.copy()
+    seat.parent = parent
+    seat.matrix_world = world_matrix
+    seat["material_variant"] = "ink-bronze"
+    seat["surface_treatment"] = "shallow-slot"
+    return seat
+
+
 def add_historical_ring(radius, z):
     bpy.ops.mesh.primitive_torus_add(
         major_radius=radius,
@@ -102,9 +118,10 @@ def parent_runtime_parts(root):
 def add_calendar(root, base_height):
     calendar = new_empty("calendar/slip", (0.0, 0.0, 0.0))
     calendar.parent = root
+    calendar.rotation_euler.x = math.radians(10.0)
     configure_motion(
         calendar,
-        (0.0, 0.238, base_height + 0.008),
+        (0.0, 0.238, base_height + 0.024),
         (0.0, 0.0, 1.0),
         0.012,
     )
@@ -122,46 +139,78 @@ def add_calendar(root, base_height):
         0.0003,
     )
 
+    base = bpy.data.objects["base/body"]
+    for side, x in (("left", -0.110), ("right", 0.110)):
+        seat = add_beveled_box(
+            f"detail/calendar/seat-{side}",
+            (0.048, 0.044, 0.016),
+            (x, 0.238, base_height + 0.008),
+            0.0015,
+        )
+        del seat["node_id"]
+        world_matrix = seat.matrix_world.copy()
+        seat.parent = base
+        seat.matrix_world = world_matrix
+        seat["surface_treatment"] = "rear-slip-seat"
 
-def add_lesson_slips(root, base_height):
+
+def add_lesson_slips(root, earth, base_height):
     positions = {
-        "fourth": (-0.176, 0.132),
-        "third": (-0.176, -0.132),
-        "second": (0.176, -0.132),
-        "first": (0.176, 0.132),
+        "fourth": (-0.181, 0.167),
+        "third": (-0.181, -0.167),
+        "second": (0.181, -0.167),
+        "first": (0.181, 0.167),
     }
     for visual_order, (key, (x, y)) in enumerate(positions.items()):
         slip = add_beveled_box(
             f"lesson/{key}",
             DIMENSIONS["lesson_slip"],
-            (x, y, base_height + 0.0185),
+            (x, y, base_height + 0.018),
             0.0012,
         )
         slip["visual_order"] = visual_order
         slip["settled_location"] = tuple(slip.location)
         slip.parent = root
+        add_shallow_seat(
+            f"detail/slip-seat/lesson/{key}",
+            earth,
+            slip,
+            base_height + DIMENSIONS["earth_plate"][2] + 0.0001,
+        )
 
 
-def add_transmission_slips(root, base_height):
+def add_transmission_slips(root, base, earth, base_height):
     for module_order, (key, x) in enumerate(
-        (("initial", -0.128), ("middle", 0.0), ("final", 0.128))
+        (("initial", -0.096), ("middle", 0.0), ("final", 0.096))
     ):
         slip = add_beveled_box(
             f"transmission/{key}",
             DIMENSIONS["transmission_slip"],
-            (x, -0.205, base_height + 0.019),
+            (x, -0.194, base_height + 0.0185),
             0.0012,
         )
         slip["module_order"] = module_order
         slip["settled_location"] = tuple(slip.location)
         slip.parent = root
+        add_shallow_seat(
+            f"detail/slip-seat/transmission/{key}",
+            earth,
+            slip,
+            base_height + DIMENSIONS["earth_plate"][2] + 0.0001,
+        )
     method = add_beveled_box(
         "transmission/method",
         DIMENSIONS["method_slip"],
-        (0.0, -0.247, base_height + 0.016),
+        (0.0, -0.238, base_height + 0.0045),
         0.0009,
     )
     method.parent = root
+    add_shallow_seat(
+        "detail/slip-seat/transmission/method",
+        base,
+        method,
+        base_height + 0.0001,
+    )
 
 
 def add_generals(base):
@@ -287,8 +336,8 @@ def build_graybox():
     add_historical_ring(radius=0.145, z=0.087)
     parent_runtime_parts(root)
     add_calendar(root, base_height)
-    add_lesson_slips(root, base_height)
-    add_transmission_slips(root, base_height)
+    add_lesson_slips(root, earth, base_height)
+    add_transmission_slips(root, base, earth, base_height)
     add_generals(base)
     add_course_trace(earth)
     repository_root = Path(__file__).parents[2]
