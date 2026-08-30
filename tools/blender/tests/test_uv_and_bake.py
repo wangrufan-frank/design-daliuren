@@ -1199,6 +1199,9 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         self.assertIn("M_HeavenVoid", bpy.data.materials)
 
     def test_texture_contract_and_known_object_uv_regions_match_physical_materials(self):
+        bpy.ops.wm.open_mainfile(
+            filepath=str(REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend")
+        )
         runtime = self.contract["runtimeTextures"]
         self.assertEqual(runtime["channels"], {
             "baseColor": "sRGB RGB",
