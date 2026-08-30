@@ -30,9 +30,10 @@ async function closeServer(server) {
 async function completeReferenceCourse(page, baseURL) {
   await page.goto(baseURL, { waitUntil: "domcontentloaded" });
   await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("出生年份").fill("1990");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
-  await page.getByRole("button", { name: "建立起课上下文" }).click();
+  await page.getByRole("button", { name: "生成完整课式" }).click();
 }
 
 async function sampleProfile(browser, baseURL, profile) {
@@ -51,6 +52,11 @@ async function sampleProfile(browser, baseURL, profile) {
 
   try {
     await completeReferenceCourse(page, baseURL);
+    if (profile.name === "mobile") {
+      await page.getByRole("toolbar", { name: "工作台工具" })
+        .getByRole("button", { name: "时间轴", exact: true })
+        .click();
+    }
     const slider = page.getByRole("slider", { name: "推演时间轴" });
     await slider.waitFor({ state: "visible" });
     const initialPoseHash = await page.getByTestId("artifact-experience").getAttribute("data-pose-hash");
