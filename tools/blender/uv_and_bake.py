@@ -1202,6 +1202,85 @@ def _pack_family_atlas(objects, lod0_dimension):
         obj.select_set(False)
 
 
+def _stabilize_single_triangle_texels(obj, dimension):
+    mesh = obj.data
+    layer = mesh.uv_layers["UVMap"]
+    mesh.calc_loop_triangles()
+    island_ids = _triangle_uv_island_ids(mesh, layer)
+    island_sizes = {}
+    for island_id in island_ids.values():
+        island_sizes[island_id] = island_sizes.get(island_id, 0) + 1
+
+    target_altitude = 3.0 / dimension
+    for triangle in mesh.loop_triangles:
+        if (
+            triangle.area <= 1e-12
+            or island_sizes[island_ids[triangle.index]] != 1
+        ):
+            continue
+        points = [layer.data[index].uv.copy() for index in triangle.loops]
+        if _triangle_has_pixel_center(points, dimension):
+            continue
+
+        first, second = max(
+            ((0, 1), (1, 2), (2, 0)),
+            key=lambda indices: (points[indices[1]] - points[indices[0]]).length_squared,
+        )
+        direction = points[second] - points[first]
+        if direction.length <= 1e-12:
+            continue
+        direction.normalize()
+        normal = (-direction.y, direction.x)
+        longitudinal = [point.x * direction.x + point.y * direction.y for point in points]
+        projections = [point.x * normal[0] + point.y * normal[1] for point in points]
+        length = max(longitudinal) - min(longitudinal)
+        altitude = max(projections) - min(projections)
+        if min(length, altitude) <= 1e-12:
+            continue
+        longitudinal_center = sum(longitudinal) / 3.0
+        center = sum(projections) / 3.0
+        longitudinal_scale = max(1.0, target_altitude / length)
+        scale = max(1.0, target_altitude / altitude)
+        for loop_index, point, along, projection in zip(
+            triangle.loops, points, longitudinal, projections
+        ):
+            longitudinal_adjustment = (
+                (along - longitudinal_center) * (longitudinal_scale - 1.0)
+            )
+            adjustment = (projection - center) * (scale - 1.0)
+            layer.data[loop_index].uv = (
+                point.x + direction.x * longitudinal_adjustment + normal[0] * adjustment,
+                point.y + direction.y * longitudinal_adjustment + normal[1] * adjustment,
+            )
+
+        adjusted = tuple(tuple(layer.data[index].uv) for index in triangle.loops)
+        if not _triangle_has_pixel_center(adjusted, dimension):
+            candidates = sorted(
+                (
+                    abs(x_step) + abs(y_step),
+                    x_step,
+                    y_step,
+                )
+                for x_step in range(-8, 9)
+                for y_step in range(-8, 9)
+                if x_step or y_step
+            )
+            for _distance, x_step, y_step in candidates:
+                offset = (x_step / 16.0 / dimension, y_step / 16.0 / dimension)
+                shifted = tuple(
+                    (point[0] + offset[0], point[1] + offset[1])
+                    for point in adjusted
+                )
+                if _triangle_has_pixel_center(shifted, dimension):
+                    for loop_index in triangle.loops:
+                        layer.data[loop_index].uv += offset
+                    break
+            else:
+                raise RuntimeError(
+                    f"isolated UV triangle could not be stabilized: {obj.name}:{triangle.index}"
+                )
+
+
 def assign_primary_uvs(dynamic_surfaces):
     dynamic_pointers = {obj.data.as_pointer() for obj in dynamic_surfaces}
     source_meshes = {
@@ -1271,6 +1350,11 @@ def assign_primary_uvs(dynamic_surfaces):
             for obj in overlapping:
                 _triangle_island_unwrap(obj)
             _pack_family_atlas(objects, lod0_dimension)
+        working_dimension = lod0_dimension * max(
+            obj.get("runtime_bake_scale", 1) for obj in objects
+        )
+        for obj in objects:
+            _stabilize_single_triangle_texels(obj, working_dimension)
 
     for obj in dynamic_surfaces:
         mesh = obj.data
@@ -1408,14 +1492,14 @@ def _update_material_contract(contract_path, families):
         },
         "atlasPolicy": {
             "uvSourceMaster": "assets/daliuren/source/daliuren-artifact-master.blend",
-            "uvAuthoringVersion": "blender-4.5.12/task4-native-atlas-v3",
+            "uvAuthoringVersion": "blender-4.5.12/task8-native-atlas-v4",
             "ownership": "every physical mesh carries runtime_texture_family, runtime_atlas_id and runtime_atlas_class",
             "partitioning": "material-family atlases are explicitly partitioned by hero/moving surface class; two complex self-overlap risks use named object partitions",
             "lod0": "4096x4096 hero atlases; 2048x2048 moving atlases",
             "lod2": "deterministic 2x2 box-filter downsample of LOD0",
             "bakeEngine": "Blender 4.5.12 native Cycles",
             "padding": "8 pixels at LOD0; 4 pixels after LOD2 downsample",
-            "coverage": "all triangles above 2e-7 m2 require native texel coverage; smaller microfaces use physical family defaults",
+            "coverage": "all triangles above 2e-6 m2 require native texel coverage; smaller microfaces use physical family defaults",
             "rebakeDeterminism": "frozen artifact file hashes are authoritative; independent probes require exact UV and simple-atlas hashes plus full-atlas bounded complex Cycles variance (at most 1024 edge texels; representative interior texels remain within one byte)",
             "opaqueAlpha": "omitted",
             "emissive": "omitted because no runtime highlight assignment consumes it",

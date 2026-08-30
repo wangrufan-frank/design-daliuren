@@ -760,6 +760,9 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
         plate = bpy.data.objects["plate/heaven"]
         plate_area_before = sum(polygon.area for polygon in plate.data.polygons)
         plate_bounds_before = world_bounds(plate)
+        earth = bpy.data.objects["plate/earth"]
+        earth_area_before = sum(polygon.area for polygon in earth.data.polygons)
+        earth_bounds_before = world_bounds(earth)
         surfaces = _add_dynamic_surfaces()
         assign_primary_uvs(surfaces)
         self.assertAlmostEqual(
@@ -768,6 +771,12 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
             delta=plate_area_before * 0.0001,
         )
         self.assertEqual(world_bounds(plate), plate_bounds_before)
+        self.assertAlmostEqual(
+            sum(polygon.area for polygon in earth.data.polygons),
+            earth_area_before,
+            delta=earth_area_before * 0.0001,
+        )
+        self.assertEqual(world_bounds(earth), earth_bounds_before)
         failures = {}
         microface_areas = []
         total_surface_area = 0.0
@@ -797,7 +806,7 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
                     obj = bpy.data.objects[object_name]
                     high_resolution_failures = set(_object_texel_coverage_failures(
                         obj,
-                        dimension * 2 * bake_scale,
+                        dimension * bake_scale,
                         dilation=16,
                     ))
                     unresolved.intersection_update(
@@ -1016,7 +1025,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             )
             edge_masks[lod] = (dimension, edge_band, owners, distances, expected_owners)
         self.assertEqual(runtime["atlasPolicy"]["uvSourceMaster"], "assets/daliuren/source/daliuren-artifact-master.blend")
-        self.assertEqual(runtime["atlasPolicy"]["uvAuthoringVersion"], "blender-4.5.12/task4-native-atlas-v3")
+        self.assertEqual(runtime["atlasPolicy"]["uvAuthoringVersion"], "blender-4.5.12/task8-native-atlas-v4")
         for atlas_id in atlas_ids:
             family = atlas_id.split(":", 1)[0]
             actual = rebuilt[family]["atlases"][atlas_id]
