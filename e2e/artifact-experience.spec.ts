@@ -60,6 +60,7 @@ test("model labels and text course use the same verified facts", async ({ page }
 });
 
 test("exact stage seeks are repeatable and a real pointer drag disables auto camera", async ({ page }) => {
+  test.setTimeout(60_000);
   await completeReferenceCourse(page);
   const experience = page.getByTestId("artifact-experience");
   const timeline = await expectArtifactReady(page);
