@@ -47,8 +47,8 @@ TEXT_SIZES = {
     "historical-mansion": 0.0048,
     "historical-month-deity": 0.0045,
 }
-FUNCTIONAL_GLYPH_SPAN = 0.044
-BRANCH_BED_SPAN = 0.048
+FUNCTIONAL_GLYPH_SPAN = 0.0496
+BRANCH_BED_SPAN = 0.052
 BRANCH_RECESS = 0.00015
 BRANCH_CUTTER_OVERLAP = 0.00010
 BRANCH_BED_RECESS = 0.00100
@@ -250,6 +250,24 @@ def _cut_branch_recess(parent, inlay):
         surface_z - BRANCH_BED_RECESS - BRANCH_BED_DEPTH / 2,
     )
     bed.rotation_euler.z = inlay.rotation_euler.z
+    if inlay["surface"] == "heaven":
+        angle = bed.rotation_euler.z
+        cosine = math.cos(angle)
+        sine = math.sin(angle)
+        radius_limit = parent.dimensions.x / 2 - 1e-6
+        for vertex in bed.data.vertices:
+            parent_x = bed.location.x + cosine * vertex.co.x - sine * vertex.co.y
+            parent_y = bed.location.y + sine * vertex.co.x + cosine * vertex.co.y
+            radius = math.hypot(parent_x, parent_y)
+            if radius <= radius_limit:
+                continue
+            parent_x *= radius_limit / radius
+            parent_y *= radius_limit / radius
+            delta_x = parent_x - bed.location.x
+            delta_y = parent_y - bed.location.y
+            vertex.co.x = cosine * delta_x + sine * delta_y
+            vertex.co.y = -sine * delta_x + cosine * delta_y
+        bed.data.update()
     bed["detail_id"] = "structure/bronze-inlay-branch-bed"
     bed["detail_index"] = inlay["ring_index"]
     bed["owner_node_id"] = parent["node_id"]

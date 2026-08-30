@@ -173,8 +173,8 @@ class InscriptionTest(unittest.TestCase):
     def test_functional_glyphs_and_beds_have_readable_physical_spans(self):
         build_graybox()
 
-        self.assertEqual(getattr(inscriptions, "FUNCTIONAL_GLYPH_SPAN", None), 0.044)
-        self.assertEqual(getattr(inscriptions, "BRANCH_BED_SPAN", None), 0.048)
+        self.assertEqual(getattr(inscriptions, "FUNCTIONAL_GLYPH_SPAN", None), 0.0496)
+        self.assertEqual(getattr(inscriptions, "BRANCH_BED_SPAN", None), 0.052)
         for surface in ("earth", "heaven"):
             for branch in BRANCHES:
                 glyph = bpy.data.objects[f"branch/{surface}/{branch}"]
@@ -190,10 +190,12 @@ class InscriptionTest(unittest.TestCase):
                     for axis in (0, 1)
                 )
                 with self.subTest(surface=surface, branch=branch):
-                    self.assertAlmostEqual(glyph_spans[0], 0.044, places=6)
-                    self.assertAlmostEqual(glyph_spans[1], 0.044, places=6)
-                    self.assertAlmostEqual(bed_spans[0], 0.048, places=6)
-                    self.assertAlmostEqual(bed_spans[1], 0.048, places=6)
+                    self.assertAlmostEqual(glyph_spans[0], 0.0496, places=6)
+                    self.assertAlmostEqual(glyph_spans[1], 0.0496, places=6)
+                    self.assertGreaterEqual(bed_spans[0], 0.0496)
+                    self.assertGreaterEqual(bed_spans[1], 0.0496)
+                    self.assertLessEqual(bed_spans[0], 0.052 + 1e-6)
+                    self.assertLessEqual(bed_spans[1], 0.052 + 1e-6)
 
     def test_functional_glyphs_and_beds_stay_inside_their_plates_without_overlap(self):
         build_graybox()
