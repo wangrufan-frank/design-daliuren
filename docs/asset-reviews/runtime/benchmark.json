@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-08-22T03:28:33.074Z",
+  "generatedAt": "2026-08-30T07:46:07.764Z",
   "browser": {
     "name": "Google Chrome",
     "channel": "chrome",
-    "version": "151.0.7922.172"
+    "version": "152.0.7977.64"
   },
   "frameSampleCount": 300,
   "profiles": [
@@ -16,15 +16,15 @@
       "dpr": 1,
       "selectedLod": 0,
       "glb": "/models/daliuren/daliuren-artifact-lod0.glb",
-      "glbBytes": 26200872,
+      "glbBytes": 12095300,
       "canvasPixels": {
-        "width": 725,
-        "height": 680
+        "width": 952,
+        "height": 760
       },
       "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D59) Direct3D11 vs_5_0 ps_5_0, D3D11)",
       "hardwareRenderer": true,
       "medianFrameTimeMs": 4.2,
-      "p95FrameTimeMs": 4.3,
+      "p95FrameTimeMs": 8.4,
       "medianFps": 238.0952,
       "sampleCount": 300,
       "thresholdFps": 60,
@@ -39,10 +39,10 @@
       "dpr": 3,
       "selectedLod": 2,
       "glb": "/models/daliuren/daliuren-artifact-lod2.glb",
-      "glbBytes": 11582128,
+      "glbBytes": 6717576,
       "canvasPixels": {
-        "width": 946,
-        "height": 1020
+        "width": 1036,
+        "height": 1519
       },
       "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D59) Direct3D11 vs_5_0 ps_5_0, D3D11)",
       "hardwareRenderer": true,

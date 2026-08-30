@@ -6,7 +6,7 @@
 
 - Blender：`4.5.12 LTS`，build hash `84afd5f785f7`
 - GLB：`public/models/daliuren/daliuren-graybox.glb`
-- GLB SHA-256：`DFBDF7C33738AB68E37494AFD4FAFB2D709D01151DB341A8A38DD55BCB32063B`
+- GLB SHA-256：`D133B083A229DE75F40BD37F8FE3F3AEF6C1DF4F6613B9A0C886FE2AFB73D018`
 - 渲染器：Eevee，`1920 × 1080`
 - 参考灯光：4300K 近似主光、30% 补光、窄轮廓光
 - 复核姿态：`closed`；`generals`（`plate_offset=5`，`general_direction=reverse`）
@@ -15,18 +15,25 @@
 
 | 文件 | 姿态 | 用途 |
 | --- | --- | --- |
-| `overall.png` | 左 `closed` / 右 `generals` | 闭合与完全展开的同图对照；四课读数片由齐平态抬升 8 mm |
-| `oblique.png` | `generals` | 四课抽屉、十二将与天地盘层级 |
-| `mechanism.png` | `generals` | 正面工程视角：三传桥架、左右课位滑轨与中央盘边缘间隙 |
-| `top.png` | `generals` | 四课、三传、十二将与中心盘的完整平面关系 |
+| `overall.png` | 左 `closed` / 右 `generals` | 闭合与完全展开的同图对照；展开态显示四侧物理面板与十二将按钮 |
+| `oblique.png` | `generals` | 天地盘、四课面板、三传面板与十二将按钮的垂直层级 |
+| `mechanism.png` | `generals` | 正面工程视角：四侧面板、三传面板与中央盘的真实接缝和间隙 |
+| `top.png` | `generals` | 四课、三传、十二将与中心盘的完整平面关系，分支环无遮挡 |
+| `stage-closed.png` | `closed` | 紧凑闭合基线 |
+| `stage-calendar.png` | `calendar` | 历法事实阶段的固定视角端点 |
+| `stage-plate.png` | `plate` | 天地盘加临阶段的固定视角端点 |
+| `stage-lessons.png` | `lessons` | 左右四课面板展开 |
+| `stage-transmissions.png` | `transmissions` | 三传面板加入展开关系 |
+| `stage-generals.png` | `generals` | 十二将按钮加入后的完整展开态 |
 
 ## 阶段结论
 
 | 检查项 | 结论 | 观察 |
 | --- | --- | --- |
 | Silhouette | PASS | `closed` 状态的物理几何保持在方形底座包络内；分屏对照可清楚区分闭合与展开轮廓。 |
-| Mechanism clearance | PASS | 正面工程视图同时显示三传桥架、左右课位滑轨、抬升后的读数片和中央盘边缘，关键接缝均可辨且未见相互穿插；底座内部碰撞盒另由姿态测试覆盖。 |
-| Component hierarchy | PASS | 顶视图可区分中央天地盘、四组双层课位、三枚传位和环形十二将；斜视图补充确认垂直层级。天将 reverse 的 ID 到槽位映射由姿态测试精确验证。 |
-| Inscription space | PASS | 天盘中央、历史固定环、四课读数面与三传模块均保留连续平面；审阅场景未嵌入动态课例文字。 |
+| Mechanism clearance | PASS | 正面工程视图显示四侧面板、三传面板、十二将按钮与中央盘的真实接缝，关键间隙均可辨且未见穿插、共面闪烁或悬空构件。 |
+| Component hierarchy | PASS | 顶视图可区分中央天地盘、四课面板、三传面板和环形十二将按钮；斜视图补充确认垂直层级，不含旧式翼板、桥架、滑轨或升柱。 |
+| Inscription space | PASS | 24 个功能分支字与暗槽完整留在盘内且互不重叠，天地盘环无遮挡；历史铭文只在 master/lookdev 中出现。 |
+| Stage progression | PASS | `closed`、`calendar`、`plate` 保持固定相机下的细微端点变化；`lessons`、`transmissions`、`generals` 依次展开面板与按钮，六阶段没有遮挡分支环。 |
 
 结论：灰模结构验收通过，可进入 lookdev。最终 brass / wood / ink 材质、磨损、反射层次与成品级真实光影不在本阶段的通过范围内。

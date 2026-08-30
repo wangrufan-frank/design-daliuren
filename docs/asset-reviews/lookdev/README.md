@@ -6,7 +6,8 @@
 - Engine: `CYCLES`
 - Samples: `64`, Cycles denoising enabled
 - Color management: `AgX`, `AgX - Medium High Contrast`
-- Lighting: `4300 K` key, `30%` fill, narrow rectangular rim; material close-up uses a local `-1 EV` / reduced-energy setup
+- Lighting: fixed `4300 K` wide key, `40%` front fill, low rectangular rim
+- Exposure: fixed `-1.0 EV` for every frame; no animated lights
 - Resolution: `2560 x 1440` PNG, opaque background, bloom disabled
 
 ## Review frames
@@ -27,37 +28,33 @@
 
 ![rotation-evidence](./rotation-evidence.png)
 
-Manual inspection at native `2560 x 1440` on 2026-08-21:
+### legibility
 
-| Frame | Result | Observed evidence |
-| --- | --- | --- |
-| overall | PASS | Full silhouette, physical plate and base thickness, weight, readable functional marks and a grounded contact shadow. |
-| oblique | PASS | Bevel highlights remain continuous across the rim, rails, dovetails, stops, seams and polished contact edges. |
-| material-closeup | PASS | Controlled exposure separates dark bronze, green patina, pale celadon and warm old-gold; the black/green physical contact seam remains visible without clipped highlights. |
-| rotation-evidence | PASS | Fixed-camera 0/60-degree states show highlight and inscription migration with consistent occlusion and no texture crossing. |
+![legibility](./legibility.png)
 
 ## Visual evidence
 
 | Evidence | Frame | Result |
 | --- | --- | --- |
-| real edge thickness | overall / oblique | PASS |
-| continuous moving highlight | rotation-evidence | PASS |
-| bronze/celadon reflection difference | material-closeup | PASS |
-| contact-driven wear | oblique / material-closeup | PASS |
-| recess oxidation | oblique / material-closeup | PASS |
-| readable functional inscription | overall / material-closeup | PASS |
-| lower-contrast historical inscription | overall / material-closeup | PASS |
-| grounded contact shadow | overall / oblique | PASS |
+| real edge thickness | overall / oblique | PASS — plate rims, moving panels, and inlay beds retain separated silhouettes and contact shadows. |
+| continuous moving highlight | rotation-evidence | PASS — the 0° / 60° heaven-plate views move glyphs and specular highlights while the fixed base and lighting remain unchanged. |
+| bronze/celadon reflection difference | material-closeup | PASS — bronze reads warmer and sharper than the broader, cooler celadon reflection. |
+| contact-driven wear | oblique / material-closeup | PASS — wear follows exposed rims and seams without flattening the face colors. |
+| recess oxidation | oblique / material-closeup | PASS — dark oxidation stays inside the clean recessed beds with no sliver or coplanar artifacts. |
+| readable functional inscription | overall / material-closeup | PASS (mean=0.383, dark=0.018, contrast=10.04) |
+| lower-contrast historical inscription | overall / material-closeup | PASS — historical marks remain intentionally subordinate to the bright 24 functional branch glyphs. |
+| grounded contact shadow | overall / oblique | PASS — every visible layer and deployed panel casts a stable contact shadow; no broad face renders dead black. |
 
 ## SHA-256
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `assets/daliuren/source/daliuren-artifact-master.blend` | `78cadcfcf27c97bbe62831124c3daa5a2397c9fdde4613bb685143ed3186ba0e` |
-| `public/models/daliuren/daliuren-artifact-lod0.glb` | `d000bd05b1279a42bc8dc4d4e710764c542d34bd9833d0445bef799903824482` |
-| `public/models/daliuren/daliuren-artifact-lod1.glb` | `c064776cae6ee4bda122d12e9f45b711365868cbc161551fd132b60d981894ce` |
-| `public/models/daliuren/daliuren-artifact-lod2.glb` | `74ebd8afa572fdec0f217e77c441c4dabf26d12b765e89104020bec4b8166a2a` |
-| `docs/asset-reviews/lookdev/overall.png` | `2c30496395e26a9f9b264e75e7f9ff086f00b6559ed5ec14af556a903dac754f` |
-| `docs/asset-reviews/lookdev/oblique.png` | `5336b978517950f6a0491be52ee0e202d0ac6873cfe67a5dd23b70ef727fd723` |
-| `docs/asset-reviews/lookdev/material-closeup.png` | `c586559cc761e827da8e6946df624533e63896f45368f89b2b03715314a18d82` |
-| `docs/asset-reviews/lookdev/rotation-evidence.png` | `6f8eeeaae4f90adeb81159cd66c543c33565a93bf894088ee25d30ac752494cc` |
+| `assets/daliuren/source/daliuren-artifact-master.blend` | `286416d53a0f7f67fba65f0c1565ff3a5a9f74ad77bcb2268e03ceae685de615` |
+| `public/models/daliuren/daliuren-artifact-lod0.glb` | `1978c061070f189eb04d9e682b00011b860127422a51aaa98a5426ccab119c2e` |
+| `public/models/daliuren/daliuren-artifact-lod1.glb` | `7e659323dbeade43f0b4d4f6672c1d8e9e7e8aa8cac3eb5e63e369f87b4702f7` |
+| `public/models/daliuren/daliuren-artifact-lod2.glb` | `388bf89cd3c4988ff143be07b75a01091f12f658bd2ce0023e49bb9d87010050` |
+| `docs/asset-reviews/lookdev/overall.png` | `1bc33c8acd071c7dbb6cc2734a5e39cf7aa8f2c44c31dd7fa5f090cf260cf48b` |
+| `docs/asset-reviews/lookdev/oblique.png` | `bf91edcb1f528b0109f7cca5ec0012b1485fc85e3714a40868a3ee19e5ac51a5` |
+| `docs/asset-reviews/lookdev/material-closeup.png` | `d8ac7a15cc46cf5424cb0b1fd1071b80d90f61039b6c4ba472484e0486e43dc2` |
+| `docs/asset-reviews/lookdev/rotation-evidence.png` | `23f2d0f59f3699b193d9a64a44ea0e8740cfe35eb845eea43e43461a4add9c26` |
+| `docs/asset-reviews/lookdev/legibility.png` | `1eb2f89a63a30fb177b289a23d1dee695e4bc27acbd1fbbc0e1607a6c760172b` |
