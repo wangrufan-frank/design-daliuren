@@ -47,8 +47,11 @@ async function expectMinimumBranchProjection(
   await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
     .toBeGreaterThanOrEqual(floor);
   const value = Number(await experience.getAttribute("data-min-branch-px"));
+  await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-edge-px")))
+    .toBeGreaterThanOrEqual(4);
+  const edgeMargin = Number(await experience.getAttribute("data-min-branch-edge-px"));
   await testInfo.attach(`runtime-lod${lod}-projection.json`, {
-    body: Buffer.from(JSON.stringify({ value, floor }, null, 2)),
+    body: Buffer.from(JSON.stringify({ value, floor, edgeMargin, edgeFloor: 4 }, null, 2)),
     contentType: "application/json",
   });
   return value;
@@ -60,7 +63,16 @@ async function expectVisibleRuntimeLod(
   lod: 0 | 1 | 2,
   screenshot: Buffer,
 ) {
-  const metrics = await page.evaluate(async (encoded) => {
+  const canvasCssSize = await page.getByLabel("大六壬三维器物").evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height };
+  });
+  const experience = page.getByTestId("artifact-experience");
+  const branchFrame = {
+    projection: Number(await experience.getAttribute("data-min-branch-px")),
+    edgeMargin: Number(await experience.getAttribute("data-min-branch-edge-px")),
+  };
+  const metrics = await page.evaluate(async ({ encoded, canvasCssSize }) => {
     const response = await fetch(`data:image/png;base64,${encoded}`);
     const bitmap = await createImageBitmap(await response.blob());
     const surface = document.createElement("canvas");
@@ -105,6 +117,8 @@ async function expectVisibleRuntimeLod(
     const background = [0, 1, 2].map((channel) => (
       cornerOffsets.reduce((total, offset) => total + pixels[offset + channel], 0) / cornerOffsets.length
     ));
+    const foregroundByColumn = new Uint32Array(surface.width);
+    const foregroundByRow = new Uint32Array(surface.height);
     const subjectBounds = {
       minimumX: surface.width,
       maximumX: 0,
@@ -120,11 +134,20 @@ async function expectVisibleRuntimeLod(
           + Math.abs(pixels[offset + 2] - background[2])
         );
         if (backgroundDistance <= 18) continue;
-        subjectBounds.minimumX = Math.min(subjectBounds.minimumX, x);
-        subjectBounds.maximumX = Math.max(subjectBounds.maximumX, x + 1);
-        subjectBounds.minimumY = Math.min(subjectBounds.minimumY, y);
-        subjectBounds.maximumY = Math.max(subjectBounds.maximumY, y + 1);
+        foregroundByColumn[x] += 1;
+        foregroundByRow[y] += 1;
       }
+    }
+    const continuousForegroundFloor = 5;
+    for (let x = 0; x < surface.width; x += 1) {
+      if (foregroundByColumn[x] < continuousForegroundFloor) continue;
+      subjectBounds.minimumX = Math.min(subjectBounds.minimumX, x);
+      subjectBounds.maximumX = Math.max(subjectBounds.maximumX, x + 1);
+    }
+    for (let y = 0; y < surface.height; y += 1) {
+      if (foregroundByRow[y] < continuousForegroundFloor) continue;
+      subjectBounds.minimumY = Math.min(subjectBounds.minimumY, y);
+      subjectBounds.maximumY = Math.max(subjectBounds.maximumY, y + 1);
     }
     if (
       subjectBounds.minimumX >= subjectBounds.maximumX
@@ -150,14 +173,15 @@ async function expectVisibleRuntimeLod(
       percentileRange: percentile(0.95) - percentile(0.05),
       nearBlackFraction: nearBlackCount / subjectCount,
       subjectBounds,
+      subjectMarginsCss: {
+        left: subjectBounds.minimumX * canvasCssSize.width / surface.width,
+        right: (surface.width - subjectBounds.maximumX) * canvasCssSize.width / surface.width,
+        top: subjectBounds.minimumY * canvasCssSize.height / surface.height,
+        bottom: (surface.height - subjectBounds.maximumY) * canvasCssSize.height / surface.height,
+      },
     };
-  }, screenshot.toString("base64"));
+  }, { encoded: screenshot.toString("base64"), canvasCssSize });
 
-  expect(metrics.mean).toBeGreaterThan(0.15);
-  expect(metrics.mean).toBeLessThan(0.95);
-  expect(metrics.standardDeviation).toBeGreaterThan(0.03);
-  expect(metrics.percentileRange).toBeGreaterThan(0.12);
-  expect(metrics.nearBlackFraction).toBeLessThan(0.18);
   await testInfo.attach(`runtime-lod${lod}-metrics.json`, {
     body: Buffer.from(JSON.stringify(metrics, null, 2)),
     contentType: "application/json",
@@ -166,6 +190,15 @@ async function expectVisibleRuntimeLod(
     body: screenshot,
     contentType: "image/png",
   });
+  expect(metrics.mean).toBeGreaterThan(0.15);
+  expect(metrics.mean).toBeLessThan(0.95);
+  expect(metrics.standardDeviation).toBeGreaterThan(0.03);
+  expect(metrics.percentileRange).toBeGreaterThan(0.12);
+  expect(metrics.nearBlackFraction).toBeLessThan(0.18);
+  expect(
+    Math.min(...Object.values(metrics.subjectMarginsCss)),
+    `Artifact subject margins: ${JSON.stringify(metrics.subjectMarginsCss)}; branch frame: ${JSON.stringify(branchFrame)}`,
+  ).toBeGreaterThanOrEqual(4);
 }
 
 test("model labels and text course use the same verified facts", async ({ page }, testInfo) => {

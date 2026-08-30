@@ -361,6 +361,18 @@ describe("ArtifactSceneController", () => {
     expect(controller.measureMinimumBranchProjectionPx()).toBeCloseTo(first / 2);
   });
 
+  it("reports the minimum canvas-edge margin across every functional branch mesh", () => {
+    const { branchNodes, controller } = fixture();
+    controller.resize(800, 600, 1);
+    controller.applyCameraPreset({ position: [0, 0, 1], target: [0, 0, 0] }, true);
+
+    const measure = () => controller.measureMinimumBranchEdgeMarginPx();
+    expect(measure()).toBeGreaterThan(100);
+
+    branchNodes.values().next().value!.position.x = 2;
+    expect(measure()).toBeLessThan(0);
+  });
+
   it("applies every pose against frozen loaded transforms", () => {
     const { controller, movingNode } = fixture();
     const baseQuaternion = movingNode.quaternion.clone();
@@ -403,6 +415,28 @@ describe("ArtifactSceneController", () => {
     expect(controls.target.toArray()).toEqual(preset.target);
     expect(camera.position.distanceTo(controls.target)).toBeGreaterThanOrEqual(1.04);
     expect(camera.position.distanceTo(controls.target)).toBeLessThanOrEqual(1.18);
+  });
+
+  it("fits a review preset for a portrait canvas without altering the landscape preset", () => {
+    const { controller, controls, renderer } = fixture();
+    const preset = reviewStageFor("course").camera;
+
+    controller.resize(344, 506, 1);
+    controller.applyCameraPreset(preset, true);
+    controller.render();
+    const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
+    expect(camera.position.x).toBeCloseTo(0.295816336, 6);
+    expect(camera.position.y).toBeCloseTo(1.490955952, 6);
+    expect(camera.position.z).toBeCloseTo(0.777731775, 6);
+    expect(controls.target.x).toBeCloseTo(-0.014842619, 6);
+    expect(controls.target.y).toBeCloseTo(0.05, 6);
+    expect(controls.target.z).toBeCloseTo(0.005974668, 6);
+
+    controller.resize(672, 520, 1);
+    controller.applyCameraPreset(preset, true);
+    controller.render();
+    expect(camera.position.toArray()).toEqual(preset.position);
+    expect(controls.target.toArray()).toEqual(preset.target);
   });
 
   it("captures current annotation coordinates after camera and node movement", () => {

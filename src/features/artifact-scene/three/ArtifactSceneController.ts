@@ -113,6 +113,9 @@ const ANNOTATION_DESCRIPTORS_BY_ID = new Map(
   ARTIFACT_ANNOTATION_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor]),
 );
 const CAMERA_TWEEN_DURATION_MS = 700;
+const PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE = 1.56;
+const PORTRAIT_REVIEW_CAMERA_ELEVATION = THREE.MathUtils.degToRad(60);
+const PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT = 0.016;
 
 const LABEL_SIZE = { width: 512, height: 256 } as const;
 const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
@@ -436,6 +439,33 @@ export class ArtifactSceneController {
     return Number.isFinite(minimum) ? minimum : 0;
   }
 
+  measureMinimumBranchEdgeMarginPx(): number {
+    if (this.disposed) return 0;
+    this.artifact.root.updateMatrixWorld(true);
+    this.camera.updateMatrixWorld(true);
+    let minimum = Infinity;
+    for (const mesh of this.branchMeshes.values()) {
+      const positions = mesh.geometry.getAttribute("position");
+      const vertex = new THREE.Vector3();
+      for (let index = 0; index < positions.count; index += 1) {
+        vertex
+          .fromBufferAttribute(positions, index)
+          .applyMatrix4(mesh.matrixWorld)
+          .project(this.camera);
+        const x = (vertex.x + 1) * this.annotationViewport.width / 2;
+        const y = (1 - vertex.y) * this.annotationViewport.height / 2;
+        minimum = Math.min(
+          minimum,
+          x,
+          this.annotationViewport.width - x,
+          y,
+          this.annotationViewport.height - y,
+        );
+      }
+    }
+    return Number.isFinite(minimum) ? minimum : 0;
+  }
+
   focusNode(nodeId: string): void {
     if (this.disposed) return;
     const object = this.artifact.nodes.get(nodeId);
@@ -462,8 +492,21 @@ export class ArtifactSceneController {
 
   applyCameraPreset(preset: ArtifactCameraPreset, immediate = false): void {
     if (this.disposed) return;
-    const toPosition = new THREE.Vector3(...preset.position);
     const toTarget = new THREE.Vector3(...preset.target);
+    const toPosition = new THREE.Vector3(...preset.position);
+    if (this.annotationViewport.width < this.annotationViewport.height) {
+      const offset = toPosition.sub(toTarget);
+      const distance = offset.length() * PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE;
+      const horizontalDirection = new THREE.Vector2(offset.x, offset.z).normalize();
+      const horizontalDistance = distance * Math.cos(PORTRAIT_REVIEW_CAMERA_ELEVATION);
+      toTarget.x -= horizontalDirection.y * PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT;
+      toTarget.z += horizontalDirection.x * PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT;
+      toPosition.set(
+        toTarget.x + horizontalDirection.x * horizontalDistance,
+        toTarget.y + distance * Math.sin(PORTRAIT_REVIEW_CAMERA_ELEVATION),
+        toTarget.z + horizontalDirection.y * horizontalDistance,
+      );
+    }
     if (immediate) {
       this.cameraTween = undefined;
       this.camera.position.copy(toPosition);

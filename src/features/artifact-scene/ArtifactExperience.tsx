@@ -136,6 +136,7 @@ export function ArtifactExperience({
   const [currentPoseHash, setCurrentPoseHash] = useState<string | undefined>(undefined);
   const [sourceLinesActive, setSourceLinesActive] = useState(false);
   const [minimumBranchProjectionPx, setMinimumBranchProjectionPx] = useState<number | undefined>(undefined);
+  const [minimumBranchEdgeMarginPx, setMinimumBranchEdgeMarginPx] = useState<number | undefined>(undefined);
   const [annotationError, setAnnotationError] = useState<string | undefined>(undefined);
   const [mobileHosts, setMobileHosts] = useState<{ parts: HTMLElement; timeline: HTMLElement }>();
 
@@ -173,7 +174,10 @@ export function ArtifactExperience({
   const measureBranchProjection = useCallback(() => {
     if (!observableBuild()) return;
     const controller = controllerRef.current;
-    if (controller) setMinimumBranchProjectionPx(controller.measureMinimumBranchProjectionPx());
+    if (controller) {
+      setMinimumBranchProjectionPx(controller.measureMinimumBranchProjectionPx());
+      setMinimumBranchEdgeMarginPx(controller.measureMinimumBranchEdgeMarginPx());
+    }
   }, []);
 
   const stopPlayback = useCallback(() => {
@@ -202,7 +206,7 @@ export function ArtifactExperience({
       rendererDisposed = true;
       renderer.dispose();
     };
-    const resizeController = () => {
+    const resizeController = (measure = true) => {
       const controller = ownedController;
       if (!controller) return;
       const bounds = canvas.getBoundingClientRect();
@@ -211,11 +215,11 @@ export function ArtifactExperience({
         bounds.height || 560,
         window.devicePixelRatio || 1,
       );
-      measureBranchProjection();
+      if (measure) measureBranchProjection();
     };
     const resizeObserver = typeof ResizeObserver === "undefined"
       ? undefined
-      : new ResizeObserver(resizeController);
+      : new ResizeObserver(() => resizeController());
     resizeObserver?.observe(canvas);
     const disconnectResizeObserver = () => {
       if (resizeObserverDisconnected) return;
@@ -303,10 +307,11 @@ export function ArtifactExperience({
       setAnnotationError(undefined);
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
+      resizeController(false);
       controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, reducedMotionRef.current);
       if (controllerRef.current !== controller) return;
       applyAt(timeRef.current);
-      resizeController();
+      measureBranchProjection();
       setStatus("ready");
       frameRef.current = requestAnimationFrame(frame);
     }).catch(() => {
@@ -401,6 +406,7 @@ export function ArtifactExperience({
     "data-pose-hash": currentPoseHash,
     "data-source-lines": sourceLinesActive ? "active" : "disabled",
     "data-min-branch-px": minimumBranchProjectionPx,
+    "data-min-branch-edge-px": minimumBranchEdgeMarginPx,
   } : {};
   const partDirectory = (
     <ArtifactPartDirectory

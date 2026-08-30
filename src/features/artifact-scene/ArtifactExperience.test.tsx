@@ -22,6 +22,7 @@ interface ControllerDouble {
   applyPose: any;
   applyCameraPreset: any;
   measureMinimumBranchProjectionPx: any;
+  measureMinimumBranchEdgeMarginPx: any;
   captureAnnotationFrame: any;
   focusNode: any;
   resetCamera: any;
@@ -83,6 +84,7 @@ beforeAll(async () => {
       applyPose = vi.fn((pose: ArtifactPose) => appliedStateFromPose(pose));
       applyCameraPreset = vi.fn();
       measureMinimumBranchProjectionPx = vi.fn(() => 21.6);
+      measureMinimumBranchEdgeMarginPx = vi.fn(() => 4.25);
       captureAnnotationFrame = vi.fn((ids: readonly string[]) => ({
         viewport: { width: 800, height: 560 },
         anchors: ids.map((id, index) => ({
@@ -595,6 +597,9 @@ describe("ArtifactExperience", () => {
     vi.stubGlobal("devicePixelRatio", 1);
     render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
+    expect(latestController().resize.mock.invocationCallOrder[0]).toBeLessThan(
+      latestController().applyCameraPreset.mock.invocationCallOrder[0],
+    );
     width = 940;
     height = 620;
     vi.stubGlobal("devicePixelRatio", 2);
@@ -606,6 +611,7 @@ describe("ArtifactExperience", () => {
     const projection = screen.getByTestId("artifact-experience").getAttribute("data-min-branch-px");
     expect(projection).toBe("19.99");
     expect(Number(projection)).toBeLessThan(20);
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-min-branch-edge-px", "4.25");
   });
 
   it("measures branch projection after applying the current pose on setup and immediate stage changes", async () => {
