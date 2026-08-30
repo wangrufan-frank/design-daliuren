@@ -174,6 +174,20 @@ function pose(translationX: number, rotationZ: number): ArtifactPose {
   };
 }
 
+function projectedBoxHeightPx(
+  object: THREE.Object3D,
+  camera: THREE.Camera,
+  viewportHeight: number,
+) {
+  const box = new THREE.Box3().setFromObject(object);
+  const projectedY = [box.min.x, box.max.x].flatMap((x) =>
+    [box.min.y, box.max.y].flatMap((y) =>
+      [box.min.z, box.max.z].map((z) => new THREE.Vector3(x, y, z).project(camera).y),
+    ),
+  );
+  return (Math.max(...projectedY) - Math.min(...projectedY)) * viewportHeight / 2;
+}
+
 function generalPose(targetEarth: EarthlyBranch): ArtifactPose {
   const value = pose(0, 0);
   return {
@@ -307,12 +321,18 @@ describe("ArtifactSceneController", () => {
       .toThrow("Invalid branch inlay branch/heaven/亥");
   });
 
-  it("measures branch height along world Z deterministically after resize and an immediate preset", () => {
-    const { controller } = fixture();
+  it("measures the complete projected branch box deterministically after resize and an immediate preset", () => {
+    const { branchNodes, controller, renderer } = fixture();
     controller.resize(800, 600, 1);
-    controller.applyCameraPreset({ position: [0, -1, 0.2], target: [0, 0, 0] }, true);
+    controller.applyCameraPreset({ position: [0.31, 0.73, 0.77], target: [0, 0.05, 0] }, true);
+    controller.render();
+    const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
 
     const first = controller.measureMinimumBranchProjectionPx();
+    const expected = Math.min(
+      ...[...branchNodes.values()].map((mesh) => projectedBoxHeightPx(mesh, camera, 600)),
+    );
+    expect(first).toBeCloseTo(expected);
     expect(first).toBeGreaterThan(18);
     expect(controller.measureMinimumBranchProjectionPx()).toBe(first);
 

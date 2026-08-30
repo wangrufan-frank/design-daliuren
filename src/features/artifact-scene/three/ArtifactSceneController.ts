@@ -415,10 +415,15 @@ export class ArtifactSceneController {
     let minimum = Infinity;
     for (const mesh of this.branchMeshes.values()) {
       const box = new THREE.Box3().setFromObject(mesh);
-      const center = box.getCenter(new THREE.Vector3());
-      const top = new THREE.Vector3(center.x, center.y, box.max.z).project(this.camera);
-      const bottom = new THREE.Vector3(center.x, center.y, box.min.z).project(this.camera);
-      minimum = Math.min(minimum, Math.abs(top.y - bottom.y) * this.annotationViewport.height / 2);
+      const projectedY = [box.min.x, box.max.x].flatMap((x) =>
+        [box.min.y, box.max.y].flatMap((y) =>
+          [box.min.z, box.max.z].map((z) => new THREE.Vector3(x, y, z).project(this.camera).y),
+        ),
+      );
+      minimum = Math.min(
+        minimum,
+        (Math.max(...projectedY) - Math.min(...projectedY)) * this.annotationViewport.height / 2,
+      );
     }
     return Number.isFinite(minimum) ? minimum : 0;
   }

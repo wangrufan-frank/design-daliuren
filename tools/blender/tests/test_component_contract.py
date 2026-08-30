@@ -119,7 +119,7 @@ class ComponentContractTest(unittest.TestCase):
             )
 
     def test_branch_inlays_form_complete_surface_rings(self):
-        for surface, radius in (("earth", 0.202), ("heaven", 0.164)):
+        for surface, radius in (("earth", 0.194), ("heaven", 0.164)):
             parent = bpy.data.objects[f"plate/{surface}"]
             node_ids = [f"branch/{surface}/{branch}" for branch in BRANCHES]
             for node_id in node_ids:

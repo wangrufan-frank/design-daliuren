@@ -66,7 +66,7 @@ class InscriptionTest(unittest.TestCase):
         items = load_fixed_inscriptions(FIXTURE)
 
         self.assertEqual(len(items), 71)
-        for role, radius in (("earth-branch", 0.202), ("heaven-branch", 0.164)):
+        for role, radius in (("earth-branch", 0.194), ("heaven-branch", 0.164)):
             ring = tuple(item for item in items if item.role == role)
             with self.subTest(role=role):
                 self.assertEqual(tuple(item.text for item in ring), BRANCHES)
@@ -169,6 +169,68 @@ class InscriptionTest(unittest.TestCase):
                     self.assertEqual(obj["ring_index"], index)
                     self.assertEqual(obj["angular_index"], index)
                     self.assertEqual(obj["surface_treatment"], "recessed-inlay")
+
+    def test_functional_glyphs_and_beds_have_readable_physical_spans(self):
+        build_graybox()
+
+        self.assertEqual(getattr(inscriptions, "FUNCTIONAL_GLYPH_SPAN", None), 0.044)
+        self.assertEqual(getattr(inscriptions, "BRANCH_BED_SPAN", None), 0.048)
+        for surface in ("earth", "heaven"):
+            for branch in BRANCHES:
+                glyph = bpy.data.objects[f"branch/{surface}/{branch}"]
+                bed = bpy.data.objects[f"detail/branch-bed/{surface}/{branch}"]
+                glyph_spans = tuple(
+                    max(vertex.co[axis] for vertex in glyph.data.vertices)
+                    - min(vertex.co[axis] for vertex in glyph.data.vertices)
+                    for axis in (0, 1)
+                )
+                bed_spans = tuple(
+                    max(vertex.co[axis] for vertex in bed.data.vertices)
+                    - min(vertex.co[axis] for vertex in bed.data.vertices)
+                    for axis in (0, 1)
+                )
+                with self.subTest(surface=surface, branch=branch):
+                    self.assertAlmostEqual(glyph_spans[0], 0.044, places=6)
+                    self.assertAlmostEqual(glyph_spans[1], 0.044, places=6)
+                    self.assertAlmostEqual(bed_spans[0], 0.048, places=6)
+                    self.assertAlmostEqual(bed_spans[1], 0.048, places=6)
+
+    def test_functional_glyphs_and_beds_stay_inside_their_plates_without_overlap(self):
+        build_graybox()
+
+        for surface, limit in (("earth", 0.220), ("heaven", 0.190)):
+            plate = bpy.data.objects[f"plate/{surface}"]
+            inverse = plate.matrix_world.inverted()
+            beds = []
+            for branch in BRANCHES:
+                glyph = bpy.data.objects[f"branch/{surface}/{branch}"]
+                bed = bpy.data.objects[f"detail/branch-bed/{surface}/{branch}"]
+                beds.append(bed)
+                for obj in (glyph, bed):
+                    points = [inverse @ obj.matrix_world @ vertex.co for vertex in obj.data.vertices]
+                    with self.subTest(surface=surface, branch=branch, object=obj.name):
+                        if surface == "earth":
+                            self.assertLessEqual(max(abs(point.x) for point in points), limit + 1e-6)
+                            self.assertLessEqual(max(abs(point.y) for point in points), limit + 1e-6)
+                        else:
+                            self.assertLessEqual(
+                                max((point.x * point.x + point.y * point.y) ** 0.5 for point in points),
+                                limit + 1e-6,
+                            )
+
+            for index, bed in enumerate(beds):
+                first_radius = max(
+                    (vertex.co.x * vertex.co.x + vertex.co.y * vertex.co.y) ** 0.5
+                    for vertex in bed.data.vertices
+                )
+                for other in beds[index + 1 :]:
+                    second_radius = max(
+                        (vertex.co.x * vertex.co.x + vertex.co.y * vertex.co.y) ** 0.5
+                        for vertex in other.data.vertices
+                    )
+                    separation = (bed.location.xy - other.location.xy).length
+                    with self.subTest(surface=surface, first=bed.name, second=other.name):
+                        self.assertGreater(separation, first_radius + second_radius)
 
     def test_graybox_contains_only_the_twenty_four_functional_inscriptions(self):
         build_graybox()

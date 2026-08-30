@@ -47,6 +47,8 @@ TEXT_SIZES = {
     "historical-mansion": 0.0048,
     "historical-month-deity": 0.0045,
 }
+FUNCTIONAL_GLYPH_SPAN = 0.044
+BRANCH_BED_SPAN = 0.048
 BRANCH_RECESS = 0.00015
 BRANCH_CUTTER_OVERLAP = 0.00010
 BRANCH_BED_RECESS = 0.00100
@@ -179,6 +181,15 @@ def _add_mesh_text(
     obj.select_set(True)
     bpy.ops.object.convert(target="MESH")
     obj.select_set(False)
+    if item.role in FUNCTIONAL_ROLES:
+        for axis in (0, 1):
+            minimum = min(vertex.co[axis] for vertex in obj.data.vertices)
+            maximum = max(vertex.co[axis] for vertex in obj.data.vertices)
+            center = (minimum + maximum) / 2
+            scale = FUNCTIONAL_GLYPH_SPAN / (maximum - minimum)
+            for vertex in obj.data.vertices:
+                vertex.co[axis] = (vertex.co[axis] - center) * scale
+        obj.data.update()
     surface_z = max(corner[2] for corner in parent.bound_box)
     local_top = max(vertex.co.z for vertex in obj.data.vertices)
     obj.location.z = surface_z - local_top
@@ -224,11 +235,10 @@ def _cut_branch_recess(parent, inlay):
     _apply_exact_difference(parent, cutter, inlay["node_id"])
 
     bed_name = f"detail/branch-bed/{inlay['surface']}/{inlay['branch']}"
-    size = TEXT_SIZES[inlay["inscription_role"]]
     surface_z = max(corner[2] for corner in parent.bound_box)
     bed = add_beveled_box(
         bed_name,
-        (size * 1.25, size * 1.15, BRANCH_BED_DEPTH),
+        (BRANCH_BED_SPAN, BRANCH_BED_SPAN, BRANCH_BED_DEPTH),
         (0.0, 0.0, 0.0),
         0.0012,
     )
