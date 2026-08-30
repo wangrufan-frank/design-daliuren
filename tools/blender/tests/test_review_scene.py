@@ -8,6 +8,7 @@ import bpy
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_master
+from render_graybox_review import STAGE_PREVIEW_OUTPUTS, build_review_scene
 from render_lookdev_review import (
     CAMERA_NAMES,
     REVIEW_OUTPUTS,
@@ -61,6 +62,36 @@ class ReviewSceneTest(unittest.TestCase):
         self.assertEqual(legibility.data.lens, overall.data.lens)
         self.assertAlmostEqual(scene.view_settings.exposure, -1.0, places=6)
         self.assertIn("legibility", REVIEW_OUTPUTS)
+
+    def test_graybox_review_names_every_stage_preview(self):
+        self.assertEqual(
+            STAGE_PREVIEW_OUTPUTS,
+            (
+                "stage-closed",
+                "stage-calendar",
+                "stage-plate",
+                "stage-lessons",
+                "stage-transmissions",
+                "stage-generals",
+            ),
+        )
+
+    def test_graybox_review_keeps_recesses_readable_without_dead_black(self):
+        scene = build_review_scene()
+
+        self.assertEqual(scene.view_settings.exposure, -1.0)
+        self.assertEqual(
+            bpy.data.objects["detail/branch-bed/earth/子"].data.materials[0].name,
+            "review/recess-gray",
+        )
+        self.assertEqual(
+            bpy.data.objects["branch/earth/子"].data.materials[0].name,
+            "review/neutral-gray",
+        )
+        self.assertEqual(
+            bpy.data.objects["review/ground"].data.materials[0].name,
+            "review/ground-gray",
+        )
 
     def test_sampled_pixel_metrics_enforce_legibility_thresholds(self):
         metrics = legibility_metrics(

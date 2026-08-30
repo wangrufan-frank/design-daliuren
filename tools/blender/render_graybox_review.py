@@ -9,6 +9,7 @@ from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).parent))
 
 from build_graybox import build_graybox
+from daliuren_contract import POSE_IDS
 from poses import apply_pose
 
 
@@ -24,6 +25,7 @@ LIGHTS = {
     "light/rim": ((0.08, 0.64, 0.72), 84.0, 0.16, (1.0, 0.86, 0.72)),
 }
 REVIEW_OUTPUTS = ("overall", "oblique", "mechanism", "top")
+STAGE_PREVIEW_OUTPUTS = tuple(f"stage-{pose_id}" for pose_id in POSE_IDS)
 
 
 def _look_at(obj, target):
@@ -54,6 +56,7 @@ def _configure_world_and_render():
     scene.render.film_transparent = False
     scene.render.use_file_extension = True
     scene.view_settings.look = "AgX - Medium High Contrast"
+    scene.view_settings.exposure = -1.0
 
     world = scene.world or bpy.data.worlds.new("review/world")
     scene.world = world
@@ -65,7 +68,7 @@ def _configure_world_and_render():
         0x17 / 255,
         1.0,
     )
-    background.inputs["Strength"].default_value = 0.035
+    background.inputs["Strength"].default_value = 0.12
 
 
 def _neutral_material():
@@ -74,9 +77,33 @@ def _neutral_material():
         material = bpy.data.materials.new("review/neutral-gray")
     material.use_nodes = True
     principled = material.node_tree.nodes.get("Principled BSDF")
-    principled.inputs["Base Color"].default_value = (0.22, 0.22, 0.22, 1.0)
+    principled.inputs["Base Color"].default_value = (0.10, 0.10, 0.10, 1.0)
     principled.inputs["Metallic"].default_value = 0.0
     principled.inputs["Roughness"].default_value = 0.62
+    return material
+
+
+def _recess_material():
+    material = bpy.data.materials.get("review/recess-gray")
+    if material is None:
+        material = bpy.data.materials.new("review/recess-gray")
+    material.use_nodes = True
+    principled = material.node_tree.nodes.get("Principled BSDF")
+    principled.inputs["Base Color"].default_value = (0.025, 0.025, 0.025, 1.0)
+    principled.inputs["Metallic"].default_value = 0.0
+    principled.inputs["Roughness"].default_value = 0.70
+    return material
+
+
+def _ground_material():
+    material = bpy.data.materials.get("review/ground-gray")
+    if material is None:
+        material = bpy.data.materials.new("review/ground-gray")
+    material.use_nodes = True
+    principled = material.node_tree.nodes.get("Principled BSDF")
+    principled.inputs["Base Color"].default_value = (0.045, 0.045, 0.045, 1.0)
+    principled.inputs["Metallic"].default_value = 0.0
+    principled.inputs["Roughness"].default_value = 0.82
     return material
 
 
@@ -107,7 +134,9 @@ def _add_light(name, location, energy, size, color):
 def build_review_scene():
     _remove_review_rig()
     _configure_world_and_render()
-    material = _neutral_material()
+    neutral = _neutral_material()
+    recess = _recess_material()
+    ground_material = _ground_material()
 
     bpy.ops.mesh.primitive_plane_add(size=4.0, location=(0.0, 0.0, -0.004))
     ground = bpy.context.object
@@ -118,7 +147,12 @@ def build_review_scene():
         if obj.type != "MESH":
             continue
         obj.data.materials.clear()
-        obj.data.materials.append(material)
+        if obj == ground:
+            obj.data.materials.append(ground_material)
+        elif obj.name.startswith("detail/branch-bed/"):
+            obj.data.materials.append(recess)
+        else:
+            obj.data.materials.append(neutral)
 
     for name, (location, target, lens) in CAMERAS.items():
         _add_camera(name, location, target, lens)
@@ -229,9 +263,21 @@ def render_review_images(output_dir=None):
     for name in ("oblique", "mechanism", "top"):
         _render(f"review/{name}", output_dir / f"{name}.png")
 
+    for pose_id, output_name in zip(POSE_IDS, STAGE_PREVIEW_OUTPUTS):
+        plate_offset = 0 if pose_id in {"closed", "calendar"} else 5
+        apply_pose(pose_id, plate_offset=plate_offset, general_direction="reverse")
+        _render(
+            "review/oblique",
+            output_dir / f"{output_name}.png",
+            label=pose_id.upper(),
+        )
+
     _set_stamp(None)
     bpy.context.scene.render.resolution_x = 1920
-    return tuple(output_dir / f"{name}.png" for name in REVIEW_OUTPUTS)
+    return tuple(
+        output_dir / f"{name}.png"
+        for name in (*REVIEW_OUTPUTS, *STAGE_PREVIEW_OUTPUTS)
+    )
 
 
 if __name__ == "__main__":

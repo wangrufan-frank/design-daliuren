@@ -15,6 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from materials import srgb_hex
+from poses import apply_pose
 from render_lookdev_review import (
     CAMERA_NAMES,
     REVIEW_OUTPUTS,
@@ -87,6 +88,7 @@ class LookdevSceneTest(unittest.TestCase):
     def test_material_closeup_frames_four_materials_and_a_physical_seam(self):
         build_lookdev_scene()
         configure_material_closeup()
+        apply_pose("generals", plate_offset=0, general_direction="reverse")
 
         scene = bpy.context.scene
         camera = bpy.data.objects["camera/material-closeup"]
@@ -96,23 +98,23 @@ class LookdevSceneTest(unittest.TestCase):
             (90.0, 36.0, 18.0),
         )
         evidence = {
-            "calendar/slip/body": "M_Bronze",
-            "detail/base/shell-return/00": "M_Patina",
-            "calendar/slip/readout": "M_Celadon",
-            "branch/earth/子": "M_OldGold",
-            "branch/heaven/子": "M_AshText",
+            "lesson/second": "M_Bronze",
+            "transmission/final": "M_Celadon",
+            "branch/earth/辰": "M_OldGold",
+            "branch/heaven/辰": "M_AshText",
         }
         for object_name, material_name in evidence.items():
             obj = bpy.data.objects[object_name]
             projected = world_to_camera_view(scene, camera, obj.matrix_world.translation)
             with self.subTest(object_name=object_name):
+                self.assertFalse(obj.hide_render)
                 self.assertEqual(obj.data.materials[0]["material_family"], material_name)
                 self.assertGreater(projected.z, 0.0)
                 self.assertGreaterEqual(projected.x, 0.04)
                 self.assertLessEqual(projected.x, 0.96)
                 self.assertGreaterEqual(projected.y, 0.04)
                 self.assertLessEqual(projected.y, 0.96)
-        functional = bpy.data.objects["branch/earth/子"]
+        functional = bpy.data.objects["branch/earth/辰"]
         projected_corners = [
             world_to_camera_view(scene, camera, functional.matrix_world @ Vector(corner))
             for corner in functional.bound_box
@@ -124,10 +126,10 @@ class LookdevSceneTest(unittest.TestCase):
         self.assertGreaterEqual(projected_size, 0.012)
         self.assertLess(
             (
-                bpy.data.objects["calendar/slip/body"].matrix_world.translation
-                - bpy.data.objects["calendar/slip/readout"].matrix_world.translation
+                bpy.data.objects["branch/earth/辰"].matrix_world.translation
+                - bpy.data.objects["detail/branch-bed/earth/辰"].matrix_world.translation
             ).length,
-            0.005,
+            0.001,
         )
         self.assertTrue(camera.data.dof.use_dof)
 

@@ -29,7 +29,7 @@ REVIEW_OUTPUTS = (
 CAMERAS = {
     "camera/overall": ((0.78, -0.96, 0.68), (0.0, 0.0, 0.055), 58.0),
     "camera/oblique": ((-0.72, -0.82, 0.40), (0.0, -0.01, 0.055), 62.0),
-    "camera/material-closeup": ((0.067, 0.100, 0.175), (0.0, 0.205, 0.075), 70.0),
+    "camera/material-closeup": ((0.34, -0.415, 0.375), (0.14, -0.10, 0.075), 70.0),
     "camera/rotation-evidence": ((0.75, -0.94, 0.63), (0.0, 0.0, 0.065), 62.0),
     "camera/legibility": ((0.78, -0.96, 0.68), (0.0, 0.0, 0.055), 58.0),
 }
@@ -534,7 +534,7 @@ def render_lookdev_images(output_dir=None):
     apply_pose("generals", plate_offset=5, general_direction="reverse")
     _render("camera/oblique", output_dir / "oblique.png")
 
-    apply_pose("plate", plate_offset=0)
+    apply_pose("generals", plate_offset=0, general_direction="reverse")
     closeup_state = configure_material_closeup()
     try:
         _render("camera/material-closeup", output_dir / "material-closeup.png")
