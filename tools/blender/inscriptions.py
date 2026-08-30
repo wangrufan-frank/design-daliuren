@@ -48,7 +48,9 @@ TEXT_SIZES = {
     "historical-month-deity": 0.0045,
 }
 FUNCTIONAL_GLYPH_SPAN = 0.0496
+FUNCTIONAL_GLYPH_MESH_SPAN = 0.044
 BRANCH_BED_SPAN = 0.052
+BRANCH_BED_MESH_SPAN = 0.048
 BRANCH_RECESS = 0.00015
 BRANCH_CUTTER_OVERLAP = 0.00010
 BRANCH_BED_RECESS = 0.00100
@@ -186,9 +188,11 @@ def _add_mesh_text(
             minimum = min(vertex.co[axis] for vertex in obj.data.vertices)
             maximum = max(vertex.co[axis] for vertex in obj.data.vertices)
             center = (minimum + maximum) / 2
-            scale = FUNCTIONAL_GLYPH_SPAN / (maximum - minimum)
+            scale = FUNCTIONAL_GLYPH_MESH_SPAN / (maximum - minimum)
             for vertex in obj.data.vertices:
                 vertex.co[axis] = (vertex.co[axis] - center) * scale
+        obj.scale.x = FUNCTIONAL_GLYPH_SPAN / FUNCTIONAL_GLYPH_MESH_SPAN
+        obj.scale.y = FUNCTIONAL_GLYPH_SPAN / FUNCTIONAL_GLYPH_MESH_SPAN
         obj.data.update()
     surface_z = max(corner[2] for corner in parent.bound_box)
     local_top = max(vertex.co.z for vertex in obj.data.vertices)
@@ -238,7 +242,7 @@ def _cut_branch_recess(parent, inlay):
     surface_z = max(corner[2] for corner in parent.bound_box)
     bed = add_beveled_box(
         bed_name,
-        (BRANCH_BED_SPAN, BRANCH_BED_SPAN, BRANCH_BED_DEPTH),
+        (BRANCH_BED_MESH_SPAN, BRANCH_BED_MESH_SPAN, BRANCH_BED_DEPTH),
         (0.0, 0.0, 0.0),
         0.0012,
     )
@@ -250,14 +254,18 @@ def _cut_branch_recess(parent, inlay):
         surface_z - BRANCH_BED_RECESS - BRANCH_BED_DEPTH / 2,
     )
     bed.rotation_euler.z = inlay.rotation_euler.z
+    bed.scale.x = BRANCH_BED_SPAN / BRANCH_BED_MESH_SPAN
+    bed.scale.y = BRANCH_BED_SPAN / BRANCH_BED_MESH_SPAN
     if inlay["surface"] == "heaven":
         angle = bed.rotation_euler.z
         cosine = math.cos(angle)
         sine = math.sin(angle)
         radius_limit = parent.dimensions.x / 2 - 1e-6
         for vertex in bed.data.vertices:
-            parent_x = bed.location.x + cosine * vertex.co.x - sine * vertex.co.y
-            parent_y = bed.location.y + sine * vertex.co.x + cosine * vertex.co.y
+            scaled_x = vertex.co.x * bed.scale.x
+            scaled_y = vertex.co.y * bed.scale.y
+            parent_x = bed.location.x + cosine * scaled_x - sine * scaled_y
+            parent_y = bed.location.y + sine * scaled_x + cosine * scaled_y
             radius = math.hypot(parent_x, parent_y)
             if radius <= radius_limit:
                 continue
@@ -265,8 +273,8 @@ def _cut_branch_recess(parent, inlay):
             parent_y *= radius_limit / radius
             delta_x = parent_x - bed.location.x
             delta_y = parent_y - bed.location.y
-            vertex.co.x = cosine * delta_x + sine * delta_y
-            vertex.co.y = -sine * delta_x + cosine * delta_y
+            vertex.co.x = (cosine * delta_x + sine * delta_y) / bed.scale.x
+            vertex.co.y = (-sine * delta_x + cosine * delta_y) / bed.scale.y
         bed.data.update()
     bed["detail_id"] = "structure/bronze-inlay-branch-bed"
     bed["detail_index"] = inlay["ring_index"]
