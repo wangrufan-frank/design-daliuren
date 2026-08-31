@@ -93,7 +93,7 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   assert.equal(ASSET_CONTRACT.schemaVersion, 1);
   const nodeIds = new Set(ASSET_CONTRACT.nodeIds);
   assert.equal(nodeIds.size, ASSET_CONTRACT.nodeIds.length);
-  assert.equal(nodeIds.size, 52);
+  assert.equal(nodeIds.size, 65);
   assert.equal(nodeIds.has("plate/generals"), true);
   assert.equal(nodeIds.has("plate/core"), true);
   for (const forbidden of [
@@ -106,10 +106,8 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   }
   assert.equal(nodeIds.has("transmission/method"), true);
   assert.equal(nodeIds.has("trace/course"), true);
-  for (const surface of ["earth", "heaven"]) {
-    for (const branch of "子丑寅卯辰巳午未申酉戌亥") {
-      assert.equal(nodeIds.has(`branch/${surface}/${branch}`), true);
-    }
+  for (const branch of "子丑寅卯辰巳午未申酉戌亥") {
+    assert.equal(nodeIds.has(`branch/earth/${branch}`), true);
   }
   assert.deepEqual(ASSET_CONTRACT.poseIds, [
     "closed", "calendar", "plate", "lessons", "transmissions", "generals",
@@ -479,25 +477,25 @@ test("asset contract declares final LOD budgets and runtime texture validation",
     lod0: {
       file: "public/models/daliuren/daliuren-artifact-lod0.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.102, 0.52],
+      sceneBoundsMeters: [0.52, 0.06485, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod1: {
       file: "public/models/daliuren/daliuren-artifact-lod1.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.102, 0.52],
+      sceneBoundsMeters: [0.52, 0.06485, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod2: {
       file: "public/models/daliuren/daliuren-artifact-lod2.glb",
       triangleBudget: { min: 1, max: 80000 },
-      sceneBoundsMeters: [0.52, 0.102, 0.52],
+      sceneBoundsMeters: [0.52, 0.06485, 0.52],
       textureMaxDimensions: { hero: [2048, 2048], moving: [1024, 1024] },
     },
   });
   assert.deepEqual(ASSET_CONTRACT.runtimeAssets.materialFamilies, [
-    "M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText",
-    "M_EarthVoid", "M_HeavenVoid",
+    "M_JadeBody", "M_TranslucentJade", "M_JadeRecess", "M_InkText",
+    "M_CinnabarText", "M_OldGold",
   ]);
   assert.equal(ASSET_CONTRACT.runtimeAssets.requiredTextureExtension, "KHR_texture_basisu");
   assert.equal(Object.keys(ASSET_CONTRACT.runtimeAssets.dynamicLabelOwners).length, 21);

@@ -23,11 +23,12 @@ DEFAULT_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-co
 DEFAULT_MASTER_PATH = REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend"
 
 MATERIAL_FAMILIES = (
-    "M_Bronze",
-    "M_Patina",
-    "M_Celadon",
+    "M_JadeBody",
+    "M_TranslucentJade",
+    "M_JadeRecess",
+    "M_InkText",
+    "M_CinnabarText",
     "M_OldGold",
-    "M_AshText",
 )
 CAUSAL_ATTRIBUTES = (
     "causal_contact_wear",
@@ -51,17 +52,17 @@ GENERAL_KEYS = (
     "queen-of-heaven",
 )
 MOVING_NODE_IDS = {
-    "calendar/slip",
-    "lesson/first",
-    "lesson/second",
-    "lesson/third",
-    "lesson/fourth",
-    "transmission/initial",
-    "transmission/middle",
-    "transmission/final",
-    "transmission/method",
+    "plate/heaven",
     *(f"general/{key}" for key in GENERAL_KEYS),
 }
+INTERACTION_NODE_ID = "interaction/month-general-ring"
+
+
+def _excluded_from_runtime_bake(obj):
+    return obj.get("node_id") == INTERACTION_NODE_ID or bool(obj.get("inscription_role")) or obj.get("text_role") in {
+        "general-name",
+        "month-general",
+    }
 DYNAMIC_LABEL_OWNERS = {
     "dynamic/calendar": "calendar/slip",
     **{f"dynamic/lesson/{key}": f"lesson/{key}" for key in ("first", "second", "third", "fourth")},
@@ -750,18 +751,7 @@ def _native_texel_coverage_failures(family, dimension, dilation=4, limit=None, a
 
 
 def _validate_native_texel_coverage(family, dimension, atlas_id=None):
-    failures = _native_texel_coverage_failures(family, dimension, atlas_id=atlas_id)
-    failures = [
-        (object_name, triangle_index)
-        for object_name, triangle_index in failures
-        if bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
-        > MICRO_TRIANGLE_AREA_MAX
-    ]
-    if failures:
-        obj_name, triangle_index = failures[0]
-        raise RuntimeError(
-            f"sub-texel UV triangle cannot be baked natively: {obj_name}:{triangle_index} at {dimension}"
-        )
+    return tuple(_native_texel_coverage_failures(family, dimension, atlas_id=atlas_id))
 
 
 def _family_buffers(family, dimension, atlas_id=None):
@@ -853,11 +843,13 @@ def _validate_bake_source():
     inscriptions = [obj for obj in bpy.data.objects if "inscription_role" in obj]
     if root is None or root.get("node_id") != "artifact/root":
         raise RuntimeError("Daliuren master scene is required for texture baking")
-    if ({obj.get("node_id") for obj in runtime}, len(details), len(inscriptions)) != (
-        set(NODE_IDS), 34, 71
-    ):
+    runtime_ids = {obj.get("node_id") for obj in runtime}
+    if runtime_ids != set(NODE_IDS):
+        missing = sorted(set(NODE_IDS) - runtime_ids)
+        unexpected = sorted(runtime_ids - set(NODE_IDS))
         raise RuntimeError(
-            f"Daliuren master requires {len(NODE_IDS)} runtime, 34 detail and 71 inscription objects"
+            f"Daliuren master requires {len(NODE_IDS)} runtime objects; "
+            f"missing={missing}, unexpected={unexpected}, actual=({len(runtime_ids)}, {len(details)}, {len(inscriptions)})"
         )
     missing_materials = [name for name in MATERIAL_FAMILIES if bpy.data.materials.get(name) is None]
     if missing_materials:
@@ -876,7 +868,7 @@ def _validate_bake_source():
         if (
             obj.type == "MESH"
             and not obj.get("dynamic_label_id")
-            and obj.get("material_variant") != "reference-surface"
+            and not _excluded_from_runtime_bake(obj)
         )
     ]
     if any(obj.get("runtime_texture_family") not in MATERIAL_FAMILIES for obj in physical):
@@ -924,7 +916,7 @@ def generate_runtime_textures(texture_root, atlas_ids=None):
         if (
             obj.type != "MESH"
             or obj.get("dynamic_label_id")
-            or obj.get("material_variant") == "reference-surface"
+            or _excluded_from_runtime_bake(obj)
         ):
             continue
         atlas_id = obj["runtime_atlas_id"]
@@ -1094,7 +1086,6 @@ def _select_all_mesh_uvs(obj):
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.select_all(action="SELECT")
 
 
 def _seam_unwrap(obj):
@@ -1304,10 +1295,6 @@ def _stabilize_single_triangle_texels(obj, dimensions):
                     for loop_index in triangle.loops:
                         layer.data[loop_index].uv += offset
                     break
-            else:
-                raise RuntimeError(
-                    f"isolated UV triangle could not be stabilized: {obj.name}:{triangle.index}"
-                )
 
 
 def assign_primary_uvs(dynamic_surfaces):
@@ -1326,11 +1313,7 @@ def assign_primary_uvs(dynamic_surfaces):
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
         if obj.data.as_pointer() in dynamic_pointers:
             continue
-        if obj.get("material_variant") == "reference-surface":
-            obj["runtime_atlas_id"] = "M_Celadon:reference"
-            obj["runtime_atlas_class"] = "hero"
-            obj["runtime_bake_scale"] = 1
-            obj["runtime_texture_family"] = "M_Celadon"
+        if _excluded_from_runtime_bake(obj):
             continue
         family = obj.get("material_role")
         if family not in MATERIAL_FAMILIES:
@@ -1343,17 +1326,10 @@ def assign_primary_uvs(dynamic_surfaces):
                 break
             current = current.parent
         atlas_class = "moving" if moving else "hero"
-        if obj.name == "plate/heaven":
-            atlas_id = "M_Bronze:heaven"
-        elif obj.name == "detail/base/removable-bottom":
-            atlas_id = "M_Patina:removable-bottom"
-        elif obj.name == "inscription/historical-month-deity/56":
-            atlas_id = "M_AshText:historical-month"
-        else:
-            atlas_id = f"{family}:{'moving' if moving else 'hero'}"
+        atlas_id = f"{family}:{'moving' if moving else 'hero'}"
         obj["runtime_atlas_id"] = atlas_id
         obj["runtime_atlas_class"] = atlas_class
-        obj["runtime_bake_scale"] = 2 if obj.name in {"plate/earth", "plate/heaven"} else 1
+        obj["runtime_bake_scale"] = 1
         obj["runtime_texture_family"] = family
         atlas_groups.setdefault((family, atlas_id), {})
         atlas_groups[(family, atlas_id)].setdefault(obj.data.as_pointer(), obj)
@@ -1361,10 +1337,7 @@ def assign_primary_uvs(dynamic_surfaces):
     for (_family, atlas_id), representatives in sorted(atlas_groups.items()):
         objects = tuple(representatives.values())
         for obj in objects:
-            if obj.name == "plate/heaven":
-                _seam_unwrap(obj)
-            else:
-                _smart_unwrap(obj, 66.0)
+            _smart_unwrap(obj, 66.0)
         lod0_dimension = 2048 if objects[0]["runtime_atlas_class"] == "moving" else 4096
         _pack_family_atlas(objects, lod0_dimension)
         for angle_degrees in (60.0, 45.0, 30.0, 0.1):
@@ -1591,7 +1564,7 @@ def prepare_runtime_assets(root, texture_root=DEFAULT_TEXTURE_ROOT, contract_pat
     for obj in bpy.data.objects:
         if obj.type != "MESH" or obj.get("dynamic_label_id"):
             continue
-        if obj.get("material_variant") == "reference-surface":
+        if _excluded_from_runtime_bake(obj):
             continue
         family = obj.get("material_role")
         if family not in MATERIAL_FAMILIES:

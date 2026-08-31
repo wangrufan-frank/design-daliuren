@@ -42,6 +42,10 @@ GENERAL_KEYS = (
     "yin",
     "queen-of-heaven",
 )
+GENERAL_NAMES = (
+    "贵人", "螣蛇", "朱雀", "六合", "勾陈", "青龙",
+    "天空", "白虎", "太常", "玄武", "太阴", "天后",
+)
 
 
 def clear_scene():
@@ -246,12 +250,13 @@ def add_sector_in_slot(node_id, slot, inner_radius, outer_radius, half_angle, de
     return obj
 
 
-def add_generals(general_ring):
+def add_generals(general_ring, font_path):
+    font = bpy.data.fonts.load(str(font_path), check_existing=True)
     depth = GENERAL_INLAY_DEPTH_M
     seat_top = general_ring.dimensions.z / 2
     settled_z = seat_top - depth / 2
     center_radius = (GENERAL_SECTOR_INNER_RADIUS + GENERAL_SECTOR_OUTER_RADIUS) / 2
-    for index, (general_key, branch) in enumerate(zip(GENERAL_KEYS, VISUAL_EARTH_ORDER)):
+    for index, (general_key, general_name, branch) in enumerate(zip(GENERAL_KEYS, GENERAL_NAMES, VISUAL_EARTH_ORDER)):
         piece_inner = GENERAL_SECTOR_INNER_RADIUS + GENERAL_RADIAL_CLEARANCE_M
         piece_outer = GENERAL_SECTOR_OUTER_RADIUS - GENERAL_RADIAL_CLEARANCE_M
         angle = visual_angle(index)
@@ -304,6 +309,25 @@ def add_generals(general_ring):
         general["settled_z_m"] = settled_z
         general["settled_location"] = tuple(slot.location)
         general["closed_rotation_euler"] = tuple(general.rotation_euler)
+        curve = bpy.data.curves.new(f"general/{general_key}/name/curve", "FONT")
+        curve.body = general_name
+        curve.font = font
+        curve.align_x = "CENTER"
+        curve.align_y = "CENTER"
+        curve.size = 0.0075
+        curve.extrude = 0.00015
+        glyph = bpy.data.objects.new(f"general/{general_key}/name", curve)
+        bpy.context.scene.collection.objects.link(glyph)
+        glyph.parent = general
+        glyph.location.z = depth / 2
+        glyph["text_role"] = "general-name"
+        glyph["general_key"] = general_key
+        glyph["target_earth"] = branch
+        glyph["runtime_color_switch"] = True
+        bpy.context.view_layer.objects.active = glyph
+        glyph.select_set(True)
+        bpy.ops.object.convert(target="MESH")
+        glyph.select_set(False)
 
 
 def add_month_general_glyphs(heaven, font_path):
@@ -325,6 +349,8 @@ def add_month_general_glyphs(heaven, font_path):
         obj["node_id"] = obj.name
         obj["visual_index"] = index
         obj["material_variant"] = "cinnabar-text"
+        obj["text_role"] = "month-general"
+        obj["runtime_color_switch"] = True
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
         bpy.ops.object.convert(target="MESH")
@@ -448,13 +474,13 @@ def build_graybox():
     core["fixed"] = True
     add_historical_ring(radius=0.137, z=base_height + DIMENSIONS["earth_plate"][2] + 0.0102)
     parent_runtime_parts(root)
+    repository_root = Path(__file__).parents[2]
+    font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
     add_calendar(root, base_height)
     add_lesson_slips(root, earth, base_height)
     add_transmission_slips(root, base, earth, base_height)
-    add_generals(general_ring)
+    add_generals(general_ring, font_path)
     add_course_trace(core)
-    repository_root = Path(__file__).parents[2]
-    font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
     build_fixed_inscriptions(earth, heaven, font_path, roles={"earth-branch"})
     add_month_general_glyphs(heaven, font_path)
     interaction = add_ring(

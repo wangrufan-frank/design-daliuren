@@ -10,34 +10,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { Document } from "@gltf-transform/core";
 import {
-  addVoidPaletteMaterials,
   compressGlb,
   encodeTexture,
   textureEncoderMode,
 } from "./compress-daliuren-glbs.mjs";
-
-test("adds the two fixed void palette materials without attaching them to geometry", () => {
-  const document = new Document();
-  document.createMaterial("M_Bronze").setExtras({ material_family: "M_Bronze" });
-
-  addVoidPaletteMaterials(document);
-
-  const materials = document.getRoot().listMaterials();
-  assert.deepEqual(materials.map((material) => material.getName()), [
-    "M_Bronze",
-    "M_EarthVoid",
-    "M_HeavenVoid",
-  ]);
-  assert.deepEqual(materials.slice(1).map((material) => material.getExtras()), [
-    { material_family: "M_EarthVoid" },
-    { material_family: "M_HeavenVoid" },
-  ]);
-  assert.equal(materials[1].getRoughnessFactor(), 0.52);
-  assert.equal(materials[2].getRoughnessFactor(), 0.52);
-  assert.deepEqual(document.getRoot().listMeshes(), []);
-});
 
 test("assigns ETC1S only to color slots and UASTC only to data slots", () => {
   assert.equal(textureEncoderMode(["baseColorTexture"]), "etc1s");

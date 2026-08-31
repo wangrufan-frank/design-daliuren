@@ -11,6 +11,7 @@ REPOSITORY_ROOT = Path(__file__).parents[2]
 MATERIAL_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
 TEXTURE_ROOT = REPOSITORY_ROOT / "assets/daliuren/textures"
 SOURCE_MARKER = "daliuren_lod_source"
+LEGACY_EXPORT_MATERIALS = ("M_EarthVoid", "M_HeavenVoid")
 
 
 def _source_objects():
@@ -170,7 +171,7 @@ def _bind_runtime_textures(collection, level):
     for obj in collection.all_objects:
         if obj.type != "MESH" or obj.get("dynamic_label_id"):
             continue
-        if obj.get("material_variant") == "reference-surface":
+        if obj.get("node_id") == "interaction/month-general-ring" or obj.get("inscription_role") or obj.get("text_role") in {"general-name", "month-general"}:
             continue
         family = obj["runtime_texture_family"]
         atlas_id = obj["runtime_atlas_id"]
@@ -180,19 +181,14 @@ def _bind_runtime_textures(collection, level):
             _runtime_material(atlas_id, family, texture_lod, atlas),
         )
         obj.data.materials.clear()
-        if obj.get("node_id") in BRANCH_INLAY_NODE_IDS:
-            branch_material = material.copy()
-            branch_material.name = f"{material.name}/{obj['node_id']}"
-            branch_material["branch_node_id"] = obj["node_id"]
-            void_family = (
-                "M_EarthVoid"
-                if obj["node_id"].startswith("branch/earth/")
-                else "M_HeavenVoid"
-            )
-            obj.data.materials.append(branch_material)
-            obj.data.materials.append(bpy.data.materials[void_family])
-        else:
-            obj.data.materials.append(material)
+        obj.data.materials.append(material)
+
+
+def _remove_legacy_export_materials():
+    for name in LEGACY_EXPORT_MATERIALS:
+        material = bpy.data.materials.get(name)
+        if material is not None:
+            bpy.data.materials.remove(material)
 
 
 def build_lod(level: int) -> bpy.types.Collection:
@@ -202,5 +198,6 @@ def build_lod(level: int) -> bpy.types.Collection:
     if level:
         _reduce_lod(collection, level)
     _bind_runtime_textures(collection, level)
+    _remove_legacy_export_materials()
     bpy.context.view_layer.update()
     return collection

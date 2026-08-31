@@ -11,25 +11,21 @@ BLENDER_DIR = Path(__file__).parents[1]
 REPOSITORY_ROOT = Path(__file__).parents[3]
 ASSET_CONTRACT = REPOSITORY_ROOT / "assets/daliuren/asset-contract.json"
 BRANCHES = tuple("子丑寅卯辰巳午未申酉戌亥")
+GENERAL_KEYS = (
+    "noble", "snake", "vermilion-bird", "harmony", "hook-array", "azure-dragon",
+    "void", "white-tiger", "constant", "black-tortoise", "yin", "queen-of-heaven",
+)
+MONTH_GENERAL_NAMES = ("胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙")
 MATERIAL_NAMES = {
-    "M_Bronze",
-    "M_Patina",
-    "M_Celadon",
-    "M_OldGold",
-    "M_AshText",
-    "M_EarthVoid",
-    "M_HeavenVoid",
+    "M_JadeBody", "M_TranslucentJade", "M_JadeRecess",
+    "M_InkText", "M_CinnabarText", "M_OldGold",
 }
-RUNTIME_MATERIAL_NAMES = MATERIAL_NAMES | {"M_ReferenceSurface"}
 PALETTE = {
     "ink": "#27231F",
-    "bronze": "#E5DED0",
-    "patina": "#C8BDAA",
-    "celadon": "#F2EEE5",
-    "ash": "#2B2926",
+    "jadeBody": "#F2EEE5",
+    "jadeRecess": "#E8E4DB",
+    "cinnabar": "#A33A25",
     "oldGold": "#B98A38",
-    "earthVoid": "#A94B34",
-    "heavenVoid": "#315F73",
 }
 
 sys.path.insert(0, str(BLENDER_DIR))
@@ -71,19 +67,18 @@ class MaterialTest(unittest.TestCase):
         for actual_channel, expected_channel in zip(actual[:3], expected):
             self.assertAlmostEqual(actual_channel, expected_channel, places=6)
 
-    def test_master_materials_use_exact_bright_palette_and_roughness(self):
+    def test_master_materials_use_the_six_physical_jade_families(self):
         materials = build_master_materials()
 
         self.assertEqual(IMPLEMENTED_PALETTE, PALETTE)
         self.assertEqual({material.name for material in materials}, MATERIAL_NAMES)
         expected = {
-            "M_Bronze": ("#E5DED0", 0.38),
-            "M_Patina": ("#C8BDAA", 0.58),
-            "M_Celadon": ("#F2EEE5", 0.27),
-            "M_OldGold": ("#B98A38", 0.48),
-            "M_AshText": ("#2B2926", 0.48),
-            "M_EarthVoid": ("#A94B34", 0.52),
-            "M_HeavenVoid": ("#315F73", 0.52),
+            "M_JadeBody": ("#F2EEE5", 0.27),
+            "M_TranslucentJade": ("#F2EEE5", 0.24),
+            "M_JadeRecess": ("#E8E4DB", 0.34),
+            "M_InkText": ("#27231F", 0.48),
+            "M_CinnabarText": ("#A33A25", 0.48),
+            "M_OldGold": ("#B98A38", 0.38),
         }
         for name, (color, roughness) in expected.items():
             shader = principled(bpy.data.materials[name])
@@ -96,64 +91,45 @@ class MaterialTest(unittest.TestCase):
                     shader.inputs["Roughness"].default_value,
                     roughness,
                 )
-                if name != "M_Celadon":
-                    self.assertFalse(shader.inputs["Roughness"].is_linked)
+                self.assertFalse(shader.inputs["Roughness"].is_linked)
+        translucent = principled(bpy.data.materials["M_TranslucentJade"])
+        self.assertAlmostEqual(translucent.inputs["IOR"].default_value, 1.48)
+        self.assertAlmostEqual(translucent.inputs["Transmission Weight"].default_value, 0.12)
+        self.assertAlmostEqual(translucent.inputs["Coat Weight"].default_value, 0.16)
+        self.assertEqual(bpy.data.materials["M_TranslucentJade"]["modeled_thickness_m"], 0.004)
 
-    def test_asset_contract_exposes_both_void_material_families(self):
+    def test_asset_contract_exposes_only_the_six_runtime_material_families(self):
         contract = json.loads(ASSET_CONTRACT.read_text(encoding="utf-8"))
         families = contract["runtimeAssets"]["materialFamilies"]
 
-        self.assertEqual(set(families), RUNTIME_MATERIAL_NAMES)
-        self.assertIn("M_EarthVoid", families)
-        self.assertIn("M_HeavenVoid", families)
+        self.assertEqual(set(families), MATERIAL_NAMES)
+        self.assertNotIn("M_ReferenceSurface", families)
 
-    def test_each_branch_owns_a_unique_normal_fill_material_instance(self):
+    def test_jade_inlays_are_translucent_but_general_text_is_independent(self):
         build_master()
 
-        branches = [
-            bpy.data.objects[f"branch/{surface}/{branch}"]
-            for surface in ("earth", "heaven")
-            for branch in BRANCHES
-        ]
-        materials = [obj.data.materials[0] for obj in branches]
-        self.assertEqual(len({material.as_pointer() for material in materials}), 24)
-        for surface, family in (("earth", "M_AshText"), ("heaven", "M_AshText")):
-            for branch in BRANCHES:
-                obj = bpy.data.objects[f"branch/{surface}/{branch}"]
-                material = obj.data.materials[0]
-                with self.subTest(surface=surface, branch=branch):
-                    self.assertEqual(obj["material_role"], family)
-                    self.assertEqual(material["material_family"], family)
-                    self.assertTrue(material.name.startswith(f"{family}/branch/{surface}/"))
-                    self.assertAlmostEqual(
-                        principled(material).inputs["Roughness"].default_value,
-                        0.48,
-                    )
+        for key in GENERAL_KEYS:
+            piece = bpy.data.objects[f"general/{key}"]
+            glyph = next(child for child in piece.children if child.get("text_role") == "general-name")
+            with self.subTest(general=key):
+                self.assertEqual(piece["material_role"], "M_TranslucentJade")
+                self.assertEqual(glyph["material_role"], "M_InkText")
+                self.assertIsNot(piece.data.materials[0], glyph.data.materials[0])
 
-    def test_branch_beds_share_non_emissive_ink_bronze_material(self):
+    def test_month_glyphs_are_cinnabar_and_runtime_switchable(self):
         build_master()
+        for name in MONTH_GENERAL_NAMES:
+            glyph = bpy.data.objects[f"month-general/{name}"]
+            with self.subTest(month=name):
+                self.assertEqual(glyph["material_role"], "M_CinnabarText")
+                self.assertTrue(glyph["runtime_color_switch"])
+                self.assertEqual(glyph["text_role"], "month-general")
 
-        beds = [
-            obj
-            for obj in bpy.data.objects
-            if obj.get("detail_id") == "structure/bronze-inlay-branch-bed"
-        ]
-        self.assertEqual(len(beds), 24)
-        materials = {obj.data.materials[0] for obj in beds}
-        self.assertEqual(len(materials), 1)
-        material = materials.pop()
-        self.assertEqual(material.name, "M_Bronze/branch-bed")
-        self.assertEqual(material["material_family"], "M_Bronze")
-        shader = principled(material)
-        self.assertColorClose(
-            shader.inputs["Base Color"].default_value,
-            linear_hex(PALETTE["ink"]),
-        )
-        self.assertAlmostEqual(shader.inputs["Roughness"].default_value, 0.62)
-        self.assertEqual(shader.inputs["Specular IOR Level"].default_value, 0.0)
-        self.assertFalse(
-            any("Emission" in node.bl_idname or "Emission" in node.name for node in material.node_tree.nodes)
-        )
+    def test_earth_glyphs_and_slot_walls_use_their_fixed_jade_roles(self):
+        build_master()
+        for branch in BRANCHES:
+            self.assertEqual(bpy.data.objects[f"branch/earth/{branch}"]["material_role"], "M_InkText")
+            self.assertEqual(bpy.data.objects[f"detail/general-recess/{branch}"]["material_role"], "M_JadeRecess")
 
     def test_material_graphs_contain_no_emissive_nodes(self):
         build_master()
@@ -167,41 +143,16 @@ class MaterialTest(unittest.TestCase):
         ]
         self.assertEqual(emissive, [])
 
-    def test_reference_surface_uses_separate_color_and_height_images(self):
-        build_master_materials()
-        material = bpy.data.materials["M_ReferenceSurface"]
-        textures = {
-            node.name: node.image
-            for node in material.node_tree.nodes
-            if node.bl_idname == "ShaderNodeTexImage"
-        }
-
-        self.assertEqual(set(textures), {"Reference surface v10", "Reference relief height v10"})
-        self.assertIsNot(textures["Reference surface v10"], textures["Reference relief height v10"])
-        self.assertEqual(textures["Reference surface v10"].colorspace_settings.name, "sRGB")
-        self.assertEqual(textures["Reference relief height v10"].colorspace_settings.name, "Non-Color")
-
-    def test_materialized_master_reopens_with_unique_branch_ownership(self):
+    def test_materialized_master_reopens_with_exact_jade_ownership(self):
         build_master()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "master.blend"
             bpy.ops.wm.save_as_mainfile(filepath=str(path))
             bpy.ops.wm.open_mainfile(filepath=str(path))
 
-            branches = [
-                obj
-                for obj in bpy.data.objects
-                if isinstance(obj.get("node_id"), str)
-                and obj["node_id"].startswith("branch/")
-            ]
-            self.assertEqual(len(branches), 24)
             self.assertEqual(
-                len({obj.data.materials[0].as_pointer() for obj in branches}),
-                24,
-            )
-            self.assertEqual(
-                {obj["material_role"] for obj in branches},
-                {"M_AshText"},
+                {obj["material_role"] for obj in bpy.data.objects if obj.get("text_role") == "general-name"},
+                {"M_InkText"},
             )
 
 
