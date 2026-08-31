@@ -51,12 +51,33 @@ describe("jade plate motion", () => {
     const contact = evaluateGeneralTransition(layout, landing, 700, false).generals[0];
     expect(contact.heightMeters).toBeGreaterThanOrEqual(0);
     expect(contact.heightMeters).toBeLessThanOrEqual(0.0005);
+    expect([0, 500, 700, 719].every(
+      (timeMs) => evaluateGeneralTransition(layout, landing, timeMs, false).generals[0].goldProgress === 0,
+    )).toBe(true);
     expect(evaluateGeneralTransition(layout, landing, 720, false).generals[0]).toMatchObject({
       heightMeters: 0, seatProgress: 1, goldProgress: 1,
     });
     expect(before.generals.map((item) => item.nodeId).slice(0, 2)).toEqual([
       "general/noble", "general/snake",
     ]);
+  });
+
+  it("joins the final six-millimeter descent continuously before a nonnegative bounce", () => {
+    const landing: GeneralTransition = {
+      kind: "landing", startedAtMs: 0, fromProgress: Array(12).fill(0),
+    };
+    const heightAt = (timeMs: number) => evaluateGeneralTransition(layout, landing, timeMs, false).generals[0].heightMeters;
+    const downwardSpeedAt = (timeMs: number) => heightAt(timeMs) - heightAt(timeMs + 1);
+
+    expect(heightAt(500)).toBeCloseTo(0.006);
+    expect(downwardSpeedAt(499)).toBeCloseTo(downwardSpeedAt(500), 6);
+    const speeds = [500, 540, 580, 620, 660, 678].map(downwardSpeedAt);
+    expect(speeds.every((speed) => speed >= 0)).toBe(true);
+    expect(speeds.slice(1).every((speed, index) => speed <= speeds[index])).toBe(true);
+    expect(downwardSpeedAt(679)).toBeLessThan(downwardSpeedAt(660));
+    expect(heightAt(680)).toBe(0);
+    expect(heightAt(700)).toBeGreaterThanOrEqual(0.0003);
+    expect(heightAt(700)).toBeLessThanOrEqual(0.0005);
   });
 
   it("exits the same noble-first sequence in reverse physical order", () => {

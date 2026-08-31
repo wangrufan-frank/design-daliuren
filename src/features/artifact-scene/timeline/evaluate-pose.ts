@@ -88,7 +88,7 @@ export function evaluateArtifactPose(
   nodes["transmission/method"] = movingSlip(time, TRANSMISSION_START_MS[0], TRANSMISSION_ACTION_MS, 0, reducedMotion);
   labelOpacity(labels, "dynamic/transmission/method", methodProgress);
 
-  for (const piece of jadePlate.generals) labelOpacity(labels, `dynamic/${piece.nodeId}`, piece.goldProgress);
+  for (const piece of jadePlate.generals) labelOpacity(labels, `dynamic/${piece.nodeId}`, piece.seatProgress);
 
   const courseTraceOpacity = reducedMotion || time < 24_000 || time >= 26_400
     ? 0

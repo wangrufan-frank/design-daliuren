@@ -13,6 +13,9 @@ export const MONTH_GOLD_MS = 220;
 
 const HEAVEN_EARTH_START_MS = 3_200;
 const GENERAL_START_MS = 18_000;
+const FINAL_DESCENT_START_MS = 500;
+const CONTACT_MS = 680;
+const FINAL_DESCENT_HEIGHT_M = 0.006;
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const smootherstep = (value: number) => value ** 3 * (value * (value * 6 - 15) + 10);
 
@@ -41,9 +44,17 @@ function seatedGeneralMotion(layout: JadePlateLayout): readonly JadePlateGeneral
 function landingHeight(localMs: number): number {
   if (localMs <= 0) return DROP_HEIGHT_M;
   if (localMs >= LAND_MS) return 0;
-  if (localMs <= 600) return DROP_HEIGHT_M - 0.0215 * (localMs / 600) ** 2;
-  if (localMs <= 680) return 0.006 * (1 - smootherstep((localMs - 600) / 80));
-  return 0.0004 * Math.sin(Math.PI * (localMs - 680) / 40);
+  if (localMs <= FINAL_DESCENT_START_MS) {
+    return DROP_HEIGHT_M - (DROP_HEIGHT_M - FINAL_DESCENT_HEIGHT_M) * (localMs / FINAL_DESCENT_START_MS) ** 2;
+  }
+  if (localMs <= CONTACT_MS) {
+    const durationMs = CONTACT_MS - FINAL_DESCENT_START_MS;
+    const progress = (localMs - FINAL_DESCENT_START_MS) / durationMs;
+    const enteringVelocity = -2 * (DROP_HEIGHT_M - FINAL_DESCENT_HEIGHT_M) / FINAL_DESCENT_START_MS;
+    return FINAL_DESCENT_HEIGHT_M * (2 * progress ** 3 - 3 * progress ** 2 + 1)
+      + durationMs * enteringVelocity * (progress ** 3 - 2 * progress ** 2 + progress);
+  }
+  return 0.0004 * Math.sin(Math.PI * (localMs - CONTACT_MS) / (LAND_MS - CONTACT_MS));
 }
 
 function landingMotion(
@@ -62,7 +73,7 @@ function landingMotion(
       visible: from > 0 || started,
       heightMeters: from === 0 ? landingHeight(localMs) : DROP_HEIGHT_M * (1 - progress),
       seatProgress: progress,
-      goldProgress: progress,
+      goldProgress: progress === 1 ? 1 : 0,
     };
   });
 }
