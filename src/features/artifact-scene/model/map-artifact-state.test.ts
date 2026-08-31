@@ -41,6 +41,18 @@ it("copies every visible fact without recomputing", () => {
   expect(state.noble).toEqual(referenceSourceResults.course.noble);
 });
 
+it("preserves upstream general placement order for the jade-plate adapter", () => {
+  const placements = [...referenceSourceResults.generals.placements].reverse();
+  const state = mapArtifactState({
+    ...referenceSourceResults,
+    generals: { ...referenceSourceResults.generals, placements },
+  });
+
+  expect(state.generals.map((placement) => placement.order)).toEqual(
+    placements.map((placement) => placement.order),
+  );
+});
+
 it("preserves the exact month-general branch, lesson lookup palaces, and noble day or night", () => {
   const state = mapArtifactState(referenceSourceResults);
 
