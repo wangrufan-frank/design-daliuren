@@ -22,6 +22,7 @@ import "./artifact-scene.css";
 declare global {
   interface ImportMetaEnv {
     readonly PROD: boolean;
+    readonly BASE_URL: string;
     readonly VITE_ARTIFACT_BENCHMARK?: string;
   }
 

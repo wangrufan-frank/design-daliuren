@@ -1,7 +1,7 @@
 export const ARTIFACT_ASSET_URLS = {
-  0: "/models/daliuren/daliuren-artifact-lod0.glb",
-  1: "/models/daliuren/daliuren-artifact-lod1.glb",
-  2: "/models/daliuren/daliuren-artifact-lod2.glb",
+  0: `${import.meta.env.BASE_URL}models/daliuren/daliuren-artifact-lod0.glb`,
+  1: `${import.meta.env.BASE_URL}models/daliuren/daliuren-artifact-lod1.glb`,
+  2: `${import.meta.env.BASE_URL}models/daliuren/daliuren-artifact-lod2.glb`,
 } as const;
 
 const BRANCHES = [..."子丑寅卯辰巳午未申酉戌亥"] as const;
