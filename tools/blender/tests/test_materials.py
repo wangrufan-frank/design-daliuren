@@ -105,6 +105,16 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(set(families), MATERIAL_NAMES)
         self.assertNotIn("M_ReferenceSurface", families)
 
+    def test_material_contract_describes_the_six_jade_families_without_legacy_metals(self):
+        contract = json.loads((REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(set(contract["materials"]), MATERIAL_NAMES)
+        self.assertNotRegex(json.dumps(contract, ensure_ascii=False).lower(), "bronze|patina|celadon")
+        self.assertEqual(
+            set(contract["masks"]),
+            {"mask_contact_wear", "mask_recess_tone", "mask_insert_dirt", "mask_jade_microtexture"},
+        )
+
     def test_jade_inlays_are_translucent_but_general_text_is_independent(self):
         build_master()
 

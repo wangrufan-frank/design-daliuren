@@ -132,6 +132,14 @@
       "M_CinnabarText",
       "M_OldGold"
     ],
+    "interactionSurfaces": {
+      "interaction/month-general-ring": {
+        "material": "M_InteractionRaycast",
+        "runtimeVisibility": "raycast-only",
+        "colorWrite": false,
+        "depthWrite": false
+      }
+    },
     "requiredTextureExtension": "KHR_texture_basisu",
     "dynamicLabelOwners": {
       "dynamic/calendar": "calendar/slip",

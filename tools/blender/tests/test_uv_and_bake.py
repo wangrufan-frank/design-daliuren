@@ -849,7 +849,7 @@ class DynamicSurfaceVisibilityTest(unittest.TestCase):
         for obj in representatives.values():
             total_surface_area += sum(polygon.area for polygon in obj.data.polygons)
 
-        self.assertIsInstance(failures, dict)
+        self.assertEqual(failures, {})
         self.assertTrue(microface_areas)
         self.assertEqual(MICRO_TRIANGLE_AREA_MAX, 2.0e-7)
         self.assertLessEqual(max(microface_areas), MICRO_TRIANGLE_AREA_MAX)
@@ -1307,14 +1307,25 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
         oxidized_base = uv_pixel(decoded[recess["runtime_atlas_id"]]["baseColor"], *oxidized_xy)
         self.assertNotEqual(oxidized_base, (0, 0, 0))
 
-        celadon = bpy.data.objects["calendar/slip/readout"]
-        celadon.data.calc_loop_triangles()
-        celadon_samples = sorted(
-            celadon.data.loop_triangles,
-            key=lambda triangle: uv_triangle_area(celadon, triangle),
+        jade_detail = bpy.data.objects["detail/base/cast-corner/00"]
+        jade_detail.data.calc_loop_triangles()
+        jade_samples = sorted(
+            jade_detail.data.loop_triangles,
+            key=lambda triangle: uv_triangle_area(jade_detail, triangle),
             reverse=True,
         )[:20]
-        self.assertTrue(celadon_samples)
+        normal_samples = set()
+        normal_dimension = object_atlas(runtime, jade_detail)["lod0"]["normal"]["dimensions"][0]
+        for triangle in jade_samples:
+            try:
+                xy = triangle_interior_pixel(jade_detail, triangle, normal_dimension)
+            except AssertionError:
+                continue
+            normal_samples.add(uv_pixel(decoded[jade_detail["runtime_atlas_id"]]["normal"], *xy))
+        self.assertTrue(normal_samples)
+        for value in normal_samples:
+            length = math.sqrt(sum(((channel - 128) / 127.0) ** 2 for channel in value))
+            self.assertAlmostEqual(length, 1.0, delta=0.05)
 
         committed = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))["runtimeTextures"]
         for family in MATERIAL_FAMILIES:
@@ -1325,6 +1336,35 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                             atlas[lod][role]["sha256"],
                             committed["families"][family]["atlases"][atlas_id][lod][role]["sha256"],
                         )
+
+    def test_source_causal_face_mutation_changes_its_jade_atlas_only(self):
+        changed_atlas = "task5-test/causal-changed"
+        control_atlas = "task5-test/causal-control"
+        changed = self._low_resolution_source_material_fixture(
+            "M_JadeBody",
+            changed_atlas,
+            causal_recess_oxidation=1.0,
+            source_name="base/body",
+        )
+        self._low_resolution_source_material_fixture(
+            "M_JadeBody",
+            control_atlas,
+            causal_recess_oxidation=1.0,
+            source_name="base/body",
+        )
+        changed_before = _family_buffers("M_JadeBody", 32, changed_atlas)["baseColor"]
+        control_before = _family_buffers("M_JadeBody", 32, control_atlas)["baseColor"]
+
+        changed.data.attributes["causal_recess_oxidation"].data[0].value = 0.0
+        changed_after = _family_buffers("M_JadeBody", 32, changed_atlas)["baseColor"]
+        control_after = _family_buffers("M_JadeBody", 32, control_atlas)["baseColor"]
+
+        self.assertNotEqual(changed_after, changed_before)
+        self.assertNotEqual(
+            buffer_pixel(changed_after, 32, 16, 16),
+            buffer_pixel(changed_before, 32, 16, 16),
+        )
+        self.assertEqual(control_after, control_before)
 
     def test_repeat_rejects_before_mutating_scene_or_outputs(self):
         counts_before = (len(bpy.data.objects), len(bpy.data.materials), len(bpy.data.images))

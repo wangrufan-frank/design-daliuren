@@ -174,6 +174,8 @@ def _bind_runtime_textures(collection, level):
         if obj.get("node_id") == "interaction/month-general-ring" or obj.get("inscription_role") or obj.get("text_role") in {"general-name", "month-general"}:
             continue
         family = obj["runtime_texture_family"]
+        if family == "M_TranslucentJade":
+            continue
         atlas_id = obj["runtime_atlas_id"]
         atlas = runtime["families"][family]["atlases"][atlas_id]
         material = materials.setdefault(

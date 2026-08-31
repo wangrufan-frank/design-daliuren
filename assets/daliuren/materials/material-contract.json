@@ -62,15 +62,15 @@
       "cleanValue": 0.0,
       "cause": "repeated touch or sliding contact",
       "allowedSurfaces": ["outer touch edges", "detents", "rails", "insert slots"],
-      "effect": "reduce bronze roughness"
+      "effect": "reduce white-jade roughness at handled contact points"
     },
-    "mask_recess_oxidation": {
+    "mask_recess_tone": {
       "attribute": "causal_recess_oxidation",
       "attributeDomain": "FACE",
       "cleanValue": 0.0,
       "cause": "moisture and dirt retention in sheltered recesses",
       "allowedSurfaces": ["grooves", "underside seams", "bearing roots"],
-      "effect": "increase patina coverage and roughness"
+      "effect": "darken and roughen sheltered jade recesses"
     },
     "mask_insert_dirt": {
       "attribute": "causal_insert_boundary",
@@ -78,14 +78,14 @@
       "cleanValue": 0.0,
       "phaseAttribute": "dirt_phase",
       "cause": "debris trapped at material boundaries",
-      "allowedSurfaces": ["bronze/celadon boundaries"],
-      "effect": "localized asymmetric boundary tint"
+      "allowedSurfaces": ["jade inlay and recess boundaries"],
+      "effect": "localized asymmetric jade boundary tint"
     },
-    "mask_celadon_crackle": {
-      "attribute": "causal_celadon_crackle",
-      "cause": "glaze shrinkage",
-      "allowedSurfaces": ["celadon objects and islands"],
-      "effect": "restrained Voronoi distance-to-edge crackle"
+    "mask_jade_microtexture": {
+      "attribute": "causal_jade_microtexture",
+      "cause": "subtle hand-finished jade microtexture",
+      "allowedSurfaces": ["jade objects and islands"],
+      "effect": "restrained non-emissive micro-normal variation"
     }
   },
   "assignmentRules": {

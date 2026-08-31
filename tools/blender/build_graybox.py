@@ -488,6 +488,8 @@ def build_graybox():
     )
     interaction.parent = heaven
     interaction["color_write"] = False
+    interaction["depth_write"] = False
+    interaction["runtime_visibility"] = "raycast-only"
     interaction["material_variant"] = "interaction-hit-area"
     return root
 

@@ -34,7 +34,7 @@ CAUSAL_ATTRIBUTES = (
     "causal_contact_wear",
     "causal_recess_oxidation",
     "causal_insert_boundary",
-    "causal_celadon_crackle",
+    "causal_jade_microtexture",
 )
 MICRO_TRIANGLE_AREA_MAX = 2.0e-7
 GENERAL_KEYS = (
@@ -751,7 +751,19 @@ def _native_texel_coverage_failures(family, dimension, dilation=4, limit=None, a
 
 
 def _validate_native_texel_coverage(family, dimension, atlas_id=None):
-    return tuple(_native_texel_coverage_failures(family, dimension, atlas_id=atlas_id))
+    failures = _native_texel_coverage_failures(family, dimension, atlas_id=atlas_id)
+    visible = [
+        (object_name, triangle_index)
+        for object_name, triangle_index in failures
+        if bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
+        > MICRO_TRIANGLE_AREA_MAX
+    ]
+    if visible:
+        object_name, triangle_index = visible[0]
+        raise RuntimeError(
+            f"sub-texel UV triangle cannot be baked natively: {object_name}:{triangle_index} at {dimension}"
+        )
+    return tuple(failures)
 
 
 def _family_buffers(family, dimension, atlas_id=None):
@@ -882,7 +894,7 @@ def _validate_bake_source():
         "causal_contact_wear",
         "causal_recess_oxidation",
         "causal_insert_boundary",
-        "causal_celadon_crackle",
+        "causal_jade_microtexture",
     }
     if not required_attributes.issubset(attributes):
         raise RuntimeError("Daliuren master causal attributes are incomplete")

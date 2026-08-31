@@ -281,6 +281,7 @@ function validateRuntimeAssets(document, contract, lodProfile) {
   const expectedFamilies = new Set(runtime.materialFamilies ?? []);
   const actualFamilies = new Set(
     root.listMaterials()
+      .filter((material) => material.getExtras?.()?.runtime_visibility !== 'raycast-only')
       .map((material) => material.getExtras?.()?.material_family)
       .filter((family) => typeof family === "string"),
   );

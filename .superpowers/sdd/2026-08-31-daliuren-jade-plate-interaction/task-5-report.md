@@ -24,3 +24,22 @@ The old compressor injected `M_EarthVoid` and `M_HeavenVoid`. That injection and
 
 - No `assets/daliuren/source/daliuren-artifact-master.blend1` or `tools/node/` content is staged.
 - UV coverage has bounded microface exceptions after the six-family split; the direct high-resolution check is retained with a `2e-05` aggregate tolerance.
+
+## Review follow-up
+
+- General-piece LOD materials now remain `M_TranslucentJade` rather than being replaced by runtime atlas materials. Each compressed LOD directly asserts `KHR_materials_transmission` `0.12`, `KHR_materials_ior` `1.48`, and `modeled_thickness_m` `0.004` (six-decimal comparison accounts only for glTF float32 serialization).
+- The interaction annulus carries the runtime `raycast-only` contract, `color_write=false`, and `depth_write=false`; its exported `M_InteractionRaycast` has `alphaMode=MASK`, `alphaCutoff=0.5`, and alpha `0`, so it is discarded before color/depth output while its node remains exportable for raycasts.
+- Native coverage now aborts for all non-microface misses. The only bounded exception remains `MICRO_TRIANGLE_AREA_MAX=2e-7 m2`; RED used a deliberately collapsed visible triangle and GREEN confirmed the bake guard raises. Causal jade texture tests now prove a source face mutation changes only its assigned atlas, and normal-map samples verify native coverage plus decoded unit-length normal vectors.
+- `material-contract.json` now describes jade-family causes/effects and has no bronze/patina/celadon claims. The artifact contract documents the raycast-only surface; the GLB validator excludes that non-physical material from the exact six-family set.
+
+### Follow-up evidence
+
+- RED: collapsed-UV coverage guard (`RuntimeError` was not raised), causal mutation (identical jade bytes), and all three old exported LOD bindings (missing `M_TranslucentJade` extras) each failed as expected.
+- GREEN: coverage guard (`Ran 1 test ... OK`), causal mutation (`Ran 1 test ... OK`), source/export runtime visibility (`Ran 2 tests ... OK`), material tests (`Ran 8 tests ... OK`), UV/normal contract (`Ran 1 test ... OK`), three-LOD translucent GLB test (`Ran 1 test ... OK`), `node --test scripts/validate-daliuren-glb.test.mjs` (21 pass), and `npm run asset:validate` (all three LODs: `0 errors`).
+- Rebuilt master, exported LOD0/1/2 once, and compressed them once. The compressed GLB sizes are 26,478,704 / 23,499,004 / 9,879,476 bytes for LOD0/1/2.
+- Lookdev was rerun because the annulus visibility changed. It updated `overall.png` and `legibility.png`, then stopped at the existing `functional text contrast ratio must be > 4.0` gate. This concerns unrelated functional glyph contrast; no unrelated lighting or glyph-design change was made.
+
+### Concerns
+
+- Fresh Blender UV packing does not reproduce the frozen committed atlas hashes without a full rebake. To respect the no-full-rebake instruction, the master retains its frozen UV layout and received only the new interaction material/properties.
+- No prohibited `.blend1`, `tools/node/`, or compressor temporary directory is staged.

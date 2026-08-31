@@ -200,6 +200,27 @@ class LodTests(unittest.TestCase):
                 if primitive.get("material") in normal_mapped_materials:
                     self.assertIn("TANGENT", primitive["attributes"])
 
+    def test_exported_lods_preserve_translucent_general_material_extensions(self):
+        for level in range(3):
+            with tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / f"artifact-lod{level}.glb"
+                export_lod(level, output)
+                payload = glb_json(output)
+            materials = payload["materials"]
+            general_nodes = [
+                node for node in payload["nodes"]
+                if node.get("name") == f"lod{level}/general/noble"
+            ]
+            self.assertEqual(len(general_nodes), 1)
+            primitive = payload["meshes"][general_nodes[0]["mesh"]]["primitives"][0]
+            material = materials[primitive["material"]]
+            with self.subTest(level=level):
+                self.assertEqual(material.get("extras", {}).get("material_family"), "M_TranslucentJade")
+                extensions = material.get("extensions", {})
+                self.assertAlmostEqual(extensions["KHR_materials_ior"]["ior"], 1.48, places=6)
+                self.assertAlmostEqual(extensions["KHR_materials_transmission"]["transmissionFactor"], 0.12, places=6)
+                self.assertAlmostEqual(material["extras"]["modeled_thickness_m"], 0.004, places=6)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[__file__])

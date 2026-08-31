@@ -18,7 +18,7 @@ MASK_NAMES = (
     "mask_contact_wear",
     "mask_recess_oxidation",
     "mask_insert_dirt",
-    "mask_celadon_crackle",
+    "mask_jade_microtexture",
 )
 PALETTE = {
     "ink": "#27231F",
@@ -31,7 +31,7 @@ MASK_ATTRIBUTES = {
     "mask_contact_wear": "causal_contact_wear",
     "mask_recess_oxidation": "causal_recess_oxidation",
     "mask_insert_dirt": "causal_insert_boundary",
-    "mask_celadon_crackle": "causal_celadon_crackle",
+    "mask_jade_microtexture": "causal_jade_microtexture",
 }
 CONTACT_DETAIL_IDS = {
     "mechanism/heaven-detent",
@@ -188,11 +188,11 @@ def _build_insert_dirt_group():
     return group
 
 
-def _build_crackle_group():
-    group = _new_group("mask_celadon_crackle", "celadon_crackle")
-    group["affected_surfaces"] = "celadon surfaces only"
+def _build_jade_microtexture_group():
+    group = _new_group("mask_jade_microtexture", "jade_microtexture")
+    group["affected_surfaces"] = "jade surfaces only"
     input_node, output_node = _group_io(group)
-    painted = _attribute(group, "Painted celadon island", MASK_ATTRIBUTES[group.name])
+    painted = _attribute(group, "Painted jade island", MASK_ATTRIBUTES[group.name])
     coordinates = group.nodes.new("ShaderNodeTexCoord")
     coordinates.name = "Celadon-local coordinates"
     scale = group.nodes.new("ShaderNodeVectorMath")
@@ -208,7 +208,7 @@ def _build_crackle_group():
     threshold.operation = "LESS_THAN"
     threshold.inputs[1].default_value = 0.045
     confine = group.nodes.new("ShaderNodeMath")
-    confine.name = "Confine cracks to celadon"
+    confine.name = "Confine microtexture to jade"
     confine.operation = "MULTIPLY"
     strength = group.nodes.new("ShaderNodeMath")
     strength.name = "Crackle strength"
@@ -252,8 +252,23 @@ def _base_material(name, color, metallic, roughness):
     return material, shader
 
 
+def _link_jade_recess_tone(material, shader):
+    nodes = material.node_tree.nodes
+    attribute = nodes.new("ShaderNodeAttribute")
+    attribute.name = "Sheltered recess tone"
+    attribute.attribute_name = MASK_ATTRIBUTES["mask_recess_oxidation"]
+    mix = nodes.new("ShaderNodeMixRGB")
+    mix.name = "Darken sheltered jade recesses"
+    mix.blend_type = "MIX"
+    mix.inputs[1].default_value = _socket(shader, "Base Color").default_value
+    mix.inputs[2].default_value = srgb_hex("#D4D0C8")
+    material.node_tree.links.new(attribute.outputs["Fac"], mix.inputs[0])
+    material.node_tree.links.new(mix.outputs["Color"], _socket(shader, "Base Color"))
+
+
 def _build_jade_body():
     material, shader = _base_material("M_JadeBody", PALETTE["jadeBody"], 0.0, 0.27)
+    _link_jade_recess_tone(material, shader)
     _socket(shader, "Specular IOR Level").default_value = 0.34
     _socket(shader, "Coat Weight").default_value = 0.18
     _socket(shader, "Coat Roughness").default_value = 0.28
@@ -291,6 +306,16 @@ def _build_cinnabar_text():
     return material
 
 
+def _build_interaction_raycast():
+    material, shader = _base_material("M_InteractionRaycast", "#000000", 0.0, 1.0)
+    _socket(shader, "Alpha").default_value = 0.0
+    material.surface_render_method = "DITHERED"
+    material["runtime_visibility"] = "raycast-only"
+    material["color_write"] = False
+    material["depth_write"] = False
+    return material
+
+
 def build_master_materials():
     existing_materials = [name for name in MATERIAL_NAMES if bpy.data.materials.get(name)]
     existing_groups = [name for name in MASK_NAMES if bpy.data.node_groups.get(name)]
@@ -300,7 +325,7 @@ def build_master_materials():
     _build_contact_group()
     _build_recess_group()
     _build_insert_dirt_group()
-    _build_crackle_group()
+    _build_jade_microtexture_group()
     materials = (
         _build_jade_body(),
         _build_translucent_jade(),
@@ -462,9 +487,10 @@ def apply_master_materials(root):
     if any(obj.get("material_role") for obj in bpy.data.objects if obj.type == "MESH"):
         raise RuntimeError("Artifact materials are already assigned")
 
+    interaction = bpy.data.materials.get("M_InteractionRaycast") or _build_interaction_raycast()
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
         name = _physical_material_name(obj)
-        material = bpy.data.materials[name]
+        material = interaction if obj.get("node_id") == "interaction/month-general-ring" else bpy.data.materials[name]
         obj.data.materials.clear()
         obj.data.materials.append(material)
         obj["material_role"] = name
@@ -490,7 +516,7 @@ def apply_master_materials(root):
             )
             _set_float_attribute(
                 obj,
-                MASK_ATTRIBUTES["mask_celadon_crackle"],
+                MASK_ATTRIBUTES["mask_jade_microtexture"],
                 _attribute_pattern(obj, "crackle"),
             )
             _set_float_attribute(obj, "dirt_phase", _lesson_phase(obj))
@@ -646,7 +672,7 @@ def build_material_board_scene():
     )
     _set_float_attribute(
         closeup,
-        MASK_ATTRIBUTES["mask_celadon_crackle"],
+        MASK_ATTRIBUTES["mask_jade_microtexture"],
         1.0,
     )
     _set_float_attribute(closeup, "dirt_phase", 0.41)
