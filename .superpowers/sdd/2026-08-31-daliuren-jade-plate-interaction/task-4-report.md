@@ -48,3 +48,20 @@
 - Both recess and piece use slot-local sector meshes; each inlay's local transform is identity, so composing the slot transform cannot double-translate or double-rotate it.
 - The inlay and recess tops both equal the fixed general-seat top within the component test's six-decimal tolerance.
 - The shared annular-sector descriptor is now 55.427 mm tangential × 45.989 mm radial × 4 mm deep (Blender XYZ), recorded in JSON/TypeScript as glTF X,Y,Z = `[0.055427, 0.004, 0.045989]`.
+
+## P1 follow-up — single target-slot transform
+
+### RED evidence
+
+- `test_component_contract.py` failed before the fix because pieces were children of their initial source slots; the new two-target composition invariant could not be satisfied.
+- The same RED run also exposed a missing `GENERAL_ANGULAR_CLEARANCE_DEG` import in the existing custom-property assignment; it was restored before the geometry parentage fix.
+
+### GREEN evidence
+
+- Blender component-contract suite: 11/11 passed (`Ran 11 tests in 21.630s`, `OK`).
+- Blender graybox suite: 13/13 passed (`Ran 13 tests in 27.388s`, `OK`).
+
+### Follow-up self-review
+
+- Each `general/<key>` is a direct child of fixed `plate/generals`, with its initial local location and rotation copied from its assigned slot.
+- Slot-local mesh data remains canonical. Reassigning a direct piece to either of two target slot transforms now produces that target's world translation and rotation exactly, with no source-slot multiplication.

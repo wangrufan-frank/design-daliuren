@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from daliuren_contract import (
     DIMENSIONS,
+    GENERAL_ANGULAR_CLEARANCE_DEG,
     GENERAL_INLAY_DEPTH_M,
     GENERAL_INLAY_HALF_ANGLE_RAD,
     GENERAL_RADIAL_CLEARANCE_M,
@@ -288,6 +289,9 @@ def add_generals(general_ring):
             0.0,
             0.0003,
         )
+        general.parent = general_ring
+        general.location = slot.location
+        general.rotation_euler = slot.rotation_euler
         general["domain"] = "general"
         general["general_key"] = general_key
         general["target_earth"] = branch
