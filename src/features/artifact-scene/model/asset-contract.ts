@@ -10,6 +10,8 @@ const MONTH_GENERALS = [
   "神后", "大吉", "功曹", "太冲", "天罡", "太乙",
 ] as const;
 
+export const GENERAL_INLAY_DIMENSIONS_METERS = [0.055427, 0.004, 0.045989] as const;
+
 export const REQUIRED_NODE_IDS: readonly string[] = [
   "artifact/root",
   "base/body",

@@ -26,3 +26,25 @@
 ## Concerns
 
 - Task 5 must assign the intended jade/text material families and preserve the `color_write=false` interaction-ring intent through export.
+
+## P1 follow-up — slot anchors, flush seating, and sector dimensions
+
+### RED evidence
+
+- Focused TypeScript contract/loader tests failed because `GENERAL_INLAY_DIMENSIONS_METERS` was absent.
+- `test_contract.py` failed because `general_inlay` still described a 28 mm disc.
+- `test_component_contract.py` failed because every slot was centered at the origin and every inlay was parented directly to `plate/generals`.
+
+### GREEN evidence
+
+- Focused TypeScript contract/loader suite: 11/11 passed.
+- Blender contract suite: 3/3 passed.
+- Blender graybox suite: 13/13 passed (`Ran 13 tests in 27.545s`, `OK`).
+- Blender component-contract suite: 10/10 passed (`Ran 10 tests in 19.010s`, `OK`).
+
+### Follow-up self-review
+
+- Each `general-slot/<branch>` is now a distinct fixed-seat child at the visual palace center, rotated by `visual_angle(index) - 90 degrees`.
+- Both recess and piece use slot-local sector meshes; each inlay's local transform is identity, so composing the slot transform cannot double-translate or double-rotate it.
+- The inlay and recess tops both equal the fixed general-seat top within the component test's six-decimal tolerance.
+- The shared annular-sector descriptor is now 55.427 mm tangential × 45.989 mm radial × 4 mm deep (Blender XYZ), recorded in JSON/TypeScript as glTF X,Y,Z = `[0.055427, 0.004, 0.045989]`.

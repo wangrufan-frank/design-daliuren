@@ -78,7 +78,7 @@
     "lesson/first": [0.074, 0.009, 0.034],
     "transmission/initial": [0.07, 0.01, 0.036],
     "transmission/method": [0.098, 0.008, 0.024],
-    "general/noble": [0.028, 0.004, 0.028]
+    "general/noble": [0.055427, 0.004, 0.045989]
   },
   "dimensionToleranceMeters": 0.0005,
   "poseIds": [

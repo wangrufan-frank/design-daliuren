@@ -31,7 +31,9 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(DIMENSIONS.get("lesson_slip"), (0.074, 0.034, 0.009))
         self.assertEqual(DIMENSIONS.get("transmission_slip"), (0.070, 0.036, 0.010))
         self.assertEqual(DIMENSIONS.get("method_slip"), (0.098, 0.024, 0.008))
-        self.assertEqual(DIMENSIONS.get("general_inlay"), (0.028, 0.004))
+        self.assertAlmostEqual(DIMENSIONS["general_inlay"][0], 0.055427, places=6)
+        self.assertAlmostEqual(DIMENSIONS["general_inlay"][1], 0.045989, places=6)
+        self.assertEqual(DIMENSIONS["general_inlay"][2], 0.004)
 
     def test_runtime_ids_are_unique_paths(self):
         self.assertEqual(len(NODE_IDS), len(set(NODE_IDS)))

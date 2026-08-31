@@ -171,7 +171,8 @@ class ComponentContractTest(unittest.TestCase):
         for branch in BRANCHES:
             slot = bpy.data.objects[f"general-slot/{branch}"]
             general = next(obj for obj in generals if obj["target_earth"] == branch)
-            self.assertEqual(general.parent, general_ring)
+            self.assertEqual(general.parent, slot)
+            self.assertEqual(slot.parent, general_ring)
             self.assertAlmostEqual(general.dimensions.z, 0.004)
             self.assertEqual(general["sector_inner_radius_m"], slot["sector_inner_radius_m"])
             self.assertEqual(general["sector_outer_radius_m"], slot["sector_outer_radius_m"])
@@ -179,6 +180,35 @@ class ComponentContractTest(unittest.TestCase):
             self.assertEqual(general["radial_clearance_m"], 0.00008)
             self.assertEqual(general["angular_clearance_deg"], 0.12)
             self.assertAlmostEqual(general["settled_z_m"], slot["seat_z_m"], places=6)
+
+    def test_slots_are_distinct_palace_transforms_with_flush_inlays(self):
+        seat = bpy.data.objects["plate/generals"]
+        seat_top = seat.matrix_world.translation.z + seat.dimensions.z / 2
+        locations = set()
+        rotations = set()
+        for index, branch in enumerate(VISUAL_EARTH_ORDER):
+            angle = math.radians(90 - index * 30)
+            slot = bpy.data.objects[f"general-slot/{branch}"]
+            general = next(obj for obj in bpy.data.objects if obj.get("target_earth") == branch)
+            recess = bpy.data.objects[f"detail/general-recess/{branch}"]
+            self.assertEqual(slot.parent, seat)
+            self.assertAlmostEqual(
+                math.atan2(math.sin(math.atan2(slot.location.y, slot.location.x) - angle), math.cos(math.atan2(slot.location.y, slot.location.x) - angle)),
+                0.0,
+                places=6,
+            )
+            self.assertAlmostEqual(slot.rotation_euler.z, angle - math.pi / 2, places=6)
+            self.assertGreater(math.hypot(slot.location.x, slot.location.y), 0.08)
+            self.assertEqual(tuple(general.location), (0.0, 0.0, 0.0))
+            self.assertEqual(tuple(general.rotation_euler), (0.0, 0.0, 0.0))
+            general_top = max((general.matrix_world @ Vector(corner)).z for corner in general.bound_box)
+            recess_top = max((recess.matrix_world @ Vector(corner)).z for corner in recess.bound_box)
+            self.assertAlmostEqual(general_top, seat_top, places=6)
+            self.assertAlmostEqual(recess_top, seat_top, places=6)
+            locations.add(tuple(round(value, 6) for value in slot.location))
+            rotations.add(round(slot.rotation_euler.z, 6))
+        self.assertEqual(len(locations), 12)
+        self.assertEqual(len(rotations), 12)
 
     def test_slots_month_glyphs_and_interaction_ring_follow_reference_order(self):
         seat = bpy.data.objects["plate/generals"]
@@ -225,7 +255,7 @@ class ComponentContractTest(unittest.TestCase):
             },
             {1, 2},
         )
-        self.assertTrue(all(general.parent == general_ring for general in (
+        self.assertTrue(all(general.parent.parent == general_ring for general in (
             bpy.data.objects[f"general/{key}"] for key in GENERAL_KEYS
         )))
         self.assertFalse(any(child.parent == core for child in (heaven, general_ring)))

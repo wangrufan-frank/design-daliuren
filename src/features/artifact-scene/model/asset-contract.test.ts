@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REQUIRED_NODE_IDS, selectArtifactLod } from "./asset-contract";
+import { GENERAL_INLAY_DIMENSIONS_METERS, REQUIRED_NODE_IDS, selectArtifactLod } from "./asset-contract";
 
 describe("artifact asset contract", () => {
   it("selects LOD2 for narrow or high-density mobile viewports", () => {
@@ -29,5 +29,9 @@ describe("artifact asset contract", () => {
       expect(REQUIRED_NODE_IDS).toContain(`month-general/${month}`);
     }
     expect(REQUIRED_NODE_IDS).toContain("interaction/month-general-ring");
+  });
+
+  it("describes general inlays as annular sectors rather than 28mm discs", () => {
+    expect(GENERAL_INLAY_DIMENSIONS_METERS).toEqual([0.055427, 0.004, 0.045989]);
   });
 });

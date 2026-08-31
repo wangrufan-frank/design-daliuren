@@ -7,7 +7,19 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from daliuren_contract import DIMENSIONS, POSE_IDS, VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle
+from daliuren_contract import (
+    DIMENSIONS,
+    GENERAL_INLAY_DEPTH_M,
+    GENERAL_INLAY_HALF_ANGLE_RAD,
+    GENERAL_RADIAL_CLEARANCE_M,
+    GENERAL_SECTOR_ANGLE_DEG,
+    GENERAL_SECTOR_INNER_RADIUS,
+    GENERAL_SECTOR_OUTER_RADIUS,
+    POSE_IDS,
+    VISUAL_EARTH_ORDER,
+    VISUAL_MONTH_ORDER,
+    visual_angle,
+)
 from geometry import add_annular_sector, add_beveled_box, add_disc, add_ring
 from high_detail_geometry import upgrade_to_high_detail
 from inscriptions import HISTORICAL_ROLES, build_fixed_inscriptions
@@ -213,60 +225,69 @@ def add_transmission_slips(root, base, earth, base_height):
     )
 
 
-GENERAL_SECTOR_INNER_RADIUS = 0.064
-GENERAL_SECTOR_OUTER_RADIUS = 0.108
-GENERAL_SECTOR_ANGLE_DEG = 30.0
-GENERAL_RADIAL_CLEARANCE_M = 0.00008
-GENERAL_ANGULAR_CLEARANCE_DEG = 0.12
-
-
-def general_sector_spec(index):
-    half_sector = math.radians(GENERAL_SECTOR_ANGLE_DEG / 2)
-    center = visual_angle(index)
-    return center - half_sector, center + half_sector
+def add_sector_in_slot(node_id, slot, inner_radius, outer_radius, half_angle, depth, z, bevel):
+    obj = add_annular_sector(
+        node_id,
+        inner_radius,
+        outer_radius,
+        math.pi / 2 - half_angle,
+        math.pi / 2 + half_angle,
+        depth,
+        (0.0, 0.0, 0.0),
+        bevel,
+    )
+    center_radius = (GENERAL_SECTOR_INNER_RADIUS + GENERAL_SECTOR_OUTER_RADIUS) / 2
+    for vertex in obj.data.vertices:
+        vertex.co.y -= center_radius
+    obj.data.update()
+    obj.parent = slot
+    obj.location.z = z
+    return obj
 
 
 def add_generals(general_ring):
-    depth = DIMENSIONS["general_inlay"][1]
-    settled_z = general_ring.dimensions.z / 2 + 0.0002
+    depth = GENERAL_INLAY_DEPTH_M
+    seat_top = general_ring.dimensions.z / 2
+    settled_z = seat_top - depth / 2
+    center_radius = (GENERAL_SECTOR_INNER_RADIUS + GENERAL_SECTOR_OUTER_RADIUS) / 2
     for index, (general_key, branch) in enumerate(zip(GENERAL_KEYS, VISUAL_EARTH_ORDER)):
-        recess_start, recess_end = general_sector_spec(index)
-        piece_start = recess_start + math.radians(GENERAL_ANGULAR_CLEARANCE_DEG)
-        piece_end = recess_end - math.radians(GENERAL_ANGULAR_CLEARANCE_DEG)
         piece_inner = GENERAL_SECTOR_INNER_RADIUS + GENERAL_RADIAL_CLEARANCE_M
         piece_outer = GENERAL_SECTOR_OUTER_RADIUS - GENERAL_RADIAL_CLEARANCE_M
-        slot = new_empty(f"general-slot/{branch}", (0.0, 0.0, settled_z))
+        angle = visual_angle(index)
+        slot = new_empty(
+            f"general-slot/{branch}",
+            (center_radius * math.cos(angle), center_radius * math.sin(angle), settled_z),
+        )
         slot.parent = general_ring
+        slot.rotation_euler.z = angle - math.pi / 2
         slot["visual_index"] = index
         slot["sector_inner_radius_m"] = piece_inner
         slot["sector_outer_radius_m"] = piece_outer
         slot["sector_angle_deg"] = GENERAL_SECTOR_ANGLE_DEG
         slot["seat_z_m"] = settled_z
-        recess = add_annular_sector(
+        recess = add_sector_in_slot(
             f"detail/general-recess/{branch}",
+            slot,
             GENERAL_SECTOR_INNER_RADIUS,
             GENERAL_SECTOR_OUTER_RADIUS,
-            recess_start,
-            recess_end,
+            math.radians(GENERAL_SECTOR_ANGLE_DEG / 2),
             0.0006,
-            (0.0, 0.0, settled_z - depth / 2),
+            depth / 2 - 0.0003,
             0.0002,
         )
         del recess["node_id"]
-        recess.parent = general_ring
         recess["surface_treatment"] = "general-seat-recess"
         recess["material_variant"] = "jade-recess"
-        general = add_annular_sector(
+        general = add_sector_in_slot(
             f"general/{general_key}",
+            slot,
             piece_inner,
             piece_outer,
-            piece_start,
-            piece_end,
+            GENERAL_INLAY_HALF_ANGLE_RAD,
             depth,
-            (0.0, 0.0, settled_z),
+            0.0,
             0.0003,
         )
-        general.parent = general_ring
         general["domain"] = "general"
         general["general_key"] = general_key
         general["target_earth"] = branch
@@ -277,7 +298,7 @@ def add_generals(general_ring):
         general["radial_clearance_m"] = GENERAL_RADIAL_CLEARANCE_M
         general["angular_clearance_deg"] = GENERAL_ANGULAR_CLEARANCE_DEG
         general["settled_z_m"] = settled_z
-        general["settled_location"] = tuple(general.location)
+        general["settled_location"] = tuple(slot.location)
         general["closed_rotation_euler"] = tuple(general.rotation_euler)
 
 
