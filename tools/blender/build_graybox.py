@@ -148,13 +148,14 @@ def add_calendar(root, base_height):
         DIMENSIONS["calendar_slip"],
         (0.0, 0.0, 0.0),
     )
-    add_child_box(
+    readout = add_child_box(
         "calendar/slip/readout",
         calendar,
         (0.264, 0.020, 0.001),
         (0.0, -0.002, 0.004),
-        0.0003,
+        0.0,
     )
+    readout["material_variant"] = "jade-recess"
 
     base = bpy.data.objects["base/body"]
     for side, x in (("left", -0.110), ("right", 0.110)):

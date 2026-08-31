@@ -122,14 +122,15 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   ]);
 });
 
-function fakeMesh(name, primitives) {
+function fakeMesh(name, primitives, materialsByName = new Map()) {
   return {
     getName: () => name,
     getExtras: () => ({}),
-    listPrimitives: () => primitives.map(({ mode, count, indexed = true }) => ({
+    listPrimitives: () => primitives.map(({ mode, count, indexed = true, material }) => ({
       getMode: () => mode,
       getIndices: () => indexed ? { getCount: () => count } : null,
       getAttribute: () => ({ getCount: () => count }),
+      getMaterial: () => materialsByName.get(material) ?? null,
     })),
   };
 }
@@ -164,19 +165,27 @@ function fakeDocument(nodes, {
   textures = [],
   extensionsUsed = [],
 } = {}) {
+  const materialsByName = new Map(materials.map((material) => [material.name, {
+    getName: () => material.name,
+    getExtras: () => material.extras ?? (material.family ? { material_family: material.family } : {}),
+    getAlphaMode: () => material.alphaMode ?? "OPAQUE",
+    getAlphaCutoff: () => material.alphaCutoff ?? 0.5,
+    getBaseColorFactor: () => material.baseColorFactor ?? [1, 1, 1, 1],
+  }]));
   let propertiesByName;
   const properties = nodes.map(({
     name,
     extras = {},
     bounds,
     triangles = 0,
+    material,
     mesh,
     children = [],
     localMatrix,
     worldMatrix,
   }) => {
     const nodeMesh = mesh ?? (triangles
-      ? fakeMesh(`${name}/mesh`, [{ mode: 4, count: triangles * 3 }])
+      ? fakeMesh(`${name}/mesh`, [{ mode: 4, count: triangles * 3, material }], materialsByName)
       : null);
     return {
       getName: () => name,
@@ -213,10 +222,7 @@ function fakeDocument(nodes, {
       listAnimations: () => [],
       listBuffers: () => [],
       listCameras: () => [],
-      listMaterials: () => materials.map(({ name, family }) => ({
-        getName: () => name,
-        getExtras: () => family ? { material_family: family } : {},
-      })),
+      listMaterials: () => [...materialsByName.values()],
       listMeshes: () => meshes ?? properties.map((node) => node.getMesh()).filter(Boolean),
       listSkins: () => [],
       listTextures: () => textures.map(({
@@ -456,6 +462,75 @@ test("validates runtime material families and dynamic label owner extras", () =>
     "dynamic label owner mismatch: dynamic/calendar expected artifact/root, got plate/heaven",
     "material family missing: M_Celadon",
     "material family unexpected: M_Unknown",
+  ]);
+});
+
+test("only excludes the contract-declared invisible interaction surface from material families", () => {
+  const contract = {
+    ...LOD_CONTRACT,
+    nodeIds: [...LOD_CONTRACT.nodeIds, "interaction/month-general-ring"],
+    runtimeAssets: {
+      ...LOD_CONTRACT.runtimeAssets,
+      materialFamilies: ["M_Bronze", "M_Celadon"],
+      interactionSurfaces: {
+        "interaction/month-general-ring": {
+          material: "M_InteractionRaycast",
+          runtimeVisibility: "raycast-only",
+          colorWrite: false,
+          depthWrite: false,
+        },
+      },
+    },
+  };
+  const document = validLodDocument({
+    nodes: [
+      { name: "root", extras: { node_id: "artifact/root" } },
+      { name: "heaven", extras: { node_id: "plate/heaven" }, triangles: 2 },
+      {
+        name: "interaction",
+        extras: {
+          node_id: "interaction/month-general-ring",
+          runtime_visibility: "raycast-only",
+          color_write: false,
+          depth_write: false,
+        },
+        triangles: 1,
+        material: "M_InteractionRaycast",
+      },
+      {
+        name: "surface/dynamic/calendar",
+        extras: { dynamic_label_id: "dynamic/calendar", owner_node_id: "artifact/root" },
+      },
+      {
+        name: "surface/dynamic/heaven",
+        extras: { dynamic_label_id: "dynamic/heaven", owner_node_id: "plate/heaven" },
+      },
+    ],
+    materials: [
+      { name: "bronze", family: "M_Bronze" },
+      { name: "celadon", family: "M_Celadon" },
+      {
+        name: "M_InteractionRaycast",
+        extras: {
+          material_family: "M_InteractionRaycast",
+          runtime_visibility: "raycast-only",
+          color_write: false,
+          depth_write: false,
+        },
+        alphaMode: "MASK",
+        alphaCutoff: 0.5,
+        baseColorFactor: [0, 0, 0, 0],
+      },
+      {
+        name: "unrelated-raycast-tag",
+        family: "M_Unexpected",
+        extras: { material_family: "M_Unexpected", runtime_visibility: "raycast-only" },
+      },
+    ],
+  });
+
+  assert.deepEqual(validateArtifactDocument(document, contract, { lodId: "lod2" }), [
+    "material family unexpected: M_Unexpected",
   ]);
 });
 

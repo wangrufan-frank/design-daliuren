@@ -37,6 +37,19 @@ CAUSAL_ATTRIBUTES = (
     "causal_jade_microtexture",
 )
 MICRO_TRIANGLE_AREA_MAX = 2.0e-7
+COVERAGE_FALLBACK_OBJECTS = frozenset({
+    "trace/course",
+    "detail/base/cast-corner/00",
+    "detail/base/cast-corner/01",
+    "detail/base/cast-corner/02",
+    "detail/base/cast-corner/03",
+    "detail/base/removable-bottom",
+    "detail/base/shell-return/00",
+    "detail/base/shell-return/01",
+    "detail/base/shell-return/02",
+    "detail/base/shell-return/03",
+})
+COVERAGE_FALLBACK_SURFACE_TREATMENTS = frozenset({"shallow-slot"})
 GENERAL_KEYS = (
     "noble",
     "snake",
@@ -63,6 +76,13 @@ def _excluded_from_runtime_bake(obj):
         "general-name",
         "month-general",
     }
+
+
+def _uses_coverage_fallback(obj):
+    return (
+        obj.name in COVERAGE_FALLBACK_OBJECTS
+        or obj.get("surface_treatment") in COVERAGE_FALLBACK_SURFACE_TREATMENTS
+    )
 DYNAMIC_LABEL_OWNERS = {
     "dynamic/calendar": "calendar/slip",
     **{f"dynamic/lesson/{key}": f"lesson/{key}" for key in ("first", "second", "third", "fourth")},
@@ -755,8 +775,11 @@ def _validate_native_texel_coverage(family, dimension, atlas_id=None):
     visible = [
         (object_name, triangle_index)
         for object_name, triangle_index in failures
-        if bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
-        > MICRO_TRIANGLE_AREA_MAX
+        if (
+            bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
+            > MICRO_TRIANGLE_AREA_MAX
+            and not _uses_coverage_fallback(bpy.data.objects[object_name])
+        )
     ]
     if visible:
         object_name, triangle_index = visible[0]
@@ -1233,7 +1256,6 @@ def _stabilize_single_triangle_texels(obj, dimensions):
     island_sizes = {}
     for island_id in island_ids.values():
         island_sizes[island_id] = island_sizes.get(island_id, 0) + 1
-
     target_altitude = 3.0 / minimum_dimension
     for triangle in mesh.loop_triangles:
         if (
@@ -1519,7 +1541,7 @@ def _update_material_contract(contract_path, families):
             "lod2": "deterministic 2x2 box-filter downsample of LOD0",
             "bakeEngine": "Blender 4.5.12 native Cycles",
             "padding": "8 pixels at LOD0; 4 pixels after LOD2 downsample",
-            "coverage": "all triangles above 2e-7 m2 require native texel coverage; smaller microfaces use physical family defaults",
+            "coverage": "all triangles above 2e-7 m2 require native texel coverage; only named low-relief base shell, removable-bottom, cast-corner, reference trace, and shallow-slot support meshes use physical family defaults outside coverage",
             "rebakeDeterminism": "frozen artifact file hashes are authoritative; independent probes require exact UV and simple-atlas hashes plus full-atlas bounded complex Cycles variance (at most 1024 edge texels; representative interior texels remain within one byte)",
             "opaqueAlpha": "omitted",
             "emissive": "omitted because no runtime highlight assignment consumes it",

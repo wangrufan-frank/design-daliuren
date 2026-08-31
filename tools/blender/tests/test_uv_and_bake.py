@@ -1322,7 +1322,8 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             except AssertionError:
                 continue
             normal_samples.add(uv_pixel(decoded[jade_detail["runtime_atlas_id"]]["normal"], *xy))
-        self.assertTrue(normal_samples)
+        self.assertGreaterEqual(len(normal_samples), 2)
+        self.assertTrue(any(value != (128, 128, 255) for value in normal_samples))
         for value in normal_samples:
             length = math.sqrt(sum(((channel - 128) / 127.0) ** 2 for channel in value))
             self.assertAlmostEqual(length, 1.0, delta=0.05)

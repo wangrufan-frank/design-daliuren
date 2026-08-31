@@ -21,7 +21,7 @@ MASK_NAMES = (
     "mask_jade_microtexture",
 )
 PALETTE = {
-    "ink": "#27231F",
+    "ink": "#15110D",
     "jadeBody": "#F2EEE5",
     "jadeRecess": "#E8E4DB",
     "cinnabar": "#A33A25",
@@ -194,9 +194,9 @@ def _build_jade_microtexture_group():
     input_node, output_node = _group_io(group)
     painted = _attribute(group, "Painted jade island", MASK_ATTRIBUTES[group.name])
     coordinates = group.nodes.new("ShaderNodeTexCoord")
-    coordinates.name = "Celadon-local coordinates"
+    coordinates.name = "Jade-local coordinates"
     scale = group.nodes.new("ShaderNodeVectorMath")
-    scale.name = "Crackle scale"
+    scale.name = "Microtexture scale"
     scale.operation = "SCALE"
     scale.inputs[3].default_value = 14.0
     voronoi = group.nodes.new("ShaderNodeTexVoronoi")
@@ -211,7 +211,7 @@ def _build_jade_microtexture_group():
     confine.name = "Confine microtexture to jade"
     confine.operation = "MULTIPLY"
     strength = group.nodes.new("ShaderNodeMath")
-    strength.name = "Crackle strength"
+    strength.name = "Microtexture strength"
     strength.operation = "MULTIPLY"
     strength.use_clamp = True
     group.links.new(coordinates.outputs["Generated"], scale.inputs[0])
@@ -266,9 +266,22 @@ def _link_jade_recess_tone(material, shader):
     material.node_tree.links.new(mix.outputs["Color"], _socket(shader, "Base Color"))
 
 
+def _link_jade_micro_normal(material, shader):
+    microtexture = material.node_tree.nodes.new("ShaderNodeGroup")
+    microtexture.name = "Jade microtexture mask"
+    microtexture.node_tree = bpy.data.node_groups["mask_jade_microtexture"]
+    bump = material.node_tree.nodes.new("ShaderNodeBump")
+    bump.name = "Jade micro-normal"
+    bump.inputs["Strength"].default_value = 0.14
+    bump.inputs["Distance"].default_value = 0.00025
+    material.node_tree.links.new(microtexture.outputs["Factor"], bump.inputs["Height"])
+    material.node_tree.links.new(bump.outputs["Normal"], _socket(shader, "Normal"))
+
+
 def _build_jade_body():
     material, shader = _base_material("M_JadeBody", PALETTE["jadeBody"], 0.0, 0.27)
     _link_jade_recess_tone(material, shader)
+    _link_jade_micro_normal(material, shader)
     _socket(shader, "Specular IOR Level").default_value = 0.34
     _socket(shader, "Coat Weight").default_value = 0.18
     _socket(shader, "Coat Roughness").default_value = 0.28

@@ -37,7 +37,7 @@ CAMERA_NAMES = tuple(CAMERAS)
 VISUAL_EVIDENCE = (
     ("real edge thickness", "overall / oblique"),
     ("continuous moving highlight", "rotation-evidence"),
-    ("bronze/celadon reflection difference", "material-closeup"),
+    ("jade, ink, cinnabar, and old-gold material separation", "material-closeup"),
     ("contact-driven wear", "oblique / material-closeup"),
     ("recess oxidation", "oblique / material-closeup"),
     ("readable functional inscription", "overall / material-closeup"),
