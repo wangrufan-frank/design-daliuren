@@ -1,3 +1,6 @@
+import math
+
+
 DIMENSIONS = {
     "base": (0.520, 0.520, 0.028),
     "earth_plate": (0.500, 0.500, 0.006),
@@ -12,11 +15,16 @@ DIMENSIONS = {
 }
 
 BRANCHES = tuple("子丑寅卯辰巳午未申酉戌亥")
-BRANCH_INLAY_NODE_IDS = tuple(
-    f"branch/{surface}/{branch}"
-    for surface in ("earth", "heaven")
-    for branch in BRANCHES
+VISUAL_EARTH_ORDER = tuple("午未申酉戌亥子丑寅卯辰巳")
+VISUAL_MONTH_ORDER = (
+    "胜光", "小吉", "传送", "从魁", "河魁", "登明",
+    "神后", "大吉", "功曹", "太冲", "天罡", "太乙",
 )
+BRANCH_INLAY_NODE_IDS = tuple(f"branch/earth/{branch}" for branch in BRANCHES)
+
+
+def visual_angle(index):
+    return math.radians(90 - index * 30)
 
 NODE_IDS = (
     "artifact/root", "base/body", "plate/earth", "plate/heaven",
@@ -29,6 +37,9 @@ NODE_IDS = (
     "general/void", "general/white-tiger", "general/constant",
     "general/black-tortoise", "general/yin", "general/queen-of-heaven",
     *BRANCH_INLAY_NODE_IDS,
+    *(f"general-slot/{branch}" for branch in BRANCHES),
+    *(f"month-general/{month}" for month in VISUAL_MONTH_ORDER),
+    "interaction/month-general-ring",
     "trace/course",
 )
 

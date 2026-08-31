@@ -7,10 +7,10 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from daliuren_contract import DIMENSIONS, POSE_IDS
-from geometry import add_beveled_box, add_disc, add_ring
+from daliuren_contract import DIMENSIONS, POSE_IDS, VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle
+from geometry import add_annular_sector, add_beveled_box, add_disc, add_ring
 from high_detail_geometry import upgrade_to_high_detail
-from inscriptions import FUNCTIONAL_ROLES, HISTORICAL_ROLES, build_fixed_inscriptions
+from inscriptions import HISTORICAL_ROLES, build_fixed_inscriptions
 from materials import apply_master_materials, build_master_materials
 from poses import apply_pose
 
@@ -213,36 +213,97 @@ def add_transmission_slips(root, base, earth, base_height):
     )
 
 
+GENERAL_SECTOR_INNER_RADIUS = 0.064
+GENERAL_SECTOR_OUTER_RADIUS = 0.108
+GENERAL_SECTOR_ANGLE_DEG = 30.0
+GENERAL_RADIAL_CLEARANCE_M = 0.00008
+GENERAL_ANGULAR_CLEARANCE_DEG = 0.12
+
+
+def general_sector_spec(index):
+    half_sector = math.radians(GENERAL_SECTOR_ANGLE_DEG / 2)
+    center = visual_angle(index)
+    return center - half_sector, center + half_sector
+
+
 def add_generals(general_ring):
-    diameter, depth = DIMENSIONS["general_inlay"]
+    depth = DIMENSIONS["general_inlay"][1]
     settled_z = general_ring.dimensions.z / 2 + 0.0002
-    first = None
-    for index, general_key in enumerate(GENERAL_KEYS):
-        angle = math.radians(90.0 - index * 30.0)
-        direction = (math.cos(angle), math.sin(angle))
-        scale = 0.098
-        settled_location = (
-            direction[0] * scale,
-            direction[1] * scale,
-            settled_z,
+    for index, (general_key, branch) in enumerate(zip(GENERAL_KEYS, VISUAL_EARTH_ORDER)):
+        recess_start, recess_end = general_sector_spec(index)
+        piece_start = recess_start + math.radians(GENERAL_ANGULAR_CLEARANCE_DEG)
+        piece_end = recess_end - math.radians(GENERAL_ANGULAR_CLEARANCE_DEG)
+        piece_inner = GENERAL_SECTOR_INNER_RADIUS + GENERAL_RADIAL_CLEARANCE_M
+        piece_outer = GENERAL_SECTOR_OUTER_RADIUS - GENERAL_RADIAL_CLEARANCE_M
+        slot = new_empty(f"general-slot/{branch}", (0.0, 0.0, settled_z))
+        slot.parent = general_ring
+        slot["visual_index"] = index
+        slot["sector_inner_radius_m"] = piece_inner
+        slot["sector_outer_radius_m"] = piece_outer
+        slot["sector_angle_deg"] = GENERAL_SECTOR_ANGLE_DEG
+        slot["seat_z_m"] = settled_z
+        recess = add_annular_sector(
+            f"detail/general-recess/{branch}",
+            GENERAL_SECTOR_INNER_RADIUS,
+            GENERAL_SECTOR_OUTER_RADIUS,
+            recess_start,
+            recess_end,
+            0.0006,
+            (0.0, 0.0, settled_z - depth / 2),
+            0.0002,
         )
-        node_id = f"general/{general_key}"
-        if first is None:
-            general = add_disc(node_id, diameter / 2, depth, settled_location, 0.0008)
-            first = general
-            first.data.name = "general/shared-inlay-mesh"
-        else:
-            general = bpy.data.objects.new(node_id, first.data)
-            bpy.context.scene.collection.objects.link(general)
-            general.location = settled_location
-            general["node_id"] = node_id
+        del recess["node_id"]
+        recess.parent = general_ring
+        recess["surface_treatment"] = "general-seat-recess"
+        recess["material_variant"] = "jade-recess"
+        general = add_annular_sector(
+            f"general/{general_key}",
+            piece_inner,
+            piece_outer,
+            piece_start,
+            piece_end,
+            depth,
+            (0.0, 0.0, settled_z),
+            0.0003,
+        )
         general.parent = general_ring
-        general.rotation_euler.z = angle - math.pi / 2
         general["domain"] = "general"
         general["general_key"] = general_key
+        general["target_earth"] = branch
         general["ring_index"] = index
+        general["sector_inner_radius_m"] = piece_inner
+        general["sector_outer_radius_m"] = piece_outer
+        general["sector_angle_deg"] = GENERAL_SECTOR_ANGLE_DEG
+        general["radial_clearance_m"] = GENERAL_RADIAL_CLEARANCE_M
+        general["angular_clearance_deg"] = GENERAL_ANGULAR_CLEARANCE_DEG
+        general["settled_z_m"] = settled_z
         general["settled_location"] = tuple(general.location)
         general["closed_rotation_euler"] = tuple(general.rotation_euler)
+
+
+def add_month_general_glyphs(heaven, font_path):
+    font = bpy.data.fonts.load(str(font_path), check_existing=True)
+    for index, month in enumerate(VISUAL_MONTH_ORDER):
+        angle = visual_angle(index)
+        curve = bpy.data.curves.new(f"month-general/{month}/curve", "FONT")
+        curve.body = month
+        curve.font = font
+        curve.align_x = "CENTER"
+        curve.align_y = "CENTER"
+        curve.size = 0.018
+        curve.extrude = 0.00035
+        obj = bpy.data.objects.new(f"month-general/{month}", curve)
+        bpy.context.scene.collection.objects.link(obj)
+        obj.parent = heaven
+        obj.location = (0.145 * math.cos(angle), 0.145 * math.sin(angle), heaven.dimensions.z / 2)
+        obj.rotation_euler.z = angle - math.pi / 2
+        obj["node_id"] = obj.name
+        obj["visual_index"] = index
+        obj["material_variant"] = "cinnabar-text"
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        bpy.ops.object.convert(target="MESH")
+        obj.select_set(False)
 
 
 def _add_course_curve_mesh(name, z, bevel_depth):
@@ -322,7 +383,7 @@ def build_graybox():
         0.002,
     )
     heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
-    heaven["rotates_with_outer_ring"] = True
+    heaven["rotates_independently"] = True
     # Two visual bands share the same parent, so they can never drift apart.
     for ring_index, (outer_radius, inner_radius) in enumerate(
         ((0.165, 0.137), (0.136, 0.110)), start=1
@@ -349,8 +410,7 @@ def build_graybox():
         (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.0035),
         0.001,
     )
-    general_ring["closed_rotation_euler"] = tuple(general_ring.rotation_euler)
-    general_ring["rotates_independently"] = True
+    general_ring["fixed"] = True
 
     core_diameter, core_depth = DIMENSIONS["fixed_core"]
     core = add_disc(
@@ -370,7 +430,14 @@ def build_graybox():
     add_course_trace(core)
     repository_root = Path(__file__).parents[2]
     font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
-    build_fixed_inscriptions(earth, heaven, font_path, roles=FUNCTIONAL_ROLES)
+    build_fixed_inscriptions(earth, heaven, font_path, roles={"earth-branch"})
+    add_month_general_glyphs(heaven, font_path)
+    interaction = add_ring(
+        "interaction/month-general-ring", 0.170, 0.112, 0.0002, (0.0, 0.0, heaven.dimensions.z / 2 + 0.0002)
+    )
+    interaction.parent = heaven
+    interaction["color_write"] = False
+    interaction["material_variant"] = "interaction-hit-area"
     return root
 
 

@@ -45,10 +45,21 @@ class ContractTest(unittest.TestCase):
         branches = getattr(daliuren_contract, "BRANCHES", ())
         branch_node_ids = getattr(daliuren_contract, "BRANCH_INLAY_NODE_IDS", ())
         self.assertEqual(branches, tuple("子丑寅卯辰巳午未申酉戌亥"))
-        self.assertEqual(len(branch_node_ids), 24)
-        for surface in ("earth", "heaven"):
-            for branch in branches:
-                self.assertIn(f"branch/{surface}/{branch}", NODE_IDS)
+        self.assertEqual(len(branch_node_ids), 12)
+        for branch in branches:
+            self.assertIn(f"branch/earth/{branch}", NODE_IDS)
+            self.assertNotIn(f"branch/heaven/{branch}", NODE_IDS)
+            self.assertIn(f"general-slot/{branch}", NODE_IDS)
+        self.assertEqual(daliuren_contract.VISUAL_EARTH_ORDER, tuple("午未申酉戌亥子丑寅卯辰巳"))
+        self.assertEqual(
+            daliuren_contract.VISUAL_MONTH_ORDER,
+            ("胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙"),
+        )
+        self.assertEqual(daliuren_contract.visual_angle(0), daliuren_contract.math.radians(90))
+        self.assertEqual(daliuren_contract.visual_angle(1), daliuren_contract.math.radians(60))
+        for month in daliuren_contract.VISUAL_MONTH_ORDER:
+            self.assertIn(f"month-general/{month}", NODE_IDS)
+        self.assertIn("interaction/month-general-ring", NODE_IDS)
 
 
 if __name__ == "__main__":

@@ -50,6 +50,16 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertTrue(bpy.data.objects["plate/earth"]["fixed"])
         self.assertEqual(tuple(bpy.data.objects["plate/heaven"].location[:2]), (0.0, 0.0))
 
+    def test_month_ring_is_the_only_rotating_plate_layer(self):
+        heaven = bpy.data.objects["plate/heaven"]
+        generals = bpy.data.objects["plate/generals"]
+        core = bpy.data.objects["plate/core"]
+        self.assertTrue(heaven["rotates_independently"])
+        self.assertTrue(generals["fixed"])
+        self.assertTrue(core["fixed"])
+        self.assertEqual(heaven.parent, self.root)
+        self.assertEqual(generals.parent, self.root)
+
     def test_runtime_parts_have_stable_ids_and_root_parent(self):
         runtime_names = ("base/body", "plate/earth", "plate/heaven")
         self.assertEqual(self.root.name, "artifact/root")

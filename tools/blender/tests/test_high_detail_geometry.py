@@ -24,7 +24,7 @@ ALLOWED_DETAIL_PREFIXES = (
     "wear/contact-",
 )
 EXPECTED_DETAIL_COUNTS = {
-    "structure/bronze-inlay-branch-bed": 24,
+    "structure/bronze-inlay-branch-bed": 12,
     "structure/base-shell-thickness": 4,
     "structure/base-bottom-seam": 1,
     "structure/base-corner-transition": 4,
@@ -93,19 +93,15 @@ class HighDetailGeometryTest(unittest.TestCase):
     def tearDown(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
 
-    def test_reference_face_has_twelve_relief_zodiacs_and_four_corner_pearls(self):
+    def test_reference_surface_is_not_runtime_geometry(self):
         upgrade_to_high_detail(self.root)
 
-        surface = bpy.data.objects["detail/reference/surface"]
-        self.assertEqual(surface.type, "MESH")
-        self.assertEqual(surface["visual_role"], "reference-surface")
-        self.assertEqual(surface.parent, bpy.data.objects["plate/earth"])
-        self.assertGreater(surface.dimensions.x, 0.49)
-        self.assertGreater(surface.dimensions.y, 0.49)
+        self.assertIsNone(bpy.data.objects.get("detail/reference/surface"))
+        self.assertIsNone(bpy.data.objects.get("detail/reference/center-disc"))
 
         zodiac = [
             obj for obj in bpy.data.objects
-            if obj.get("visual_role") == "zodiac-relief"
+            if obj.get("visual_role") == "zodiac-glyph"
         ]
         pearls = [
             obj for obj in bpy.data.objects
@@ -118,8 +114,10 @@ class HighDetailGeometryTest(unittest.TestCase):
 
     def test_unapproved_motion_parts_are_parked_below_the_reference_face(self):
         upgrade_to_high_detail(self.root)
-        surface = bpy.data.objects["detail/reference/surface"]
-        surface_z = (surface.matrix_world @ Vector(surface.bound_box[0])).z
+        surface_z = max(
+            (bpy.data.objects["plate/earth"].matrix_world @ Vector(corner)).z
+            for corner in bpy.data.objects["plate/earth"].bound_box
+        )
         parked = (
             "calendar/slip",
             "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
@@ -229,8 +227,8 @@ class HighDetailGeometryTest(unittest.TestCase):
                 obj for obj in bpy.data.objects if "inscription_role" in obj
             ]
             self.assertEqual({obj["node_id"] for obj in runtime}, set(NODE_IDS))
-            self.assertEqual(len(branches), 24)
-            self.assertEqual(len(inscriptions), 71)
+            self.assertEqual(len(branches), 12)
+            self.assertEqual(len(inscriptions), 59)
             self.assertTrue(
                 all(obj["surface_treatment"] == "recessed-inlay" for obj in branches)
             )

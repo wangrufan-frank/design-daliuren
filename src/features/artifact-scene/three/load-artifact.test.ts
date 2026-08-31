@@ -78,6 +78,9 @@ describe("artifact loader", () => {
 
     expect(artifact.root).toBe(root);
     expect(artifact.nodes.get("plate/heaven")).toBeDefined();
+    expect(artifact.nodes.get("general-slot/午")).toBeDefined();
+    expect(artifact.nodes.get("month-general/胜光")).toBeDefined();
+    expect(artifact.nodes.get("interaction/month-general-ring")).toBeDefined();
     expect(artifact.animations).toEqual(animations);
     expect(artifact.url).toBe("/models/daliuren/daliuren-artifact-lod1.glb");
     expect(ktx2Loaders[0].setTranscoderPath).toHaveBeenCalledWith("/three/basis/");

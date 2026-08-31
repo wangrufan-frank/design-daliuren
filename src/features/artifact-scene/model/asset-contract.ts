@@ -5,6 +5,10 @@ export const ARTIFACT_ASSET_URLS = {
 } as const;
 
 const BRANCHES = [..."子丑寅卯辰巳午未申酉戌亥"] as const;
+const MONTH_GENERALS = [
+  "胜光", "小吉", "传送", "从魁", "河魁", "登明",
+  "神后", "大吉", "功曹", "太冲", "天罡", "太乙",
+] as const;
 
 export const REQUIRED_NODE_IDS: readonly string[] = [
   "artifact/root",
@@ -35,7 +39,9 @@ export const REQUIRED_NODE_IDS: readonly string[] = [
   "general/yin",
   "general/queen-of-heaven",
   ...BRANCHES.map((branch) => `branch/earth/${branch}`),
-  ...BRANCHES.map((branch) => `branch/heaven/${branch}`),
+  ...BRANCHES.map((branch) => `general-slot/${branch}`),
+  ...MONTH_GENERALS.map((month) => `month-general/${month}`),
+  "interaction/month-general-ring",
   "trace/course",
 ];
 
