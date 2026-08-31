@@ -66,6 +66,44 @@ describe("month-general interaction", () => {
     expect(moved.transition?.fromProgress).toEqual(Array(12).fill(1));
   });
 
+  it("preserves an exit transition through continued same-direction dragging", () => {
+    const started = reduceMonthGeneralState(completedState(27_000), {
+      type: "drag-start", angleRad: 0, nowMs: 28_000,
+    });
+    const exiting = reduceMonthGeneralState(started, {
+      type: "drag-move", angleRad: 3 * Math.PI / 180, nowMs: 28_020,
+      generalProgress: Array(12).fill(1),
+    });
+    const continued = reduceMonthGeneralState(exiting, {
+      type: "drag-move", angleRad: 5 * Math.PI / 180, nowMs: 28_040,
+      generalProgress: [1, 1, 0.6, 0.1, 0, 0, 0, 0, 0, 0, 0, 0],
+    });
+
+    expect(continued).toMatchObject({ phase: "exiting", aligned: false });
+    expect(continued.transition).toEqual({
+      kind: "exit", startedAtMs: 28_020, fromProgress: Array(12).fill(1),
+    });
+  });
+
+  it("preserves an exit transition when release snaps to a wrong detent", () => {
+    const started = reduceMonthGeneralState(completedState(27_000), {
+      type: "drag-start", angleRad: 0, nowMs: 28_000,
+    });
+    const exiting = reduceMonthGeneralState(started, {
+      type: "drag-move", angleRad: 20 * Math.PI / 180, nowMs: 28_020,
+      generalProgress: Array(12).fill(1),
+    });
+    const released = reduceMonthGeneralState(exiting, {
+      type: "drag-end", angularVelocityRadMs: 0, nowMs: 28_040,
+      generalProgress: [1, 1, 0.6, 0.1, 0, 0, 0, 0, 0, 0, 0, 0],
+    });
+
+    expect(released).toMatchObject({ phase: "exiting", aligned: false, detent: 7 });
+    expect(released.transition).toEqual({
+      kind: "exit", startedAtMs: 28_020, fromProgress: Array(12).fill(1),
+    });
+  });
+
   it("snaps wrong positions quietly and re-enters at the unique correct detent", () => {
     const wrong = reduceMonthGeneralState(exploringState(), {
       type: "step", delta: 1, nowMs: 30_000, generalProgress: emptyProgress,

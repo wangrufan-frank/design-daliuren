@@ -94,6 +94,9 @@ export function reduceMonthGeneralState(
       if (state.aligned) {
         return leavingAlignment(state, angleRad, state.detent, drag, event.nowMs, progress);
       }
+      if (state.phase === "exiting" && state.transition?.kind === "exit") {
+        return { ...state, angleRad, drag };
+      }
       return { ...state, phase: "exploring", angleRad, drag, transition: undefined };
     }
     case "drag-end": {
@@ -137,6 +140,9 @@ function snapToDetent(
     };
   }
   if (state.aligned) return leavingAlignment(state, angleRad, detent, undefined, nowMs, progress);
+  if (state.phase === "exiting" && state.transition?.kind === "exit") {
+    return { ...state, angleRad, detent, aligned: false, drag: undefined };
+  }
   return {
     ...state,
     phase: "exploring",
