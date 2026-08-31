@@ -170,6 +170,8 @@ def _bind_runtime_textures(collection, level):
     for obj in collection.all_objects:
         if obj.type != "MESH" or obj.get("dynamic_label_id"):
             continue
+        if obj.get("material_variant") == "reference-surface":
+            continue
         family = obj["runtime_texture_family"]
         atlas_id = obj["runtime_atlas_id"]
         atlas = runtime["families"][family]["atlases"][atlas_id]

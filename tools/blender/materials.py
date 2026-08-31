@@ -356,6 +356,36 @@ def _build_void(name, palette_key):
     return material
 
 
+def _build_reference_surface():
+    image_path = REPOSITORY_ROOT / "public/models/daliuren/reference-surface-v10.png"
+    height_path = REPOSITORY_ROOT / "public/models/daliuren/reference-surface-v10-height.png"
+    for path in (image_path, height_path):
+        if not path.is_file():
+            raise FileNotFoundError(path)
+    material, shader = _base_material("M_ReferenceSurface", PALETTE["celadon"], 0.0, 0.40)
+    image = bpy.data.images.load(str(image_path), check_existing=True)
+    image.colorspace_settings.name = "sRGB"
+    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+    texture.name = "Reference surface v10"
+    texture.image = image
+    material.node_tree.links.new(texture.outputs["Color"], _socket(shader, "Base Color"))
+    _socket(shader, "Specular IOR Level").default_value = 0.28
+    _socket(shader, "Coat Weight").default_value = 0.12
+    _socket(shader, "Coat Roughness").default_value = 0.32
+    bump = material.node_tree.nodes.new("ShaderNodeBump")
+    bump.name = "Shallow enamel relief"
+    bump.inputs["Strength"].default_value = 0.07
+    bump.inputs["Distance"].default_value = 0.00035
+    height_image = bpy.data.images.load(str(height_path), check_existing=True)
+    height_image.colorspace_settings.name = "Non-Color"
+    height_texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+    height_texture.name = "Reference relief height v10"
+    height_texture.image = height_image
+    material.node_tree.links.new(height_texture.outputs["Color"], bump.inputs["Height"])
+    material.node_tree.links.new(bump.outputs["Normal"], _socket(shader, "Normal"))
+    return material
+
+
 def build_master_materials():
     existing_materials = [name for name in MATERIAL_NAMES if bpy.data.materials.get(name)]
     existing_groups = [name for name in MASK_NAMES if bpy.data.node_groups.get(name)]
@@ -366,7 +396,7 @@ def build_master_materials():
     _build_recess_group()
     _build_insert_dirt_group()
     _build_crackle_group()
-    return (
+    materials = (
         _build_bronze(),
         _build_patina(),
         _build_celadon(),
@@ -375,6 +405,8 @@ def build_master_materials():
         _build_void("M_EarthVoid", "earthVoid"),
         _build_void("M_HeavenVoid", "heavenVoid"),
     )
+    _build_reference_surface()
+    return materials
 
 
 def _physical_material_name(obj):
@@ -385,6 +417,8 @@ def _physical_material_name(obj):
         return "M_AshText"
     detail_id = obj.get("detail_id")
     variant = obj.get("material_variant")
+    if variant == "reference-surface":
+        return "M_ReferenceSurface"
     if variant in {"gold", "zodiac-gold"}:
         return "M_OldGold"
     if variant in {"zodiac-blue", "zodiac-green"}:

@@ -121,7 +121,7 @@ def add_calendar(root, base_height):
     calendar.rotation_euler.x = math.radians(10.0)
     configure_motion(
         calendar,
-        (0.0, 0.238, base_height + 0.024),
+        (0.0, 0.238, 0.008),
         (0.0, 0.0, 1.0),
         0.012,
     )
@@ -144,7 +144,7 @@ def add_calendar(root, base_height):
         seat = add_beveled_box(
             f"detail/calendar/seat-{side}",
             (0.048, 0.044, 0.016),
-            (x, 0.238, base_height + 0.008),
+            (x, 0.238, 0.012),
             0.0015,
         )
         del seat["node_id"]
@@ -165,7 +165,7 @@ def add_lesson_slips(root, earth, base_height):
         slip = add_beveled_box(
             f"lesson/{key}",
             DIMENSIONS["lesson_slip"],
-            (x, y, base_height + 0.018),
+            (x, y, 0.010),
             0.0012,
         )
         slip["visual_order"] = visual_order
@@ -175,7 +175,7 @@ def add_lesson_slips(root, earth, base_height):
             f"detail/slip-seat/lesson/{key}",
             earth,
             slip,
-            base_height + DIMENSIONS["earth_plate"][2] + 0.0001,
+            base_height - 0.001,
         )
 
 
@@ -186,7 +186,7 @@ def add_transmission_slips(root, base, earth, base_height):
         slip = add_beveled_box(
             f"transmission/{key}",
             DIMENSIONS["transmission_slip"],
-            (x, -0.194, base_height + 0.0185),
+            (x, -0.194, 0.010),
             0.0012,
         )
         slip["module_order"] = module_order
@@ -196,12 +196,12 @@ def add_transmission_slips(root, base, earth, base_height):
             f"detail/slip-seat/transmission/{key}",
             earth,
             slip,
-            base_height + DIMENSIONS["earth_plate"][2] + 0.0001,
+            base_height - 0.001,
         )
     method = add_beveled_box(
         "transmission/method",
         DIMENSIONS["method_slip"],
-        (0.0, -0.238, base_height + 0.0045),
+        (0.0, -0.238, 0.010),
         0.0009,
     )
     method.parent = root
@@ -209,7 +209,7 @@ def add_transmission_slips(root, base, earth, base_height):
         "detail/slip-seat/transmission/method",
         base,
         method,
-        base_height + 0.0001,
+        base_height - 0.001,
     )
 
 
@@ -325,7 +325,7 @@ def build_graybox():
     heaven["rotates_with_outer_ring"] = True
     # Two visual bands share the same parent, so they can never drift apart.
     for ring_index, (outer_radius, inner_radius) in enumerate(
-        ((0.188, 0.158), (0.157, 0.126)), start=1
+        ((0.165, 0.137), (0.136, 0.110)), start=1
     ):
         band = add_ring(
             f"detail/heaven/linked-ring-{ring_index}",
@@ -344,9 +344,9 @@ def build_graybox():
     general_ring = add_ring(
         "plate/generals",
         general_diameter / 2,
-        0.072,
+        0.063,
         general_depth,
-        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.012),
+        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.0035),
         0.001,
     )
     general_ring["closed_rotation_euler"] = tuple(general_ring.rotation_euler)
@@ -357,11 +357,11 @@ def build_graybox():
         "plate/core",
         core_diameter / 2,
         core_depth,
-        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.016),
+        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.0030),
         0.001,
     )
     core["fixed"] = True
-    add_historical_ring(radius=0.145, z=0.087)
+    add_historical_ring(radius=0.137, z=base_height + DIMENSIONS["earth_plate"][2] + 0.0102)
     parent_runtime_parts(root)
     add_calendar(root, base_height)
     add_lesson_slips(root, earth, base_height)

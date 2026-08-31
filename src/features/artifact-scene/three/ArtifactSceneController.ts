@@ -120,6 +120,21 @@ const PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT = 0.016;
 const LABEL_SIZE = { width: 512, height: 256 } as const;
 const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
 const DAY_NIGHT_TEXT = { day: "昼", night: "夜" } as const;
+const REFERENCE_REPLACED_PREFIXES = (
+  ["branch/", "divider/", "detail/branch-bed/", "inscription/"] as const
+);
+
+function isReplacedByReferenceSurface(object: THREE.Object3D): boolean {
+  const nodeId = typeof object.userData.node_id === "string" ? object.userData.node_id : "";
+  return object.userData.detail_id === "structure/bronze-inlay-branch-bed"
+    || typeof object.userData.inscription_role === "string"
+    || ["_divider_", "_detail_branch-bed_", "_inscription_"].some((token) => object.name.includes(token))
+    || REFERENCE_REPLACED_PREFIXES.some((prefix) => (
+    object.name.startsWith(prefix)
+    || object.name.includes(`/${prefix}`)
+    || nodeId.startsWith(prefix)
+    ));
+}
 
 function defaultDependencies(): ArtifactSceneDependencies {
   return {
@@ -204,6 +219,11 @@ export class ArtifactSceneController {
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
     this.scene.environmentIntensity = 0.45;
+    artifact.root.traverse((object) => {
+      if (object instanceof THREE.Mesh && isReplacedByReferenceSurface(object)) {
+        object.visible = false;
+      }
+    });
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 

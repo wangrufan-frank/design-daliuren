@@ -44,11 +44,18 @@ function node(id: string) {
 
 function fixture(
   dynamicIds: readonly string[] = ["dynamic/calendar"],
-  options: { invalidBranchMaterialId?: string } = {},
+  options: { invalidBranchMaterialId?: string; includeLegacyOverlay?: boolean } = {},
 ) {
   let nowMs = 0;
   const canvas = document.createElement("canvas");
   const root = new THREE.Group();
+  const legacyOverlay = options.includeLegacyOverlay
+    ? new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
+    : undefined;
+  if (legacyOverlay) {
+    legacyOverlay.name = "lod0_divider_heaven_00";
+    root.add(legacyOverlay);
+  }
   const movingNode = node("calendar/slip");
   movingNode.position.set(1, 2, 3);
   movingNode.rotation.set(0.1, 0.2, 0.3);
@@ -150,7 +157,7 @@ function fixture(
     branchGeometry, branchNodes, earthBranchMaterial, heavenBranchMaterial,
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
     environmentDispose, environmentTexture, generalNodes, material, movingNode, renderer,
-    trace, traceGeometry, traceMaterial,
+    trace, traceGeometry, traceMaterial, legacyOverlay,
     setNow: (value: number) => { nowMs = value; },
   };
 }
@@ -255,6 +262,14 @@ const completeDisplayState = {
 } as unknown as ArtifactDisplayState;
 
 describe("ArtifactSceneController", () => {
+  it("hides legacy face overlays replaced by the approved reference surface", () => {
+    const { branchNodes, legacyOverlay } = fixture(["dynamic/calendar"], { includeLegacyOverlay: true });
+
+    expect(legacyOverlay!.visible).toBe(false);
+    expect(branchNodes.get("branch/earth/子")!.visible).toBe(false);
+    expect(branchNodes.get("branch/heaven/午")!.visible).toBe(false);
+  });
+
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
     const { controller, controls, environmentTexture, renderer } = fixture();
 

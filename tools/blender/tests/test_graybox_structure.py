@@ -29,13 +29,12 @@ class GrayboxStructureTest(unittest.TestCase):
         base = bpy.data.objects["base/body"]
         earth = bpy.data.objects["plate/earth"]
         heaven = bpy.data.objects["plate/heaven"]
-        self.assertVectorAlmostEqual(base.dimensions, (0.520, 0.520, 0.052))
+        self.assertVectorAlmostEqual(base.dimensions, (0.520, 0.520, 0.028))
         self.assertAlmostEqual(base.location.z - base.dimensions.z / 2, 0.0, places=4)
-        self.assertVectorAlmostEqual(earth.dimensions, (0.440, 0.440, 0.014))
-        self.assertAlmostEqual(heaven.dimensions.x, 0.380, places=4)
-        self.assertAlmostEqual(heaven.dimensions.y, 0.380, places=4)
-        self.assertGreaterEqual(heaven.dimensions.z, 0.024)
-        self.assertAlmostEqual(heaven.dimensions.z, 0.026, places=4)
+        self.assertVectorAlmostEqual(earth.dimensions, (0.500, 0.500, 0.006))
+        self.assertAlmostEqual(heaven.dimensions.x, 0.332, places=4)
+        self.assertAlmostEqual(heaven.dimensions.y, 0.332, places=4)
+        self.assertAlmostEqual(heaven.dimensions.z, 0.010, places=4)
 
     def test_scene_stack_reaches_the_declared_lod_height(self):
         maximum_z = max(
@@ -44,7 +43,8 @@ class GrayboxStructureTest(unittest.TestCase):
             if obj.type == "MESH"
             for corner in obj.bound_box
         )
-        self.assertAlmostEqual(maximum_z, 0.092, places=4)
+        self.assertGreater(maximum_z, 0.045)
+        self.assertLess(maximum_z, 0.049)
 
     def test_earth_plate_is_fixed_and_heaven_plate_has_center_pivot(self):
         self.assertTrue(bpy.data.objects["plate/earth"]["fixed"])

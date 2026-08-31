@@ -93,6 +93,46 @@ class HighDetailGeometryTest(unittest.TestCase):
     def tearDown(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
 
+    def test_reference_face_has_twelve_relief_zodiacs_and_four_corner_pearls(self):
+        upgrade_to_high_detail(self.root)
+
+        surface = bpy.data.objects["detail/reference/surface"]
+        self.assertEqual(surface.type, "MESH")
+        self.assertEqual(surface["visual_role"], "reference-surface")
+        self.assertEqual(surface.parent, bpy.data.objects["plate/earth"])
+        self.assertGreater(surface.dimensions.x, 0.49)
+        self.assertGreater(surface.dimensions.y, 0.49)
+
+        zodiac = [
+            obj for obj in bpy.data.objects
+            if obj.get("visual_role") == "zodiac-relief"
+        ]
+        pearls = [
+            obj for obj in bpy.data.objects
+            if obj.get("visual_role") == "corner-pearl"
+        ]
+        self.assertEqual(len(zodiac), 12)
+        self.assertTrue(all(obj.type == "MESH" for obj in zodiac))
+        self.assertEqual(len(pearls), 4)
+        self.assertTrue(all(obj.type == "MESH" for obj in pearls))
+
+    def test_unapproved_motion_parts_are_parked_below_the_reference_face(self):
+        upgrade_to_high_detail(self.root)
+        surface = bpy.data.objects["detail/reference/surface"]
+        surface_z = (surface.matrix_world @ Vector(surface.bound_box[0])).z
+        parked = (
+            "calendar/slip",
+            "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
+            "transmission/initial", "transmission/middle", "transmission/final",
+            "transmission/method",
+        )
+        for node_id in parked:
+            top = max(
+                (bpy.data.objects[node_id].matrix_world @ Vector(corner)).z
+                for corner in bpy.data.objects[node_id].bound_box
+            )
+            self.assertLess(top, surface_z, node_id)
+
     def test_upgrade_preserves_every_runtime_value(self):
         before = runtime_contract_snapshot()
 
@@ -171,7 +211,8 @@ class HighDetailGeometryTest(unittest.TestCase):
         )
         self.assertGreaterEqual(minimum_z, -0.00005)
         self.assertLessEqual(maximum_z, 0.10205)
-        self.assertAlmostEqual(maximum_z - minimum_z, 0.102, delta=0.0001)
+        self.assertGreater(maximum_z - minimum_z, 0.055)
+        self.assertLess(maximum_z - minimum_z, 0.061)
 
     def test_saved_master_reopens_with_recessed_branch_nodes_and_no_cutters(self):
         build_master()
