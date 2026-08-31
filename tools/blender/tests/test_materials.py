@@ -21,14 +21,14 @@ MATERIAL_NAMES = {
     "M_HeavenVoid",
 }
 PALETTE = {
-    "ink": "#18201D",
-    "bronze": "#4A5A53",
-    "patina": "#60736A",
-    "celadon": "#91A69C",
-    "ash": "#DFE8E4",
-    "oldGold": "#B39B69",
-    "earthVoid": "#8A563B",
-    "heavenVoid": "#477B9D",
+    "ink": "#27231F",
+    "bronze": "#E5DED0",
+    "patina": "#C8BDAA",
+    "celadon": "#F2EEE5",
+    "ash": "#2B2926",
+    "oldGold": "#B98A38",
+    "earthVoid": "#A94B34",
+    "heavenVoid": "#315F73",
 }
 
 sys.path.insert(0, str(BLENDER_DIR))
@@ -76,13 +76,13 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(IMPLEMENTED_PALETTE, PALETTE)
         self.assertEqual({material.name for material in materials}, MATERIAL_NAMES)
         expected = {
-            "M_Bronze": ("#4A5A53", 0.62),
-            "M_Patina": ("#60736A", 0.78),
-            "M_Celadon": ("#91A69C", 0.34),
-            "M_OldGold": ("#B39B69", 0.48),
-            "M_AshText": ("#DFE8E4", 0.48),
-            "M_EarthVoid": ("#8A563B", 0.52),
-            "M_HeavenVoid": ("#477B9D", 0.52),
+            "M_Bronze": ("#E5DED0", 0.38),
+            "M_Patina": ("#C8BDAA", 0.58),
+            "M_Celadon": ("#F2EEE5", 0.27),
+            "M_OldGold": ("#B98A38", 0.48),
+            "M_AshText": ("#2B2926", 0.48),
+            "M_EarthVoid": ("#A94B34", 0.52),
+            "M_HeavenVoid": ("#315F73", 0.52),
         }
         for name, (color, roughness) in expected.items():
             shader = principled(bpy.data.materials[name])
@@ -116,7 +116,7 @@ class MaterialTest(unittest.TestCase):
         ]
         materials = [obj.data.materials[0] for obj in branches]
         self.assertEqual(len({material.as_pointer() for material in materials}), 24)
-        for surface, family in (("earth", "M_OldGold"), ("heaven", "M_AshText")):
+        for surface, family in (("earth", "M_AshText"), ("heaven", "M_AshText")):
             for branch in BRANCHES:
                 obj = bpy.data.objects[f"branch/{surface}/{branch}"]
                 material = obj.data.materials[0]
@@ -186,7 +186,7 @@ class MaterialTest(unittest.TestCase):
             )
             self.assertEqual(
                 {obj["material_role"] for obj in branches},
-                {"M_OldGold", "M_AshText"},
+                {"M_AshText"},
             )
 
 

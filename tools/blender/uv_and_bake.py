@@ -13,6 +13,9 @@ from pathlib import Path
 import bmesh
 import bpy
 
+sys.path.insert(0, str(Path(__file__).parent))
+from daliuren_contract import NODE_IDS
+
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 DEFAULT_TEXTURE_ROOT = REPOSITORY_ROOT / "assets/daliuren/textures"
@@ -850,8 +853,12 @@ def _validate_bake_source():
     inscriptions = [obj for obj in bpy.data.objects if "inscription_role" in obj]
     if root is None or root.get("node_id") != "artifact/root":
         raise RuntimeError("Daliuren master scene is required for texture baking")
-    if (len(runtime), len(details), len(inscriptions)) != (50, 34, 71):
-        raise RuntimeError("Daliuren master requires 50 runtime, 34 detail and 71 inscription objects")
+    if ({obj.get("node_id") for obj in runtime}, len(details), len(inscriptions)) != (
+        set(NODE_IDS), 34, 71
+    ):
+        raise RuntimeError(
+            f"Daliuren master requires {len(NODE_IDS)} runtime, 34 detail and 71 inscription objects"
+        )
     missing_materials = [name for name in MATERIAL_FAMILIES if bpy.data.materials.get(name) is None]
     if missing_materials:
         raise RuntimeError(f"Daliuren master materials are missing: {', '.join(missing_materials)}")
@@ -888,8 +895,11 @@ def _validate_bake_source():
         raise RuntimeError("Daliuren master meshes require explicit runtime atlas ownership")
     for atlas_id in atlas_ids:
         objects = [obj for obj in physical if obj.get("runtime_atlas_id") == atlas_id]
-        if any(_has_unbounded_uv_issues(obj) for obj in objects):
-            raise RuntimeError(f"Daliuren master UV atlas is invalid for {atlas_id}")
+        invalid = [obj.name for obj in objects if _has_unbounded_uv_issues(obj)]
+        if invalid:
+            raise RuntimeError(
+                f"Daliuren master UV atlas is invalid for {atlas_id}: {', '.join(invalid)}"
+            )
         if first_family_uv_overlap(objects) is not None:
             raise RuntimeError(f"Daliuren master UV atlas overlaps across meshes in {atlas_id}")
 

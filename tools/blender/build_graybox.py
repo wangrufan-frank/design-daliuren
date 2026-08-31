@@ -8,7 +8,7 @@ import bpy
 sys.path.insert(0, str(Path(__file__).parent))
 
 from daliuren_contract import DIMENSIONS, POSE_IDS
-from geometry import add_beveled_box, add_disc
+from geometry import add_beveled_box, add_disc, add_ring
 from high_detail_geometry import upgrade_to_high_detail
 from inscriptions import FUNCTIONAL_ROLES, HISTORICAL_ROLES, build_fixed_inscriptions
 from materials import apply_master_materials, build_master_materials
@@ -213,14 +213,14 @@ def add_transmission_slips(root, base, earth, base_height):
     )
 
 
-def add_generals(base):
+def add_generals(general_ring):
     diameter, depth = DIMENSIONS["general_inlay"]
-    settled_z = base.dimensions.z / 2 + depth / 2
+    settled_z = general_ring.dimensions.z / 2 + 0.0002
     first = None
     for index, general_key in enumerate(GENERAL_KEYS):
         angle = math.radians(90.0 - index * 30.0)
         direction = (math.cos(angle), math.sin(angle))
-        scale = 0.240 / max(abs(direction[0]), abs(direction[1]))
+        scale = 0.098
         settled_location = (
             direction[0] * scale,
             direction[1] * scale,
@@ -236,7 +236,7 @@ def add_generals(base):
             bpy.context.scene.collection.objects.link(general)
             general.location = settled_location
             general["node_id"] = node_id
-        general.parent = base
+        general.parent = general_ring
         general.rotation_euler.z = angle - math.pi / 2
         general["domain"] = "general"
         general["general_key"] = general_key
@@ -255,11 +255,11 @@ def _add_course_curve_mesh(name, z, bevel_depth):
     curve.fill_mode = "FULL"
     spline = curve.splines.new("POLY")
     points = (
-        (-0.108, 0.072, 0.0),
-        (-0.042, 0.112, 0.00015),
-        (0.030, 0.060, 0.0),
-        (-0.012, -0.016, 0.00012),
-        (0.092, -0.082, 0.0),
+        (-0.054, 0.036, 0.0),
+        (-0.021, 0.056, 0.00015),
+        (0.015, 0.030, 0.0),
+        (-0.006, -0.008, 0.00012),
+        (0.046, -0.041, 0.0),
     )
     spline.points.add(len(points) - 1)
     for point, (x, y, offset_z) in zip(spline.points, points):
@@ -274,31 +274,19 @@ def _add_course_curve_mesh(name, z, bevel_depth):
     return obj
 
 
-def add_course_trace(earth):
+def add_course_trace(core):
     material = bpy.data.materials.get("graybox/trace-dark")
     if material is None:
         material = bpy.data.materials.new("graybox/trace-dark")
         material.diffuse_color = (0.025, 0.030, 0.028, 1.0)
 
-    earth_top = earth.location.z + earth.dimensions.z / 2
-    cutter = _add_course_curve_mesh("trace/course-groove-cutter", earth_top - 0.00075, 0.0011)
-    groove = earth.modifiers.new(name="course groove", type="BOOLEAN")
-    groove.operation = "DIFFERENCE"
-    groove.solver = "EXACT"
-    groove.object = cutter
-    bpy.context.view_layer.objects.active = earth
-    bpy.ops.object.modifier_apply(modifier=groove.name)
-    cutter_mesh = cutter.data
-    bpy.data.objects.remove(cutter, do_unlink=True)
-    if cutter_mesh.users == 0:
-        bpy.data.meshes.remove(cutter_mesh)
-
-    trace = _add_course_curve_mesh("trace/course", earth_top - 0.001, 0.00065)
+    core_top = core.location.z + core.dimensions.z / 2
+    trace = _add_course_curve_mesh("trace/course", core_top + 0.0001, 0.00045)
     world_matrix = trace.matrix_world.copy()
-    trace.parent = earth
+    trace.parent = core
     trace.matrix_world = world_matrix
     trace["node_id"] = "trace/course"
-    trace["surface_treatment"] = "recessed-groove"
+    trace["surface_treatment"] = "raised-inlay"
     trace["runtime_reveal"] = True
     trace.data.materials.append(material)
     return trace
@@ -325,21 +313,61 @@ def build_graybox():
     earth["fixed"] = True
 
     heaven_diameter, heaven_depth = DIMENSIONS["heaven_plate"]
-    heaven = add_disc(
+    heaven = add_ring(
         "plate/heaven",
         heaven_diameter / 2,
+        0.125,
         heaven_depth,
         (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + heaven_depth / 2),
         0.002,
     )
     heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
+    heaven["rotates_with_outer_ring"] = True
+    # Two visual bands share the same parent, so they can never drift apart.
+    for ring_index, (outer_radius, inner_radius) in enumerate(
+        ((0.188, 0.158), (0.157, 0.126)), start=1
+    ):
+        band = add_ring(
+            f"detail/heaven/linked-ring-{ring_index}",
+            outer_radius,
+            inner_radius,
+            0.0012,
+            (0.0, 0.0, 0.0),
+        )
+        del band["node_id"]
+        band.parent = heaven
+        band.location.z = heaven_depth / 2 - 0.0006
+        band["ring_index"] = ring_index
+        band["material_variant"] = "jade-ring"
+
+    general_diameter, general_depth = DIMENSIONS["general_ring"]
+    general_ring = add_ring(
+        "plate/generals",
+        general_diameter / 2,
+        0.072,
+        general_depth,
+        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.012),
+        0.001,
+    )
+    general_ring["closed_rotation_euler"] = tuple(general_ring.rotation_euler)
+    general_ring["rotates_independently"] = True
+
+    core_diameter, core_depth = DIMENSIONS["fixed_core"]
+    core = add_disc(
+        "plate/core",
+        core_diameter / 2,
+        core_depth,
+        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.016),
+        0.001,
+    )
+    core["fixed"] = True
     add_historical_ring(radius=0.145, z=0.087)
     parent_runtime_parts(root)
     add_calendar(root, base_height)
     add_lesson_slips(root, earth, base_height)
     add_transmission_slips(root, base, earth, base_height)
-    add_generals(base)
-    add_course_trace(earth)
+    add_generals(general_ring)
+    add_course_trace(core)
     repository_root = Path(__file__).parents[2]
     font_path = repository_root / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
     build_fixed_inscriptions(earth, heaven, font_path, roles=FUNCTIONAL_ROLES)

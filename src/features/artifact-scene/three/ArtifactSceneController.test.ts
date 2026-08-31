@@ -262,22 +262,22 @@ describe("ArtifactSceneController", () => {
     controller.render();
 
     expect(renderer.toneMapping).toBe(THREE.AgXToneMapping);
-    expect(renderer.toneMappingExposure).toBe(1.18);
+    expect(renderer.toneMappingExposure).toBe(0.72);
     expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(2);
     expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
     const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
-    expect(scene.background).toEqual(new THREE.Color(0xe4e6df));
+    expect(scene.background).toEqual(new THREE.Color(0x8b8984));
     expect(scene.environment).toBe(environmentTexture);
-    expect(scene.environmentIntensity).toBe(1.05);
+    expect(scene.environmentIntensity).toBe(0.45);
     expect(controls.minPolarAngle).toBeCloseTo(Math.PI / 9);
     expect(controls.maxPolarAngle).toBeCloseTo(5 * Math.PI / 12);
     expect(controls.minAzimuthAngle).toBe(-Infinity);
     expect(controls.maxAzimuthAngle).toBe(Infinity);
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
     expect(lights).toHaveLength(4);
-    expect(lights.map((light) => light.intensity)).toEqual([1.75, 1.28, 0.82, 0.42]);
-    expect(lights[0].color).toEqual(new THREE.Color(0xf2eee4));
+    expect(lights.map((light) => light.intensity)).toEqual([1.35, 0.78, 0.45, 0.55]);
+    expect(lights[0].color).toEqual(new THREE.Color(0xfff4df));
     expect(lights[1]).toBeInstanceOf(THREE.HemisphereLight);
     expect(lights[2]).toBeInstanceOf(THREE.DirectionalLight);
     const camera = vi.mocked(renderer.render).mock.calls[0][1] as THREE.PerspectiveCamera;

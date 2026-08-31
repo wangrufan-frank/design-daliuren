@@ -22,14 +22,14 @@ MASK_NAMES = (
     "mask_celadon_crackle",
 )
 PALETTE = {
-    "ink": "#18201D",
-    "bronze": "#4A5A53",
-    "patina": "#60736A",
-    "celadon": "#91A69C",
-    "ash": "#DFE8E4",
-    "oldGold": "#B39B69",
-    "earthVoid": "#8A563B",
-    "heavenVoid": "#477B9D",
+    "ink": "#27231F",
+    "bronze": "#E5DED0",
+    "patina": "#C8BDAA",
+    "celadon": "#F2EEE5",
+    "ash": "#2B2926",
+    "oldGold": "#B98A38",
+    "earthVoid": "#A94B34",
+    "heavenVoid": "#315F73",
 }
 MASK_ATTRIBUTES = {
     "mask_contact_wear": "causal_contact_wear",
@@ -257,7 +257,7 @@ def _base_material(name, color, metallic, roughness):
 
 
 def _build_bronze():
-    material, shader = _base_material("M_Bronze", PALETTE["bronze"], 1.0, 0.62)
+    material, shader = _base_material("M_Bronze", PALETTE["bronze"], 0.0, 0.38)
     nodes = material.node_tree.nodes
     links = material.node_tree.links
     recess = _group_node(nodes, "mask_recess_oxidation", "Causal recess tint", 0.52)
@@ -272,17 +272,18 @@ def _build_bronze():
 
 
 def _build_patina():
-    material, _ = _base_material("M_Patina", PALETTE["patina"], 1.0, 0.78)
+    material, _ = _base_material("M_Patina", PALETTE["patina"], 0.0, 0.58)
     return material
 
 
 def _build_celadon():
-    material, shader = _base_material("M_Celadon", PALETTE["celadon"], 0.0, 0.34)
+    material, shader = _base_material("M_Celadon", PALETTE["celadon"], 0.0, 0.27)
     nodes = material.node_tree.nodes
     links = material.node_tree.links
     _socket(shader, "Specular IOR Level").default_value = 0.34
     _socket(shader, "Coat Weight").default_value = 0.18
     _socket(shader, "Coat Roughness").default_value = 0.28
+    _socket(shader, "Subsurface Weight").default_value = 0.055
 
     dirt = _group_node(nodes, "mask_insert_dirt", "Causal insert-boundary dirt", 0.38)
     crackle = _group_node(nodes, "mask_celadon_crackle", "Celadon-only crackle", 0.65)
@@ -378,13 +379,20 @@ def build_master_materials():
 
 def _physical_material_name(obj):
     role = obj.get("inscription_role")
-    if role == "earth-branch":
-        return "M_OldGold"
-    if role == "heaven-branch":
+    if role in {"earth-branch", "heaven-branch"}:
         return "M_AshText"
     if role:
         return "M_AshText"
     detail_id = obj.get("detail_id")
+    variant = obj.get("material_variant")
+    if variant in {"gold", "zodiac-gold"}:
+        return "M_OldGold"
+    if variant in {"zodiac-blue", "zodiac-green"}:
+        return "M_Patina"
+    if variant in {"zodiac-red"}:
+        return "M_OldGold"
+    if variant in {"jade", "jade-panel", "jade-ring", "pearl"}:
+        return "M_Celadon"
     if detail_id in PATINA_DETAIL_IDS:
         return "M_Patina"
     if detail_id in CELADON_DETAIL_IDS:
@@ -395,6 +403,10 @@ def _physical_material_name(obj):
         "transmission/initial",
         "transmission/middle",
         "transmission/final",
+    }:
+        return "M_Celadon"
+    if obj.get("node_id") in {
+        "base/body", "plate/earth", "plate/heaven", "plate/generals", "plate/core",
     }:
         return "M_Celadon"
     return "M_Bronze"

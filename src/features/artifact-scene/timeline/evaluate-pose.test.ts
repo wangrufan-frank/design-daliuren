@@ -23,6 +23,10 @@ it("uses the exact 27-second duration and rotates the exported heaven plate in i
     rotationY: 6 * Math.PI / 6,
     rotationZ: 0,
   });
+  expect(pose.nodes["plate/generals"]).toMatchObject({
+    rotationY: 2 * Math.PI,
+    rotationZ: 0,
+  });
   expect(pose.nodes["transmission/initial"].visible).toBe(true);
   expect(pose.courseTraceOpacity).toBe(0);
   expect(pose).not.toHaveProperty("copy");

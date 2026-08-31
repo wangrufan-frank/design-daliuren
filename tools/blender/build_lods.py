@@ -84,8 +84,17 @@ def _reduce_lod(collection, level):
         else:
             _set_bevel_segments(obj, 1)
 
-        if obj.get("inscription_role"):
+        inscription_role = obj.get("inscription_role")
+        if inscription_role:
+            if level == 2 and inscription_role.startswith("historical-"):
+                _decimate(obj, 0.25)
             continue
+
+        if level == 2 and obj.get("visual_role") == "zodiac-glyph":
+            _decimate(obj, 0.04)
+            continue
+        if level == 2 and (obj.get("visual_role") or obj.get("detail_id")):
+            _decimate(obj, 0.35)
 
         if level == 1:
             if obj.get("node_id"):

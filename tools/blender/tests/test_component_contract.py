@@ -164,8 +164,7 @@ class ComponentContractTest(unittest.TestCase):
 
     def test_generals_are_independent_objects_on_one_shared_mesh(self):
         generals = [obj for obj in bpy.data.objects if obj.get("domain") == "general"]
-        base = bpy.data.objects["base/body"]
-        earth = bpy.data.objects["plate/earth"]
+        general_ring = bpy.data.objects["plate/generals"]
         self.assertEqual(len(generals), 12)
         self.assertEqual({obj["general_key"] for obj in generals}, set(GENERAL_KEYS))
         self.assertEqual(len({obj.name for obj in generals}), 12)
@@ -173,18 +172,11 @@ class ComponentContractTest(unittest.TestCase):
         self.assertEqual(len({obj.data.as_pointer() for obj in generals}), 1)
         self.assertEqual(len({id(obj) for obj in generals}), 12)
         for general in generals:
-            self.assertEqual(general.parent, base)
+            self.assertEqual(general.parent, general_ring)
             self.assertAlmostEqual(general.dimensions.x, 0.028)
             self.assertAlmostEqual(general.dimensions.y, 0.028)
             self.assertAlmostEqual(general.dimensions.z, 0.004)
-            center = general.matrix_world.translation
-            half_inlay = general.dimensions.x / 2
-            self.assertLessEqual(abs(center.x) + half_inlay, base.dimensions.x / 2)
-            self.assertLessEqual(abs(center.y) + half_inlay, base.dimensions.y / 2)
-            self.assertGreaterEqual(
-                max(abs(center.x), abs(center.y)) - half_inlay,
-                earth.dimensions.x / 2,
-            )
+            self.assertAlmostEqual(math.hypot(general.location.x, general.location.y), 0.098)
 
     def test_branch_inlays_form_complete_surface_rings(self):
         for surface, radius in (("earth", 0.194), ("heaven", 0.164)):
@@ -199,6 +191,30 @@ class ComponentContractTest(unittest.TestCase):
                 self.assertEqual(inlay["branch"], BRANCHES[index])
                 self.assertEqual(inlay["ring_index"], index)
                 self.assertAlmostEqual(math.hypot(inlay.location.x, inlay.location.y), radius)
+
+    def test_reference_plate_has_two_linked_outer_rings_independent_general_ring_and_fixed_core(self):
+        heaven = bpy.data.objects["plate/heaven"]
+        general_ring = bpy.data.objects["plate/generals"]
+        core = bpy.data.objects["plate/core"]
+
+        self.assertEqual(heaven.parent, self.root)
+        self.assertEqual(general_ring.parent, self.root)
+        self.assertEqual(core.parent, self.root)
+        self.assertTrue(heaven["rotates_with_outer_ring"])
+        self.assertTrue(general_ring["rotates_independently"])
+        self.assertTrue(core["fixed"])
+        self.assertEqual(
+            {
+                child.get("ring_index")
+                for child in heaven.children
+                if child.name.startswith("detail/heaven/linked-ring-")
+            },
+            {1, 2},
+        )
+        self.assertTrue(all(general.parent == general_ring for general in (
+            bpy.data.objects[f"general/{key}"] for key in GENERAL_KEYS
+        )))
+        self.assertFalse(any(child.parent == core for child in (heaven, general_ring)))
 
     def test_helper_children_do_not_claim_runtime_ids(self):
         for obj in bpy.data.objects:

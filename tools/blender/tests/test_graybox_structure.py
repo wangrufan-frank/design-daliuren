@@ -122,19 +122,19 @@ class GrayboxStructureTest(unittest.TestCase):
             for token in forbidden:
                 self.assertNotIn(token, searchable, obj.name)
 
-    def test_course_trace_is_a_shallow_dark_mesh_attached_to_earth(self):
+    def test_course_trace_is_a_shallow_dark_mesh_attached_to_fixed_core(self):
         self.assertIn("trace/course", bpy.data.objects)
         trace = bpy.data.objects["trace/course"]
-        earth = bpy.data.objects["plate/earth"]
+        core = bpy.data.objects["plate/core"]
         self.assertEqual(trace.type, "MESH")
-        self.assertEqual(trace.parent, earth)
-        self.assertEqual(trace["surface_treatment"], "recessed-groove")
+        self.assertEqual(trace.parent, core)
+        self.assertEqual(trace["surface_treatment"], "raised-inlay")
         self.assertGreater(trace.dimensions.z, 0.0001)
         self.assertLess(trace.dimensions.z, 0.003)
-        earth_top = earth.location.z + earth.dimensions.z / 2
+        core_top = core.location.z + core.dimensions.z / 2
         trace_top = max((trace.matrix_world @ Vector(corner)).z for corner in trace.bound_box)
-        self.assertLess(trace_top, earth_top - 0.0001)
-        self.assertGreater(trace_top, earth_top - 0.001)
+        self.assertGreater(trace_top, core_top)
+        self.assertLess(trace_top, core_top + 0.001)
         self.assertEqual(len(trace.data.materials), 1)
         self.assertLess(max(trace.data.materials[0].diffuse_color[:3]), 0.1)
 

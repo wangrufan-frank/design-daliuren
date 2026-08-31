@@ -1,3 +1,5 @@
+import math
+
 import bpy
 
 
@@ -30,3 +32,42 @@ def add_beveled_box(node_id, size, location, bevel):
 def add_disc(node_id, radius, depth, location, bevel):
     bpy.ops.mesh.primitive_cylinder_add(vertices=128, radius=radius, depth=depth, location=location)
     return _finish_runtime_object(bpy.context.object, node_id, bevel)
+
+
+def add_ring(node_id, outer_radius, inner_radius, depth, location, bevel=0.0):
+    if not 0 < inner_radius < outer_radius:
+        raise ValueError("Ring radii must satisfy 0 < inner < outer")
+    segments = 128
+    half_depth = depth / 2
+    vertices = []
+    for z in (-half_depth, half_depth):
+        for radius in (outer_radius, inner_radius):
+            vertices.extend(
+                (
+                    radius * math.cos(index * 2 * math.pi / segments),
+                    radius * math.sin(index * 2 * math.pi / segments),
+                    z,
+                )
+                for index in range(segments)
+            )
+    outer_bottom = 0
+    inner_bottom = segments
+    outer_top = segments * 2
+    inner_top = segments * 3
+    faces = []
+    for index in range(segments):
+        next_index = (index + 1) % segments
+        faces.extend((
+            (outer_top + index, outer_top + next_index, inner_top + next_index, inner_top + index),
+            (outer_bottom + next_index, outer_bottom + index, inner_bottom + index, inner_bottom + next_index),
+            (outer_bottom + index, outer_bottom + next_index, outer_top + next_index, outer_top + index),
+            (inner_bottom + next_index, inner_bottom + index, inner_top + index, inner_top + next_index),
+        ))
+    mesh = bpy.data.meshes.new(f"{node_id}/mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.validate(clean_customdata=False)
+    mesh.update()
+    obj = bpy.data.objects.new(node_id, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.location = location
+    return _finish_runtime_object(obj, node_id, bevel)

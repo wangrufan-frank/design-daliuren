@@ -1,6 +1,9 @@
+import math
+from pathlib import Path
+
 import bpy
 
-from geometry import add_beveled_box
+from geometry import add_beveled_box, add_disc
 
 
 GENERAL_KEYS = (
@@ -21,6 +24,8 @@ BEVELED_RUNTIME_IDS = (
     "base/body",
     "plate/earth",
     "plate/heaven",
+    "plate/generals",
+    "plate/core",
     "transmission/initial",
     "transmission/middle",
     "transmission/final",
@@ -134,6 +139,125 @@ def _add_heaven_details():
     )
 
 
+def _visual_box(name, parent, size, location, rotation_z=0.0, variant="jade"):
+    obj = add_beveled_box(name, size, (0.0, 0.0, 0.0), min(size) * 0.18)
+    del obj["node_id"]
+    obj.parent = parent
+    obj.location = location
+    obj.rotation_euler.z = rotation_z
+    obj["visual_role"] = name.split("/")[1]
+    obj["material_variant"] = variant
+    return obj
+
+
+def _visual_text(name, text, parent, font, location, rotation_z, variant):
+    curve = bpy.data.curves.new(f"{name}/curve", "FONT")
+    curve.body = text
+    curve.font = font
+    curve.align_x = "CENTER"
+    curve.align_y = "CENTER"
+    curve.size = 0.023
+    curve.extrude = 0.00045
+    curve.bevel_depth = 0.00012
+    curve.resolution_u = 3
+    obj = bpy.data.objects.new(name, curve)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.parent = parent
+    obj.location = location
+    obj.rotation_euler.z = rotation_z
+    obj["visual_role"] = "zodiac-glyph"
+    obj["material_variant"] = variant
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.convert(target="MESH")
+    obj.select_set(False)
+    return obj
+
+
+def _add_zodiac_gallery():
+    earth = bpy.data.objects["plate/earth"]
+    font_path = Path(__file__).parents[2] / "assets/daliuren/fonts/STKaiti.ttf"
+    if not font_path.is_file():
+        font_path = Path(__file__).parents[2] / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
+    font = bpy.data.fonts.load(str(font_path), check_existing=True)
+    animals = tuple("鼠牛虎兔龙蛇马羊猴鸡狗猪")
+    variants = (
+        "zodiac-blue", "zodiac-gold", "zodiac-gold", "zodiac-red",
+        "zodiac-blue", "zodiac-green", "zodiac-red", "zodiac-blue",
+        "zodiac-gold", "zodiac-green", "zodiac-gold", "zodiac-red",
+    )
+    for index, (animal, variant) in enumerate(zip(animals, variants)):
+        angle = math.radians(90 - index * 30)
+        x, y = 0.232 * math.cos(angle), 0.232 * math.sin(angle)
+        rotation = angle - math.pi / 2
+        _visual_box(
+            f"zodiac/{index:02d}/gold-frame",
+            earth,
+            (0.056, 0.038, 0.0020),
+            (x, y, 0.0080),
+            rotation,
+            "gold",
+        )
+        _visual_box(
+            f"zodiac/{index:02d}/jade-panel",
+            earth,
+            (0.051, 0.033, 0.0013),
+            (x, y, 0.0093),
+            rotation,
+            "jade-panel",
+        )
+        _visual_text(
+            f"zodiac/{index:02d}/glyph",
+            animal,
+            earth,
+            font,
+            (x, y, 0.0101),
+            rotation,
+            variant,
+        )
+
+
+def _add_ring_dividers():
+    specs = (
+        (bpy.data.objects["plate/heaven"], (0.174, 0.141), 0.0132),
+        (bpy.data.objects["plate/generals"], (0.124, 0.073), 0.0092),
+    )
+    for parent, (outer_radius, inner_radius), z in specs:
+        length = outer_radius - inner_radius
+        center_radius = (outer_radius + inner_radius) / 2
+        for index in range(12):
+            angle = math.radians(90 - index * 30)
+            _visual_box(
+                f"divider/{parent.name.rsplit('/', 1)[-1]}/{index:02d}",
+                parent,
+                (0.00075, length, 0.00055),
+                (center_radius * math.cos(angle), center_radius * math.sin(angle), z),
+                angle - math.pi / 2,
+                "gold",
+            )
+
+
+def _add_core_details():
+    core = bpy.data.objects["plate/core"]
+    points = ((-0.042, 0.026), (-0.026, 0.006), (-0.012, 0.018),
+              (-0.020, -0.014), (0.006, -0.030), (0.039, -0.021), (0.047, 0.021))
+    for index, (x, y) in enumerate(points):
+        dot = add_disc(f"constellation/star-{index:02d}", 0.0023, 0.0010, (0.0, 0.0, 0.0), 0.0002)
+        del dot["node_id"]
+        dot.parent = core
+        dot.location = (x, y, 0.0093)
+        dot["visual_role"] = "constellation-star"
+        dot["material_variant"] = "gold"
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=0.0065, location=(0.0, 0.0, 0.0))
+    pearl = bpy.context.object
+    pearl.name = "detail/core/jade-pivot"
+    pearl.parent = core
+    pearl.location = (0.0, 0.0, 0.0135)
+    pearl["visual_role"] = "jade-pivot"
+    pearl["material_variant"] = "pearl"
+
+
 def upgrade_to_high_detail(root):
     if root.get("node_id") != "artifact/root":
         raise ValueError("High-detail upgrade requires artifact/root")
@@ -146,6 +270,9 @@ def upgrade_to_high_detail(root):
 
     _add_base_details()
     _add_heaven_details()
+    _add_zodiac_gallery()
+    _add_ring_dividers()
+    _add_core_details()
     _add_runtime_bevels()
     bpy.context.view_layer.update()
     return root

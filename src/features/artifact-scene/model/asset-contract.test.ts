@@ -11,6 +11,8 @@ describe("artifact asset contract", () => {
   it("replaces mechanical nodes with branch inlays and independent slips", () => {
     expect(new Set(REQUIRED_NODE_IDS).size).toBe(REQUIRED_NODE_IDS.length);
     expect(REQUIRED_NODE_IDS).toContain("plate/heaven");
+    expect(REQUIRED_NODE_IDS).toContain("plate/generals");
+    expect(REQUIRED_NODE_IDS).toContain("plate/core");
     expect(REQUIRED_NODE_IDS).toContain("general/noble");
     expect(REQUIRED_NODE_IDS).not.toContain("transmission/bridge");
     expect(REQUIRED_NODE_IDS).not.toContain("anchor/course-copy/lessons");

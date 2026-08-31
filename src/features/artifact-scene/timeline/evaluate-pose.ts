@@ -74,6 +74,9 @@ export function evaluateArtifactPose(
   const plateProgress = actionProgress(time, reviewStageFor("heaven-earth").startTimeMs, reviewStageFor("heaven-earth").settledTimeMs - reviewStageFor("heaven-earth").startTimeMs, reducedMotion);
   nodes["plate/heaven"] = node({ rotationY: state.plate.offset * Math.PI / 6 * plateProgress });
 
+  const generalRingProgress = actionProgress(time, GENERAL_START_MS, 4_680, reducedMotion);
+  nodes["plate/generals"] = node({ rotationY: 2 * Math.PI * generalRingProgress });
+
   LESSONS.forEach((lesson, index) => {
     const progress = actionProgress(time, LESSON_START_MS[index], LESSON_ACTION_MS, reducedMotion);
     nodes[`lesson/${lesson}`] = movingSlip(time, LESSON_START_MS[index], LESSON_ACTION_MS, index % 2 ? 0.008 : -0.008, reducedMotion);

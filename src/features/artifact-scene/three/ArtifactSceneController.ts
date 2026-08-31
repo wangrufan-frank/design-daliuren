@@ -199,20 +199,20 @@ export class ArtifactSceneController {
 
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 1.18;
-    this.scene.background = new THREE.Color(0xe4e6df);
+    renderer.toneMappingExposure = 0.72;
+    this.scene.background = new THREE.Color(0x8b8984);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
-    this.scene.environmentIntensity = 1.05;
+    this.scene.environmentIntensity = 0.45;
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 
-    const keyLight = new THREE.DirectionalLight(0xf2eee4, 1.75);
+    const keyLight = new THREE.DirectionalLight(0xfff4df, 1.35);
     keyLight.position.set(-0.65, 0.95, 0.7);
-    const fillLight = new THREE.HemisphereLight(0xc8d9d2, 0x52605b, 1.28);
-    const sideFill = new THREE.DirectionalLight(0xb8d0c7, 0.82);
+    const fillLight = new THREE.HemisphereLight(0xdfe5df, 0x615d57, 0.78);
+    const sideFill = new THREE.DirectionalLight(0xc8d8d1, 0.45);
     sideFill.position.set(0.75, 0.5, 0.35);
-    const rimLight = new THREE.DirectionalLight(0xd8ddd5, 0.42);
+    const rimLight = new THREE.DirectionalLight(0xf3dba8, 0.55);
     rimLight.position.set(-0.5, 0.8, -0.7);
     this.scene.add(keyLight, fillLight, sideFill, rimLight);
 

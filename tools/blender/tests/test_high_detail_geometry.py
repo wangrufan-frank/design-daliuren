@@ -170,8 +170,8 @@ class HighDetailGeometryTest(unittest.TestCase):
             for corner in obj.bound_box
         )
         self.assertGreaterEqual(minimum_z, -0.00005)
-        self.assertLessEqual(maximum_z, 0.09205)
-        self.assertAlmostEqual(maximum_z - minimum_z, 0.092, delta=0.0001)
+        self.assertLessEqual(maximum_z, 0.10205)
+        self.assertAlmostEqual(maximum_z - minimum_z, 0.102, delta=0.0001)
 
     def test_saved_master_reopens_with_recessed_branch_nodes_and_no_cutters(self):
         build_master()

@@ -93,7 +93,9 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   assert.equal(ASSET_CONTRACT.schemaVersion, 1);
   const nodeIds = new Set(ASSET_CONTRACT.nodeIds);
   assert.equal(nodeIds.size, ASSET_CONTRACT.nodeIds.length);
-  assert.equal(nodeIds.size, 50);
+  assert.equal(nodeIds.size, 52);
+  assert.equal(nodeIds.has("plate/generals"), true);
+  assert.equal(nodeIds.has("plate/core"), true);
   for (const forbidden of [
     "transmission/bridge",
     "anchor/course-copy/lessons",
@@ -477,19 +479,19 @@ test("asset contract declares final LOD budgets and runtime texture validation",
     lod0: {
       file: "public/models/daliuren/daliuren-artifact-lod0.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.092, 0.52],
+      sceneBoundsMeters: [0.52, 0.102, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod1: {
       file: "public/models/daliuren/daliuren-artifact-lod1.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.092, 0.52],
+      sceneBoundsMeters: [0.52, 0.102, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod2: {
       file: "public/models/daliuren/daliuren-artifact-lod2.glb",
       triangleBudget: { min: 1, max: 80000 },
-      sceneBoundsMeters: [0.52, 0.092, 0.52],
+      sceneBoundsMeters: [0.52, 0.102, 0.52],
       textureMaxDimensions: { hero: [2048, 2048], moving: [1024, 1024] },
     },
   });

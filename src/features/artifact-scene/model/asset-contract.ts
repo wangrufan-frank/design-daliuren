@@ -11,6 +11,8 @@ export const REQUIRED_NODE_IDS: readonly string[] = [
   "base/body",
   "plate/earth",
   "plate/heaven",
+  "plate/generals",
+  "plate/core",
   "calendar/slip",
   "lesson/first",
   "lesson/second",

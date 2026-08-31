@@ -2,6 +2,8 @@ DIMENSIONS = {
     "base": (0.520, 0.520, 0.052),
     "earth_plate": (0.440, 0.440, 0.014),
     "heaven_plate": (0.380, 0.026),
+    "general_ring": (0.250, 0.018),
+    "fixed_core": (0.140, 0.018),
     "calendar_slip": (0.300, 0.038, 0.009),
     "lesson_slip": (0.074, 0.034, 0.009),
     "transmission_slip": (0.070, 0.036, 0.010),
@@ -18,6 +20,7 @@ BRANCH_INLAY_NODE_IDS = tuple(
 
 NODE_IDS = (
     "artifact/root", "base/body", "plate/earth", "plate/heaven",
+    "plate/generals", "plate/core",
     "calendar/slip", "lesson/first", "lesson/second",
     "lesson/third", "lesson/fourth", "transmission/initial",
     "transmission/middle", "transmission/final", "transmission/method",
