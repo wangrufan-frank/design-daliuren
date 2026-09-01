@@ -36,3 +36,9 @@
 - Added an exact per-object normalized envelope assertion before the coverage upper-bound checks. It pins every allowlisted support mesh's eligible triangle count and its maximum/aggregate physical area in `1e-7 m²` bins, so a named mesh cannot silently lose, gain, or replace a coverage candidate.
 - The direct RED assertion failed with the measured envelope; the focused GREEN `tools/blender/tests/test_uv_coverage_guard.py` then passed 3 tests in `283.186 s`.
 - This was test/report-only: no asset operations or generated artifact changes.
+
+## Final P2 envelope correction
+
+- Replaced the topology-wide P2 signature with a literal normalized envelope derived only from `_native_texel_coverage_failures` on the committed master UV fixture. Every pinned fallback failure records its object, count, triangle index, and `1e-7 m²` area bin.
+- Added a UV-only regression: changing a `base/body` triangle's UV coverage with unchanged geometry makes the normalized failure-envelope equality fail.
+- Focused RED produced the literal actual-failure fixture; focused GREEN completed 3 coverage-guard tests in `224.425 s`. No asset operation was run.
