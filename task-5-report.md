@@ -23,3 +23,10 @@
 
 - Coverage fallback remains intentionally narrow and source-identified; a new unlisted visible coverage miss aborts the bake.
 - Compressor work directories, `tools/node/`, and the Blender `.blend1` backup are deliberately untracked and unstaged.
+
+## Final P1 coverage-guard follow-up
+
+- Removed the generic `surface_treatment='shallow-slot'` bypass. Coverage exceptions now name only the 14 measured fixed support meshes and enforce a per-object miss count, triangle-area ceiling, aggregate-area ceiling, plus global ceilings of 282 misses and `0.0053211718 m²`.
+- The tiny `1e-10 m²` comparison epsilon only absorbs floating-point representation at recorded decimal boundaries; it does not permit a material-tagged mesh, an unlisted object, or a materially larger miss.
+- TDD evidence: the focused RED test showed a `base/body` triangle tagged `shallow-slot` could evade the old guard. The final focused GREEN Blender run completed `tools/blender/tests/test_uv_coverage_guard.py`: 3 tests, `OK` (274.567 s).
+- No master, textures, GLBs, compression output, or lookdev files were regenerated for this validator-only change.

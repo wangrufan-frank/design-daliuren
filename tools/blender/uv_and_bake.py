@@ -37,19 +37,28 @@ CAUSAL_ATTRIBUTES = (
     "causal_jade_microtexture",
 )
 MICRO_TRIANGLE_AREA_MAX = 2.0e-7
-COVERAGE_FALLBACK_OBJECTS = frozenset({
-    "trace/course",
-    "detail/base/cast-corner/00",
-    "detail/base/cast-corner/01",
-    "detail/base/cast-corner/02",
-    "detail/base/cast-corner/03",
-    "detail/base/removable-bottom",
-    "detail/base/shell-return/00",
-    "detail/base/shell-return/01",
-    "detail/base/shell-return/02",
-    "detail/base/shell-return/03",
-})
-COVERAGE_FALLBACK_SURFACE_TREATMENTS = frozenset({"shallow-slot"})
+# Each entry is (max triangle count, max triangle area, max aggregate area).
+# These are the measured native-bake misses for the fixed, support-only meshes.
+COVERAGE_FALLBACK_LIMITS = {
+    "detail/base/removable-bottom": (24, 0.000120925, 0.001267421),
+    "detail/base/shell-return/00": (24, 0.00009752, 0.0006009377),
+    "detail/base/shell-return/01": (24, 0.00009752, 0.0006009377),
+    "detail/base/shell-return/02": (24, 0.00009752, 0.0006009377),
+    "detail/base/shell-return/03": (24, 0.00009752, 0.0006009377),
+    "detail/slip-seat/lesson/first": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/lesson/fourth": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/lesson/second": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/lesson/third": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/transmission/initial": (24, 0.00002328, 0.0002),
+    "detail/slip-seat/transmission/middle": (18, 0.00002328, 0.0002),
+    "detail/slip-seat/transmission/final": (18, 0.00002328, 0.0002),
+    "detail/slip-seat/transmission/method": (24, 0.00003168, 0.0002),
+    "trace/course": (6, 0.000012, 0.00005),
+}
+COVERAGE_FALLBACK_OBJECTS = frozenset(COVERAGE_FALLBACK_LIMITS)
+COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES = 282
+COVERAGE_FALLBACK_GLOBAL_MAX_AREA = 0.0053211718
+COVERAGE_FALLBACK_AREA_EPSILON = 1.0e-10
 GENERAL_KEYS = (
     "noble",
     "snake",
@@ -78,11 +87,28 @@ def _excluded_from_runtime_bake(obj):
     }
 
 
-def _uses_coverage_fallback(obj):
-    return (
-        obj.name in COVERAGE_FALLBACK_OBJECTS
-        or obj.get("surface_treatment") in COVERAGE_FALLBACK_SURFACE_TREATMENTS
-    )
+def _coverage_fallback_error(records):
+    total_count = 0
+    total_area = 0.0
+    for object_name, areas in records.items():
+        limits = COVERAGE_FALLBACK_LIMITS.get(object_name)
+        if limits is None:
+            return f"{object_name} is not an allowlisted support mesh"
+        max_count, max_triangle_area, max_area = limits
+        aggregate_area = sum(areas)
+        if len(areas) > max_count:
+            return f"{object_name} has {len(areas)} misses; limit is {max_count}"
+        if max(areas) > max_triangle_area + COVERAGE_FALLBACK_AREA_EPSILON:
+            return f"{object_name} has triangle area {max(areas):.10g}; limit is {max_triangle_area:.10g}"
+        if aggregate_area > max_area + COVERAGE_FALLBACK_AREA_EPSILON:
+            return f"{object_name} has aggregate area {aggregate_area:.10g}; limit is {max_area:.10g}"
+        total_count += len(areas)
+        total_area += aggregate_area
+    if total_count > COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES:
+        return f"fallback miss count {total_count} exceeds {COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES}"
+    if total_area > COVERAGE_FALLBACK_GLOBAL_MAX_AREA + COVERAGE_FALLBACK_AREA_EPSILON:
+        return f"fallback aggregate area {total_area:.10g} exceeds {COVERAGE_FALLBACK_GLOBAL_MAX_AREA:.10g}"
+    return None
 DYNAMIC_LABEL_OWNERS = {
     "dynamic/calendar": "calendar/slip",
     **{f"dynamic/lesson/{key}": f"lesson/{key}" for key in ("first", "second", "third", "fourth")},
@@ -772,19 +798,15 @@ def _native_texel_coverage_failures(family, dimension, dilation=4, limit=None, a
 
 def _validate_native_texel_coverage(family, dimension, atlas_id=None):
     failures = _native_texel_coverage_failures(family, dimension, atlas_id=atlas_id)
-    visible = [
-        (object_name, triangle_index)
-        for object_name, triangle_index in failures
-        if (
-            bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
-            > MICRO_TRIANGLE_AREA_MAX
-            and not _uses_coverage_fallback(bpy.data.objects[object_name])
-        )
-    ]
-    if visible:
-        object_name, triangle_index = visible[0]
+    records = {}
+    for object_name, triangle_index in failures:
+        triangle = bpy.data.objects[object_name].data.loop_triangles[triangle_index]
+        if triangle.area > MICRO_TRIANGLE_AREA_MAX:
+            records.setdefault(object_name, []).append(triangle.area)
+    error = _coverage_fallback_error(records)
+    if error:
         raise RuntimeError(
-            f"sub-texel UV triangle cannot be baked natively: {object_name}:{triangle_index} at {dimension}"
+            f"sub-texel UV triangle cannot be baked natively at {dimension}: {error}"
         )
     return tuple(failures)
 

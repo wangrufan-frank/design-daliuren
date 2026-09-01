@@ -11,8 +11,10 @@ sys.path.insert(0, str(BLENDER_DIR))
 from build_graybox import build_master
 from uv_and_bake import (
     _add_dynamic_surfaces,
+    COVERAGE_FALLBACK_GLOBAL_MAX_AREA,
+    COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES,
+    COVERAGE_FALLBACK_LIMITS,
     COVERAGE_FALLBACK_OBJECTS,
-    COVERAGE_FALLBACK_SURFACE_TREATMENTS,
     _native_texel_coverage_failures,
     _validate_native_texel_coverage,
     assign_primary_uvs,
@@ -20,6 +22,8 @@ from uv_and_bake import (
 
 
 class NativeCoverageGuardTests(unittest.TestCase):
+    maxDiff = None
+
     def tearDown(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -27,6 +31,7 @@ class NativeCoverageGuardTests(unittest.TestCase):
         build_master()
         assign_primary_uvs(_add_dynamic_surfaces())
         body = bpy.data.objects["base/body"]
+        body["surface_treatment"] = "shallow-slot"
         body.data.calc_loop_triangles()
         triangle = next(item for item in body.data.loop_triangles if item.area > 2.0e-7)
         for loop_index in triangle.loops:
@@ -45,22 +50,47 @@ class NativeCoverageGuardTests(unittest.TestCase):
         self.assertEqual(readout_failures, [], failures)
         _validate_native_texel_coverage("M_JadeRecess", 4096, "M_JadeRecess:hero")
 
-    def test_only_named_base_relief_can_use_the_documented_coverage_fallback(self):
+    def test_coverage_fallback_records_are_pinned_to_current_geometry(self):
         build_master()
         assign_primary_uvs(_add_dynamic_surfaces())
         failures = _native_texel_coverage_failures("M_JadeBody", 4096, atlas_id="M_JadeBody:hero")
-        above_threshold = {
-            object_name
-            for object_name, triangle_index in failures
-            if bpy.data.objects[object_name].data.loop_triangles[triangle_index].area > 2.0e-7
+        records = {}
+        for object_name, triangle_index in failures:
+            area = bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
+            if area > 2.0e-7:
+                records.setdefault(object_name, []).append(area)
+        pinned = {
+            name: (len(areas), round(max(areas), 10), round(sum(areas), 10))
+            for name, areas in sorted(records.items())
         }
         expected = {
-            name
-            for name in above_threshold
-            if name in COVERAGE_FALLBACK_OBJECTS
-            or bpy.data.objects[name].get("surface_treatment") in COVERAGE_FALLBACK_SURFACE_TREATMENTS
+            "detail/base/removable-bottom": (24, 0.000120925, 0.001267421),
+            "detail/base/shell-return/00": (24, 0.00009752, 0.0006009377),
+            "detail/base/shell-return/01": (24, 0.00009752, 0.0006009377),
+            "detail/base/shell-return/02": (24, 0.00009752, 0.0006009377),
+            "detail/base/shell-return/03": (24, 0.00009752, 0.0006009377),
+            "detail/slip-seat/lesson/first": (18, 0.00002448, 0.0002),
+            "detail/slip-seat/lesson/fourth": (18, 0.00002448, 0.0002),
+            "detail/slip-seat/lesson/second": (18, 0.00002448, 0.0002),
+            "detail/slip-seat/lesson/third": (18, 0.00002448, 0.0002),
+            "detail/slip-seat/transmission/initial": (24, 0.00002328, 0.0002),
+            "detail/slip-seat/transmission/middle": (18, 0.00002328, 0.0002),
+            "detail/slip-seat/transmission/final": (18, 0.00002328, 0.0002),
+            "detail/slip-seat/transmission/method": (24, 0.00003168, 0.0002),
+            "trace/course": (6, 0.000012, 0.00005),
         }
-        self.assertEqual(above_threshold, expected)
+        self.assertEqual(COVERAGE_FALLBACK_LIMITS, expected)
+        self.assertEqual(COVERAGE_FALLBACK_OBJECTS, set(expected))
+        self.assertEqual(COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES, 282)
+        self.assertEqual(COVERAGE_FALLBACK_GLOBAL_MAX_AREA, 0.0053211718)
+        self.assertEqual(set(pinned) - set(expected), set(), pinned)
+        self.assertLessEqual(sum(record[0] for record in pinned.values()), COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES)
+        self.assertLessEqual(sum(record[2] for record in pinned.values()), COVERAGE_FALLBACK_GLOBAL_MAX_AREA)
+        for name, (count, max_area, aggregate_area) in pinned.items():
+            max_count, max_triangle_area, max_aggregate_area = expected[name]
+            self.assertLessEqual(count, max_count, name)
+            self.assertLessEqual(max_area, max_triangle_area, name)
+            self.assertLessEqual(aggregate_area, max_aggregate_area, name)
         _validate_native_texel_coverage("M_JadeBody", 4096, "M_JadeBody:hero")
 
 
