@@ -175,11 +175,13 @@ class MaterialTest(unittest.TestCase):
             image_nodes = [node for node in material.node_tree.nodes if node.type == "TEX_IMAGE"]
             with self.subTest(animal=motif["zodiac_animal"]):
                 self.assertEqual(motif["material_role"], "M_JadeBody")
-                self.assertEqual(material.name, f"M_ZodiacMotif/{motif['zodiac_animal']}")
-                self.assertEqual(len(image_nodes), 1)
-                self.assertTrue(image_nodes[0].image.filepath.replace("\\", "/").endswith(
-                    f"zodiac/{motif['zodiac_animal']}.png"
-                ))
+                self.assertEqual(material.name, "M_JadeBody")
+                self.assertEqual(image_nodes, [])
+
+        self.assertFalse(any(
+            material.name.startswith("M_ZodiacMotif/")
+            for material in bpy.data.materials
+        ))
 
     def test_outer_board_uses_one_masked_continuous_reference_projection(self):
         build_master()
@@ -192,6 +194,12 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(len(images), 1)
         self.assertTrue(images[0].filepath.replace("\\", "/").endswith("outer-board-artwork.png"))
         self.assertTrue(images[0].channels == 4)
+        # The rectified board texture leaves pearl centers transparent; a
+        # rendered pearl therefore has exactly one source, its physical mesh.
+        pixels = images[0].pixels
+        for x, y in ((220, 793), (743, 787), (216, 274), (747, 273)):
+            alpha = pixels[(y * images[0].size[0] + x) * 4 + 3]
+            self.assertLess(alpha, 0.05)
 
     def test_material_graphs_contain_no_emissive_nodes(self):
         build_master()

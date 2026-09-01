@@ -251,8 +251,8 @@ def _add_ring_dividers():
 
 def _add_core_details():
     core = bpy.data.objects["plate/core"]
-    points = ((-0.0294, 0.0182), (-0.0182, 0.0042), (-0.0084, 0.0126),
-              (-0.0140, -0.0098), (0.0042, -0.0210), (0.0273, -0.0147), (0.0329, 0.0147))
+    points = ((-0.0228, 0.0250), (-0.0244, 0.0062), (-0.0094, 0.0051),
+              (-0.0195, -0.0198), (-0.0001, -0.0311), (0.0299, -0.0117), (0.0304, 0.0270))
     for index, (x, y) in enumerate(points):
         dot = add_disc(f"constellation/star-{index:02d}", 0.0023, 0.0010, (0.0, 0.0, 0.0), 0.0002)
         del dot["node_id"]
@@ -282,7 +282,7 @@ def _add_core_details():
 def _add_corner_pearls():
     earth = bpy.data.objects["plate/earth"]
     surface_z = earth.dimensions.z / 2 + 0.00015
-    for index, (x, y) in enumerate(((-0.135, 0.128), (0.120, 0.128), (-0.128, -0.132), (0.103, -0.128))):
+    for index, (x, y) in enumerate(((-0.1346, 0.1191), (0.1170, 0.1206), (-0.1273, -0.1377), (0.1040, -0.1436))):
         bpy.ops.mesh.primitive_uv_sphere_add(
             segments=48,
             ring_count=24,

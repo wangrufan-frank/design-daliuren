@@ -143,7 +143,7 @@ class HighDetailGeometryTest(unittest.TestCase):
         self.assertTrue(all(obj.type == "MESH" for obj in pearls))
         self.assertEqual(
             {tuple(round(value, 4) for value in pearl.location.xy) for pearl in pearls},
-            {(-0.135, 0.128), (0.120, 0.128), (-0.128, -0.132), (0.103, -0.128)},
+            {(-0.1346, 0.1191), (0.1170, 0.1206), (-0.1273, -0.1377), (0.1040, -0.1436)},
         )
 
     def test_colored_connected_beidou_is_real_center_geometry(self):

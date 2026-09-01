@@ -365,35 +365,6 @@ def build_master_materials():
     return materials
 
 
-def _zodiac_motif_material(animal):
-    name = f"M_ZodiacMotif/{animal}"
-    existing = bpy.data.materials.get(name)
-    if existing is not None:
-        return existing
-    path = REPOSITORY_ROOT / "assets/daliuren/textures/source/zodiac" / f"{animal}.png"
-    if not path.is_file():
-        raise RuntimeError(f"Missing generated zodiac motif texture: {path}")
-    material, shader = _base_material(name, "#F2EEE5", 0.0, 0.34)
-    image = bpy.data.images.load(str(path), check_existing=True)
-    image.colorspace_settings.name = "sRGB"
-    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
-    texture.name = "Approved zodiac motif"
-    texture.image = image
-    texture.projection = "FLAT"
-    coordinates = material.node_tree.nodes.new("ShaderNodeTexCoord")
-    bump = material.node_tree.nodes.new("ShaderNodeBump")
-    bump.name = "Motif relief bump"
-    bump.inputs["Strength"].default_value = 0.32
-    bump.inputs["Distance"].default_value = 0.0007
-    material.node_tree.links.new(coordinates.outputs["Generated"], texture.inputs["Vector"])
-    material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Base Color"])
-    material.node_tree.links.new(texture.outputs["Color"], bump.inputs["Height"])
-    material.node_tree.links.new(bump.outputs["Normal"], shader.inputs["Normal"])
-    material["source_texture"] = path.relative_to(REPOSITORY_ROOT).as_posix()
-    material["source_art"] = "daliuren-white-jade-dunhuang-zodiac-v1.png"
-    return material
-
-
 def _outer_board_artwork_material():
     name = "M_OuterBoardArtwork"
     existing = bpy.data.materials.get(name)
@@ -615,9 +586,6 @@ def apply_master_materials(root):
             "zodiac-panel-frame", "zodiac-panel-recess",
         }:
             material = _outer_board_artwork_material()
-            material_role = "M_JadeBody"
-        elif variant.startswith("zodiac-motif-"):
-            material = _zodiac_motif_material(variant.removeprefix("zodiac-motif-"))
             material_role = "M_JadeBody"
         elif variant == "beidou-blue":
             material = _beidou_blue_material()

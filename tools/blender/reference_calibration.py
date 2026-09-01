@@ -8,10 +8,11 @@ from mathutils import Vector
 
 
 REFERENCE_SIZE = (1254, 1253)
+REFERENCE_SOURCE_SIZE = (1286, 1223)
 # Pixel anchors recorded from the v10 reference at REFERENCE_SIZE.  The board
 # anchors are the visible upper rim corners; pearls and blue constellation dots
 # are the centers of their corresponding modeled details.
-REFERENCE_ANCHORS = {
+REFERENCE_SOURCE_ANCHORS = {
     "board/sw": (61.0, 924.0),
     "board/nw": (310.0, 176.0),
     "board/se": (1112.0, 1100.0),
@@ -28,6 +29,13 @@ REFERENCE_ANCHORS = {
     "beidou/04": (640.0, 646.0),
     "beidou/05": (704.0, 625.0),
     "beidou/06": (718.0, 566.0),
+}
+REFERENCE_ANCHORS = {
+    name: (
+        x * REFERENCE_SIZE[0] / REFERENCE_SOURCE_SIZE[0],
+        y * REFERENCE_SIZE[1] / REFERENCE_SOURCE_SIZE[1],
+    )
+    for name, (x, y) in REFERENCE_SOURCE_ANCHORS.items()
 }
 
 _SEED = (0.200, -0.950, 1.500, 0.000, 0.000, 0.040, 95.0, -0.007, -0.040)
@@ -72,7 +80,7 @@ def _pixel(scene, camera, point):
 def _cost(scene, camera, points):
     # The board owns silhouette alignment; dial and pearls protect the internal
     # hierarchy while the Beidou dots pin the central orientation.
-    weights = {"board": 20.0, "dial": 2.0, "pearl": 1.5, "beidou": 1.0}
+    weights = {"board": 10000.0, "dial": 2.0, "pearl": 1.5, "beidou": 1.0}
     total = 0.0
     weight_total = 0.0
     for name, point in points.items():
@@ -84,36 +92,62 @@ def _cost(scene, camera, points):
 
 
 def calibrate_v10_camera(scene=None):
-    """Coordinate-descent the review camera against recorded v10 anchors."""
+    """Nelder-Mead fit of the review camera against recorded v10 anchors."""
     scene = scene or bpy.context.scene
     scene.render.resolution_x, scene.render.resolution_y = REFERENCE_SIZE
     scene.render.resolution_percentage = 100
     camera = bpy.data.objects["camera/overall"]
     points = _world_points()
-    values = list(_SEED)
-    _configure(camera, values)
-    best = _cost(scene, camera, points)
-    steps = list(_STEPS)
-    for _ in range(16):
-        improved = False
-        for index, step in enumerate(steps):
-            candidate_values = values[:]
-            candidate_values[index] += step
-            _configure(camera, candidate_values)
-            candidate = _cost(scene, camera, points)
-            if candidate < best:
-                values, best, improved = candidate_values, candidate, True
-                continue
-            candidate_values[index] -= step * 2
-            _configure(camera, candidate_values)
-            candidate = _cost(scene, camera, points)
-            if candidate < best:
-                values, best, improved = candidate_values, candidate, True
+    def evaluate(normalized):
+        values = [seed + offset * scale for seed, offset, scale in zip(_SEED, normalized, _STEPS)]
+        _configure(camera, values)
+        return _cost(scene, camera, points)
+
+    simplex = [[0.0] * len(_SEED)]
+    simplex.extend(
+        [1.0 if index == axis else 0.0 for index in range(len(_SEED))]
+        for axis in range(len(_SEED))
+    )
+    scores = [evaluate(point) for point in simplex]
+    for _ in range(120):
+        order = sorted(range(len(simplex)), key=lambda index: scores[index])
+        simplex = [simplex[index] for index in order]
+        scores = [scores[index] for index in order]
+        centroid = [
+            sum(point[index] for point in simplex[:-1]) / len(_SEED)
+            for index in range(len(_SEED))
+        ]
+        worst = simplex[-1]
+        reflected = [2 * center - value for center, value in zip(centroid, worst)]
+        reflected_score = evaluate(reflected)
+        if reflected_score < scores[0]:
+            expanded = [3 * center - 2 * value for center, value in zip(centroid, worst)]
+            expanded_score = evaluate(expanded)
+            simplex[-1], scores[-1] = (
+                (expanded, expanded_score) if expanded_score < reflected_score else (reflected, reflected_score)
+            )
+        elif reflected_score < scores[-2]:
+            simplex[-1], scores[-1] = reflected, reflected_score
+        else:
+            contracted = [0.5 * (center + value) for center, value in zip(centroid, worst)]
+            contracted_score = evaluate(contracted)
+            if contracted_score < scores[-1]:
+                simplex[-1], scores[-1] = contracted, contracted_score
             else:
-                _configure(camera, values)
-        steps = [step * 0.58 for step in steps]
-        if not improved and max(steps) < 0.1:
+                for index in range(1, len(simplex)):
+                    simplex[index] = [
+                        best + 0.5 * (value - best)
+                        for best, value in zip(simplex[0], simplex[index])
+                    ]
+                    scores[index] = evaluate(simplex[index])
+        if max(scores) - min(scores) < 0.0001:
             break
+    best_index = min(range(len(simplex)), key=lambda index: scores[index])
+    values = [
+        seed + offset * scale
+        for seed, offset, scale in zip(_SEED, simplex[best_index], _STEPS)
+    ]
+    best = scores[best_index]
     _configure(camera, values)
     camera["v10_calibration_parameters"] = tuple(round(value, 8) for value in values)
     camera["v10_calibration_cost_px2"] = round(best, 6)
