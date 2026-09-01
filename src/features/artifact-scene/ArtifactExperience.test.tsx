@@ -13,6 +13,7 @@ import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types"
 import { reviewStageFor } from "./timeline/review-stages";
 import { ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
 import type { ArtifactPose } from "./timeline/types";
+import type { MonthGeneralInputEvent } from "./three/ArtifactSceneController";
 import { referenceSession } from "../../test/reference-session";
 import { useReducedMotion } from "./use-reduced-motion";
 
@@ -22,7 +23,7 @@ interface ControllerDouble {
     onContextLost(): void;
     onError(error: unknown): void;
     onAnnotationError(error: unknown): void;
-    onMonthGeneralInput(event: { type: "step"; delta: -1 | 1; nowMs: number }): void;
+    onMonthGeneralInput(event: MonthGeneralInputEvent): void;
   };
   resize: any;
   setDisplayState: any;
@@ -576,6 +577,38 @@ describe("ArtifactExperience", () => {
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-detent", "7");
     expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-aligned", "false");
     expect(latestController().applyJadePlateMotion).toHaveBeenCalled();
+  });
+
+  it("reverses an interrupted partial landing from the exact current progress", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 30_000 }));
+    frames.step(33_600);
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "drag-start", angleRad: 0, nowMs: 33_600 }));
+    const partialLanding = controller.applyJadePlateMotion.mock.lastCall[0];
+
+    expect(partialLanding.generals[8].seatProgress).toBeGreaterThan(0);
+    expect(partialLanding.generals[8].seatProgress).toBeLessThan(1);
+    act(() => controller.callbacks.onMonthGeneralInput({
+      type: "drag-move", angleRad: 3 * Math.PI / 180, nowMs: 33_600,
+    }));
+    const exitAtInterruption = controller.applyJadePlateMotion.mock.lastCall[0];
+
+    expect(exitAtInterruption.generals.map((general: { seatProgress: number }) => general.seatProgress))
+      .toEqual(partialLanding.generals.map((general: { seatProgress: number }) => general.seatProgress));
+
+    frames.step(34_000);
+    const reversingExit = controller.applyJadePlateMotion.mock.lastCall[0];
+    expect(reversingExit.generals[8].seatProgress).toBeLessThan(partialLanding.generals[8].seatProgress);
+    expect(reversingExit.generals[0].seatProgress).toBe(partialLanding.generals[0].seatProgress);
   });
 
   it("replaces completed interaction with the locked state when its source changes", async () => {

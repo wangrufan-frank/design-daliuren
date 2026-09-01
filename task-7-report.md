@@ -15,3 +15,9 @@
   - 10 test files passed; 72 tests passed.
 
 No asset, E2E, full-suite, or build commands were run for this task.
+
+## Follow-up regression
+
+- Added a component integration regression for a partial landing interrupted by a drag exceeding two degrees. It uses monotonic timestamps from demo completion through landing and exit, verifies the first exit pose exactly equals the current partial per-general progress, then verifies reverse-order withdrawal begins without restarting the landing.
+- `npm test -- src/features/artifact-scene/ArtifactExperience.test.tsx`
+  - 1 test file passed; 39 tests passed.
