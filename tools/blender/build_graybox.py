@@ -48,6 +48,8 @@ GENERAL_NAMES = (
     "贵人", "螣蛇", "朱雀", "六合", "勾陈", "青龙",
     "天空", "白虎", "太常", "玄武", "太阴", "天后",
 )
+GENERAL_RECESS_FLUSH_CLEARANCE_M = 0.00001
+GENERAL_INLAY_FLUSH_CLEARANCE_M = 0.00003
 
 
 def clear_scene():
@@ -258,7 +260,7 @@ def add_generals(general_ring, font_path):
     font = bpy.data.fonts.load(str(font_path), check_existing=True)
     depth = GENERAL_INLAY_DEPTH_M
     seat_top = general_ring.dimensions.z / 2
-    seat_z = seat_top + 0.0002
+    seat_z = seat_top - depth / 2 + GENERAL_INLAY_FLUSH_CLEARANCE_M
     center_radius = (GENERAL_SECTOR_INNER_RADIUS + GENERAL_SECTOR_OUTER_RADIUS) / 2
     for index, (general_key, general_name, branch) in enumerate(zip(GENERAL_KEYS, GENERAL_NAMES, VISUAL_EARTH_ORDER)):
         piece_inner = GENERAL_SECTOR_INNER_RADIUS + GENERAL_RADIAL_CLEARANCE_M
@@ -275,6 +277,7 @@ def add_generals(general_ring, font_path):
         slot["sector_outer_radius_m"] = piece_outer
         slot["sector_angle_deg"] = GENERAL_SECTOR_ANGLE_DEG
         slot["seat_z_m"] = seat_z
+        slot["top_clearance_m"] = GENERAL_INLAY_FLUSH_CLEARANCE_M
         recess = add_sector_in_slot(
             f"detail/general-recess/{branch}",
             slot,
@@ -282,7 +285,7 @@ def add_generals(general_ring, font_path):
             GENERAL_SECTOR_OUTER_RADIUS,
             math.radians(GENERAL_SECTOR_ANGLE_DEG / 2),
             0.0006,
-            0.0003,
+            depth / 2 - 0.0003 + GENERAL_RECESS_FLUSH_CLEARANCE_M - GENERAL_INLAY_FLUSH_CLEARANCE_M,
             0.0002,
         )
         del recess["node_id"]
@@ -299,7 +302,7 @@ def add_generals(general_ring, font_path):
             0.0003,
         )
         general.parent = general_ring
-        general.location = (*slot.location[:2], seat_z + depth / 2)
+        general.location = slot.location
         general.rotation_euler = slot.rotation_euler
         general["domain"] = "general"
         general["general_key"] = general_key
@@ -311,6 +314,7 @@ def add_generals(general_ring, font_path):
         general["radial_clearance_m"] = GENERAL_RADIAL_CLEARANCE_M
         general["angular_clearance_deg"] = GENERAL_ANGULAR_CLEARANCE_DEG
         general["settled_z_m"] = general.location.z
+        general["top_clearance_m"] = GENERAL_INLAY_FLUSH_CLEARANCE_M
         general["settled_location"] = tuple(slot.location)
         general["closed_rotation_euler"] = tuple(general.rotation_euler)
         curve = bpy.data.curves.new(f"general/{general_key}/name/curve", "FONT")

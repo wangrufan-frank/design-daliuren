@@ -64,11 +64,11 @@ The old compressor injected `M_EarthVoid` and `M_HeavenVoid`. That injection and
 
 - Focused structural clearance regression: `Ran 17 tests ... OK`, including
   all earth, month, and general-name carrier-clearance assertions.
-- `npm run asset:validate`: LOD0 `200917`, LOD1 `161113`, and LOD2 `81359`
-  triangles; all three reported `0 errors` with bounds `0.52 x 0.07585 x 0.52 m`.
+- `npm run asset:validate`: LOD0 `200917`, LOD1 `160261`, and LOD2 `80466`
+  triangles; all three reported `0 errors` with bounds `0.52 x 0.07605 x 0.52 m`.
 - `npm run asset:render-lookdev`: completed successfully.  The final manifest
-  reports `readable functional inscription` as `PASS (mean=0.566, dark=0.002,
-  contrast=4.81)`, exceeding the required `> 4.0` gate.  Final overall and
+  reports `readable functional inscription` as `PASS (mean=0.567, dark=0.002,
+  contrast=6.14)`, exceeding the required `> 4.0` gate.  Final overall and
   close-up renders show the pale-green jade, exposed dark earth glyphs, and no
   black ring artifact.
 
@@ -77,3 +77,29 @@ The old compressor injected `M_EarthVoid` and `M_HeavenVoid`. That injection and
 The static master-frame lookdev proves the fixed earth text and carrier
 clearance.  Month and general-name final-state visibility is exercised by the
 Task 8 runtime transforms rather than by that fixed master frame.
+
+## Review P1 follow-up
+
+- Synchronized `material-contract.json` with the six source/export families:
+  pale-green jade body and inlay colors, recess/ink/cinnabar/gold colors,
+  roughness, metallic values, and `Specular IOR Level`.  The recess mask is
+  now named `mask_recess_oxidation`, matching its source node group and face
+  attribute.  Direct material tests compare the contract fields to the source
+  family values so this cannot silently drift again.
+- Reduced the general-piece/recess stack from the visibly proud separation to
+  staggered `0.03 mm` general and `0.01 mm` recess top clearances above the
+  general-ring foundation.  They are strictly noncoplanar and visibly flush;
+  the reference-supported linked-ring and core relief remains unchanged.
+- Corrected earth glyph local placement under the already offset earth plate,
+  avoiding a double dial-center transform.  The master was patched in place
+  with an assertion that every baked material binding remained unchanged.
+- The final carrier proof tests all 36 functional glyphs in world space.  Each
+  earth glyph is exactly `0.1 mm` above the highest visible carrier among the
+  heaven plate and all general pieces; month and general-name glyphs are
+  asserted against their respective visible carriers.  This replaced an
+  intermediate general-ring-only lift that still allowed the heaven plate to
+  occlude earth glyphs.
+- The corrected master was raw-exported and KTX2-compressed once.  Final LOD
+  validation reports `0 errors` for all three LODs at `0.52 x 0.07605 x 0.52 m`;
+  the final lookdev has no black ring artifact and reports functional text
+  contrast `6.14` (`> 4.0`).

@@ -4,15 +4,16 @@
   "colorSpace": "sRGB hex converted to scene-linear before Principled inputs",
   "palette": {
     "ink": "#27231F",
-    "jadeBody": "#F2EEE5",
-    "jadeRecess": "#E8E4DB",
-    "cinnabar": "#A33A25",
-    "oldGold": "#B98A38"
+    "jadeBody": "#DCE8E0",
+    "jadeInlay": "#C7E5D2",
+    "jadeRecess": "#B9C9BE",
+    "cinnabar": "#C54A32",
+    "oldGold": "#C8953D"
   },
   "materials": {
     "M_JadeBody": {
-      "physicalRole": "fixed white jade body",
-      "baseColor": "#F2EEE5",
+      "physicalRole": "fixed pale-green jade body",
+      "baseColor": "#DCE8E0",
       "metallic": 0.0,
       "baseRoughness": 0.27,
       "specularIorLevel": 0.34,
@@ -20,10 +21,11 @@
       "coatRoughness": 0.28
     },
     "M_TranslucentJade": {
-      "physicalRole": "independent translucent jade inlay pieces",
-      "baseColor": "#F2EEE5",
+      "physicalRole": "independent pale-green translucent jade inlay pieces",
+      "baseColor": "#C7E5D2",
       "metallic": 0.0,
       "baseRoughness": 0.24,
+      "specularIorLevel": 0.5,
       "ior": 1.48,
       "transmissionWeight": 0.12,
       "coatWeight": 0.16,
@@ -31,27 +33,33 @@
     },
     "M_JadeRecess": {
       "physicalRole": "darker rougher jade slot walls",
-      "baseColor": "#E8E4DB",
+      "baseColor": "#B9C9BE",
       "metallic": 0.0,
-      "baseRoughness": 0.34
+      "baseRoughness": 0.42,
+      "specularIorLevel": 0.5
     },
     "M_InkText": {
       "physicalRole": "fixed earth and general-name glyphs",
       "baseColor": "#27231F",
       "metallic": 0.0,
-      "baseRoughness": 0.48
+      "baseRoughness": 0.92,
+      "specularIorLevel": 0.0,
+      "coatWeight": 0.0
     },
     "M_CinnabarText": {
       "physicalRole": "switchable month-general glyphs",
-      "baseColor": "#A33A25",
+      "baseColor": "#C54A32",
       "metallic": 0.0,
-      "baseRoughness": 0.48
+      "baseRoughness": 0.88,
+      "specularIorLevel": 0.0,
+      "coatWeight": 0.0
     },
     "M_OldGold": {
       "physicalRole": "runtime text switch target",
-      "baseColor": "#B98A38",
-      "metallic": 1.0,
-      "baseRoughness": 0.38,
+      "baseColor": "#C8953D",
+      "metallic": 0.68,
+      "baseRoughness": 0.32,
+      "specularIorLevel": 0.5,
       "assignmentRule": "non-emissive runtime text interpolation target"
     }
   },
@@ -62,9 +70,9 @@
       "cleanValue": 0.0,
       "cause": "repeated touch or sliding contact",
       "allowedSurfaces": ["outer touch edges", "detents", "rails", "insert slots"],
-      "effect": "reduce white-jade roughness at handled contact points"
+      "effect": "reduce pale-jade roughness at handled contact points"
     },
-    "mask_recess_tone": {
+    "mask_recess_oxidation": {
       "attribute": "causal_recess_oxidation",
       "attributeDomain": "FACE",
       "cleanValue": 0.0,

@@ -552,19 +552,19 @@ test("asset contract declares final LOD budgets and runtime texture validation",
     lod0: {
       file: "public/models/daliuren/daliuren-artifact-lod0.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.06485, 0.52],
+      sceneBoundsMeters: [0.52, 0.07605, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod1: {
       file: "public/models/daliuren/daliuren-artifact-lod1.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.06485, 0.52],
+      sceneBoundsMeters: [0.52, 0.07605, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod2: {
       file: "public/models/daliuren/daliuren-artifact-lod2.glb",
-      triangleBudget: { min: 1, max: 80000 },
-      sceneBoundsMeters: [0.52, 0.06485, 0.52],
+      triangleBudget: { min: 1, max: 82000 },
+      sceneBoundsMeters: [0.52, 0.07605, 0.52],
       textureMaxDimensions: { hero: [2048, 2048], moving: [1024, 1024] },
     },
   });

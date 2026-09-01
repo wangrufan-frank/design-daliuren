@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import bpy
-
-from daliuren_contract import DIAL_CENTER_OFFSET_M
+from mathutils import Vector
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXED_INSCRIPTIONS_PATH = (
@@ -170,9 +169,6 @@ def _add_mesh_text(
         item.radius * math.sin(angle),
         0.0,
     )
-    if item.role == "earth-branch":
-        obj.location.x += DIAL_CENTER_OFFSET_M[0]
-        obj.location.y += DIAL_CENTER_OFFSET_M[1]
     obj.rotation_euler.z = angle - math.pi / 2
     obj["inscription_role"] = item.role
     obj["inscription_text"] = item.text
@@ -358,11 +354,23 @@ def build_fixed_inscriptions(
         _add_mesh_text(item, index, parents[ROLE_PARENTS[item.role]], font)
         for index, item in indexed_items
     ]
+    earth_glyphs = []
     for obj in objects:
         if obj.get("inscription_role") in FUNCTIONAL_ROLES:
             _cut_branch_recess(obj.parent, obj)
             if obj.get("inscription_role") == "earth-branch":
-                # The fixed earth labels remain visible above the rotating dial.
-                obj.location.z += 0.0124 + FUNCTIONAL_GLYPH_CARRIER_RELIEF
+                earth_glyphs.append(obj)
     bpy.context.view_layer.update()
+    if earth_glyphs:
+        carriers = [heaven_plate, *(obj for obj in bpy.data.objects if obj.get("domain") == "general")]
+        carrier_top = max(
+            max((obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box)
+            for obj in carriers
+        )
+        for glyph in earth_glyphs:
+            glyph_bottom = min(
+                (glyph.matrix_world @ Vector(corner)).z for corner in glyph.bound_box
+            )
+            glyph.location.z += carrier_top + FUNCTIONAL_GLYPH_CARRIER_RELIEF - glyph_bottom
+        bpy.context.view_layer.update()
     return objects

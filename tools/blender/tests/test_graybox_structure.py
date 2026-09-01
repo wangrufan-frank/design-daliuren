@@ -77,7 +77,7 @@ class GrayboxStructureTest(unittest.TestCase):
             ring_bottom = ring.location.z - ring.dimensions.z / 2
             self.assertGreater(ring_bottom - foundation_top, 0.0001, name)
 
-    def test_core_and_general_inlays_clear_their_jade_foundations(self):
+    def test_core_relief_and_general_inlays_are_non_coplanar_but_visually_flush(self):
         def vertical_bounds(obj):
             heights = [(obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box]
             return min(heights), max(heights)
@@ -94,8 +94,10 @@ class GrayboxStructureTest(unittest.TestCase):
             and not obj.name.endswith("/name")
         ]
         for name in names:
-            inlay_bottom, _ = vertical_bounds(bpy.data.objects[name])
-            self.assertGreater(inlay_bottom - general_ring_top, 0.0001, name)
+            _, inlay_top = vertical_bounds(bpy.data.objects[name])
+            clearance = inlay_top - general_ring_top
+            self.assertGreater(clearance, 0.0, name)
+            self.assertLessEqual(clearance, 0.00005, name)
 
     def test_reference_top_orientation_keeps_branches_and_months_on_compact_circular_rings(self):
         earth = bpy.data.objects["plate/earth"]
@@ -105,10 +107,10 @@ class GrayboxStructureTest(unittest.TestCase):
             self.assertIs(glyph.parent, earth)
             self.assertEqual(glyph["ring_index"], index)
             self.assertAlmostEqual(
-                glyph.location.x, DIAL_CENTER_OFFSET_M[0] + 0.145 * math.cos(visual_angle(index)), places=4
+                glyph.location.x, 0.145 * math.cos(visual_angle(index)), places=4
             )
             self.assertAlmostEqual(
-                glyph.location.y, DIAL_CENTER_OFFSET_M[1] + 0.145 * math.sin(visual_angle(index)), places=4
+                glyph.location.y, 0.145 * math.sin(visual_angle(index)), places=4
             )
             self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.018)
             self.assertLess(max(glyph.dimensions.x, glyph.dimensions.y), 0.022)
@@ -130,9 +132,13 @@ class GrayboxStructureTest(unittest.TestCase):
         def top(obj):
             return max((obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box)
 
-        earth_carrier_top = max(top(obj) for obj in bpy.data.objects if obj.name.startswith("general/") and not obj.name.endswith("/name"))
+        earth_carrier_top = max(
+            top(bpy.data.objects["plate/heaven"]),
+            *(top(obj) for obj in bpy.data.objects if obj.name.startswith("general/") and not obj.name.endswith("/name")),
+        )
         for branch in VISUAL_EARTH_ORDER:
-            self.assertGreater(bottom(bpy.data.objects[f"branch/earth/{branch}"]) - earth_carrier_top, 0.00009, branch)
+            clearance = bottom(bpy.data.objects[f"branch/earth/{branch}"]) - earth_carrier_top
+            self.assertAlmostEqual(clearance, 0.00010, places=6, msg=branch)
         heaven_top = top(bpy.data.objects["plate/heaven"])
         for month in VISUAL_MONTH_ORDER:
             self.assertGreater(bottom(bpy.data.objects[f"month-general/{month}"]) - heaven_top, 0.00009, month)

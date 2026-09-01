@@ -28,6 +28,14 @@ PALETTE = {
     "cinnabar": "#C54A32",
     "oldGold": "#C8953D",
 }
+MATERIAL_PROPERTIES = {
+    "M_JadeBody": {"baseColor": "#DCE8E0", "baseRoughness": 0.27, "specularIorLevel": 0.34},
+    "M_TranslucentJade": {"baseColor": "#C7E5D2", "baseRoughness": 0.24, "specularIorLevel": 0.5},
+    "M_JadeRecess": {"baseColor": "#B9C9BE", "baseRoughness": 0.42, "specularIorLevel": 0.5},
+    "M_InkText": {"baseColor": "#27231F", "baseRoughness": 0.92, "specularIorLevel": 0.0},
+    "M_CinnabarText": {"baseColor": "#C54A32", "baseRoughness": 0.88, "specularIorLevel": 0.0},
+    "M_OldGold": {"baseColor": "#C8953D", "baseRoughness": 0.32, "specularIorLevel": 0.5},
+}
 
 sys.path.insert(0, str(BLENDER_DIR))
 
@@ -73,24 +81,20 @@ class MaterialTest(unittest.TestCase):
 
         self.assertEqual(IMPLEMENTED_PALETTE, PALETTE)
         self.assertEqual({material.name for material in materials}, MATERIAL_NAMES)
-        expected = {
-            "M_JadeBody": ("#DCE8E0", 0.27),
-            "M_TranslucentJade": ("#C7E5D2", 0.24),
-            "M_JadeRecess": ("#B9C9BE", 0.42),
-            "M_InkText": ("#27231F", 0.42),
-            "M_CinnabarText": ("#C54A32", 0.42),
-            "M_OldGold": ("#C8953D", 0.32),
-        }
-        for name, (color, roughness) in expected.items():
+        for name, properties in MATERIAL_PROPERTIES.items():
             shader = principled(bpy.data.materials[name])
             with self.subTest(material=name):
                 self.assertColorClose(
                     shader.inputs["Base Color"].default_value,
-                    linear_hex(color),
+                    linear_hex(properties["baseColor"]),
                 )
                 self.assertAlmostEqual(
                     shader.inputs["Roughness"].default_value,
-                    roughness,
+                    properties["baseRoughness"],
+                )
+                self.assertAlmostEqual(
+                    shader.inputs["Specular IOR Level"].default_value,
+                    properties["specularIorLevel"],
                 )
                 self.assertFalse(shader.inputs["Roughness"].is_linked)
         translucent = principled(bpy.data.materials["M_TranslucentJade"])
@@ -112,14 +116,24 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(set(families), MATERIAL_NAMES)
         self.assertNotIn("M_ReferenceSurface", families)
 
-    def test_material_contract_describes_the_six_jade_families_without_legacy_metals(self):
+    def test_material_contract_matches_the_current_six_family_source_parameters(self):
         contract = json.loads((REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json").read_text(encoding="utf-8"))
 
+        self.assertEqual(contract["palette"], PALETTE)
         self.assertEqual(set(contract["materials"]), MATERIAL_NAMES)
-        self.assertNotRegex(json.dumps(contract, ensure_ascii=False).lower(), "bronze|patina|celadon")
+        for material, properties in MATERIAL_PROPERTIES.items():
+            with self.subTest(material=material):
+                self.assertEqual(
+                    {key: contract["materials"][material][key] for key in properties},
+                    properties,
+                )
         self.assertEqual(
             set(contract["masks"]),
-            {"mask_contact_wear", "mask_recess_tone", "mask_insert_dirt", "mask_jade_microtexture"},
+            {"mask_contact_wear", "mask_recess_oxidation", "mask_insert_dirt", "mask_jade_microtexture"},
+        )
+        self.assertEqual(
+            contract["masks"]["mask_recess_oxidation"]["attribute"],
+            "causal_recess_oxidation",
         )
 
     def test_jade_inlays_are_translucent_but_general_text_is_independent(self):
@@ -142,7 +156,7 @@ class MaterialTest(unittest.TestCase):
                 self.assertTrue(glyph["runtime_color_switch"])
                 self.assertEqual(glyph["text_role"], "month-general")
 
-    def test_rotating_jade_dial_uses_the_pale_recess_surface_not_blackened_body_shader(self):
+    def test_exposed_rotating_jade_dial_uses_the_pale_body_surface(self):
         build_master()
         for name in (
             "plate/heaven",
@@ -154,8 +168,8 @@ class MaterialTest(unittest.TestCase):
         ):
             dial = bpy.data.objects[name]
             with self.subTest(dial=name):
-                self.assertEqual(dial["material_role"], "M_JadeRecess")
-                self.assertEqual(dial.data.materials[0].name, "M_JadeRecess")
+                self.assertEqual(dial["material_role"], "M_JadeBody")
+                self.assertEqual(dial.data.materials[0].name, "M_JadeBody")
 
     def test_earth_glyphs_and_slot_walls_use_their_fixed_jade_roles(self):
         build_master()

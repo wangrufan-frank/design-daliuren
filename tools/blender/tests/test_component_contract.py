@@ -181,7 +181,7 @@ class ComponentContractTest(unittest.TestCase):
             self.assertEqual(general["angular_clearance_deg"], 0.12)
             self.assertAlmostEqual(general["settled_z_m"], slot["seat_z_m"], places=6)
 
-    def test_slots_are_distinct_palace_transforms_with_flush_inlays(self):
+    def test_slots_are_distinct_palace_transforms_with_strictly_non_coplanar_flush_inlays(self):
         seat = bpy.data.objects["plate/generals"]
         seat_top = seat.matrix_world.translation.z + seat.dimensions.z / 2
         locations = set()
@@ -203,8 +203,12 @@ class ComponentContractTest(unittest.TestCase):
             self.assertVectorAlmostEqual(general.rotation_euler, slot.rotation_euler)
             general_top = max((general.matrix_world @ Vector(corner)).z for corner in general.bound_box)
             recess_top = max((recess.matrix_world @ Vector(corner)).z for corner in recess.bound_box)
-            self.assertAlmostEqual(general_top, seat_top, places=6)
-            self.assertAlmostEqual(recess_top, seat_top, places=6)
+            for name, top in ((general.name, general_top), (recess.name, recess_top)):
+                with self.subTest(component=name):
+                    self.assertGreater(top - seat_top, 0.0)
+                    self.assertLessEqual(top - seat_top, 0.00005)
+            self.assertGreater(general_top, recess_top)
+            self.assertAlmostEqual(general["settled_z_m"], slot["seat_z_m"], places=6)
             locations.add(tuple(round(value, 6) for value in slot.location))
             rotations.add(round(slot.rotation_euler.z, 6))
         self.assertEqual(len(locations), 12)
