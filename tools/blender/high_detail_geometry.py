@@ -180,7 +180,7 @@ def _zodiac_cloud(name, parent, index, animal, center, panel_size):
     curve = bpy.data.curves.new(f"{name}/curve", "CURVE")
     curve.dimensions = "3D"
     curve.resolution_u = 2
-    curve.bevel_depth = 0.00115
+    curve.bevel_depth = 0.00025
     curve.bevel_resolution = 3
     curve.fill_mode = "FULL"
     spline = curve.splines.new("POLY")
@@ -194,7 +194,7 @@ def _zodiac_cloud(name, parent, index, animal, center, panel_size):
     obj = bpy.data.objects.new(name, curve)
     bpy.context.scene.collection.objects.link(obj)
     obj.parent = parent
-    obj.location = (center[0], center[1] - panel_size[1] * 0.28, 0.0102)
+    obj.location = (center[0], center[1] - panel_size[1] * 0.28, 0.00320)
     obj["visual_role"] = "zodiac-cloud-relief"
     obj["zodiac_index"] = index
     obj["zodiac_animal"] = animal
@@ -211,18 +211,18 @@ def _add_zodiac_gallery():
     for index, (animal, center, panel_size) in enumerate(ZODIAC_LAYOUT):
         _zodiac_box(
             f"zodiac/{index:02d}/panel-frame", earth, index, animal,
-            (panel_size[0] + 0.006, panel_size[1] + 0.006, 0.0016),
-            (*center, 0.0068), "zodiac-panel-frame", "gold",
+            (panel_size[0] + 0.003, panel_size[1] + 0.003, 0.00020),
+            (*center, 0.00285), "zodiac-panel-frame", "gold",
         )
         _zodiac_box(
             f"zodiac/{index:02d}/panel-recess", earth, index, animal,
-            (*panel_size, 0.00145), (*center, 0.0080),
+            (*panel_size, 0.00015), (*center, 0.00282),
             "zodiac-panel-recess", "jade-recess",
         )
         _zodiac_box(
             f"zodiac/{index:02d}/animal-relief", earth, index, animal,
-            (panel_size[0] * 0.94, panel_size[1] * 0.88, 0.00125),
-            (*center, 0.0093), "zodiac-animal-relief", f"zodiac-motif-{animal}",
+            (panel_size[0] * 0.985, panel_size[1] * 0.985, 0.00010),
+            (*center, 0.00290), "zodiac-animal-relief", f"zodiac-motif-{animal}",
         )
         _zodiac_cloud(
             f"zodiac/{index:02d}/cloud-relief", earth, index, animal, center, panel_size

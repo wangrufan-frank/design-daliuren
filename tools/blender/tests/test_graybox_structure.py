@@ -81,7 +81,8 @@ class GrayboxStructureTest(unittest.TestCase):
             self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.145, places=4)
             self.assertAlmostEqual(glyph.location.x, 0.145 * math.cos(visual_angle(index)), places=4)
             self.assertAlmostEqual(glyph.location.y, 0.145 * math.sin(visual_angle(index)), places=4)
-            self.assertLess(max(glyph.dimensions.x, glyph.dimensions.y), 0.030)
+            self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.018)
+            self.assertLess(max(glyph.dimensions.x, glyph.dimensions.y), 0.022)
             self.assertNotIn(f"detail/branch-bed/earth/{branch}", bpy.data.objects)
         self.assertEqual(VISUAL_EARTH_ORDER[0], "午")
         self.assertEqual(VISUAL_MONTH_ORDER[0], "胜光")
@@ -91,6 +92,7 @@ class GrayboxStructureTest(unittest.TestCase):
             self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.118, places=4)
             self.assertAlmostEqual(glyph.location.x, 0.118 * math.cos(visual_angle(index)), places=4)
             self.assertAlmostEqual(glyph.location.y, 0.118 * math.sin(visual_angle(index)), places=4)
+            self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.020)
 
     def test_runtime_parts_have_stable_ids_and_root_parent(self):
         runtime_names = ("base/body", "plate/earth", "plate/heaven")

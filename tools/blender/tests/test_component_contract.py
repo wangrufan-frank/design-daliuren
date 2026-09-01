@@ -242,6 +242,8 @@ class ComponentContractTest(unittest.TestCase):
 
     def test_fixed_black_earth_branch_inlays_form_the_only_branch_ring(self):
         parent = bpy.data.objects["plate/earth"]
+        heaven = bpy.data.objects["plate/heaven"]
+        heaven_top = max((heaven.matrix_world @ Vector(corner)).z for corner in heaven.bound_box)
         node_ids = [f"branch/earth/{branch}" for branch in VISUAL_EARTH_ORDER]
         ring = [bpy.data.objects[node_id] for node_id in node_ids]
         self.assertEqual(len(ring), 12)
@@ -252,7 +254,10 @@ class ComponentContractTest(unittest.TestCase):
             self.assertAlmostEqual(math.hypot(inlay.location.x, inlay.location.y), 0.145, places=4)
             self.assertAlmostEqual(inlay.location.x, 0.145 * math.cos(math.radians(90 - index * 30)), places=4)
             self.assertAlmostEqual(inlay.location.y, 0.145 * math.sin(math.radians(90 - index * 30)), places=4)
-            self.assertLess(max(inlay.dimensions.x, inlay.dimensions.y), 0.030)
+            self.assertGreater(max(inlay.dimensions.x, inlay.dimensions.y), 0.018)
+            self.assertLess(max(inlay.dimensions.x, inlay.dimensions.y), 0.022)
+            inlay_top = max((inlay.matrix_world @ Vector(corner)).z for corner in inlay.bound_box)
+            self.assertGreater(inlay_top, heaven_top)
             self.assertNotIn(f"detail/branch-bed/earth/{VISUAL_EARTH_ORDER[index]}", bpy.data.objects)
             self.assertNotIn(f"branch/heaven/{VISUAL_EARTH_ORDER[index]}", bpy.data.objects)
 
@@ -287,6 +292,12 @@ class ComponentContractTest(unittest.TestCase):
             with self.subTest(general=key):
                 self.assertTrue(top_faces)
                 self.assertTrue(all(face.normal.z > 0.95 for face in top_faces))
+
+    def test_general_names_are_legible_within_their_pale_sector_inlays(self):
+        for key in GENERAL_KEYS:
+            glyph = bpy.data.objects[f"general/{key}/name"]
+            with self.subTest(general=key):
+                self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.010)
 
     def test_helper_children_do_not_claim_runtime_ids(self):
         for obj in bpy.data.objects:

@@ -38,14 +38,14 @@ DYNAMIC_PARENT_PREFIXES = (
     "general/",
 )
 TEXT_SIZES = {
-    "earth-branch": 0.020,
+    "earth-branch": 0.030,
     "heaven-branch": 0.018,
     "historical-beidou": 0.0045,
     "historical-mansion": 0.0048,
     "historical-month-deity": 0.0045,
 }
 FUNCTIONAL_GLYPH_SPANS = {
-    "earth": (0.028, 0.025),
+    "earth": (0.020, 0.020),
     "heaven": (0.0496, 0.044),
 }
 BRANCH_BED_SPANS = {
@@ -355,5 +355,8 @@ def build_fixed_inscriptions(
     for obj in objects:
         if obj.get("inscription_role") in FUNCTIONAL_ROLES:
             _cut_branch_recess(obj.parent, obj)
+            if obj.get("inscription_role") == "earth-branch":
+                # The fixed earth labels remain visible above the rotating dial.
+                obj.location.z += 0.0110
     bpy.context.view_layer.update()
     return objects

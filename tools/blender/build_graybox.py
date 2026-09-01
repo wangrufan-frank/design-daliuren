@@ -317,7 +317,7 @@ def add_generals(general_ring, font_path):
         curve.font = font
         curve.align_x = "CENTER"
         curve.align_y = "CENTER"
-        curve.size = 0.0075
+        curve.size = 0.016
         curve.extrude = 0.00015
         glyph = bpy.data.objects.new(f"general/{general_key}/name", curve)
         bpy.context.scene.collection.objects.link(glyph)
@@ -342,7 +342,7 @@ def add_month_general_glyphs(heaven, font_path):
         curve.font = font
         curve.align_x = "CENTER"
         curve.align_y = "CENTER"
-        curve.size = 0.018
+        curve.size = 0.032
         curve.extrude = 0.00035
         obj = bpy.data.objects.new(f"month-general/{month}", curve)
         bpy.context.scene.collection.objects.link(obj)

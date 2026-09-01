@@ -1,4 +1,4 @@
-"""Build deterministic zodiac motif crops from the approved Dunhuang reference."""
+"""Build deterministic board artwork and zodiac crops from approved references."""
 
 from pathlib import Path
 
@@ -7,7 +7,9 @@ from PIL import Image, ImageEnhance
 
 ROOT = Path(__file__).parents[2]
 SOURCE = ROOT / "assets/daliuren/references/daliuren-white-jade-dunhuang-zodiac-v1.png"
+OUTER_BOARD_SOURCE = ROOT / "assets/daliuren/references/daliuren-heaven-plate-blank-v1.png"
 OUTPUT = ROOT / "assets/daliuren/textures/source/zodiac"
+OUTER_BOARD_OUTPUT = ROOT / "assets/daliuren/textures/source/outer-board-artwork.png"
 
 # Source-space quads follow the raised panels in the front-on approved reference.
 MOTIF_QUADS = {
@@ -45,6 +47,26 @@ def generate():
         texture = ImageEnhance.Color(texture).enhance(2.65)
         texture = ImageEnhance.Contrast(texture).enhance(1.45)
         texture.save(OUTPUT / f"{animal}.png", optimize=True)
+
+    # The blank v1 board is a calibrated, approved view of the outer relief.
+    # Rectifying only its top board and masking the central dial keeps the image
+    # as a material source while the independently modeled dial remains live.
+    board = Image.open(OUTER_BOARD_SOURCE).convert("RGB").transform(
+        (1024, 1024),
+        Image.Transform.QUAD,
+        (318, 171, 1217, 280, 1108, 1095, 65, 922),
+        resample=Image.Resampling.BICUBIC,
+    )
+    board = ImageEnhance.Color(board).enhance(1.32)
+    alpha = Image.new("L", board.size, 255)
+    pixels = alpha.load()
+    for y in range(board.height):
+        for x in range(board.width):
+            radius = ((x - 512) ** 2 + (y - 512) ** 2) ** 0.5
+            pixels[x, y] = 0 if radius < 326 else min(255, int((radius - 326) * 42.5))
+    board.putalpha(alpha)
+    OUTER_BOARD_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    board.save(OUTER_BOARD_OUTPUT, optimize=True)
 
 
 if __name__ == "__main__":

@@ -122,3 +122,29 @@
 
 - The review render is temporary, source-only material evidence; no LODs or final exports were generated. The dynamic source textures intentionally remain separate assets for Task 5 atlas/bake work.
 - No `.blend1` or `tools/node/` content was changed or staged.
+
+## Strict visual-review follow-up — integrated v10 outer board and dial legibility
+
+### RED evidence
+
+- The prior color review and side-by-side exposed clipped/split animal art on floating rectangular plaques, opaque black cloud bars, an incorrectly framed camera, and earth labels occluded by the rotating heaven dial.
+- `test_materials.py` failed before this pass because `plate/earth` had only `M_JadeBody`, not a single calibrated masked outer-board projection.
+- The new integrated relief bounds and typography assertions failed against the prior elevated panel meshes and undersized text.
+
+### GREEN evidence
+
+- Blender high-detail geometry suite: 9/9 passed (`Ran 9 tests in 24.194s`, `OK`).
+- Blender graybox suite: 15/15 passed (`Ran 15 tests in 16.877s`, `OK`).
+- Blender component-contract suite: 13/13 passed (`Ran 13 tests in 13.753s`, `OK`).
+- Blender material suite: 11/11 passed (`Ran 11 tests in 26.850s`, `OK`).
+
+### Visual self-review
+
+- `tools/blender/generate_zodiac_motifs.py` now perspective-rectifies the approved `daliuren-heaven-plate-blank-v1.png` board corners into deterministic `assets/daliuren/textures/source/outer-board-artwork.png`. Its alpha mask removes only the live circular dial; the source is projected through `plate/earth` and all semantic zodiac relief surfaces using shared board coordinates, not a runtime reference plane.
+- Zodiac panel/animal meshes are recessed to the board top and clouds retain only a subtle raised relief, removing the floating rectangular-plaque silhouette while retaining semantic animal/cloud geometry.
+- The fixed earth glyphs stay parented to `plate/earth` but are elevated above the rotating dial, so the single fixed black branch ring is visible. Cinnabar month names and fixed-sector general labels have larger text bounds.
+- Calibrated 1254-square material render: `C:\Users\Lenovo\AppData\Local\Temp\jade-plate-v10-final-source.png`. True 50% v10 overlay: `C:\Users\Lenovo\AppData\Local\Temp\jade-plate-v10-final-50-overlay.png`.
+
+### Scope
+
+- This remains source geometry/material evidence only. No LODs, final exports, `.blend1`, or `tools/node/` content was generated or staged.

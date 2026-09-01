@@ -294,7 +294,7 @@ def _build_translucent_jade():
     _socket(shader, "Transmission Weight").default_value = 0.12
     _socket(shader, "Coat Weight").default_value = 0.16
     _socket(shader, "Emission Color").default_value = srgb_hex("#DCECE5")
-    _socket(shader, "Emission Strength").default_value = 0.36
+    _socket(shader, "Emission Strength").default_value = 0.68
     material["modeled_thickness_m"] = 0.004
     return material
 
@@ -308,7 +308,10 @@ def _build_jade_recess():
 
 def _build_old_gold():
     material, shader = _base_material("M_OldGold", PALETTE["oldGold"], 1.0, 0.38)
+    _socket(shader, "Metallic").default_value = 0.68
     _socket(shader, "Coat Weight").default_value = 0.04
+    _socket(shader, "Emission Color").default_value = srgb_hex(PALETTE["oldGold"])
+    _socket(shader, "Emission Strength").default_value = 0.24
     return material
 
 
@@ -388,6 +391,49 @@ def _zodiac_motif_material(animal):
     material.node_tree.links.new(bump.outputs["Normal"], shader.inputs["Normal"])
     material["source_texture"] = path.relative_to(REPOSITORY_ROOT).as_posix()
     material["source_art"] = "daliuren-white-jade-dunhuang-zodiac-v1.png"
+    return material
+
+
+def _outer_board_artwork_material():
+    name = "M_OuterBoardArtwork"
+    existing = bpy.data.materials.get(name)
+    if existing is not None:
+        return existing
+    path = REPOSITORY_ROOT / "assets/daliuren/textures/source/outer-board-artwork.png"
+    if not path.is_file():
+        raise RuntimeError(f"Missing generated outer-board artwork texture: {path}")
+    material, shader = _base_material(name, PALETTE["jadeBody"], 0.0, 0.31)
+    image = bpy.data.images.load(str(path), check_existing=True)
+    image.colorspace_settings.name = "sRGB"
+    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+    texture.name = "Approved outer-board artwork"
+    texture.image = image
+    texture.projection = "FLAT"
+    coordinates = material.node_tree.nodes.new("ShaderNodeTexCoord")
+    coordinates.name = "Shared plate/earth projection"
+    coordinates.object = bpy.data.objects["plate/earth"]
+    mapping = material.node_tree.nodes.new("ShaderNodeMapping")
+    mapping.name = "Square board calibration"
+    mapping.inputs["Scale"].default_value = (2.0, 2.0, 1.0)
+    mapping.inputs["Location"].default_value = (0.5, 0.5, 0.0)
+    mix = material.node_tree.nodes.new("ShaderNodeMixRGB")
+    mix.name = "Masked board artwork over jade"
+    mix.blend_type = "MIX"
+    mix.inputs[1].default_value = srgb_hex(PALETTE["jadeBody"])
+    bump = material.node_tree.nodes.new("ShaderNodeBump")
+    bump.name = "Board relief micro-bump"
+    bump.inputs["Strength"].default_value = 0.12
+    bump.inputs["Distance"].default_value = 0.00012
+    material.node_tree.links.new(coordinates.outputs["Object"], mapping.inputs["Vector"])
+    material.node_tree.links.new(mapping.outputs["Vector"], texture.inputs["Vector"])
+    material.node_tree.links.new(texture.outputs["Alpha"], mix.inputs[0])
+    material.node_tree.links.new(texture.outputs["Color"], mix.inputs[2])
+    material.node_tree.links.new(mix.outputs["Color"], shader.inputs["Base Color"])
+    material.node_tree.links.new(texture.outputs["Color"], bump.inputs["Height"])
+    material.node_tree.links.new(bump.outputs["Normal"], shader.inputs["Normal"])
+    material["source_texture"] = path.relative_to(REPOSITORY_ROOT).as_posix()
+    material["source_art"] = "daliuren-heaven-plate-blank-v1.png"
+    material["projection"] = "plate/earth shared object coordinates"
     return material
 
 
@@ -565,7 +611,12 @@ def apply_master_materials(root):
         name = _physical_material_name(obj)
         variant = obj.get("material_variant", "")
         material_role = name
-        if variant.startswith("zodiac-motif-"):
+        if obj.name == "plate/earth" or obj.get("visual_role") in {
+            "zodiac-panel-frame", "zodiac-panel-recess", "zodiac-animal-relief",
+        }:
+            material = _outer_board_artwork_material()
+            material_role = "M_JadeBody"
+        elif variant.startswith("zodiac-motif-"):
             material = _zodiac_motif_material(variant.removeprefix("zodiac-motif-"))
             material_role = "M_JadeBody"
         elif variant == "beidou-blue":

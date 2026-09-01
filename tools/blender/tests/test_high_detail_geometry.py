@@ -123,9 +123,20 @@ class HighDetailGeometryTest(unittest.TestCase):
              (0.210, 0.000), (0.210, -0.105), (0.140, -0.210), (0.000, -0.210),
              (-0.140, -0.210), (-0.210, -0.105), (-0.210, 0.000), (-0.210, 0.105)],
         )
-        self.assertTrue(all(glyph.dimensions.z >= 0.0012 for glyph in zodiac))
+        board_top = max(
+            (bpy.data.objects["plate/earth"].matrix_world @ Vector(corner)).z
+            for corner in bpy.data.objects["plate/earth"].bound_box
+        )
+        self.assertTrue(all(
+            max((glyph.matrix_world @ Vector(corner)).z for corner in glyph.bound_box) <= board_top + 0.00005
+            for glyph in zodiac
+        ))
         self.assertEqual(len(clouds), 12)
         self.assertTrue(all(cloud.parent == bpy.data.objects["plate/earth"] for cloud in clouds))
+        self.assertTrue(all(
+            max((cloud.matrix_world @ Vector(corner)).z for corner in cloud.bound_box) <= board_top + 0.00055
+            for cloud in clouds
+        ))
         self.assertFalse(any(obj.get("visual_role") == "zodiac-glyph" for obj in bpy.data.objects))
         self.assertFalse(any(obj.name.endswith("/glyph") and obj.name.startswith("zodiac/") for obj in bpy.data.objects))
         self.assertEqual(len(pearls), 4)
