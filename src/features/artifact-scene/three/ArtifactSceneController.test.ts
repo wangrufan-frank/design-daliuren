@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
+import { signedAngleDelta } from "../interaction/month-general-machine";
 import type { ArtifactPose, JadePlateMotion } from "../timeline/types";
 import { reviewStageFor } from "../timeline/review-stages";
 import type { LoadedArtifact } from "./load-artifact";
@@ -559,14 +560,31 @@ describe("ArtifactSceneController", () => {
     const capture = canvas.setPointerCapture as unknown as ReturnType<typeof vi.fn>;
     const release = canvas.releasePointerCapture as unknown as ReturnType<typeof vi.fn>;
     const unrelatedMove = vi.fn();
-    const start = new THREE.Vector3(0.01, 0, -0.14);
-    const acrossBoundary = new THREE.Vector3(-0.01, 0, -0.14);
+    const platePointToRing = (point: THREE.Vector3) => {
+      const cameraPosition = (camera as THREE.PerspectiveCamera).position;
+      const toRingPlane = -cameraPosition.y / (point.y - cameraPosition.y);
+      return cameraPosition.clone().lerp(point, toRingPlane);
+    };
+    const start = platePointToRing(new THREE.Vector3(0.01, 0.02, -0.13));
+    const acrossBoundary = platePointToRing(new THREE.Vector3(-0.01, 0.02, -0.13));
     canvas.addEventListener("pointermove", unrelatedMove);
 
     canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown", start));
-    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointermove", acrossBoundary, 8));
-    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointermove", acrossBoundary));
-    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointercancel", acrossBoundary));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointermove", acrossBoundary.clone(), 8));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointermove", acrossBoundary.clone()));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointercancel", acrossBoundary.clone()));
+
+    const events = callbacks.onMonthGeneralInput.mock.calls.map(([event]) => event);
+    const startEvent = events.find((event) => event.type === "drag-start")!;
+    const moveEvent = events.find((event) => event.type === "drag-move")!;
+    const delta = signedAngleDelta(startEvent.angleRad, moveEvent.angleRad);
+    expect(startEvent.angleRad).toSatisfy(Number.isFinite);
+    expect(moveEvent.angleRad).toSatisfy(Number.isFinite);
+    expect(delta).toSatisfy(Number.isFinite);
+    expect(startEvent.angleRad).toBeGreaterThan(3);
+    expect(moveEvent.angleRad).toBeLessThan(-3);
+    expect(Math.abs(moveEvent.angleRad - startEvent.angleRad)).toBeGreaterThan(Math.PI);
+    expect(delta).toBeCloseTo(2 * Math.atan(0.01 / 0.13));
 
     expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-move", angleRad: expect.any(Number) }));
     expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-end", angularVelocityRadMs: 0 }));

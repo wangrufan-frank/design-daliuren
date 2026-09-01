@@ -33,3 +33,8 @@
 - A confirmed annulus hit or enabled wheel/key gesture calls both `preventDefault()` and `stopImmediatePropagation()` before dispatching the normalized event. Disabled, non-ring, and unrelated-pointer events continue to other handlers.
 - Focused regression coverage now proves bubble-phase OrbitControls listeners do not observe confirmed ring/wheel gestures; it also covers wraparound drag, cancellation, ArrowRight, first-frame annulus invisibility, callback/render recovery, disable/dispose while captured, and exactly-once capture release.
 - Follow-up GREEN: `npm test -- src/features/artifact-scene/three/month-general-pointer.test.ts src/features/artifact-scene/three/ArtifactSceneController.test.ts src/features/artifact-scene/three/load-artifact.test.ts` passed: 3 files, 42 tests.
+
+## P2 follow-up
+
+- The wraparound regression now constructs true annulus-hit rays whose fixed-plate intersections straddle `+π` and `-π`. It asserts finite emitted start/move angles, a raw cross-boundary difference greater than `π`, and the expected small finite `signedAngleDelta` of `2 * atan(0.01 / 0.13)`.
+- RED deliberately compared the raw angle subtraction to that small delta and failed, demonstrating why the prior existence-only assertion could not catch a wraparound regression. The corrected focused controller GREEN passed 32 tests.
