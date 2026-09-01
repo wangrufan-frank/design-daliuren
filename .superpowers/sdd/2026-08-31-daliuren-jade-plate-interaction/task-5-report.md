@@ -43,3 +43,37 @@ The old compressor injected `M_EarthVoid` and `M_HeavenVoid`. That injection and
 
 - Fresh Blender UV packing does not reproduce the frozen committed atlas hashes without a full rebake. To respect the no-full-rebake instruction, the master retains its frozen UV layout and received only the new interaction material/properties.
 - No prohibited `.blend1`, `tools/node/`, or compressor temporary directory is staged.
+
+## Final visual correction and recovery
+
+### Root causes and fixes
+
+- The black linked rings were self-occluding: the heaven linked-ring details and
+  the general/core detail layers were coplanar with their visible carriers.
+  The builder now gives those layers deterministic clearance above the dial
+  foundation, general ring, and core foundation.
+- The functional earth, month, and general-name glyphs were below their actual
+  visible carriers after the carrier clearances changed.  Their bases now use a
+  `0.1 mm` shallow relief above the evaluated carrier surface.  The source
+  regression checks every functional glyph role against its visible carrier.
+- `M_InkText` and `M_CinnabarText` are matte (high roughness, zero specular and
+  coat), preventing lookdev highlights from washing out exposed glyph faces
+  while retaining non-emissive physical text materials.
+
+### Final evidence
+
+- Focused structural clearance regression: `Ran 17 tests ... OK`, including
+  all earth, month, and general-name carrier-clearance assertions.
+- `npm run asset:validate`: LOD0 `200917`, LOD1 `161113`, and LOD2 `81359`
+  triangles; all three reported `0 errors` with bounds `0.52 x 0.07585 x 0.52 m`.
+- `npm run asset:render-lookdev`: completed successfully.  The final manifest
+  reports `readable functional inscription` as `PASS (mean=0.566, dark=0.002,
+  contrast=4.81)`, exceeding the required `> 4.0` gate.  Final overall and
+  close-up renders show the pale-green jade, exposed dark earth glyphs, and no
+  black ring artifact.
+
+### Scope note
+
+The static master-frame lookdev proves the fixed earth text and carrier
+clearance.  Month and general-name final-state visibility is exercised by the
+Task 8 runtime transforms rather than by that fixed master frame.

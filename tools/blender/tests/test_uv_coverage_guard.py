@@ -73,6 +73,13 @@ class NativeCoverageGuardTests(unittest.TestCase):
         self.assertEqual(readout_failures, [], failures)
         _validate_native_texel_coverage("M_JadeRecess", 4096, "M_JadeRecess:hero")
 
+    def test_zodiac_gallery_has_no_native_texel_coverage_exception(self):
+        build_master()
+        assign_primary_uvs(_add_dynamic_surfaces())
+        failures = _native_texel_coverage_failures("M_JadeBody", 4096, atlas_id="M_JadeBody:hero")
+        zodiac_failures = [failure for failure in failures if failure[0].startswith("zodiac/")]
+        self.assertEqual(zodiac_failures, [], zodiac_failures)
+
     def test_coverage_fallback_records_are_pinned_to_current_geometry(self):
         bpy.ops.wm.open_mainfile(filepath=str(MASTER_PATH))
         failures = _native_texel_coverage_failures("M_JadeBody", 4096, atlas_id="M_JadeBody:hero")

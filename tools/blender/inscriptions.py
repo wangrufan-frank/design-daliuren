@@ -62,6 +62,7 @@ BRANCH_CUTTER_OVERLAP = 0.00010
 BRANCH_BED_RECESS = 0.00100
 BRANCH_BED_DEPTH = 0.00065
 BRANCH_GROOVE_DEPTH = 0.00120
+FUNCTIONAL_GLYPH_CARRIER_RELIEF = 0.00010
 
 
 @dataclass(frozen=True, slots=True)
@@ -362,6 +363,6 @@ def build_fixed_inscriptions(
             _cut_branch_recess(obj.parent, obj)
             if obj.get("inscription_role") == "earth-branch":
                 # The fixed earth labels remain visible above the rotating dial.
-                obj.location.z += 0.0110
+                obj.location.z += 0.0124 + FUNCTIONAL_GLYPH_CARRIER_RELIEF
     bpy.context.view_layer.update()
     return objects

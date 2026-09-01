@@ -258,7 +258,7 @@ def add_generals(general_ring, font_path):
     font = bpy.data.fonts.load(str(font_path), check_existing=True)
     depth = GENERAL_INLAY_DEPTH_M
     seat_top = general_ring.dimensions.z / 2
-    settled_z = seat_top - depth / 2
+    seat_z = seat_top + 0.0002
     center_radius = (GENERAL_SECTOR_INNER_RADIUS + GENERAL_SECTOR_OUTER_RADIUS) / 2
     for index, (general_key, general_name, branch) in enumerate(zip(GENERAL_KEYS, GENERAL_NAMES, VISUAL_EARTH_ORDER)):
         piece_inner = GENERAL_SECTOR_INNER_RADIUS + GENERAL_RADIAL_CLEARANCE_M
@@ -266,7 +266,7 @@ def add_generals(general_ring, font_path):
         angle = visual_angle(index)
         slot = new_empty(
             f"general-slot/{branch}",
-            (center_radius * math.cos(angle), center_radius * math.sin(angle), settled_z),
+            (center_radius * math.cos(angle), center_radius * math.sin(angle), seat_z),
         )
         slot.parent = general_ring
         slot.rotation_euler.z = angle - math.pi / 2
@@ -274,7 +274,7 @@ def add_generals(general_ring, font_path):
         slot["sector_inner_radius_m"] = piece_inner
         slot["sector_outer_radius_m"] = piece_outer
         slot["sector_angle_deg"] = GENERAL_SECTOR_ANGLE_DEG
-        slot["seat_z_m"] = settled_z
+        slot["seat_z_m"] = seat_z
         recess = add_sector_in_slot(
             f"detail/general-recess/{branch}",
             slot,
@@ -282,7 +282,7 @@ def add_generals(general_ring, font_path):
             GENERAL_SECTOR_OUTER_RADIUS,
             math.radians(GENERAL_SECTOR_ANGLE_DEG / 2),
             0.0006,
-            depth / 2 - 0.0003,
+            0.0003,
             0.0002,
         )
         del recess["node_id"]
@@ -299,7 +299,7 @@ def add_generals(general_ring, font_path):
             0.0003,
         )
         general.parent = general_ring
-        general.location = slot.location
+        general.location = (*slot.location[:2], seat_z + depth / 2)
         general.rotation_euler = slot.rotation_euler
         general["domain"] = "general"
         general["general_key"] = general_key
@@ -310,7 +310,7 @@ def add_generals(general_ring, font_path):
         general["sector_angle_deg"] = GENERAL_SECTOR_ANGLE_DEG
         general["radial_clearance_m"] = GENERAL_RADIAL_CLEARANCE_M
         general["angular_clearance_deg"] = GENERAL_ANGULAR_CLEARANCE_DEG
-        general["settled_z_m"] = settled_z
+        general["settled_z_m"] = general.location.z
         general["settled_location"] = tuple(slot.location)
         general["closed_rotation_euler"] = tuple(general.rotation_euler)
         curve = bpy.data.curves.new(f"general/{general_key}/name/curve", "FONT")
@@ -332,6 +332,7 @@ def add_generals(general_ring, font_path):
         glyph.select_set(True)
         bpy.ops.object.convert(target="MESH")
         glyph.select_set(False)
+        glyph.location.z += 0.00025
 
 
 def add_month_general_glyphs(heaven, font_path):
@@ -359,6 +360,7 @@ def add_month_general_glyphs(heaven, font_path):
         obj.select_set(True)
         bpy.ops.object.convert(target="MESH")
         obj.select_set(False)
+        obj.location.z += 0.00045
 
 
 def _add_course_curve_mesh(name, z, bevel_depth):
@@ -460,7 +462,9 @@ def build_graybox():
         )
         del band["node_id"]
         band.parent = heaven
-        band.location.z = heaven_depth / 2 - 0.0006
+        # Keep the visible jade band above the dial foundation: a deliberate
+        # shallow relief, not a coplanar self-shadowing surface.
+        band.location.z = heaven_depth / 2 + 0.0012
         band["ring_index"] = ring_index
         band["material_variant"] = "jade-ring"
 
@@ -480,7 +484,7 @@ def build_graybox():
         "plate/core",
         core_diameter / 2,
         core_depth,
-        (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + 0.0030),
+        (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + 0.0092),
         0.001,
     )
     core["fixed"] = True

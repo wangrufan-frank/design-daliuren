@@ -1394,6 +1394,14 @@ def assign_primary_uvs(dynamic_surfaces):
         objects = tuple(representatives.values())
         for obj in objects:
             _smart_unwrap(obj, 66.0)
+        for obj in objects:
+            if obj.get("visual_role") in {
+                "zodiac-animal-relief",
+                "zodiac-cloud-relief",
+                "zodiac-panel-frame",
+                "zodiac-panel-recess",
+            } or obj.name.startswith("detail/slip-seat/") or obj.name in COVERAGE_FALLBACK_OBJECTS:
+                _triangle_island_unwrap(obj)
         lod0_dimension = 2048 if objects[0]["runtime_atlas_class"] == "moving" else 4096
         _pack_family_atlas(objects, lod0_dimension)
         for angle_degrees in (60.0, 45.0, 30.0, 0.1):

@@ -6,7 +6,7 @@
 - Engine: `CYCLES`
 - Samples: `64`, Cycles denoising enabled
 - Color management: `AgX`, `AgX - Medium High Contrast`
-- Lighting: fixed `4300 K` wide key, `40%` front fill, low rectangular rim
+- Lighting: fixed `5200 K` wide key, `40%` front fill, low rectangular rim
 - Exposure: fixed `-1.0 EV` for every frame; no animated lights
 - Resolution: `2560 x 1440` PNG, opaque background, bloom disabled
 
@@ -41,7 +41,7 @@
 | jade, ink, cinnabar, and old-gold material separation | material-closeup | PENDING |
 | contact-driven wear | oblique / material-closeup | PENDING |
 | recess oxidation | oblique / material-closeup | PENDING |
-| readable functional inscription | overall / material-closeup | PASS (mean=0.512, dark=0.063, contrast=4.17) |
+| readable functional inscription | overall / material-closeup | PASS (mean=0.566, dark=0.002, contrast=4.81) |
 | lower-contrast historical inscription | overall / material-closeup | PENDING |
 | grounded contact shadow | overall / oblique | PENDING |
 
@@ -49,12 +49,12 @@
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `assets/daliuren/source/daliuren-artifact-master.blend` | `96576df06c4555502cff124ca537e7944c46c984ac5e41ba687ff0f0b2de7202` |
-| `public/models/daliuren/daliuren-artifact-lod0.glb` | `94b54f1dadf890eb87df5186c37d789372e99ed428c4fb0e6fab17525eec8c4e` |
-| `public/models/daliuren/daliuren-artifact-lod1.glb` | `097a3cde7974ca1c41117bde12882b28f259e8b764d6c07bd99d7c0cd92990dc` |
-| `public/models/daliuren/daliuren-artifact-lod2.glb` | `798e63b3489149b6c4b39d16d0aa828b9cca1cca0889c7e215ce4eac34d96fc6` |
-| `docs/asset-reviews/lookdev/overall.png` | `585b9f5244f4a1dd00d57865d30e1f84d274dc246a8f4751bd8e4a725bb000ec` |
-| `docs/asset-reviews/lookdev/oblique.png` | `72b6f57f03029978aa4c6655cf2fb3448ce4dd3b27e5035e0af98440e4bc832d` |
-| `docs/asset-reviews/lookdev/material-closeup.png` | `c96eeed3d555b024a6d18b9fed971b04b95df37cd57a6d70b62d2166a8905a96` |
-| `docs/asset-reviews/lookdev/rotation-evidence.png` | `84b1e0561eb753d07beb692545bfd3d9dfb97ce484f7172239ee82e01651fff8` |
-| `docs/asset-reviews/lookdev/legibility.png` | `0f88e7cc6e2e2b365bd35e8a9a212067eeb1736382538551652a31167c6e6a85` |
+| `assets/daliuren/source/daliuren-artifact-master.blend` | `f6346c9a252b80534fa923ac99fa7c2c241e70be4ae7e5d811e2c7f41e4c54a2` |
+| `public/models/daliuren/daliuren-artifact-lod0.glb` | `5d4d92d4a7f9fe04514cd5966d8dfb99fcf64ea95e0925507431c03e01d3894b` |
+| `public/models/daliuren/daliuren-artifact-lod1.glb` | `9d7bcb954c655b9ab6a92ecbc335ffeed27b877122a71549c34d3fa0d45cdf00` |
+| `public/models/daliuren/daliuren-artifact-lod2.glb` | `b53ba4d28aef60123cbc07e42d01c96635a5db99f1609437748c7d9e2fd33b71` |
+| `docs/asset-reviews/lookdev/overall.png` | `4bb782b9606ce1922e4d1492bb76d3b645b0eb5ad4308e7793db07dee9d1c022` |
+| `docs/asset-reviews/lookdev/oblique.png` | `291e9f5dd79124badf7b940da97fea5ac334a165ec1f5a0c0f6fd41e2c0d732e` |
+| `docs/asset-reviews/lookdev/material-closeup.png` | `334a0fee7da1d4d6a544dc3721db59d4eeb5a4f973b4a094158b48b9f2c122ff` |
+| `docs/asset-reviews/lookdev/rotation-evidence.png` | `2262a85de5180fa7d8dd868cc540fc3d6ba3203f747f870f6eb1a05cc3ccaa74` |
+| `docs/asset-reviews/lookdev/legibility.png` | `b3afbde3738c0331372646eefcd55e48f29521f143bc7617b84e0bbd932ec56b` |

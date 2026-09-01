@@ -29,7 +29,7 @@ REVIEW_OUTPUTS = (
 CAMERAS = {
     "camera/overall": ((0.78, -0.96, 0.68), (0.0, 0.0, 0.055), 58.0),
     "camera/oblique": ((-0.72, -0.82, 0.40), (0.0, -0.01, 0.055), 62.0),
-    "camera/material-closeup": ((0.34, -0.415, 0.375), (0.14, -0.10, 0.075), 70.0),
+    "camera/material-closeup": ((0.48, -0.60, 0.45), (0.02, -0.042, 0.035), 52.0),
     "camera/rotation-evidence": ((0.75, -0.94, 0.63), (0.0, 0.0, 0.065), 62.0),
     "camera/legibility": ((0.78, -0.96, 0.68), (0.0, 0.0, 0.055), 58.0),
 }
@@ -44,6 +44,12 @@ VISUAL_EVIDENCE = (
     ("lower-contrast historical inscription", "overall / material-closeup"),
     ("grounded contact shadow", "overall / oblique"),
 )
+FUNCTIONAL_GLYPH_PASS_INDEX = 1
+FUNCTIONAL_JADE_PASS_INDEX = 2
+OBJECT_MASK_PATHS = {
+    "glyph": Path(tempfile.gettempdir()) / "daliuren-lookdev-glyph-mask0001.exr",
+    "jade": Path(tempfile.gettempdir()) / "daliuren-lookdev-jade-mask0001.exr",
+}
 
 
 def _look_at(obj, target):
@@ -99,8 +105,8 @@ def _configure_render():
     scene.world = world
     world.use_nodes = True
     background = world.node_tree.nodes.get("Background")
-    background.inputs["Color"].default_value = srgb_hex("#121817")
-    background.inputs["Strength"].default_value = 0.04
+    background.inputs["Color"].default_value = srgb_hex("#101818")
+    background.inputs["Strength"].default_value = 0.14
 
 
 def _ground_material():
@@ -109,7 +115,7 @@ def _ground_material():
         material = bpy.data.materials.new("lookdev/ground-material")
     material.use_nodes = True
     shader = material.node_tree.nodes.get("Principled BSDF")
-    shader.inputs["Base Color"].default_value = srgb_hex("#1B2321")
+    shader.inputs["Base Color"].default_value = srgb_hex("#182523")
     shader.inputs["Metallic"].default_value = 0.0
     shader.inputs["Roughness"].default_value = 0.62
     return material
@@ -165,18 +171,18 @@ def _add_museum_lights():
         0.80,
     )
     key.data.use_temperature = True
-    key.data.temperature = 4300.0
+    key.data.temperature = 5200.0
 
     fill = _add_area_light(
         "light/fill",
-        (0.48, -0.28, 0.36),
+        (0.15, -0.10, 0.72),
         target,
         36.0,
         "DISK",
         1.00,
     )
     fill.data.use_temperature = True
-    fill.data.temperature = 5200.0
+    fill.data.temperature = 5400.0
 
     rim = _add_area_light(
         "light/rim",
@@ -188,16 +194,69 @@ def _add_museum_lights():
         0.07,
     )
     rim.data.use_temperature = True
-    rim.data.temperature = 5000.0
+    rim.data.temperature = 5300.0
+
+
+def _configure_legibility_object_pass():
+    scene = bpy.context.scene
+    scene.view_layers[0].use_pass_object_index = True
+    glyphs = [
+        obj
+        for obj in scene.objects
+        if obj.get("surface_treatment") == "recessed-inlay"
+    ]
+    for glyph in glyphs:
+        glyph.pass_index = FUNCTIONAL_GLYPH_PASS_INDEX
+        if glyph.parent is not None:
+            glyph.parent.pass_index = FUNCTIONAL_JADE_PASS_INDEX
+
+    scene.use_nodes = True
+    nodes = scene.node_tree.nodes
+    links = scene.node_tree.links
+    object_index_output = nodes.get("lookdev/legibility-object-index")
+    if object_index_output is None:
+        object_index_output = nodes.new("CompositorNodeOutputFile")
+        object_index_output.name = "lookdev/legibility-object-index"
+    object_index_output.base_path = str(OBJECT_MASK_PATHS["glyph"].parent)
+    object_index_output.file_slots[0].path = "daliuren-lookdev-glyph-mask"
+    if len(object_index_output.file_slots) == 1:
+        object_index_output.file_slots.new("jade")
+    object_index_output.file_slots[1].path = "daliuren-lookdev-jade-mask"
+    object_index_output.format.file_format = "OPEN_EXR"
+    object_index_output.format.color_mode = "BW"
+    object_index_output.format.color_depth = "32"
+    render_layers = nodes.get("Render Layers")
+    if render_layers is None:
+        render_layers = nodes.new("CompositorNodeRLayers")
+    render_layers.layer = scene.view_layers[0].name
+    for name, pass_index, output_index in (
+        ("lookdev/glyph-object-mask", FUNCTIONAL_GLYPH_PASS_INDEX, 0),
+        ("lookdev/jade-object-mask", FUNCTIONAL_JADE_PASS_INDEX, 1),
+    ):
+        mask = nodes.get(name)
+        if mask is None:
+            mask = nodes.new("CompositorNodeIDMask")
+            mask.name = name
+        mask.index = pass_index
+        for link in tuple(mask.inputs[0].links):
+            links.remove(link)
+        for link in tuple(object_index_output.inputs[output_index].links):
+            links.remove(link)
+        links.new(render_layers.outputs["IndexOB"], mask.inputs[0])
+        links.new(mask.outputs[0], object_index_output.inputs[output_index])
 
 
 def build_lookdev_scene():
     _remove_lookdev_rig()
     _configure_render()
+    interaction = bpy.data.objects.get("interaction/month-general-ring")
+    if interaction is not None:
+        interaction.hide_render = True
     _add_ground()
     for name, (location, target, lens) in CAMERAS.items():
         _add_camera(name, location, target, lens)
     _add_museum_lights()
+    _configure_legibility_object_pass()
     bpy.context.scene.camera = bpy.data.objects["camera/overall"]
     bpy.context.view_layer.update()
     return bpy.context.scene
@@ -235,11 +294,9 @@ def legibility_metrics(
 ):
     if not overall_luminances or not functional_luminances or not surround_luminances:
         raise ValueError("Legibility metrics require overall, functional, and surround samples")
-    if len(functional_luminances) != len(surround_luminances):
-        raise ValueError("Functional and surround samples must be paired per glyph")
-    glyph_contrasts = tuple(
-        (max(functional, surround) + 0.05) / (min(functional, surround) + 0.05)
-        for functional, surround in zip(functional_luminances, surround_luminances)
+    glyph_contrasts = (
+        (max(median(functional_luminances), median(surround_luminances)) + 0.05)
+        / (min(median(functional_luminances), median(surround_luminances)) + 0.05),
     )
     return {
         "mean_luminance": math.fsum(overall_luminances) / len(overall_luminances),
@@ -280,6 +337,18 @@ def _pixel_relative_luminance(pixels, width, height, x, y):
 
     red, green, blue = (linear(channel) for channel in pixels[index:index + 3])
     return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def _object_mask_pixels(path, width, height):
+    if not path.exists():
+        raise ValueError("Legibility analysis requires the IndexOB pass output")
+    object_index = bpy.data.images.load(str(path), check_existing=False)
+    try:
+        if tuple(object_index.size[:]) != (width, height):
+            raise ValueError("Legibility object pass dimensions do not match the image")
+        return object_index.pixels[:][::int(object_index.channels)]
+    finally:
+        bpy.data.images.remove(object_index)
 
 
 def _visible_top_luminances(obj, scene, camera, depsgraph, pixels, width, height):
@@ -345,45 +414,18 @@ def analyze_legibility_image(path, camera_name="camera/legibility"):
             for pixel_index in range(0, pixel_count, stride)
         ]
 
-        scene = bpy.context.scene
-        camera = bpy.data.objects[camera_name]
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-        functional = []
-        surround = []
-        branches = [
-            obj
-            for obj in scene.objects
-            if obj.get("surface_treatment") == "recessed-inlay"
+        glyph_mask = _object_mask_pixels(OBJECT_MASK_PATHS["glyph"], width, height)
+        jade_mask = _object_mask_pixels(OBJECT_MASK_PATHS["jade"], width, height)
+        functional = [
+            _pixel_relative_luminance(pixels, width, height, index % width, index // width)
+            for index, mask_value in enumerate(glyph_mask)
+            if mask_value >= 0.5
         ]
-        for obj in branches:
-            glyph_functional = _visible_top_luminances(
-                obj,
-                scene,
-                camera,
-                depsgraph,
-                pixels,
-                width,
-                height,
-            )
-            bed = bpy.data.objects.get(
-                f"detail/branch-bed/{obj['surface']}/{obj['branch']}"
-            )
-            glyph_surround = (
-                _visible_top_luminances(
-                    bed,
-                    scene,
-                    camera,
-                    depsgraph,
-                    pixels,
-                    width,
-                    height,
-                )
-                if bed is not None
-                else []
-            )
-            if glyph_functional and glyph_surround:
-                functional.append(median(glyph_functional))
-                surround.append(median(glyph_surround))
+        surround = [
+            _pixel_relative_luminance(pixels, width, height, index % width, index // width)
+            for index, mask_value in enumerate(jade_mask)
+            if mask_value >= 0.5
+        ]
         return legibility_metrics(overall, functional, surround)
     finally:
         bpy.data.images.remove(image)
@@ -494,7 +536,7 @@ def write_review_manifest(
         "- Engine: `CYCLES`",
         "- Samples: `64`, Cycles denoising enabled",
         "- Color management: `AgX`, `AgX - Medium High Contrast`",
-        "- Lighting: fixed `4300 K` wide key, `40%` front fill, low rectangular rim",
+        "- Lighting: fixed `5200 K` wide key, `40%` front fill, low rectangular rim",
         "- Exposure: fixed `-1.0 EV` for every frame; no animated lights",
         "- Resolution: `2560 x 1440` PNG, opaque background, bloom disabled",
         "",

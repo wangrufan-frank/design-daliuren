@@ -21,11 +21,12 @@ MASK_NAMES = (
     "mask_jade_microtexture",
 )
 PALETTE = {
-    "ink": "#15110D",
-    "jadeBody": "#F2EEE5",
-    "jadeRecess": "#E8E4DB",
-    "cinnabar": "#A33A25",
-    "oldGold": "#B98A38",
+    "ink": "#27231F",
+    "jadeBody": "#DCE8E0",
+    "jadeInlay": "#C7E5D2",
+    "jadeRecess": "#B9C9BE",
+    "cinnabar": "#C54A32",
+    "oldGold": "#C8953D",
 }
 MASK_ATTRIBUTES = {
     "mask_contact_wear": "causal_contact_wear",
@@ -261,7 +262,7 @@ def _link_jade_recess_tone(material, shader):
     mix.name = "Darken sheltered jade recesses"
     mix.blend_type = "MIX"
     mix.inputs[1].default_value = _socket(shader, "Base Color").default_value
-    mix.inputs[2].default_value = srgb_hex("#D4D0C8")
+    mix.inputs[2].default_value = srgb_hex("#A5B6AC")
     material.node_tree.links.new(attribute.outputs["Fac"], mix.inputs[0])
     material.node_tree.links.new(mix.outputs["Color"], _socket(shader, "Base Color"))
 
@@ -289,40 +290,40 @@ def _build_jade_body():
 
 
 def _build_translucent_jade():
-    material, shader = _base_material("M_TranslucentJade", PALETTE["jadeBody"], 0.0, 0.24)
+    material, shader = _base_material("M_TranslucentJade", PALETTE["jadeInlay"], 0.0, 0.24)
     _socket(shader, "IOR").default_value = 1.48
     _socket(shader, "Transmission Weight").default_value = 0.12
     _socket(shader, "Coat Weight").default_value = 0.16
-    _socket(shader, "Emission Color").default_value = srgb_hex("#EAF7EF")
-    _socket(shader, "Emission Strength").default_value = 1.10
+    _socket(shader, "Emission Strength").default_value = 0.0
     material["modeled_thickness_m"] = 0.004
     return material
 
 
 def _build_jade_recess():
-    material, shader = _base_material("M_JadeRecess", PALETTE["jadeRecess"], 0.0, 0.34)
-    _socket(shader, "Emission Color").default_value = srgb_hex("#F1EEE3")
-    _socket(shader, "Emission Strength").default_value = 1.20
+    material, shader = _base_material("M_JadeRecess", PALETTE["jadeRecess"], 0.0, 0.42)
+    _socket(shader, "Emission Strength").default_value = 0.0
     return material
 
 
 def _build_old_gold():
-    material, shader = _base_material("M_OldGold", PALETTE["oldGold"], 1.0, 0.38)
+    material, shader = _base_material("M_OldGold", PALETTE["oldGold"], 1.0, 0.32)
     _socket(shader, "Metallic").default_value = 0.68
     _socket(shader, "Coat Weight").default_value = 0.04
-    _socket(shader, "Emission Color").default_value = srgb_hex(PALETTE["oldGold"])
-    _socket(shader, "Emission Strength").default_value = 0.24
+    _socket(shader, "Emission Strength").default_value = 0.0
     return material
 
 
 def _build_ink_text():
-    material, shader = _base_material("M_InkText", PALETTE["ink"], 0.0, 0.48)
-    _socket(shader, "Specular IOR Level").default_value = 0.24
+    material, shader = _base_material("M_InkText", PALETTE["ink"], 0.0, 0.92)
+    _socket(shader, "Specular IOR Level").default_value = 0.0
+    _socket(shader, "Coat Weight").default_value = 0.0
     return material
 
 
 def _build_cinnabar_text():
-    material, _ = _base_material("M_CinnabarText", PALETTE["cinnabar"], 0.0, 0.48)
+    material, shader = _base_material("M_CinnabarText", PALETTE["cinnabar"], 0.0, 0.88)
+    _socket(shader, "Specular IOR Level").default_value = 0.0
+    _socket(shader, "Coat Weight").default_value = 0.0
     return material
 
 
@@ -413,7 +414,7 @@ def _beidou_blue_material():
     existing = bpy.data.materials.get(name)
     if existing is not None:
         return existing
-    material, _ = _base_material(name, "#1D5AA8", 0.25, 0.30)
+    material, _ = _base_material(name, "#285FA8", 0.35, 0.26)
     material["source_art"] = "daliuren-heaven-plate-blank-v1.png"
     return material
 
@@ -427,7 +428,7 @@ def _physical_material_name(obj):
         "plate/generals",
         "plate/core",
     }:
-        return "M_JadeRecess"
+        return "M_JadeBody"
     role = obj.get("inscription_role")
     if role in {"earth-branch", "heaven-branch"}:
         return "M_InkText"
@@ -778,12 +779,12 @@ def build_material_board_scene():
     )
     _set_float_attribute(closeup, "dirt_phase", 0.41)
 
-    key_data = bpy.data.lights.new("material-board/key-4300K", "SUN")
+    key_data = bpy.data.lights.new("material-board/key-5200K", "SUN")
     key_data.energy = 2.8
     key_data.angle = math.radians(8.0)
     key_data.use_temperature = True
-    key_data.temperature = 4300.0
-    key = bpy.data.objects.new("material-board/key-4300K", key_data)
+    key_data.temperature = 5200.0
+    key = bpy.data.objects.new("material-board/key-5200K", key_data)
     scene.collection.objects.link(key)
     key.location = (-4.5, -4.8, 6.2)
     _look_at(key, (0.0, 0.0, 0.7))

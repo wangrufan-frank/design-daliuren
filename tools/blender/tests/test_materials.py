@@ -21,11 +21,12 @@ MATERIAL_NAMES = {
     "M_InkText", "M_CinnabarText", "M_OldGold",
 }
 PALETTE = {
-    "ink": "#15110D",
-    "jadeBody": "#F2EEE5",
-    "jadeRecess": "#E8E4DB",
-    "cinnabar": "#A33A25",
-    "oldGold": "#B98A38",
+    "ink": "#27231F",
+    "jadeBody": "#DCE8E0",
+    "jadeInlay": "#C7E5D2",
+    "jadeRecess": "#B9C9BE",
+    "cinnabar": "#C54A32",
+    "oldGold": "#C8953D",
 }
 
 sys.path.insert(0, str(BLENDER_DIR))
@@ -73,12 +74,12 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(IMPLEMENTED_PALETTE, PALETTE)
         self.assertEqual({material.name for material in materials}, MATERIAL_NAMES)
         expected = {
-            "M_JadeBody": ("#F2EEE5", 0.27),
-            "M_TranslucentJade": ("#F2EEE5", 0.24),
-            "M_JadeRecess": ("#E8E4DB", 0.34),
-            "M_InkText": ("#15110D", 0.48),
-            "M_CinnabarText": ("#A33A25", 0.48),
-            "M_OldGold": ("#B98A38", 0.38),
+            "M_JadeBody": ("#DCE8E0", 0.27),
+            "M_TranslucentJade": ("#C7E5D2", 0.24),
+            "M_JadeRecess": ("#B9C9BE", 0.42),
+            "M_InkText": ("#27231F", 0.42),
+            "M_CinnabarText": ("#C54A32", 0.42),
+            "M_OldGold": ("#C8953D", 0.32),
         }
         for name, (color, roughness) in expected.items():
             shader = principled(bpy.data.materials[name])
@@ -96,13 +97,13 @@ class MaterialTest(unittest.TestCase):
         self.assertAlmostEqual(translucent.inputs["IOR"].default_value, 1.48)
         self.assertAlmostEqual(translucent.inputs["Transmission Weight"].default_value, 0.12)
         self.assertAlmostEqual(translucent.inputs["Coat Weight"].default_value, 0.16)
-        self.assertAlmostEqual(translucent.inputs["Emission Strength"].default_value, 1.10)
+        self.assertAlmostEqual(translucent.inputs["Emission Strength"].default_value, 0.0)
         self.assertEqual(bpy.data.materials["M_TranslucentJade"]["modeled_thickness_m"], 0.004)
         recess = principled(bpy.data.materials["M_JadeRecess"])
-        self.assertAlmostEqual(recess.inputs["Emission Strength"].default_value, 1.20)
+        self.assertAlmostEqual(recess.inputs["Emission Strength"].default_value, 0.0)
         gold = principled(bpy.data.materials["M_OldGold"])
         self.assertAlmostEqual(gold.inputs["Metallic"].default_value, 0.68)
-        self.assertAlmostEqual(gold.inputs["Emission Strength"].default_value, 0.24)
+        self.assertAlmostEqual(gold.inputs["Emission Strength"].default_value, 0.0)
 
     def test_asset_contract_exposes_only_the_six_runtime_material_families(self):
         contract = json.loads(ASSET_CONTRACT.read_text(encoding="utf-8"))
@@ -212,6 +213,15 @@ class MaterialTest(unittest.TestCase):
             if "Emission" in node.bl_idname or "Emission" in node.name
         ]
         self.assertEqual(emissive, [])
+
+    def test_exposed_core_ring_faces_use_pale_jade(self):
+        build_master()
+        for name in ("plate/heaven", "detail/heaven/dial-foundation", "plate/generals", "plate/core"):
+            obj = bpy.data.objects[name]
+            obj.data.calc_loop_triangles()
+            self.assertGreater(sum(triangle.normal.z > 0.99 for triangle in obj.data.loop_triangles), 0, name)
+            self.assertEqual(obj["material_role"], "M_JadeBody", name)
+            self.assertEqual(obj.data.materials[0].name, "M_JadeBody", name)
 
     def test_materialized_master_reopens_with_exact_jade_ownership(self):
         build_master()
