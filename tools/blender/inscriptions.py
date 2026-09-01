@@ -5,6 +5,8 @@ from pathlib import Path
 
 import bpy
 
+from daliuren_contract import DIAL_CENTER_OFFSET_M
+
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXED_INSCRIPTIONS_PATH = (
     REPOSITORY_ROOT / "assets/daliuren/inscriptions/fixed-inscriptions.json"
@@ -167,6 +169,9 @@ def _add_mesh_text(
         item.radius * math.sin(angle),
         0.0,
     )
+    if item.role == "earth-branch":
+        obj.location.x += DIAL_CENTER_OFFSET_M[0]
+        obj.location.y += DIAL_CENTER_OFFSET_M[1]
     obj.rotation_euler.z = angle - math.pi / 2
     obj["inscription_role"] = item.role
     obj["inscription_text"] = item.text

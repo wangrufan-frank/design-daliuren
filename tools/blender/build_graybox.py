@@ -8,6 +8,7 @@ import bpy
 sys.path.insert(0, str(Path(__file__).parent))
 
 from daliuren_contract import (
+    DIAL_CENTER_OFFSET_M,
     DIMENSIONS,
     GENERAL_ANGULAR_CLEARANCE_DEG,
     GENERAL_INLAY_DEPTH_M,
@@ -433,7 +434,7 @@ def build_graybox():
         heaven_diameter / 2,
         0.125,
         heaven_depth,
-        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + heaven_depth / 2),
+        (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + heaven_depth / 2),
         0.002,
     )
     heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
@@ -469,7 +470,7 @@ def build_graybox():
         general_diameter / 2,
         0.063,
         general_depth,
-        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.0035),
+        (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + 0.0035),
         0.001,
     )
     general_ring["fixed"] = True
@@ -479,7 +480,7 @@ def build_graybox():
         "plate/core",
         core_diameter / 2,
         core_depth,
-        (0.0, 0.0, base_height + DIMENSIONS["earth_plate"][2] + 0.0030),
+        (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + 0.0030),
         0.001,
     )
     core["fixed"] = True

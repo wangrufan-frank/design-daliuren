@@ -9,7 +9,7 @@ from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_graybox
-from daliuren_contract import VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle
+from daliuren_contract import DIAL_CENTER_OFFSET_M, VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle
 
 
 class GrayboxStructureTest(unittest.TestCase):
@@ -50,7 +50,7 @@ class GrayboxStructureTest(unittest.TestCase):
 
     def test_earth_plate_is_fixed_and_heaven_plate_has_center_pivot(self):
         self.assertTrue(bpy.data.objects["plate/earth"]["fixed"])
-        self.assertEqual(tuple(bpy.data.objects["plate/heaven"].location[:2]), (0.0, 0.0))
+        self.assertEqual(tuple(bpy.data.objects["plate/heaven"].location[:2]), DIAL_CENTER_OFFSET_M)
 
     def test_month_ring_is_the_only_rotating_plate_layer(self):
         heaven = bpy.data.objects["plate/heaven"]
@@ -78,9 +78,12 @@ class GrayboxStructureTest(unittest.TestCase):
             glyph = bpy.data.objects[f"branch/earth/{branch}"]
             self.assertIs(glyph.parent, earth)
             self.assertEqual(glyph["ring_index"], index)
-            self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.145, places=4)
-            self.assertAlmostEqual(glyph.location.x, 0.145 * math.cos(visual_angle(index)), places=4)
-            self.assertAlmostEqual(glyph.location.y, 0.145 * math.sin(visual_angle(index)), places=4)
+            self.assertAlmostEqual(
+                glyph.location.x, DIAL_CENTER_OFFSET_M[0] + 0.145 * math.cos(visual_angle(index)), places=4
+            )
+            self.assertAlmostEqual(
+                glyph.location.y, DIAL_CENTER_OFFSET_M[1] + 0.145 * math.sin(visual_angle(index)), places=4
+            )
             self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.018)
             self.assertLess(max(glyph.dimensions.x, glyph.dimensions.y), 0.022)
             self.assertNotIn(f"detail/branch-bed/earth/{branch}", bpy.data.objects)

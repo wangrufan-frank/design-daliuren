@@ -1,0 +1,144 @@
+"""Deterministic camera fit to daliuren-heaven-plate-translucent-jade-generals-v10."""
+
+import math
+
+import bpy
+from bpy_extras.object_utils import world_to_camera_view
+from mathutils import Vector
+
+
+REFERENCE_SIZE = (1254, 1253)
+# Pixel anchors recorded from the v10 reference at REFERENCE_SIZE.  The board
+# anchors are the visible upper rim corners; pearls and blue constellation dots
+# are the centers of their corresponding modeled details.
+REFERENCE_ANCHORS = {
+    "board/sw": (61.0, 924.0),
+    "board/nw": (310.0, 176.0),
+    "board/se": (1112.0, 1100.0),
+    "board/ne": (1211.0, 274.0),
+    "dial/center": (651.0, 609.0),
+    "pearl/00": (470.0, 361.0),
+    "pearl/01": (926.0, 425.0),
+    "pearl/02": (378.0, 747.0),
+    "pearl/03": (829.0, 828.0),
+    "beidou/00": (617.0, 554.0),
+    "beidou/01": (607.0, 582.0),
+    "beidou/02": (635.0, 588.0),
+    "beidou/03": (607.0, 623.0),
+    "beidou/04": (640.0, 646.0),
+    "beidou/05": (704.0, 625.0),
+    "beidou/06": (718.0, 566.0),
+}
+
+_SEED = (0.200, -0.950, 1.500, 0.000, 0.000, 0.040, 95.0, -0.007, -0.040)
+_STEPS = (0.045, 0.045, 0.080, 0.018, 0.018, 0.020, 7.0, 0.018, 0.018)
+
+
+def _world_points():
+    base = bpy.data.objects["base/body"]
+    points = {
+        "board/sw": base.matrix_world @ Vector((-0.260, -0.260, 0.014)),
+        "board/nw": base.matrix_world @ Vector((-0.260, 0.260, 0.014)),
+        "board/se": base.matrix_world @ Vector((0.260, -0.260, 0.014)),
+        "board/ne": base.matrix_world @ Vector((0.260, 0.260, 0.014)),
+        "dial/center": bpy.data.objects["plate/core"].matrix_world.translation.copy(),
+    }
+    for index in range(4):
+        points[f"pearl/{index:02d}"] = bpy.data.objects[
+            f"detail/earth/corner-pearl-{index:02d}"
+        ].matrix_world.translation.copy()
+    for index in range(7):
+        points[f"beidou/{index:02d}"] = bpy.data.objects[
+            f"constellation/star-{index:02d}"
+        ].matrix_world.translation.copy()
+    return points
+
+
+def _configure(camera, parameters):
+    x, y, z, tx, ty, tz, lens, shift_x, shift_y = parameters
+    camera.location = (x, y, z)
+    camera.rotation_euler = (Vector((tx, ty, tz)) - camera.location).to_track_quat("-Z", "Y").to_euler()
+    camera.data.lens = lens
+    camera.data.shift_x = shift_x
+    camera.data.shift_y = shift_y
+    bpy.context.view_layer.update()
+
+
+def _pixel(scene, camera, point):
+    projected = world_to_camera_view(scene, camera, point)
+    return (projected.x * REFERENCE_SIZE[0], (1.0 - projected.y) * REFERENCE_SIZE[1])
+
+
+def _cost(scene, camera, points):
+    # The board owns silhouette alignment; dial and pearls protect the internal
+    # hierarchy while the Beidou dots pin the central orientation.
+    weights = {"board": 20.0, "dial": 2.0, "pearl": 1.5, "beidou": 1.0}
+    total = 0.0
+    weight_total = 0.0
+    for name, point in points.items():
+        dx, dy = (value - target for value, target in zip(_pixel(scene, camera, point), REFERENCE_ANCHORS[name]))
+        weight = weights[name.split("/", 1)[0]]
+        total += weight * (dx * dx + dy * dy)
+        weight_total += weight
+    return total / weight_total
+
+
+def calibrate_v10_camera(scene=None):
+    """Coordinate-descent the review camera against recorded v10 anchors."""
+    scene = scene or bpy.context.scene
+    scene.render.resolution_x, scene.render.resolution_y = REFERENCE_SIZE
+    scene.render.resolution_percentage = 100
+    camera = bpy.data.objects["camera/overall"]
+    points = _world_points()
+    values = list(_SEED)
+    _configure(camera, values)
+    best = _cost(scene, camera, points)
+    steps = list(_STEPS)
+    for _ in range(16):
+        improved = False
+        for index, step in enumerate(steps):
+            candidate_values = values[:]
+            candidate_values[index] += step
+            _configure(camera, candidate_values)
+            candidate = _cost(scene, camera, points)
+            if candidate < best:
+                values, best, improved = candidate_values, candidate, True
+                continue
+            candidate_values[index] -= step * 2
+            _configure(camera, candidate_values)
+            candidate = _cost(scene, camera, points)
+            if candidate < best:
+                values, best, improved = candidate_values, candidate, True
+            else:
+                _configure(camera, values)
+        steps = [step * 0.58 for step in steps]
+        if not improved and max(steps) < 0.1:
+            break
+    _configure(camera, values)
+    camera["v10_calibration_parameters"] = tuple(round(value, 8) for value in values)
+    camera["v10_calibration_cost_px2"] = round(best, 6)
+    return camera
+
+
+def projection_metrics(scene=None):
+    scene = scene or bpy.context.scene
+    camera = bpy.data.objects["camera/overall"]
+    points = _world_points()
+    errors = {}
+    for name, point in points.items():
+        predicted = _pixel(scene, camera, point)
+        target = REFERENCE_ANCHORS[name]
+        errors[name] = math.hypot(predicted[0] - target[0], predicted[1] - target[1])
+
+    def rms(prefix):
+        selected = [value * value for name, value in errors.items() if name.startswith(prefix)]
+        return math.sqrt(sum(selected) / len(selected))
+
+    return {
+        "board_rms_px": rms("board/"),
+        "dial_center_error_px": errors["dial/center"],
+        "pearl_rms_px": rms("pearl/"),
+        "beidou_rms_px": rms("beidou/"),
+        "rms_px": math.sqrt(sum(value * value for value in errors.values()) / len(errors)),
+        "errors_px": errors,
+    }

@@ -293,16 +293,16 @@ def _build_translucent_jade():
     _socket(shader, "IOR").default_value = 1.48
     _socket(shader, "Transmission Weight").default_value = 0.12
     _socket(shader, "Coat Weight").default_value = 0.16
-    _socket(shader, "Emission Color").default_value = srgb_hex("#DCECE5")
-    _socket(shader, "Emission Strength").default_value = 0.68
+    _socket(shader, "Emission Color").default_value = srgb_hex("#EAF7EF")
+    _socket(shader, "Emission Strength").default_value = 1.10
     material["modeled_thickness_m"] = 0.004
     return material
 
 
 def _build_jade_recess():
     material, shader = _base_material("M_JadeRecess", PALETTE["jadeRecess"], 0.0, 0.34)
-    _socket(shader, "Emission Color").default_value = srgb_hex(PALETTE["jadeRecess"])
-    _socket(shader, "Emission Strength").default_value = 0.42
+    _socket(shader, "Emission Color").default_value = srgb_hex("#F1EEE3")
+    _socket(shader, "Emission Strength").default_value = 1.20
     return material
 
 
@@ -612,7 +612,7 @@ def apply_master_materials(root):
         variant = obj.get("material_variant", "")
         material_role = name
         if obj.name == "plate/earth" or obj.get("visual_role") in {
-            "zodiac-panel-frame", "zodiac-panel-recess", "zodiac-animal-relief",
+            "zodiac-panel-frame", "zodiac-panel-recess",
         }:
             material = _outer_board_artwork_material()
             material_role = "M_JadeBody"

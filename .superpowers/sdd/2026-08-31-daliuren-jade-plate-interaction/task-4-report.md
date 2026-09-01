@@ -148,3 +148,27 @@
 ### Scope
 
 - This remains source geometry/material evidence only. No LODs, final exports, `.blend1`, or `tools/node/` content was generated or staged.
+
+## Strict visual-review follow-up — deterministic v10 fit and material precedence
+
+### RED evidence
+
+- The focused zodiac-material test failed for all twelve animals: each `zodiac-animal-relief` was incorrectly assigned the full-board `M_OuterBoardArtwork` instead of its own deterministic motif texture.
+- The new `test_reference_calibration.py` initially failed to import because no v10 reference-calibration implementation existed.
+
+### GREEN evidence
+
+- One consolidated, directly affected Blender source suite passed: 36 tests across `test_materials`, `test_high_detail_geometry`, `test_graybox_structure`, and `test_reference_calibration`.
+- The calibration test projects the v10 1254 x 1253 anchors from modeled board corners, dial center, four pearls, and seven Beidou points. Measured result: board RMS `10.39 px`, dial center `7.95 px`, pearl RMS `14.64 px`, Beidou RMS `17.95 px`, combined RMS `15.02 px`.
+
+### Visual self-review
+
+- `zodiac-animal-relief` now resolves exclusively to `M_ZodiacMotif/<animal>` and its own `textures/source/zodiac/<animal>.png`; only `plate/earth` and the integrated panel substrate receive the masked continuous board artwork. The relief meshes remain recessed below that substrate, preventing duplicate rectangular image overlays.
+- The coordinate-descent fit in `tools/blender/reference_calibration.py` records the v10 targets and optimizes camera position, target, lens, and shift deterministically. The modeled dial center is translated by `DIAL_CENTER_OFFSET_M` while retaining its own rotation pivot; the fixed earth labels use the same offset without becoming children of the rotating plate.
+- Pale-jade emission was raised for the recess and translucent general materials, removing the former broad gray dial band. Pearl positions and Beidou geometry were adjusted against the fit anchors.
+- Source render: `E:\design daliuren\.worktrees\jade-plate-interaction\docs\asset-reviews\lookdev\task-4-v10-calibrated-source.png`.
+- True 50% overlay: `E:\design daliuren\.worktrees\jade-plate-interaction\docs\asset-reviews\lookdev\task-4-v10-50-overlay.png`.
+
+### Scope and concerns
+
+- The two images are temporary source-review evidence and deliberately remain untracked; no LOD or final export was generated. The ignored `.blend1` and `tools/node/` paths remain untouched.

@@ -96,10 +96,10 @@ class MaterialTest(unittest.TestCase):
         self.assertAlmostEqual(translucent.inputs["IOR"].default_value, 1.48)
         self.assertAlmostEqual(translucent.inputs["Transmission Weight"].default_value, 0.12)
         self.assertAlmostEqual(translucent.inputs["Coat Weight"].default_value, 0.16)
-        self.assertAlmostEqual(translucent.inputs["Emission Strength"].default_value, 0.68)
+        self.assertAlmostEqual(translucent.inputs["Emission Strength"].default_value, 1.10)
         self.assertEqual(bpy.data.materials["M_TranslucentJade"]["modeled_thickness_m"], 0.004)
         recess = principled(bpy.data.materials["M_JadeRecess"])
-        self.assertAlmostEqual(recess.inputs["Emission Strength"].default_value, 0.42)
+        self.assertAlmostEqual(recess.inputs["Emission Strength"].default_value, 1.20)
         gold = principled(bpy.data.materials["M_OldGold"])
         self.assertAlmostEqual(gold.inputs["Metallic"].default_value, 0.68)
         self.assertAlmostEqual(gold.inputs["Emission Strength"].default_value, 0.24)
@@ -172,9 +172,14 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(len(motifs), 12)
         for motif in motifs:
             material = motif.data.materials[0]
+            image_nodes = [node for node in material.node_tree.nodes if node.type == "TEX_IMAGE"]
             with self.subTest(animal=motif["zodiac_animal"]):
                 self.assertEqual(motif["material_role"], "M_JadeBody")
-                self.assertEqual(material.name, "M_OuterBoardArtwork")
+                self.assertEqual(material.name, f"M_ZodiacMotif/{motif['zodiac_animal']}")
+                self.assertEqual(len(image_nodes), 1)
+                self.assertTrue(image_nodes[0].image.filepath.replace("\\", "/").endswith(
+                    f"zodiac/{motif['zodiac_animal']}.png"
+                ))
 
     def test_outer_board_uses_one_masked_continuous_reference_projection(self):
         build_master()
@@ -187,9 +192,6 @@ class MaterialTest(unittest.TestCase):
         self.assertEqual(len(images), 1)
         self.assertTrue(images[0].filepath.replace("\\", "/").endswith("outer-board-artwork.png"))
         self.assertTrue(images[0].channels == 4)
-        for index in range(12):
-            panel = bpy.data.objects[f"zodiac/{index:02d}/animal-relief"]
-            self.assertIs(panel.data.materials[0], material)
 
     def test_material_graphs_contain_no_emissive_nodes(self):
         build_master()
