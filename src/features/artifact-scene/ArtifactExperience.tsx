@@ -2,13 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { createPortal } from "react-dom";
 import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
+import { deriveJadePlateLayout } from "./model/jade-plate-layout";
 import { formatVoidBranch, type VoidSurface } from "./model/format-void-branch";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
+import { evaluateInteractiveJadePlateMotion } from "./timeline/evaluate-jade-plate-motion";
 import { evaluateStageReplay } from "./timeline/evaluate-stage-replay";
 import { reviewStageFor, type ArtifactReviewStage } from "./timeline/review-stages";
 import type { RuleStageId } from "../../domain/chart/types";
-import { ArtifactSceneController, type ArtifactAppliedState } from "./three/ArtifactSceneController";
+import {
+  ArtifactSceneController,
+  type ArtifactAppliedState,
+  type MonthGeneralInputEvent,
+} from "./three/ArtifactSceneController";
 import { disposeArtifact } from "./three/dispose-artifact";
 import { createArtifactRenderer, loadArtifact } from "./three/load-artifact";
 import type { LoadedArtifact } from "./three/load-artifact";
@@ -17,6 +23,12 @@ import { ArtifactAnnotationLayer } from "./ArtifactAnnotationLayer";
 import { ArtifactPartDirectory } from "./ArtifactPartDirectory";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 import { useReducedMotion } from "./use-reduced-motion";
+import {
+  createMonthGeneralState,
+  reduceMonthGeneralState,
+  type MonthGeneralInteractionState,
+} from "./interaction/month-general-machine";
+import { MonthGeneralControls } from "./MonthGeneralControls";
 import "./artifact-scene.css";
 
 declare global {
@@ -88,7 +100,15 @@ function poseHash(state: ArtifactAppliedState): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-function AccessibleFacts({ state }: { state: ArtifactDisplayState }) {
+function AccessibleFacts({
+  state,
+  interaction,
+  seatedCount,
+}: {
+  state: ArtifactDisplayState;
+  interaction: MonthGeneralInteractionState;
+  seatedCount: number;
+}) {
   const markVoid = (branch: string, surface: VoidSurface = "neutral") => formatVoidBranch(
     branch,
     state.calendar.voidBranches,
@@ -101,6 +121,7 @@ function AccessibleFacts({ state }: { state: ArtifactDisplayState }) {
       {state.transmissions.map((item) => <li key={item.position}>{`${item.label} ${item.general} ${markVoid(item.branch)} ${item.relation}`}</li>)}
       {state.generals.map((item) => <li key={item.general}>{`天将 ${item.general} ${markVoid(item.heaven, "heaven")}/${markVoid(item.earth, "earth")}`}</li>)}
       <li>{`贵人 ${dayNightText[state.noble.dayNight]}贵${state.noble.nobleHeaven}；落${state.noble.nobleEarth}宫；${directionText[state.noble.direction]}布`}</li>
+      <li>{`月将 ${state.calendar.monthGeneral}；第${interaction.detent + 1}宫；${interaction.aligned ? "对位" : "未对位"}；神将入位 ${seatedCount} 枚`}</li>
     </ul>
   );
 }
@@ -114,6 +135,7 @@ export function ArtifactExperience({
   mobileToolHosts,
 }: ArtifactExperienceProps) {
   const displayState = useMemo(() => mapArtifactState(source), [source]);
+  const jadePlateLayout = useMemo(() => deriveJadePlateLayout(displayState), [displayState]);
   const reducedMotion = useReducedMotion();
   const compactLayout = useCompactArtifactLayout();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -130,6 +152,7 @@ export function ArtifactExperience({
   const lastFrameRef = useRef<number | undefined>(undefined);
   const userControlledRef = useRef(false);
   const stageReplayRef = useRef<ActiveStageReplay | undefined>(undefined);
+  const interactionRef = useRef<MonthGeneralInteractionState>(createMonthGeneralState(jadePlateLayout));
   const [status, setStatus] = useState<ExperienceStatus>("loading");
   const [timeMs, setTimeMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -140,6 +163,8 @@ export function ArtifactExperience({
   const [minimumBranchEdgeMarginPx, setMinimumBranchEdgeMarginPx] = useState<number | undefined>(undefined);
   const [annotationError, setAnnotationError] = useState<string | undefined>(undefined);
   const [mobileHosts, setMobileHosts] = useState<{ parts: HTMLElement; timeline: HTMLElement }>();
+  const [interaction, setInteraction] = useState<MonthGeneralInteractionState>(() => interactionRef.current);
+  const [seatedCount, setSeatedCount] = useState(0);
 
   useEffect(() => {
     onShowCourseRef.current = onShowCourse;
@@ -161,15 +186,54 @@ export function ArtifactExperience({
     setMobileHosts(parts && timeline ? { parts, timeline } : undefined);
   }, [mobileToolHosts]);
 
-  const applyAt = useCallback((nextTime: number) => {
+  const applyAt = useCallback((nextTime: number, nowMs = performance.now()) => {
     const controller = controllerRef.current;
     if (!controller) return;
     const pose = evaluateArtifactPose(displayStateRef.current, nextTime, reducedMotionRef.current);
     const appliedState = controller.applyPose(pose);
+    if (interactionRef.current.phase !== "locked") {
+      const motion = evaluateInteractiveJadePlateMotion(interactionRef.current, nowMs, reducedMotionRef.current);
+      controller.applyJadePlateMotion(motion);
+      const nextSeatedCount = motion.generals.filter((general) => general.seatProgress === 1).length;
+      setSeatedCount((current) => current === nextSeatedCount ? current : nextSeatedCount);
+    }
     if (observableBuild()) {
       setCurrentPoseHash(poseHash(appliedState));
       setSourceLinesActive(appliedState.courseTraceOpacity > 0);
     }
+  }, []);
+
+  const replaceInteraction = useCallback(() => {
+    const next = createMonthGeneralState(jadePlateLayout);
+    interactionRef.current = next;
+    setInteraction(next);
+    setSeatedCount(0);
+    controllerRef.current?.setMonthGeneralInteractionEnabled(false);
+    return next;
+  }, [jadePlateLayout]);
+
+  const applyInteractionEvent = useCallback((event: MonthGeneralInputEvent) => {
+    const current = interactionRef.current;
+    if (current.phase === "locked") return;
+    const motion = evaluateInteractiveJadePlateMotion(current, event.nowMs, reducedMotionRef.current);
+    const generalProgress = motion.generals.map((general) => general.seatProgress);
+    const next = event.type === "drag-start"
+      ? reduceMonthGeneralState(current, event)
+      : reduceMonthGeneralState(current, { ...event, generalProgress });
+    interactionRef.current = next;
+    setInteraction(next);
+    const nextMotion = evaluateInteractiveJadePlateMotion(next, event.nowMs, reducedMotionRef.current);
+    controllerRef.current?.applyJadePlateMotion(nextMotion);
+    setSeatedCount(nextMotion.generals.filter((general) => general.seatProgress === 1).length);
+  }, []);
+
+  const finishDemo = useCallback((nowMs: number) => {
+    if (interactionRef.current.phase !== "locked") return;
+    const next = reduceMonthGeneralState(interactionRef.current, { type: "demo-complete", nowMs });
+    interactionRef.current = next;
+    setInteraction(next);
+    setSeatedCount(12);
+    controllerRef.current?.setMonthGeneralInteractionEnabled(true);
   }, []);
 
   const measureBranchProjection = useCallback(() => {
@@ -277,7 +341,8 @@ export function ArtifactExperience({
           stopPlayback();
         }
       }
-      applyAt(timeRef.current);
+      if (timeRef.current === ARTIFACT_DURATION_MS) finishDemo(timestamp);
+      applyAt(timeRef.current, timestamp);
       const cameraSettled = controller.render(timestamp);
       if (cameraSettled) measureBranchProjection();
       if (controllerRef.current) frameRef.current = requestAnimationFrame(frame);
@@ -302,12 +367,14 @@ export function ArtifactExperience({
         onAnnotationError: (error) => setAnnotationError(
           error instanceof Error ? error.message : String(error),
         ),
+        onMonthGeneralInput: applyInteractionEvent,
       });
       ownedController = controller;
       controllerRef.current = controller;
       setAnnotationError(undefined);
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
+      controller.setMonthGeneralInteractionEnabled(false);
       resizeController(false);
       controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, reducedMotionRef.current);
       if (controllerRef.current !== controller) return;
@@ -333,10 +400,11 @@ export function ArtifactExperience({
       disposeOwnedController();
       disposeRenderer();
     };
-  }, [applyAt, measureBranchProjection, stopPlayback]);
+  }, [applyAt, applyInteractionEvent, finishDemo, measureBranchProjection, stopPlayback]);
 
   useEffect(() => {
     displayStateRef.current = displayState;
+    replaceInteraction();
     timeRef.current = 0;
     accumulatedTimeRef.current = 0;
     lastFrameRef.current = undefined;
@@ -346,7 +414,7 @@ export function ArtifactExperience({
     if (!controller) return;
     controller.setDisplayState(displayState);
     applyAt(0);
-  }, [applyAt, displayState, stopPlayback]);
+  }, [applyAt, displayState, replaceInteraction, stopPlayback]);
 
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
@@ -374,8 +442,10 @@ export function ArtifactExperience({
     lastFrameRef.current = undefined;
     setTimeMs(clamped);
     stopPlayback();
+    if (clamped < ARTIFACT_DURATION_MS) replaceInteraction();
+    else finishDemo(performance.now());
     applyAt(clamped);
-  }, [applyAt, stopPlayback]);
+  }, [applyAt, finishDemo, replaceInteraction, stopPlayback]);
 
   useEffect(() => {
     selectedStageRef.current = selectedStage;
@@ -387,10 +457,11 @@ export function ArtifactExperience({
     lastFrameRef.current = undefined;
     setTimeMs(replayState.timelineTimeMs);
     stopPlayback();
+    replaceInteraction();
     controllerRef.current?.applyCameraPreset(stage.camera, reducedMotionRef.current);
     applyAt(replayState.timelineTimeMs);
     if (reducedMotionRef.current) measureBranchProjection();
-  }, [applyAt, displayState, measureBranchProjection, selectedStage, stopPlayback]);
+  }, [applyAt, displayState, measureBranchProjection, replaceInteraction, selectedStage, stopPlayback]);
 
   const togglePlayback = () => {
     if (playingRef.current) {
@@ -408,6 +479,14 @@ export function ArtifactExperience({
     "data-source-lines": sourceLinesActive ? "active" : "disabled",
     "data-min-branch-px": minimumBranchProjectionPx,
     "data-min-branch-edge-px": minimumBranchEdgeMarginPx,
+    "data-month-general-detent": interaction.detent,
+    "data-month-general-aligned": String(interaction.aligned),
+    "data-month-general-sequence": jadePlateLayout.generalSequence.map((general) => general.nodeId).join(","),
+    "data-month-general-seated-ids": interaction.aligned
+      ? jadePlateLayout.generalSequence.slice(0, seatedCount).map((general) => general.nodeId).join(",")
+      : "",
+    "data-month-general-seated-count": seatedCount,
+    "data-month-general-gold-progress": interaction.aligned ? 1 : 0,
   } : {};
   const partDirectory = (
     <ArtifactPartDirectory
@@ -427,6 +506,17 @@ export function ArtifactExperience({
       onTogglePlayback={togglePlayback}
       onResetCamera={() => controllerRef.current?.resetCamera()}
       onShowCourse={onShowCourse}
+    />
+  );
+  const monthGeneralControls = (
+    <MonthGeneralControls
+      enabled={interaction.phase !== "locked"}
+      phase={interaction.phase}
+      detent={interaction.detent}
+      activeMonthGeneral={displayState.calendar.monthGeneral}
+      aligned={interaction.aligned}
+      seatedCount={seatedCount}
+      onStep={(delta) => applyInteractionEvent({ type: "step", delta, nowMs: performance.now() })}
     />
   );
 
@@ -464,13 +554,14 @@ export function ArtifactExperience({
       )}
       {status === "ready" && (
         <>
-          <AccessibleFacts state={displayState} />
+          <AccessibleFacts state={displayState} interaction={interaction} seatedCount={seatedCount} />
           {annotationError && (
             <p className="artifact-visually-hidden" role="status" aria-label="标注状态">
               {annotationError}
             </p>
           )}
           {showPartDirectory && compactLayout && !mobileToolHosts ? partDirectory : null}
+          {monthGeneralControls}
           {showTimeline && !mobileToolHosts ? timeline : null}
         </>
       )}
