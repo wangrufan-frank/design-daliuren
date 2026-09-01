@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
-import type { ArtifactPose } from "../timeline/types";
+import type { ArtifactPose, JadePlateMotion } from "../timeline/types";
 import { reviewStageFor } from "../timeline/review-stages";
 import type { LoadedArtifact } from "./load-artifact";
 import { ArtifactSceneController } from "./ArtifactSceneController";
@@ -25,6 +25,7 @@ class TestControls {
   readonly update = vi.fn();
   readonly dispose = vi.fn();
   autoRotate = false;
+  enabled = true;
   minPolarAngle = 0;
   maxPolarAngle = Math.PI;
   minAzimuthAngle = -Infinity;
@@ -73,12 +74,46 @@ function fixture(
   const generalNodeIds = generals.map(([, id]) => `general/${id}`);
   const generalNodes = generalNodeIds.map((id, index) => {
     const general = node(id);
-    general.position.set(index * 10, index * 20, index * 30);
+    general.position.set(index * 10 + 1, index * 20, index * 30);
     general.rotation.set(index * 0.01, index * 0.02, index * 0.03);
     general.scale.setScalar(index + 1);
+    const jade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.004, 0.02), new THREE.MeshStandardMaterial({ color: 0xf4f4ed }));
+    general.add(jade);
+    const name = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.001, 0.01), new THREE.MeshStandardMaterial({ color: 0x27231f }));
+    name.userData.text_role = "general-name";
+    general.add(name);
     root.add(general);
     return general;
   });
+  const heaven = node("plate/heaven");
+  heaven.position.set(0, 0.02, 0);
+  root.add(heaven);
+  const generalSeat = node("plate/generals");
+  generalSeat.position.set(0, 0.01, 0);
+  root.add(generalSeat);
+  const core = node("plate/core");
+  core.position.set(0, 0.03, 0);
+  root.add(core);
+  const generalSlots = new Map<EarthlyBranch, THREE.Group>();
+  EARTHLY_BRANCHES.forEach((earth, index) => {
+    const slot = node(`general-slot/${earth}`);
+    slot.position.set(index * 0.01, 0.04 + index * 0.001, index * 0.02);
+    root.add(slot);
+    generalSlots.set(earth, slot);
+  });
+  const monthGlyphs = new Map<string, THREE.Mesh>();
+  for (const month of ["胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙"]) {
+    const glyph = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.001, 0.01), new THREE.MeshStandardMaterial({ color: 0xa33a25 }));
+    glyph.userData = { node_id: `month-general/${month}`, text_role: "month-general" };
+    heaven.add(glyph);
+    monthGlyphs.set(`month-general/${month}`, glyph);
+  }
+  const interactionRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.11, 0.17, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0xffffff }),
+  );
+  interactionRing.userData.node_id = "interaction/month-general-ring";
+  root.add(interactionRing);
   const lessonNodes = ["first", "second", "third", "fourth"].map((id, index) => {
     const lesson = node(`lesson/${id}`);
     lesson.position.set(-0.2 + index * 0.04, 0.04, 0.1);
@@ -92,24 +127,21 @@ function fixture(
     return transmission;
   });
   const branchGeometry = new THREE.BoxGeometry(0.012, 0.012, 0.04);
-  const earthBranchMaterial = new THREE.MeshStandardMaterial({ color: 0x80704c });
-  const heavenBranchMaterial = new THREE.MeshStandardMaterial({ color: 0xc2c6bb });
+  const earthBranchMaterial = new THREE.MeshStandardMaterial({ color: 0x27231f });
   const branchNodes = new Map<string, THREE.Mesh>();
-  for (const [surfaceIndex, surface] of (["earth", "heaven"] as const).entries()) {
-    EARTHLY_BRANCHES.forEach((branch, index) => {
-      const id = `branch/${surface}/${branch}`;
+  EARTHLY_BRANCHES.forEach((branch, index) => {
+      const id = `branch/earth/${branch}`;
       const branchNode = new THREE.Mesh(
         branchGeometry,
         options.invalidBranchMaterialId === id
           ? new THREE.MeshBasicMaterial()
-          : surface === "earth" ? earthBranchMaterial : heavenBranchMaterial,
+          : earthBranchMaterial,
       );
       branchNode.userData.node_id = id;
-      branchNode.position.set((index - 5.5) * 0.018, (surfaceIndex - 0.5) * 0.08, 0);
+      branchNode.position.set((index - 5.5) * 0.018, 0, 0);
       root.add(branchNode);
       branchNodes.set(id, branchNode);
-    });
-  }
+  });
   const traceGeometry = new THREE.BoxGeometry(0.16, 0.004, 0.002);
   const traceMaterial = new THREE.MeshStandardMaterial({ color: 0x879b92 });
   const trace = new THREE.Mesh(traceGeometry, traceMaterial);
@@ -123,6 +155,12 @@ function fixture(
       ...lessonNodes.map((lesson, index) => [`lesson/${["first", "second", "third", "fourth"][index]}`, lesson] as const),
       ...transmissionNodes.map((transmission, index) => [`transmission/${["initial", "middle", "final"][index]}`, transmission] as const),
       ...branchNodes,
+      ["plate/heaven", heaven] as const,
+      ["plate/generals", generalSeat] as const,
+      ["plate/core", core] as const,
+      ...[...generalSlots].map(([earth, slot]) => [`general-slot/${earth}`, slot] as const),
+      ...monthGlyphs,
+      ["interaction/month-general-ring", interactionRing] as const,
       ["trace/course", trace] as const,
     ]),
     animations: [],
@@ -146,7 +184,12 @@ function fixture(
     onContextLost: vi.fn(),
     onError: vi.fn(),
     onAnnotationError: vi.fn(),
+    onMonthGeneralInput: vi.fn(),
   };
+  const monthGlyphOriginalMaterials = new Map(
+    [...monthGlyphs].map(([id, glyph]) => [id, glyph.material]),
+  );
+  const generalNameOriginalMaterials = generalNodes.map((general) => (general.children[1] as THREE.Mesh).material);
   const controller = new ArtifactSceneController(renderer, artifact, callbacks, {
     createControls: () => controls,
     createEnvironment: () => ({ texture: environmentTexture, dispose: environmentDispose }),
@@ -154,10 +197,12 @@ function fixture(
   });
   return {
     artifact, callbacks, canvas, controller, controls, geometry,
-    branchGeometry, branchNodes, earthBranchMaterial, heavenBranchMaterial,
+    branchGeometry, branchNodes, earthBranchMaterial,
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
     environmentDispose, environmentTexture, generalNodes, material, movingNode, renderer,
     trace, traceGeometry, traceMaterial, legacyOverlay,
+    heaven, generalSeat, core, generalSlots, monthGlyphs, interactionRing,
+    monthGlyphOriginalMaterials, generalNameOriginalMaterials,
     setNow: (value: number) => { nowMs = value; },
   };
 }
@@ -174,10 +219,28 @@ function pose(translationX: number, rotationZ: number): ArtifactPose {
         rotationZ,
       },
     },
+    jadePlate: jadeMotion(),
     labelOpacity: {},
     courseTraceOpacity: 0,
     generalDirection: "forward",
     generalSequence: [],
+  };
+}
+
+function jadeMotion(overrides: Partial<JadePlateMotion> = {}): JadePlateMotion {
+  return {
+    monthAngleRad: 0,
+    activeMonthGeneralNodeId: "month-general/胜光",
+    activeMonthGoldProgress: 0,
+    generals: generals.map(([, id], index) => ({
+      nodeId: `general/${id}`,
+      targetEarth: EARTHLY_BRANCHES[index],
+      visible: false,
+      heightMeters: 0.0275,
+      seatProgress: 0,
+      goldProgress: 0,
+    })),
+    ...overrides,
   };
 }
 
@@ -211,7 +274,23 @@ function generalPose(targetEarth: EarthlyBranch): ArtifactPose {
         targetEarth,
       },
     },
+    jadePlate: jadeMotion({
+      generals: jadeMotion().generals.map((piece, index) => index === 0
+        ? { ...piece, targetEarth, heightMeters: 0 }
+        : piece),
+    }),
   };
+}
+
+function eventAtRing(canvas: HTMLCanvasElement, camera: THREE.Camera, type: string) {
+  const projected = new THREE.Vector3(0.14, 0, 0).project(camera);
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    clientX: (projected.x + 1) * 100,
+    clientY: (1 - projected.y) * 100,
+  });
+  Object.defineProperty(event, "pointerId", { value: 7 });
+  return event;
 }
 
 const displayState = {
@@ -262,12 +341,11 @@ const completeDisplayState = {
 } as unknown as ArtifactDisplayState;
 
 describe("ArtifactSceneController", () => {
-  it("hides legacy face overlays replaced by the approved reference surface", () => {
+  it("keeps the physical artifact geometry visible without a reference-surface replacement", () => {
     const { branchNodes, legacyOverlay } = fixture(["dynamic/calendar"], { includeLegacyOverlay: true });
 
-    expect(legacyOverlay!.visible).toBe(false);
-    expect(branchNodes.get("branch/earth/子")!.visible).toBe(false);
-    expect(branchNodes.get("branch/heaven/午")!.visible).toBe(false);
+    expect(legacyOverlay!.visible).toBe(true);
+    expect(branchNodes.get("branch/earth/子")!.visible).toBe(true);
   });
 
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
@@ -300,41 +378,104 @@ describe("ArtifactSceneController", () => {
     expect(controls.autoRotate).toBe(false);
   });
 
-  it("owns one cloned standard material per branch and resets plate-aware void colors", () => {
+  it("keeps only the fixed black earthly-branch glyphs without void recoloring", () => {
     const {
-      artifact, branchNodes, controller, earthBranchMaterial, heavenBranchMaterial,
+      artifact, branchNodes, controller, earthBranchMaterial,
     } = fixture();
     const ownedMaterials = [...branchNodes.values()].map((mesh) => mesh.material);
 
-    expect(new Set(ownedMaterials).size).toBe(24);
-    expect(ownedMaterials).not.toContain(earthBranchMaterial);
-    expect(ownedMaterials).not.toContain(heavenBranchMaterial);
+    expect(new Set(ownedMaterials).size).toBe(1);
+    expect(ownedMaterials).toContain(earthBranchMaterial);
     controller.setDisplayState({
       ...completeDisplayState,
       calendar: { ...completeDisplayState.calendar, voidBranches: ["子", "丑"] },
     });
 
     expect(((artifact.nodes.get("branch/earth/子") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
-      .toBe("8a563b");
-    expect(((artifact.nodes.get("branch/heaven/子") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
-      .toBe("477b9d");
+      .toBe("27231f");
     expect(((artifact.nodes.get("branch/earth/寅") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
-      .toBe("80704c");
-    expect(earthBranchMaterial.color.getHexString()).toBe("80704c");
-    expect(heavenBranchMaterial.color.getHexString()).toBe("c2c6bb");
-
-    controller.setDisplayState({
-      ...completeDisplayState,
-      calendar: { ...completeDisplayState.calendar, voidBranches: ["辰", "巳"] },
-    });
+      .toBe("27231f");
     expect((artifact.nodes.get("branch/earth/子") as THREE.Mesh).material).toBe(ownedMaterials[0]);
-    expect(((artifact.nodes.get("branch/earth/子") as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString())
-      .toBe("80704c");
   });
 
   it("rejects a branch inlay that is not backed by a standard material", () => {
-    expect(() => fixture(["dynamic/calendar"], { invalidBranchMaterialId: "branch/heaven/亥" }))
-      .toThrow("Invalid branch inlay branch/heaven/亥");
+    expect(() => fixture(["dynamic/calendar"], { invalidBranchMaterialId: "branch/earth/亥" }))
+      .toThrow("Invalid branch inlay branch/earth/亥");
+  });
+
+  it("applies ring motion to fixed slots while changing only independently owned text materials", () => {
+    const {
+      controller, core, generalNameOriginalMaterials, generalNodes, generalSeat, generalSlots,
+      heaven, monthGlyphs, monthGlyphOriginalMaterials,
+    } = fixture();
+    const monthGlyph = monthGlyphs.get("month-general/胜光")!;
+    const generalJade = generalNodes[0].children[0] as THREE.Mesh;
+    const generalName = generalNodes[0].children[1] as THREE.Mesh;
+    const jadeMaterial = generalJade.material;
+    const motion = jadeMotion({
+      monthAngleRad: Math.PI / 3,
+      activeMonthGoldProgress: 1,
+      generals: jadeMotion().generals.map((piece, index) => ({
+        ...piece,
+        targetEarth: index === 0 ? "卯" : piece.targetEarth,
+        visible: index === 0,
+        heightMeters: index === 0 ? 0.0275 : piece.heightMeters,
+        goldProgress: index === 0 ? 1 : 0,
+      })),
+    });
+
+    controller.applyJadePlateMotion(motion);
+
+    const slot = generalSlots.get("卯")!;
+    expect(heaven.rotation.y).toBeCloseTo(motion.monthAngleRad);
+    expect(generalNodes[0].position.y).toBeCloseTo(slot.position.y + 0.0275);
+    expect(generalNodes[0].visible).toBe(true);
+    expect(generalJade.material).toBe(jadeMaterial);
+    expect(monthGlyph.material).not.toBe(monthGlyphOriginalMaterials.get("month-general/胜光"));
+    expect(generalName.material).not.toBe(generalNameOriginalMaterials[0]);
+    expect((monthGlyph.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("b98a38");
+    expect((generalName.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("b98a38");
+    expect(generalSeat.position.toArray()).toEqual([0, 0.01, 0]);
+    expect(core.position.toArray()).toEqual([0, 0.03, 0]);
+  });
+
+  it("captures only the interaction ring and emits normalized enabled gestures", () => {
+    const { callbacks, canvas, controller, controls, renderer } = fixture();
+    Object.defineProperty(canvas, "getBoundingClientRect", { value: () => ({ left: 0, top: 0, width: 200, height: 200 }) });
+    const capture = vi.fn();
+    const release = vi.fn();
+    Object.defineProperty(canvas, "setPointerCapture", { value: capture });
+    Object.defineProperty(canvas, "releasePointerCapture", { value: release });
+    controller.setMonthGeneralInteractionEnabled(true);
+    controller.resize(200, 200, 1);
+    controller.render();
+    const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.Camera;
+
+    canvas.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 }));
+    expect(callbacks.onMonthGeneralInput).not.toHaveBeenCalled();
+    expect(controls.enabled).toBe(true);
+
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown"));
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-start" }));
+    expect(capture).toHaveBeenCalledWith(7);
+    expect(controls.enabled).toBe(false);
+
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerup"));
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-end" }));
+    expect(release).toHaveBeenCalledWith(7);
+    expect(controls.enabled).toBe(true);
+
+    const wheel = new Event("wheel", { bubbles: true, cancelable: true });
+    Object.defineProperty(wheel, "deltaY", { value: 1 });
+    canvas.dispatchEvent(wheel);
+    canvas.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }));
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "step", delta: 1 }));
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "step", delta: -1 }));
+    expect(canvas.tabIndex).toBe(0);
+
+    controller.setMonthGeneralInteractionEnabled(false);
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown"));
+    expect(controls.enabled).toBe(true);
   });
 
   it("measures actual projected branch vertices instead of an inflated world AABB", () => {
@@ -508,7 +649,8 @@ describe("ArtifactSceneController", () => {
   });
 
   it("reports a missing annotation node without stopping the render loop", () => {
-    const { callbacks, controller, renderer } = fixture();
+    const { artifact, callbacks, controller, renderer } = fixture();
+    (artifact.nodes as Map<string, THREE.Object3D>).delete("plate/heaven");
 
     expect(() => controller.captureAnnotationFrame(["plate/heaven"])).not.toThrow();
     controller.render();
@@ -571,8 +713,8 @@ describe("ArtifactSceneController", () => {
   });
 
   it("selects general destination palaces from frozen slots without pose history", () => {
-    const { controller, generalNodes } = fixture();
-    const targetSlot = generalNodes[3];
+    const { controller, generalNodes, generalSlots } = fixture();
+    const targetSlot = generalSlots.get("卯")!;
     const targetQuaternion = targetSlot.quaternion.toArray();
 
     controller.applyPose(generalPose("卯"));
@@ -583,7 +725,7 @@ describe("ArtifactSceneController", () => {
     generalNodes[0].position.set(999, 999, 999);
     controller.applyPose(generalPose("卯"));
 
-    expect(firstPosition).toEqual([30, 60, 0.007]);
+    expect(firstPosition).toEqual(targetSlot.position.toArray());
     expect(firstQuaternion).toEqual(targetQuaternion);
     expect(firstScale).toEqual([1, 1, 1]);
     expect(generalNodes[0].position.toArray()).toEqual(firstPosition);
