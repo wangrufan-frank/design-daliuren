@@ -21,7 +21,7 @@ MATERIAL_NAMES = {
     "M_InkText", "M_CinnabarText", "M_OldGold",
 }
 PALETTE = {
-    "ink": "#27231F",
+    "ink": "#15110D",
     "jadeBody": "#F2EEE5",
     "jadeRecess": "#E8E4DB",
     "cinnabar": "#A33A25",
@@ -76,7 +76,7 @@ class MaterialTest(unittest.TestCase):
             "M_JadeBody": ("#F2EEE5", 0.27),
             "M_TranslucentJade": ("#F2EEE5", 0.24),
             "M_JadeRecess": ("#E8E4DB", 0.34),
-            "M_InkText": ("#27231F", 0.48),
+            "M_InkText": ("#15110D", 0.48),
             "M_CinnabarText": ("#A33A25", 0.48),
             "M_OldGold": ("#B98A38", 0.38),
         }
@@ -96,7 +96,10 @@ class MaterialTest(unittest.TestCase):
         self.assertAlmostEqual(translucent.inputs["IOR"].default_value, 1.48)
         self.assertAlmostEqual(translucent.inputs["Transmission Weight"].default_value, 0.12)
         self.assertAlmostEqual(translucent.inputs["Coat Weight"].default_value, 0.16)
+        self.assertAlmostEqual(translucent.inputs["Emission Strength"].default_value, 0.36)
         self.assertEqual(bpy.data.materials["M_TranslucentJade"]["modeled_thickness_m"], 0.004)
+        recess = principled(bpy.data.materials["M_JadeRecess"])
+        self.assertAlmostEqual(recess.inputs["Emission Strength"].default_value, 0.42)
 
     def test_asset_contract_exposes_only_the_six_runtime_material_families(self):
         contract = json.loads(ASSET_CONTRACT.read_text(encoding="utf-8"))
@@ -135,11 +138,45 @@ class MaterialTest(unittest.TestCase):
                 self.assertTrue(glyph["runtime_color_switch"])
                 self.assertEqual(glyph["text_role"], "month-general")
 
+    def test_rotating_jade_dial_uses_the_pale_recess_surface_not_blackened_body_shader(self):
+        build_master()
+        for name in (
+            "plate/heaven",
+            "detail/heaven/dial-foundation",
+            "detail/heaven/linked-ring-1",
+            "detail/heaven/linked-ring-2",
+            "plate/generals",
+            "plate/core",
+        ):
+            dial = bpy.data.objects[name]
+            with self.subTest(dial=name):
+                self.assertEqual(dial["material_role"], "M_JadeRecess")
+                self.assertEqual(dial.data.materials[0].name, "M_JadeRecess")
+
     def test_earth_glyphs_and_slot_walls_use_their_fixed_jade_roles(self):
         build_master()
         for branch in BRANCHES:
             self.assertEqual(bpy.data.objects[f"branch/earth/{branch}"]["material_role"], "M_InkText")
             self.assertEqual(bpy.data.objects[f"detail/general-recess/{branch}"]["material_role"], "M_JadeRecess")
+
+    def test_zodiac_reliefs_use_deterministic_motif_images_and_bump_relief(self):
+        build_master()
+
+        motifs = [
+            obj for obj in bpy.data.objects
+            if obj.get("visual_role") == "zodiac-animal-relief"
+        ]
+        self.assertEqual(len(motifs), 12)
+        for motif in motifs:
+            material = motif.data.materials[0]
+            image_nodes = [node for node in material.node_tree.nodes if node.type == "TEX_IMAGE"]
+            with self.subTest(animal=motif["zodiac_animal"]):
+                self.assertEqual(motif["material_role"], "M_JadeBody")
+                self.assertEqual(len(image_nodes), 1)
+                self.assertTrue(image_nodes[0].image.filepath.replace("\\", "/").endswith(
+                    f"zodiac/{motif['zodiac_animal']}.png"
+                ))
+                self.assertTrue(any(node.type == "BUMP" for node in material.node_tree.nodes))
 
     def test_material_graphs_contain_no_emissive_nodes(self):
         build_master()

@@ -1,5 +1,4 @@
 import math
-from pathlib import Path
 
 import bpy
 
@@ -30,6 +29,21 @@ BEVELED_RUNTIME_IDS = (
     "transmission/initial",
     "transmission/middle",
     "transmission/final",
+)
+
+ZODIAC_LAYOUT = (
+    ("snake", (-0.140, 0.210), (0.120, 0.070)),
+    ("horse", (0.000, 0.210), (0.120, 0.070)),
+    ("goat", (0.140, 0.210), (0.120, 0.070)),
+    ("monkey", (0.210, 0.105), (0.070, 0.120)),
+    ("rooster", (0.210, 0.000), (0.070, 0.120)),
+    ("dog", (0.210, -0.105), (0.070, 0.120)),
+    ("pig", (0.140, -0.210), (0.120, 0.070)),
+    ("rat", (0.000, -0.210), (0.120, 0.070)),
+    ("ox", (-0.140, -0.210), (0.120, 0.070)),
+    ("tiger", (-0.210, -0.105), (0.070, 0.120)),
+    ("rabbit", (-0.210, 0.000), (0.070, 0.120)),
+    ("dragon", (-0.210, 0.105), (0.070, 0.120)),
 )
 
 
@@ -150,24 +164,41 @@ def _visual_box(name, parent, size, location, rotation_z=0.0, variant="jade"):
     return obj
 
 
-def _visual_text(name, text, parent, font, location, rotation_z, variant):
-    curve = bpy.data.curves.new(f"{name}/curve", "FONT")
-    curve.body = text
-    curve.font = font
-    curve.align_x = "CENTER"
-    curve.align_y = "CENTER"
-    curve.size = 0.023
-    curve.extrude = 0.00045
-    curve.bevel_depth = 0.00012
-    curve.resolution_u = 3
+def _zodiac_box(name, parent, index, animal, size, location, role, variant):
+    obj = add_beveled_box(name, size, (0.0, 0.0, 0.0), 0.00065)
+    del obj["node_id"]
+    obj.parent = parent
+    obj.location = location
+    obj["visual_role"] = role
+    obj["zodiac_index"] = index
+    obj["zodiac_animal"] = animal
+    obj["material_variant"] = variant
+    return obj
+
+
+def _zodiac_cloud(name, parent, index, animal, center, panel_size):
+    curve = bpy.data.curves.new(f"{name}/curve", "CURVE")
+    curve.dimensions = "3D"
+    curve.resolution_u = 2
+    curve.bevel_depth = 0.00115
+    curve.bevel_resolution = 3
+    curve.fill_mode = "FULL"
+    spline = curve.splines.new("POLY")
+    length = min(panel_size) * 0.38
+    points = ((-length, 0.0), (-length * 0.38, length * 0.25),
+              (0.0, -length * 0.10), (length * 0.36, length * 0.28),
+              (length, 0.0))
+    spline.points.add(len(points) - 1)
+    for point, (x, y) in zip(spline.points, points):
+        point.co = (x, y, 0.0, 1.0)
     obj = bpy.data.objects.new(name, curve)
     bpy.context.scene.collection.objects.link(obj)
     obj.parent = parent
-    obj.location = location
-    obj.rotation_euler.z = rotation_z
-    obj["visual_role"] = "zodiac-glyph"
-    obj["material_variant"] = variant
-    bpy.ops.object.select_all(action="DESELECT")
+    obj.location = (center[0], center[1] - panel_size[1] * 0.28, 0.0102)
+    obj["visual_role"] = "zodiac-cloud-relief"
+    obj["zodiac_index"] = index
+    obj["zodiac_animal"] = animal
+    obj["material_variant"] = "gold"
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     bpy.ops.object.convert(target="MESH")
@@ -177,44 +208,24 @@ def _visual_text(name, text, parent, font, location, rotation_z, variant):
 
 def _add_zodiac_gallery():
     earth = bpy.data.objects["plate/earth"]
-    font_path = Path(__file__).parents[2] / "assets/daliuren/fonts/STKaiti.ttf"
-    if not font_path.is_file():
-        font_path = Path(__file__).parents[2] / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
-    font = bpy.data.fonts.load(str(font_path), check_existing=True)
-    animals = tuple("鼠牛虎兔龙蛇马羊猴鸡狗猪")
-    variants = (
-        "zodiac-blue", "zodiac-gold", "zodiac-gold", "zodiac-red",
-        "zodiac-blue", "zodiac-green", "zodiac-red", "zodiac-blue",
-        "zodiac-gold", "zodiac-green", "zodiac-gold", "zodiac-red",
-    )
-    for index, (animal, variant) in enumerate(zip(animals, variants)):
-        angle = math.radians(90 - index * 30)
-        x, y = 0.232 * math.cos(angle), 0.232 * math.sin(angle)
-        rotation = angle - math.pi / 2
-        _visual_box(
-            f"zodiac/{index:02d}/gold-frame",
-            earth,
-            (0.056, 0.038, 0.0020),
-            (x, y, 0.0080),
-            rotation,
-            "gold",
+    for index, (animal, center, panel_size) in enumerate(ZODIAC_LAYOUT):
+        _zodiac_box(
+            f"zodiac/{index:02d}/panel-frame", earth, index, animal,
+            (panel_size[0] + 0.006, panel_size[1] + 0.006, 0.0016),
+            (*center, 0.0068), "zodiac-panel-frame", "gold",
         )
-        _visual_box(
-            f"zodiac/{index:02d}/jade-panel",
-            earth,
-            (0.051, 0.033, 0.0013),
-            (x, y, 0.0093),
-            rotation,
-            "jade-panel",
+        _zodiac_box(
+            f"zodiac/{index:02d}/panel-recess", earth, index, animal,
+            (*panel_size, 0.00145), (*center, 0.0080),
+            "zodiac-panel-recess", "jade-recess",
         )
-        _visual_text(
-            f"zodiac/{index:02d}/glyph",
-            animal,
-            earth,
-            font,
-            (x, y, 0.0101),
-            rotation,
-            variant,
+        _zodiac_box(
+            f"zodiac/{index:02d}/animal-relief", earth, index, animal,
+            (panel_size[0] * 0.94, panel_size[1] * 0.88, 0.00125),
+            (*center, 0.0093), "zodiac-animal-relief", f"zodiac-motif-{animal}",
+        )
+        _zodiac_cloud(
+            f"zodiac/{index:02d}/cloud-relief", earth, index, animal, center, panel_size
         )
 
 
@@ -247,8 +258,18 @@ def _add_core_details():
         del dot["node_id"]
         dot.parent = core
         dot.location = (x, y, 0.0093)
-        dot["visual_role"] = "constellation-star"
-        dot["material_variant"] = "gold"
+        dot["visual_role"] = "beidou-star"
+        dot["material_variant"] = "beidou-blue"
+    for index, (start, end) in enumerate(zip(points, points[1:])):
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        _visual_box(
+            f"constellation/beidou-link-{index:02d}",
+            core,
+            (0.00115, math.hypot(dx, dy), 0.00075),
+            ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2, 0.0090),
+            math.atan2(dy, dx) - math.pi / 2,
+            "gold",
+        )["visual_role"] = "beidou-link"
     bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=0.0065, location=(0.0, 0.0, 0.0))
     pearl = bpy.context.object
     pearl.name = "detail/core/jade-pivot"

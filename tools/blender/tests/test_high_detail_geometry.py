@@ -101,7 +101,11 @@ class HighDetailGeometryTest(unittest.TestCase):
 
         zodiac = [
             obj for obj in bpy.data.objects
-            if obj.get("visual_role") == "zodiac-glyph"
+            if obj.get("visual_role") == "zodiac-animal-relief"
+        ]
+        clouds = [
+            obj for obj in bpy.data.objects
+            if obj.get("visual_role") == "zodiac-cloud-relief"
         ]
         pearls = [
             obj for obj in bpy.data.objects
@@ -109,15 +113,39 @@ class HighDetailGeometryTest(unittest.TestCase):
         ]
         self.assertEqual(len(zodiac), 12)
         self.assertTrue(all(obj.type == "MESH" for obj in zodiac))
-        for index, glyph in enumerate(zodiac):
-            self.assertAlmostEqual(glyph.location.xy.length, 0.232, places=4)
-            self.assertAlmostEqual(glyph.rotation_euler.z, math.radians(-index * 30), places=4)
+        self.assertEqual(
+            [glyph["zodiac_animal"] for glyph in zodiac],
+            ["snake", "horse", "goat", "monkey", "rooster", "dog", "pig", "rat", "ox", "tiger", "rabbit", "dragon"],
+        )
+        self.assertEqual(
+            [tuple(round(value, 3) for value in glyph.location.xy) for glyph in zodiac],
+            [(-0.140, 0.210), (0.000, 0.210), (0.140, 0.210), (0.210, 0.105),
+             (0.210, 0.000), (0.210, -0.105), (0.140, -0.210), (0.000, -0.210),
+             (-0.140, -0.210), (-0.210, -0.105), (-0.210, 0.000), (-0.210, 0.105)],
+        )
+        self.assertTrue(all(glyph.dimensions.z >= 0.0012 for glyph in zodiac))
+        self.assertEqual(len(clouds), 12)
+        self.assertTrue(all(cloud.parent == bpy.data.objects["plate/earth"] for cloud in clouds))
+        self.assertFalse(any(obj.get("visual_role") == "zodiac-glyph" for obj in bpy.data.objects))
+        self.assertFalse(any(obj.name.endswith("/glyph") and obj.name.startswith("zodiac/") for obj in bpy.data.objects))
         self.assertEqual(len(pearls), 4)
         self.assertTrue(all(obj.type == "MESH" for obj in pearls))
         self.assertEqual(
             {tuple(round(value, 4) for value in pearl.location.xy) for pearl in pearls},
             {(-0.158, 0.158), (0.158, 0.158), (-0.158, -0.158), (0.158, -0.158)},
         )
+
+    def test_colored_connected_beidou_is_real_center_geometry(self):
+        upgrade_to_high_detail(self.root)
+
+        core = bpy.data.objects["plate/core"]
+        stars = [obj for obj in bpy.data.objects if obj.get("visual_role") == "beidou-star"]
+        links = [obj for obj in bpy.data.objects if obj.get("visual_role") == "beidou-link"]
+        self.assertEqual(len(stars), 7)
+        self.assertEqual(len(links), 6)
+        self.assertTrue(all(obj.parent == core for obj in (*stars, *links)))
+        self.assertTrue(all(obj.get("material_variant") == "beidou-blue" for obj in stars))
+        self.assertTrue(all(obj.get("material_variant") == "gold" for obj in links))
 
     def test_unapproved_motion_parts_are_parked_below_the_reference_face(self):
         upgrade_to_high_detail(self.root)

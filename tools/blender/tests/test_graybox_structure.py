@@ -62,6 +62,15 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertEqual(heaven.parent, self.root)
         self.assertEqual(generals.parent, self.root)
 
+    def test_rotating_plate_has_a_real_jade_dial_foundation_below_its_rings(self):
+        heaven = bpy.data.objects["plate/heaven"]
+        foundation = bpy.data.objects["detail/heaven/dial-foundation"]
+        self.assertIs(foundation.parent, heaven)
+        self.assertNotIn("node_id", foundation)
+        self.assertAlmostEqual(foundation.dimensions.x, 0.328, places=4)
+        self.assertAlmostEqual(foundation.dimensions.y, 0.328, places=4)
+        self.assertLess(foundation.location.z, 0.0)
+
     def test_reference_top_orientation_keeps_branches_and_months_on_compact_circular_rings(self):
         earth = bpy.data.objects["plate/earth"]
         heaven = bpy.data.objects["plate/heaven"]
@@ -97,6 +106,7 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertEqual(ring["role"], "fixed-historical-inscription")
         self.assertNotIn("node_id", ring)
         self.assertIsNone(ring.parent)
+        self.assertTrue(ring.hide_render)
 
     def test_default_scene_objects_are_removed(self):
         self.assertNotIn("Camera", bpy.data.objects)

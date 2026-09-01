@@ -38,6 +38,7 @@ class InteractionVisibilityTests(unittest.TestCase):
         self.assertEqual(material["runtime_visibility"], "raycast-only")
         self.assertEqual(material.surface_render_method, "DITHERED")
         self.assertEqual(material.node_tree.nodes["Principled BSDF"].inputs["Alpha"].default_value, 0.0)
+        self.assertTrue(any(node.type == "BSDF_TRANSPARENT" for node in material.node_tree.nodes))
 
         contract = json.loads(ASSET_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(

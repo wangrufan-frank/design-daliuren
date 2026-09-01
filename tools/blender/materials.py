@@ -293,12 +293,16 @@ def _build_translucent_jade():
     _socket(shader, "IOR").default_value = 1.48
     _socket(shader, "Transmission Weight").default_value = 0.12
     _socket(shader, "Coat Weight").default_value = 0.16
+    _socket(shader, "Emission Color").default_value = srgb_hex("#DCECE5")
+    _socket(shader, "Emission Strength").default_value = 0.36
     material["modeled_thickness_m"] = 0.004
     return material
 
 
 def _build_jade_recess():
-    material, _ = _base_material("M_JadeRecess", PALETTE["jadeRecess"], 0.0, 0.34)
+    material, shader = _base_material("M_JadeRecess", PALETTE["jadeRecess"], 0.0, 0.34)
+    _socket(shader, "Emission Color").default_value = srgb_hex(PALETTE["jadeRecess"])
+    _socket(shader, "Emission Strength").default_value = 0.42
     return material
 
 
@@ -322,6 +326,14 @@ def _build_cinnabar_text():
 def _build_interaction_raycast():
     material, shader = _base_material("M_InteractionRaycast", "#000000", 0.0, 1.0)
     _socket(shader, "Alpha").default_value = 0.0
+    transparent = material.node_tree.nodes.new("ShaderNodeBsdfTransparent")
+    transparent.name = "Raycast-only transparency"
+    mix = material.node_tree.nodes.new("ShaderNodeMixShader")
+    mix.name = "Suppress interaction annulus render"
+    mix.inputs[0].default_value = 0.0
+    material.node_tree.links.new(transparent.outputs[0], mix.inputs[1])
+    material.node_tree.links.new(shader.outputs["BSDF"], mix.inputs[2])
+    material.node_tree.links.new(mix.outputs[0], material.node_tree.nodes["Material Output"].inputs["Surface"])
     material.surface_render_method = "DITHERED"
     material["runtime_visibility"] = "raycast-only"
     material["color_write"] = False
@@ -350,7 +362,55 @@ def build_master_materials():
     return materials
 
 
+def _zodiac_motif_material(animal):
+    name = f"M_ZodiacMotif/{animal}"
+    existing = bpy.data.materials.get(name)
+    if existing is not None:
+        return existing
+    path = REPOSITORY_ROOT / "assets/daliuren/textures/source/zodiac" / f"{animal}.png"
+    if not path.is_file():
+        raise RuntimeError(f"Missing generated zodiac motif texture: {path}")
+    material, shader = _base_material(name, "#F2EEE5", 0.0, 0.34)
+    image = bpy.data.images.load(str(path), check_existing=True)
+    image.colorspace_settings.name = "sRGB"
+    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+    texture.name = "Approved zodiac motif"
+    texture.image = image
+    texture.projection = "FLAT"
+    coordinates = material.node_tree.nodes.new("ShaderNodeTexCoord")
+    bump = material.node_tree.nodes.new("ShaderNodeBump")
+    bump.name = "Motif relief bump"
+    bump.inputs["Strength"].default_value = 0.32
+    bump.inputs["Distance"].default_value = 0.0007
+    material.node_tree.links.new(coordinates.outputs["Generated"], texture.inputs["Vector"])
+    material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Base Color"])
+    material.node_tree.links.new(texture.outputs["Color"], bump.inputs["Height"])
+    material.node_tree.links.new(bump.outputs["Normal"], shader.inputs["Normal"])
+    material["source_texture"] = path.relative_to(REPOSITORY_ROOT).as_posix()
+    material["source_art"] = "daliuren-white-jade-dunhuang-zodiac-v1.png"
+    return material
+
+
+def _beidou_blue_material():
+    name = "M_BeidouBlue"
+    existing = bpy.data.materials.get(name)
+    if existing is not None:
+        return existing
+    material, _ = _base_material(name, "#1D5AA8", 0.25, 0.30)
+    material["source_art"] = "daliuren-heaven-plate-blank-v1.png"
+    return material
+
+
 def _physical_material_name(obj):
+    if obj.name in {
+        "plate/heaven",
+        "detail/heaven/dial-foundation",
+        "detail/heaven/linked-ring-1",
+        "detail/heaven/linked-ring-2",
+        "plate/generals",
+        "plate/core",
+    }:
+        return "M_JadeRecess"
     role = obj.get("inscription_role")
     if role in {"earth-branch", "heaven-branch"}:
         return "M_InkText"
@@ -503,10 +563,19 @@ def apply_master_materials(root):
     interaction = bpy.data.materials.get("M_InteractionRaycast") or _build_interaction_raycast()
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
         name = _physical_material_name(obj)
-        material = interaction if obj.get("node_id") == "interaction/month-general-ring" else bpy.data.materials[name]
+        variant = obj.get("material_variant", "")
+        material_role = name
+        if variant.startswith("zodiac-motif-"):
+            material = _zodiac_motif_material(variant.removeprefix("zodiac-motif-"))
+            material_role = "M_JadeBody"
+        elif variant == "beidou-blue":
+            material = _beidou_blue_material()
+            material_role = "M_JadeBody"
+        else:
+            material = interaction if obj.get("node_id") == "interaction/month-general-ring" else bpy.data.materials[name]
         obj.data.materials.clear()
         obj.data.materials.append(material)
-        obj["material_role"] = name
+        obj["material_role"] = material_role
 
         detail_id = obj.get("detail_id")
         if obj.name in CONTACT_OBJECTS or detail_id in CONTACT_DETAIL_IDS:

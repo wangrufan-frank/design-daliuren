@@ -280,6 +280,14 @@ class ComponentContractTest(unittest.TestCase):
         )))
         self.assertFalse(any(child.parent == core for child in (heaven, general_ring)))
 
+    def test_general_sector_top_faces_are_upward_for_pale_jade_lighting(self):
+        for key in GENERAL_KEYS:
+            sector = bpy.data.objects[f"general/{key}"]
+            top_faces = [face for face in sector.data.polygons if face.center.z >= 0.001999]
+            with self.subTest(general=key):
+                self.assertTrue(top_faces)
+                self.assertTrue(all(face.normal.z > 0.95 for face in top_faces))
+
     def test_helper_children_do_not_claim_runtime_ids(self):
         for obj in bpy.data.objects:
             if obj.name not in NODE_IDS:

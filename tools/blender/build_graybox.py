@@ -123,6 +123,7 @@ def add_historical_ring(radius, z):
     ring = bpy.context.object
     ring.name = "reference/historical-ring"
     ring["role"] = "fixed-historical-inscription"
+    ring.hide_render = True
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     return ring
 
@@ -437,6 +438,14 @@ def build_graybox():
     )
     heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
     heaven["rotates_independently"] = True
+    foundation = add_disc(
+        "detail/heaven/dial-foundation", 0.164, 0.006, (0.0, 0.0, 0.0), 0.001
+    )
+    del foundation["node_id"]
+    foundation.parent = heaven
+    foundation.location = (0.0, 0.0, -0.0020)
+    foundation["material_variant"] = "jade-panel"
+    foundation["visual_role"] = "rotating-dial-foundation"
     # Two visual bands share the same parent, so they can never drift apart.
     for ring_index, (outer_radius, inner_radius) in enumerate(
         ((0.165, 0.137), (0.136, 0.096)), start=1
