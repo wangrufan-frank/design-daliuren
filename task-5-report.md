@@ -30,3 +30,9 @@
 - The tiny `1e-10 m²` comparison epsilon only absorbs floating-point representation at recorded decimal boundaries; it does not permit a material-tagged mesh, an unlisted object, or a materially larger miss.
 - TDD evidence: the focused RED test showed a `base/body` triangle tagged `shallow-slot` could evade the old guard. The final focused GREEN Blender run completed `tools/blender/tests/test_uv_coverage_guard.py`: 3 tests, `OK` (274.567 s).
 - No master, textures, GLBs, compression output, or lookdev files were regenerated for this validator-only change.
+
+## Final P2 coverage-envelope follow-up
+
+- Added an exact per-object normalized envelope assertion before the coverage upper-bound checks. It pins every allowlisted support mesh's eligible triangle count and its maximum/aggregate physical area in `1e-7 m²` bins, so a named mesh cannot silently lose, gain, or replace a coverage candidate.
+- The direct RED assertion failed with the measured envelope; the focused GREEN `tools/blender/tests/test_uv_coverage_guard.py` then passed 3 tests in `283.186 s`.
+- This was test/report-only: no asset operations or generated artifact changes.

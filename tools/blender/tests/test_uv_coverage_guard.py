@@ -63,6 +63,36 @@ class NativeCoverageGuardTests(unittest.TestCase):
             name: (len(areas), round(max(areas), 10), round(sum(areas), 10))
             for name, areas in sorted(records.items())
         }
+        normalized_envelope = {}
+        for name in sorted(COVERAGE_FALLBACK_OBJECTS):
+            mesh = bpy.data.objects[name].data
+            mesh.calc_loop_triangles()
+            areas = [triangle.area for triangle in mesh.loop_triangles if triangle.area > 2.0e-7]
+            normalized_envelope[name] = (
+                len(areas),
+                round(max(areas) * 1.0e7),
+                round(sum(areas) * 1.0e7),
+            )
+        # 1e-7 m² bins absorb Blender floating-point noise without hiding a triangle change.
+        self.assertEqual(
+            normalized_envelope,
+            {
+                "detail/base/removable-bottom": (60, 1169828, 4698002),
+                "detail/base/shell-return/00": (60, 18529, 84229),
+                "detail/base/shell-return/01": (60, 18529, 84229),
+                "detail/base/shell-return/02": (60, 18529, 84229),
+                "detail/base/shell-return/03": (60, 18529, 84229),
+                "detail/slip-seat/lesson/first": (60, 16973, 70900),
+                "detail/slip-seat/lesson/fourth": (60, 16973, 70900),
+                "detail/slip-seat/lesson/second": (60, 16973, 70900),
+                "detail/slip-seat/lesson/third": (60, 16973, 70900),
+                "detail/slip-seat/transmission/final": (60, 16917, 70627),
+                "detail/slip-seat/transmission/initial": (60, 16917, 70627),
+                "detail/slip-seat/transmission/method": (60, 16685, 70090),
+                "detail/slip-seat/transmission/middle": (60, 16917, 70627),
+                "trace/course": (64, 106, 4752),
+            },
+        )
         expected = {
             "detail/base/removable-bottom": (24, 0.000120925, 0.001267421),
             "detail/base/shell-return/00": (24, 0.00009752, 0.0006009377),
