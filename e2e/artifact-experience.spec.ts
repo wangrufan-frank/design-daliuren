@@ -1,13 +1,24 @@
+import { writeFile } from "node:fs/promises";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-async function completeReferenceCourse(page: Page) {
+const GENERAL_SEQUENCE = [
+  "general/noble", "general/snake", "general/vermilion-bird", "general/harmony",
+  "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
+  "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
+].join(",");
+
+async function completeCourse(page: Page, civilDateTime = "2024-02-10T14:30") {
   await page.goto("/");
-  await page.getByLabel("日期与时间").fill("2024-02-10T14:30");
+  await page.getByLabel("日期与时间").fill(civilDateTime);
   await page.getByLabel("出生年份").fill("1990");
   await page.getByLabel("地点（选填）").fill("北京");
   await page.getByLabel("起课事由").fill("商务决策复盘");
   await page.getByRole("button", { name: "生成完整课式" }).click();
   await expect(page.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
+}
+
+async function completeReferenceCourse(page: Page) {
+  await completeCourse(page);
 }
 
 async function expectTextFallback(page: Page) {
@@ -25,6 +36,85 @@ async function expectArtifactReady(page: Page) {
 async function expectArtifactCanvasReady(page: Page) {
   await expect(page.getByLabel("大六壬三维器物")).toBeVisible();
   await expect(page.getByText("正在加载三维器物")).toHaveCount(0, { timeout: 30_000 });
+}
+
+async function finishArtifactDemo(page: Page) {
+  await expectArtifactCanvasReady(page);
+  const timeline = page.getByRole("slider", { name: "推演时间轴" });
+  if (!await timeline.isVisible()) {
+    await page.getByRole("toolbar", { name: "工作台工具" })
+      .getByRole("button", { name: "时间轴", exact: true }).click();
+  }
+  await timeline.fill("27000");
+  await expect(timeline).toHaveValue("27000");
+  const experience = page.getByTestId("artifact-experience");
+  await expect(experience).toHaveAttribute("data-month-general-phase", "seated");
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await expect(experience).toHaveAttribute("data-seated-generals", "12");
+  return experience;
+}
+
+async function findMonthGeneralRingPoints(page: Page, count = 1) {
+  const canvas = page.getByLabel("大六壬三维器物");
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error("Artifact canvas has no bounds");
+  const center = { x: bounds.x + bounds.width * 0.5, y: bounds.y + bounds.height * 0.558 };
+  const minimumDimension = Math.min(bounds.width, bounds.height);
+  const points: { x: number; y: number }[] = [];
+  const projectedCardinals = [
+    { x: bounds.x + bounds.width * 0.634, y: bounds.y + bounds.height * 0.611 },
+    { x: bounds.x + bounds.width * 0.443, y: bounds.y + bounds.height * 0.698 },
+    { x: bounds.x + bounds.width * 0.376, y: bounds.y + bounds.height * 0.508 },
+    { x: bounds.x + bounds.width * 0.548, y: bounds.y + bounds.height * 0.440 },
+  ];
+  const segments = count > 1
+    ? [0, 4, 8, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15]
+    : Array.from({ length: 16 }, (_, index) => index);
+  await canvas.evaluate((element) => {
+    element.addEventListener("pointerdown", () => {
+      element.dataset.probeReached = "true";
+    }, { capture: true });
+  });
+  for (const point of projectedCardinals) {
+    await canvas.evaluate((element) => {
+      delete element.dataset.probeReached;
+    });
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down();
+    const intercepted = await canvas.evaluate((element) => element.dataset.probeReached !== "true");
+    await page.mouse.up();
+    if (intercepted) {
+      points.push(point);
+      if (points.length === count) return { points, center };
+    }
+  }
+  for (const radiusFraction of [0.3, 0.25, 0.2, 0.15]) {
+    for (const segment of segments) {
+      const angle = segment * Math.PI / 8;
+      const point = {
+        x: center.x + Math.cos(angle) * minimumDimension * radiusFraction,
+        y: center.y + Math.sin(angle) * minimumDimension * radiusFraction * 0.7,
+      };
+      await canvas.evaluate((element) => {
+        delete element.dataset.probeReached;
+      });
+      await page.mouse.move(point.x, point.y);
+      await page.mouse.down();
+      const intercepted = await canvas.evaluate((element) => element.dataset.probeReached !== "true");
+      await page.mouse.up();
+      const separated = points.every((existing) => Math.hypot(existing.x - point.x, existing.y - point.y) >= minimumDimension * 0.18);
+      if (intercepted && separated) {
+        points.push(point);
+        if (points.length === count) return { points, center };
+      }
+    }
+  }
+  throw new Error(`Could not locate ${count} month-general interaction ring points`);
+}
+
+async function findMonthGeneralRingPoint(page: Page) {
+  const { points, center } = await findMonthGeneralRingPoints(page);
+  return { ...points[0], center };
 }
 
 async function captureArtifactCanvas(page: Page) {
@@ -201,6 +291,248 @@ async function expectVisibleRuntimeLod(
   ).toBeGreaterThanOrEqual(4);
 }
 
+test("only the correct detent seats the generals and leaving reverses them", async ({ page }) => {
+  test.setTimeout(90_000);
+  const consoleIssues: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning" || message.type() === "error") {
+      if (/^\[\.WebGL.*\]GL Driver Message/.test(message.text())) return;
+      consoleIssues.push(`${message.type()}: ${message.text()}`);
+    }
+  });
+  page.on("pageerror", (error) => consoleIssues.push(`pageerror: ${error.message}`));
+  await completeReferenceCourse(page);
+  const experience = await finishArtifactDemo(page);
+  const correctDetent = Number(await experience.getAttribute("data-month-general-detent"));
+  expect(correctDetent).toBeGreaterThanOrEqual(0);
+  expect(correctDetent).toBeLessThan(12);
+  await expect(experience).toHaveAttribute("data-general-sequence", GENERAL_SEQUENCE);
+  await expect(experience).toHaveAttribute("data-seated-general-ids", GENERAL_SEQUENCE);
+  const rightStep = page.getByRole("button", { name: "月将环向右一宫" });
+  await rightStep.scrollIntoViewIfNeeded();
+  const hitTarget = await rightStep.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    return {
+      actionable: hit === element || element.contains(hit),
+      button: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+      hit: hit?.outerHTML,
+    };
+  });
+  expect(hitTarget.actionable, JSON.stringify(hitTarget)).toBe(true);
+
+  for (let step = 1; step <= 11; step += 1) {
+    await rightStep.evaluate((element) => (element as HTMLButtonElement).click());
+    await expect(experience).toHaveAttribute("data-month-general-detent", String((correctDetent + step) % 12));
+    await expect(experience).toHaveAttribute("data-month-general-aligned", "false");
+    await expect(experience).toHaveAttribute("data-active-month-gold", "0.000");
+    if (step === 1) await expect(experience).toHaveAttribute("data-seated-generals", "0", { timeout: 2_500 });
+  }
+
+  await rightStep.evaluate((element) => (element as HTMLButtonElement).click());
+  await expect(experience).toHaveAttribute("data-month-general-detent", String(correctDetent));
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await expect(experience).toHaveAttribute("data-seated-generals", "12", { timeout: 6_000 });
+  expect(consoleIssues).toEqual([]);
+});
+
+for (const course of [
+  { name: "forward", civilDateTime: "2024-02-10T06:30", direction: "顺布", nobleEarth: "辰", snakeEarth: "巳" },
+  { name: "reverse", civilDateTime: "2024-02-10T14:30", direction: "逆布", nobleEarth: "申", snakeEarth: "未" },
+] as const) {
+  test(`${course.name} course preserves the upstream general direction`, async ({ page }) => {
+    await completeCourse(page, course.civilDateTime);
+    const experience = await finishArtifactDemo(page);
+    const facts = page.getByTestId("artifact-accessible-facts");
+    await expect(facts).toContainText(`落${course.nobleEarth}宫；${course.direction}`);
+    await expect(facts).toContainText(new RegExp(`天将 螣蛇 .*\\/${course.snakeEarth}`));
+    await expect(experience).toHaveAttribute("data-general-sequence", GENERAL_SEQUENCE);
+    await expect(experience).toHaveAttribute("data-seated-general-ids", GENERAL_SEQUENCE);
+  });
+}
+
+test("noble lands first and a third-piece interruption reverses current physical progress", async ({ page }) => {
+  test.setTimeout(60_000);
+  await completeReferenceCourse(page);
+  const experience = await finishArtifactDemo(page);
+  const right = page.getByRole("button", { name: "月将环向右一宫" });
+  const left = page.getByRole("button", { name: "月将环向左一宫" });
+
+  await right.click();
+  await expect(experience).toHaveAttribute("data-seated-generals", "0", { timeout: 2_500 });
+  const interruption = experience.evaluate((element) => new Promise<{ first: string; atInterruption: string }>((resolve) => {
+    const observed: string[] = [];
+    const observer = new MutationObserver(() => {
+      const ids = element.getAttribute("data-seated-general-ids") ?? "";
+      if (ids && observed.at(-1) !== ids) observed.push(ids);
+      if (element.getAttribute("data-seated-generals") !== "3") return;
+      const atInterruption = ids;
+      (document.querySelector('[aria-label="月将环向右一宫"]') as HTMLButtonElement).click();
+      observer.disconnect();
+      resolve({ first: observed[0] ?? "", atInterruption });
+    });
+    observer.observe(element, { attributes: true, attributeFilter: ["data-seated-generals", "data-seated-general-ids"] });
+  }));
+  await left.click();
+  expect(await interruption).toEqual({
+    first: "general/noble",
+    atInterruption: "general/noble,general/snake,general/vermilion-bird",
+  });
+  await expect(experience).toHaveAttribute("data-month-general-phase", "exiting");
+  await expect(experience).toHaveAttribute("data-seated-generals", "0", { timeout: 2_500 });
+});
+
+test("pointer-down without movement preserves the completed state", async ({ page }) => {
+  test.setTimeout(60_000);
+  await completeReferenceCourse(page);
+  const experience = await finishArtifactDemo(page);
+  const canvas = page.getByLabel("大六壬三维器物");
+  const point = await findMonthGeneralRingPoint(page);
+
+  await canvas.evaluate((element) => {
+    document.addEventListener("pointerdown", (event) => {
+      element.dataset.testPointerId = String(event.pointerId);
+    }, { capture: true, once: true });
+  });
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  expect(await canvas.evaluate((element) => {
+    const pointerId = Number(element.dataset.testPointerId);
+    return Number.isInteger(pointerId) && element.hasPointerCapture(pointerId);
+  })).toBe(true);
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await expect(experience).toHaveAttribute("data-seated-generals", "12");
+  await page.mouse.up();
+
+  await expect(experience).toHaveAttribute("data-month-general-phase", "seated");
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await expect(experience).toHaveAttribute("data-seated-generals", "12");
+});
+
+test("wheel and keyboard steps share the same exact detent path", async ({ page }) => {
+  test.setTimeout(60_000);
+  await completeReferenceCourse(page);
+  const experience = await finishArtifactDemo(page);
+  const canvas = page.getByLabel("大六壬三维器物");
+  const correctDetent = Number(await experience.getAttribute("data-month-general-detent"));
+
+  await canvas.hover();
+  await page.mouse.wheel(0, 120);
+  await expect(experience).toHaveAttribute("data-month-general-detent", String((correctDetent + 1) % 12));
+  await expect(experience).toHaveAttribute("data-seated-generals", "0", { timeout: 2_500 });
+
+  await canvas.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(experience).toHaveAttribute("data-month-general-detent", String(correctDetent));
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await expect(experience).toHaveAttribute("data-seated-generals", "12", { timeout: 6_000 });
+});
+
+test("touch drag leaves the correct detent and snaps through the shared reducer", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const context = await browser.newContext({ hasTouch: true, viewport: { width: 1280, height: 720 } });
+  const touchPage = await context.newPage();
+  try {
+    await completeReferenceCourse(touchPage);
+    const experience = await finishArtifactDemo(touchPage);
+    const correctDetent = Number(await experience.getAttribute("data-month-general-detent"));
+    const canvas = touchPage.getByLabel("大六壬三维器物");
+    const canvasBounds = await canvas.boundingBox();
+    if (!canvasBounds) throw new Error("Artifact canvas has no bounds");
+    const session = await context.newCDPSession(touchPage);
+    const x = canvasBounds.x + canvasBounds.width * 0.634;
+    const y = canvasBounds.y + canvasBounds.height * 0.611;
+    const path = [
+      { x: canvasBounds.x + canvasBounds.width * 0.443, y: canvasBounds.y + canvasBounds.height * 0.698 },
+      { x: canvasBounds.x + canvasBounds.width * 0.376, y: canvasBounds.y + canvasBounds.height * 0.508 },
+      { x: canvasBounds.x + canvasBounds.width * 0.548, y: canvasBounds.y + canvasBounds.height * 0.440 },
+    ];
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    for (const point of path) {
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+    }
+    await expect(experience).toHaveAttribute("data-month-general-aligned", "false");
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+    await expect(experience).not.toHaveAttribute("data-month-general-detent", String(correctDetent));
+    await expect(experience).toHaveAttribute("data-month-general-aligned", "false");
+    await expect(experience).toHaveAttribute("data-seated-generals", "0", { timeout: 2_500 });
+  } finally {
+    await context.close();
+  }
+});
+
+test("mobile controls preserve the same correct state and exact one-step behavior", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await completeReferenceCourse(page);
+  const experience = await finishArtifactDemo(page);
+  const correctDetent = Number(await experience.getAttribute("data-month-general-detent"));
+  const right = page.getByRole("button", { name: "月将环向右一宫" });
+  await expect(right).toBeVisible();
+  expect((await right.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+  await right.click();
+  await expect(experience).toHaveAttribute("data-month-general-detent", String((correctDetent + 1) % 12));
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "false");
+});
+
+test("captures completed desktop and mobile review evidence", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await completeReferenceCourse(page);
+  const experience = await finishArtifactDemo(page);
+  const canvas = page.getByLabel("大六壬三维器物");
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await writeFile("docs/asset-reviews/lookdev/overall.png", await captureArtifactCanvas(page));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(canvas).toBeVisible();
+  await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeGreaterThan(0);
+  await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await writeFile("docs/asset-reviews/lookdev/jade-plate-mobile.png", await captureArtifactCanvas(page));
+});
+
+test("reduced motion preserves detents, sequence, colors, and final state", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await completeReferenceCourse(page);
+  const experience = await finishArtifactDemo(page);
+  const right = page.getByRole("button", { name: "月将环向右一宫" });
+  const left = page.getByRole("button", { name: "月将环向左一宫" });
+
+  await right.click();
+  await expect(experience).toHaveAttribute("data-active-month-gold", "0.000");
+  await expect(experience).toHaveAttribute("data-seated-generals", "0");
+  await left.click();
+  await expect(experience).toHaveAttribute("data-active-month-gold", "1.000");
+  await expect(experience).toHaveAttribute("data-seated-general-ids", GENERAL_SEQUENCE);
+  await expect(experience).toHaveAttribute("data-seated-generals", "12");
+});
+
+test("all three LODs render the same completed rule state", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const states: Record<string, string | null>[] = [];
+  for (const item of [
+    { lod: 0, viewport: { width: 1920, height: 1080 } },
+    { lod: 1, viewport: { width: 1280, height: 720 } },
+    { lod: 2, viewport: { width: 390, height: 844 } },
+  ] as const) {
+    const context = await browser.newContext({ viewport: item.viewport });
+    const lodPage = await context.newPage();
+    const response = lodPage.waitForResponse(new RegExp(`daliuren-artifact-lod${item.lod}\\.glb$`));
+    await completeReferenceCourse(lodPage);
+    expect((await response).ok()).toBe(true);
+    const experience = await finishArtifactDemo(lodPage);
+    states.push(await experience.evaluate((element) => Object.fromEntries([
+      "data-month-general-detent", "data-month-general-aligned", "data-general-sequence",
+      "data-seated-general-ids", "data-seated-generals", "data-active-month-gold",
+    ].map((name) => [name, element.getAttribute(name)]))));
+    await context.close();
+  }
+
+  expect(states[1]).toEqual(states[0]);
+  expect(states[2]).toEqual(states[0]);
+});
+
 test("model labels and text course use the same verified facts", async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -334,8 +666,8 @@ test("mobile review keeps stage callouts and reaches every part through the dire
   expect(await directory.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   await expect(directory.getByTestId("artifact-part-group")).toHaveCount(6);
   const entries = directory.locator("button[data-part-id]");
-  await expect(entries).toHaveCount(22);
-  await expect(directory.getByText("无新增部件，可查看全部22项")).toBeVisible();
+  await expect(entries).toHaveCount(23);
+  await expect(directory.getByText("无新增部件，可查看全部23项")).toBeVisible();
   await directory.getByRole("button", { name: "天地盘加临" }).click();
   expect(await directory.locator(".artifact-part-directory__scroll").evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
   const firstVisibleEntry = directory.locator("button[data-part-id]:visible").first();
@@ -344,7 +676,7 @@ test("mobile review keeps stage callouts and reaches every part through the dire
 
   await directory.locator('button[data-part-id="plate/heaven"]').click();
   await expect(directory).toHaveCount(0);
-  const focusStatus = page.getByText("当前聚焦：天盘");
+  const focusStatus = page.getByText("当前聚焦：月将环");
   await expect(focusStatus).toBeVisible();
   const focusStatusWidth = await focusStatus.evaluate((element) => ({
     client: element.clientWidth,

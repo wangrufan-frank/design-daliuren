@@ -181,14 +181,6 @@
     min-height: 520px;
   }
 
-  .course-workbench__stage .artifact-timeline {
-    position: absolute;
-    z-index: 3;
-    right: 0;
-    bottom: 0;
-    left: 0;
-  }
-
   .course-workbench__stage .course-experience__caption {
     position: absolute;
     z-index: 6;

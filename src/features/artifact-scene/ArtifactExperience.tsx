@@ -153,6 +153,7 @@ export function ArtifactExperience({
   const userControlledRef = useRef(false);
   const stageReplayRef = useRef<ActiveStageReplay | undefined>(undefined);
   const interactionRef = useRef<MonthGeneralInteractionState>(createMonthGeneralState(jadePlateLayout));
+  const interactionMotionObservabilityRef = useRef({ seatedCount: 0, seatedGeneralIds: "", activeMonthGoldProgress: 0 });
   const [status, setStatus] = useState<ExperienceStatus>("loading");
   const [timeMs, setTimeMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -165,6 +166,24 @@ export function ArtifactExperience({
   const [mobileHosts, setMobileHosts] = useState<{ parts: HTMLElement; timeline: HTMLElement }>();
   const [interaction, setInteraction] = useState<MonthGeneralInteractionState>(() => interactionRef.current);
   const [seatedCount, setSeatedCount] = useState(0);
+  const [seatedGeneralIds, setSeatedGeneralIds] = useState("");
+  const [activeMonthGoldProgress, setActiveMonthGoldProgress] = useState(0);
+
+  const publishInteractionMotion = useCallback((motion: ReturnType<typeof evaluateInteractiveJadePlateMotion>) => {
+    const seated = motion.generals.filter((general) => general.seatProgress === 1);
+    const nextIds = seated.map((general) => general.nodeId).join(",");
+    const current = interactionMotionObservabilityRef.current;
+    if (current.seatedCount !== seated.length) setSeatedCount(seated.length);
+    if (current.seatedGeneralIds !== nextIds) setSeatedGeneralIds(nextIds);
+    if (current.activeMonthGoldProgress !== motion.activeMonthGoldProgress) {
+      setActiveMonthGoldProgress(motion.activeMonthGoldProgress);
+    }
+    interactionMotionObservabilityRef.current = {
+      seatedCount: seated.length,
+      seatedGeneralIds: nextIds,
+      activeMonthGoldProgress: motion.activeMonthGoldProgress,
+    };
+  }, []);
 
   useEffect(() => {
     onShowCourseRef.current = onShowCourse;
@@ -194,20 +213,26 @@ export function ArtifactExperience({
     if (interactionRef.current.phase !== "locked") {
       const motion = evaluateInteractiveJadePlateMotion(interactionRef.current, nowMs, reducedMotionRef.current);
       controller.applyJadePlateMotion(motion);
-      const nextSeatedCount = motion.generals.filter((general) => general.seatProgress === 1).length;
-      setSeatedCount((current) => current === nextSeatedCount ? current : nextSeatedCount);
+      publishInteractionMotion(motion);
     }
     if (observableBuild()) {
       setCurrentPoseHash(poseHash(appliedState));
       setSourceLinesActive(appliedState.courseTraceOpacity > 0);
     }
-  }, []);
+  }, [publishInteractionMotion]);
 
   const replaceInteraction = useCallback(() => {
     const next = createMonthGeneralState(jadePlateLayout);
     interactionRef.current = next;
     setInteraction(next);
     setSeatedCount(0);
+    setSeatedGeneralIds("");
+    setActiveMonthGoldProgress(0);
+    interactionMotionObservabilityRef.current = {
+      seatedCount: 0,
+      seatedGeneralIds: "",
+      activeMonthGoldProgress: 0,
+    };
     controllerRef.current?.setMonthGeneralInteractionEnabled(false);
     return next;
   }, [jadePlateLayout]);
@@ -224,8 +249,8 @@ export function ArtifactExperience({
     setInteraction(next);
     const nextMotion = evaluateInteractiveJadePlateMotion(next, event.nowMs, reducedMotionRef.current);
     controllerRef.current?.applyJadePlateMotion(nextMotion);
-    setSeatedCount(nextMotion.generals.filter((general) => general.seatProgress === 1).length);
-  }, []);
+    publishInteractionMotion(nextMotion);
+  }, [publishInteractionMotion]);
 
   const finishDemo = useCallback((nowMs: number) => {
     if (interactionRef.current.phase !== "locked") return;
@@ -233,6 +258,14 @@ export function ArtifactExperience({
     interactionRef.current = next;
     setInteraction(next);
     setSeatedCount(12);
+    const completedIds = next.layout.generalSequence.map((general) => general.nodeId).join(",");
+    setSeatedGeneralIds(completedIds);
+    setActiveMonthGoldProgress(1);
+    interactionMotionObservabilityRef.current = {
+      seatedCount: 12,
+      seatedGeneralIds: completedIds,
+      activeMonthGoldProgress: 1,
+    };
     controllerRef.current?.setMonthGeneralInteractionEnabled(true);
   }, []);
 
@@ -479,14 +512,17 @@ export function ArtifactExperience({
     "data-source-lines": sourceLinesActive ? "active" : "disabled",
     "data-min-branch-px": minimumBranchProjectionPx,
     "data-min-branch-edge-px": minimumBranchEdgeMarginPx,
+    "data-month-general-phase": interaction.phase,
     "data-month-general-detent": interaction.detent,
     "data-month-general-aligned": String(interaction.aligned),
+    "data-seated-generals": seatedCount,
+    "data-seated-general-ids": seatedGeneralIds,
+    "data-general-sequence": jadePlateLayout.generalSequence.map((general) => general.nodeId).join(","),
+    "data-active-month-gold": activeMonthGoldProgress.toFixed(3),
     "data-month-general-sequence": jadePlateLayout.generalSequence.map((general) => general.nodeId).join(","),
-    "data-month-general-seated-ids": interaction.aligned
-      ? jadePlateLayout.generalSequence.slice(0, seatedCount).map((general) => general.nodeId).join(",")
-      : "",
+    "data-month-general-seated-ids": seatedGeneralIds,
     "data-month-general-seated-count": seatedCount,
-    "data-month-general-gold-progress": interaction.aligned ? 1 : 0,
+    "data-month-general-gold-progress": activeMonthGoldProgress,
   } : {};
   const partDirectory = (
     <ArtifactPartDirectory

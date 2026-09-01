@@ -16,6 +16,7 @@ import type { ArtifactPose } from "./timeline/types";
 import type { MonthGeneralInputEvent } from "./three/ArtifactSceneController";
 import { referenceSession } from "../../test/reference-session";
 import { useReducedMotion } from "./use-reduced-motion";
+import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 
 interface ControllerDouble {
   callbacks: {
@@ -392,7 +393,7 @@ describe("ArtifactExperience", () => {
     expect(latestController().dispose).toHaveBeenCalledOnce();
   });
 
-  it("shows stage annotations by default and exposes all 22 or no annotations on demand", async () => {
+  it("shows stage annotations by default and exposes all or no annotations on demand", async () => {
     const user = userEvent.setup();
     render(<ArtifactExperience source={referenceSourceResults} selectedStage="calendar" onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
@@ -400,7 +401,7 @@ describe("ArtifactExperience", () => {
     expect(screen.getByRole("button", { name: "本阶段" })).toHaveAttribute("aria-pressed", "true");
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(3);
     await user.click(screen.getByRole("button", { name: "全部" }));
-    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(22);
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(ARTIFACT_ANNOTATION_DESCRIPTORS.length);
     await user.click(screen.getByRole("button", { name: "隐藏" }));
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
   });
@@ -417,12 +418,12 @@ describe("ArtifactExperience", () => {
 
     await user.click(screen.getByRole("button", { name: "打开部件目录" }));
     const dialog = screen.getByRole("dialog", { name: "全部部件" });
-    expect(dialog.querySelectorAll("button[data-part-id]")).toHaveLength(22);
+    expect(dialog.querySelectorAll("button[data-part-id]")).toHaveLength(ARTIFACT_ANNOTATION_DESCRIPTORS.length);
     await user.click(dialog.querySelector<HTMLButtonElement>('button[data-part-id="plate/heaven"]')!);
 
     expect(latestController().focusNode).toHaveBeenCalledWith("plate/heaven");
     expect(screen.queryByRole("dialog", { name: "全部部件" })).not.toBeInTheDocument();
-    expect(screen.getByText("当前聚焦：天盘")).toBeVisible();
+    expect(screen.getByText("当前聚焦：月将环")).toBeVisible();
   });
 
   it("keeps the 3D experience usable when annotation sampling reports a missing node", async () => {

@@ -1,5 +1,5 @@
 export type ArtifactAnnotationId =
-  | "calendar/slip" | "plate/earth" | "plate/heaven"
+  | "calendar/slip" | "plate/earth" | "plate/heaven" | "plate/generals"
   | "lesson/first" | "lesson/second" | "lesson/third" | "lesson/fourth"
   | "transmission/initial" | "transmission/middle" | "transmission/final"
   | "general/noble" | "general/snake" | "general/vermilion-bird" | "general/harmony"

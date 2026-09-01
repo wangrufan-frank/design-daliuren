@@ -8,7 +8,7 @@ import { ArtifactAnnotationLayer } from "./ArtifactAnnotationLayer";
 
 const featuredIds = ["calendar/slip", "plate/earth", "plate/heaven"] as const;
 const allIds = [
-  "calendar/slip", "plate/earth", "plate/heaven", "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
+  "calendar/slip", "plate/earth", "plate/heaven", "plate/generals", "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
   "transmission/initial", "transmission/middle", "transmission/final", "general/noble", "general/snake", "general/vermilion-bird",
   "general/harmony", "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger", "general/constant",
   "general/black-tortoise", "general/yin", "general/queen-of-heaven",
@@ -115,7 +115,7 @@ describe("ArtifactAnnotationLayer", () => {
 
     await user.click(screen.getByRole("button", { name: "全部" }));
     const allCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
-    expect(allCards).toHaveLength(22);
+    expect(allCards).toHaveLength(allIds.length);
     allCards.forEach((card) => expect(card).not.toBeVisible());
 
     frames.step(32);
@@ -140,7 +140,7 @@ describe("ArtifactAnnotationLayer", () => {
 
     const reorderedCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
     expect(reorderedCards.map((card) => card.getAttribute("aria-label"))).toEqual([
-      "天盘：随月将转动，显示天盘加临位置。",
+      "月将环：月将文字所在的白玉环独立旋转，显示加临位置。",
       "地盘：承载十二支方位，作为加临的基准。",
       "历书：记载占时与月将的历法依据。",
     ]);
@@ -203,7 +203,7 @@ describe("ArtifactAnnotationLayer", () => {
     expect(path).toHaveAttribute("stroke-dasharray", "4 4");
   });
 
-  it("switches between the stage, all 22, and hidden density sets and focuses cards", async () => {
+  it("switches between the stage, all descriptors, and hidden density sets and focuses cards", async () => {
     const frames = installAnimationFrames();
     const user = userEvent.setup();
     const fixture = sourceFixture(
@@ -221,13 +221,13 @@ describe("ArtifactAnnotationLayer", () => {
     expect(stageCards.map((card) => card.getAttribute("aria-label"))).toEqual([
       "历书：记载占时与月将的历法依据。",
       "地盘：承载十二支方位，作为加临的基准。",
-      "天盘：随月将转动，显示天盘加临位置。",
+      "月将环：月将文字所在的白玉环独立旋转，显示加临位置。",
     ]);
 
     await user.click(screen.getByRole("button", { name: "全部" }));
     frames.step(32);
     const allCards = [...document.querySelectorAll<HTMLButtonElement>(".artifact-annotations__card")];
-    expect(allCards).toHaveLength(22);
+    expect(allCards).toHaveLength(allIds.length);
     allCards.forEach((card) => expect(card).toBeVisible());
     await user.click(screen.getByRole("button", { name: "隐藏" }));
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);

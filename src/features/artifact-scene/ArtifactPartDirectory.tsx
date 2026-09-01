@@ -15,6 +15,7 @@ const OWNER_BY_ID: Readonly<Record<ArtifactAnnotationId, ArtifactOwnerStage>> = 
   "calendar/slip": "calendar",
   "plate/earth": "heaven-earth",
   "plate/heaven": "heaven-earth",
+  "plate/generals": "heavenly-generals",
   "lesson/first": "four-lessons",
   "lesson/second": "four-lessons",
   "lesson/third": "four-lessons",
@@ -100,7 +101,7 @@ export function ArtifactPartDirectory({ stage, descriptors, onFocus }: ArtifactP
           }}
         >
           <header className="artifact-part-directory__sheet-header">
-            <p>全部 22 个部件</p>
+            <p>全部 {descriptors.length} 个部件</p>
             <button ref={closeRef} type="button" aria-label="关闭部件目录" onClick={() => setOpen(false)}>关闭</button>
           </header>
           <div className="artifact-part-directory__scroll">
@@ -120,7 +121,7 @@ export function ArtifactPartDirectory({ stage, descriptors, onFocus }: ArtifactP
                     <small aria-hidden="true">{group.id === "course" ? "总览" : `${entries.length} 项`}</small>
                   </button>
                   <div id={panelId} className="artifact-part-directory__entries" hidden={!isExpanded}>
-                    {group.id === "course" && <p className="artifact-part-directory__overview">无新增部件，可查看全部22项</p>}
+                    {group.id === "course" && <p className="artifact-part-directory__overview">无新增部件，可查看全部{descriptors.length}项</p>}
                     {entries.map((descriptor) => (
                       <button
                         key={descriptor.id}

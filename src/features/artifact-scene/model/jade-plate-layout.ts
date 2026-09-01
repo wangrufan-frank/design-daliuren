@@ -20,7 +20,7 @@ export const GENERAL_NODE_IDS = {
 
 export const GENERAL_LABEL_IDS = Object.fromEntries(
   Object.entries(GENERAL_NODE_IDS).map(([general, id]) => [general, `dynamic/${id}`]),
-) as Record<HeavenlyGeneral, `dynamic/general/${string}`>;
+) as unknown as Record<HeavenlyGeneral, `dynamic/general/${string}`>;
 
 export interface JadePlateGeneralLayout {
   sequenceIndex: number;
