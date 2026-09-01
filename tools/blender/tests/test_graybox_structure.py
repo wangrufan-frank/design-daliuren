@@ -1,5 +1,6 @@
 import sys
 import unittest
+import math
 from pathlib import Path
 
 import bpy
@@ -8,6 +9,7 @@ from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_graybox
+from daliuren_contract import VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle
 
 
 class GrayboxStructureTest(unittest.TestCase):
@@ -59,6 +61,27 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertTrue(core["fixed"])
         self.assertEqual(heaven.parent, self.root)
         self.assertEqual(generals.parent, self.root)
+
+    def test_reference_top_orientation_keeps_branches_and_months_on_compact_circular_rings(self):
+        earth = bpy.data.objects["plate/earth"]
+        heaven = bpy.data.objects["plate/heaven"]
+        for index, branch in enumerate(VISUAL_EARTH_ORDER):
+            glyph = bpy.data.objects[f"branch/earth/{branch}"]
+            self.assertIs(glyph.parent, earth)
+            self.assertEqual(glyph["ring_index"], index)
+            self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.145, places=4)
+            self.assertAlmostEqual(glyph.location.x, 0.145 * math.cos(visual_angle(index)), places=4)
+            self.assertAlmostEqual(glyph.location.y, 0.145 * math.sin(visual_angle(index)), places=4)
+            self.assertLess(max(glyph.dimensions.x, glyph.dimensions.y), 0.030)
+            self.assertNotIn(f"detail/branch-bed/earth/{branch}", bpy.data.objects)
+        self.assertEqual(VISUAL_EARTH_ORDER[0], "午")
+        self.assertEqual(VISUAL_MONTH_ORDER[0], "胜光")
+        for index, month in enumerate(VISUAL_MONTH_ORDER):
+            glyph = bpy.data.objects[f"month-general/{month}"]
+            self.assertIs(glyph.parent, heaven)
+            self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.118, places=4)
+            self.assertAlmostEqual(glyph.location.x, 0.118 * math.cos(visual_angle(index)), places=4)
+            self.assertAlmostEqual(glyph.location.y, 0.118 * math.sin(visual_angle(index)), places=4)
 
     def test_runtime_parts_have_stable_ids_and_root_parent(self):
         runtime_names = ("base/body", "plate/earth", "plate/heaven")

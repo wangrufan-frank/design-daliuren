@@ -1,3 +1,4 @@
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,7 +25,6 @@ ALLOWED_DETAIL_PREFIXES = (
     "wear/contact-",
 )
 EXPECTED_DETAIL_COUNTS = {
-    "structure/bronze-inlay-branch-bed": 12,
     "structure/base-shell-thickness": 4,
     "structure/base-bottom-seam": 1,
     "structure/base-corner-transition": 4,
@@ -109,8 +109,15 @@ class HighDetailGeometryTest(unittest.TestCase):
         ]
         self.assertEqual(len(zodiac), 12)
         self.assertTrue(all(obj.type == "MESH" for obj in zodiac))
+        for index, glyph in enumerate(zodiac):
+            self.assertAlmostEqual(glyph.location.xy.length, 0.232, places=4)
+            self.assertAlmostEqual(glyph.rotation_euler.z, math.radians(-index * 30), places=4)
         self.assertEqual(len(pearls), 4)
         self.assertTrue(all(obj.type == "MESH" for obj in pearls))
+        self.assertEqual(
+            {tuple(round(value, 4) for value in pearl.location.xy) for pearl in pearls},
+            {(-0.158, 0.158), (0.158, 0.158), (-0.158, -0.158), (0.158, -0.158)},
+        )
 
     def test_unapproved_motion_parts_are_parked_below_the_reference_face(self):
         upgrade_to_high_detail(self.root)

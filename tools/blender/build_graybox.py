@@ -16,6 +16,7 @@ from daliuren_contract import (
     GENERAL_SECTOR_ANGLE_DEG,
     GENERAL_SECTOR_INNER_RADIUS,
     GENERAL_SECTOR_OUTER_RADIUS,
+    MONTH_GENERAL_RADIUS_M,
     POSE_IDS,
     VISUAL_EARTH_ORDER,
     VISUAL_MONTH_ORDER,
@@ -345,7 +346,7 @@ def add_month_general_glyphs(heaven, font_path):
         obj = bpy.data.objects.new(f"month-general/{month}", curve)
         bpy.context.scene.collection.objects.link(obj)
         obj.parent = heaven
-        obj.location = (0.145 * math.cos(angle), 0.145 * math.sin(angle), heaven.dimensions.z / 2)
+        obj.location = (MONTH_GENERAL_RADIUS_M * math.cos(angle), MONTH_GENERAL_RADIUS_M * math.sin(angle), heaven.dimensions.z / 2)
         obj.rotation_euler.z = angle - math.pi / 2
         obj["node_id"] = obj.name
         obj["visual_index"] = index
@@ -438,7 +439,7 @@ def build_graybox():
     heaven["rotates_independently"] = True
     # Two visual bands share the same parent, so they can never drift apart.
     for ring_index, (outer_radius, inner_radius) in enumerate(
-        ((0.165, 0.137), (0.136, 0.110)), start=1
+        ((0.165, 0.137), (0.136, 0.096)), start=1
     ):
         band = add_ring(
             f"detail/heaven/linked-ring-{ring_index}",

@@ -17,13 +17,16 @@ GENERAL_INLAY_DIMENSIONS = (
     GENERAL_INLAY_DEPTH_M,
 )
 
+MONTH_GENERAL_RADIUS_M = 0.118
+FIXED_CORE_DIAMETER_M = 0.112
+
 
 DIMENSIONS = {
     "base": (0.520, 0.520, 0.028),
     "earth_plate": (0.500, 0.500, 0.006),
     "heaven_plate": (0.332, 0.010),
     "general_ring": (0.218, 0.007),
-    "fixed_core": (0.126, 0.006),
+    "fixed_core": (FIXED_CORE_DIAMETER_M, 0.006),
     "calendar_slip": (0.300, 0.038, 0.009),
     "lesson_slip": (0.074, 0.034, 0.009),
     "transmission_slip": (0.070, 0.036, 0.010),

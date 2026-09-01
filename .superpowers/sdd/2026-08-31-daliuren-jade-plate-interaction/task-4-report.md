@@ -65,3 +65,31 @@
 
 - Each `general/<key>` is a direct child of fixed `plate/generals`, with its initial local location and rotation copied from its assigned slot.
 - Slot-local mesh data remains canonical. Reassigning a direct piece to either of two target slot transforms now produces that target's world translation and rotation exactly, with no source-slot multiplication.
+
+## Visual geometry correction — v10 composition
+
+### RED evidence
+
+- `test_contract.py` failed: the fixed-core contract remained `126 mm`, not the required `112 mm` visual core.
+- `test_graybox_structure.py` failed: the fixed branches were at the old outer `194 mm` radius with oversized branch-bed geometry.
+- `test_component_contract.py` failed: `午` still had visual index 6 instead of occupying the top palace at index 0.
+- `test_high_detail_geometry.py` failed because the old 12 earth branch beds were still counted as approved detail geometry.
+
+### GREEN evidence
+
+- Blender contract suite: 3/3 passed.
+- Blender high-detail geometry suite: 8/8 passed.
+- Blender graybox suite: 14/14 passed (`Ran 14 tests in 16.383s`, `OK`).
+- Blender component-contract suite: 11/11 passed (`Ran 11 tests in 12.207s`, `OK`).
+
+### Visual self-review
+
+- Temporary source-only oblique render: `C:\Users\Lenovo\AppData\Local\Temp\jade-plate-visual-correction.png`.
+- The square board fills the review frame; the round plate is centered at the reference-scale diameter. The twelve zodiac panels and the four diagonal corner pearls remain visible around it.
+- Fixed earth branches are now compact `28 mm` glyphs on the `145 mm` circular ring, ordered top-down as `午 未 申 酉 戌 亥 子 丑 寅 卯 辰 巳`; `胜光` begins the adjacent `118 mm` month-general ring. No earth branch-bed or other generic plaque geometry remains to obscure the zodiac ring.
+- The core contract is `112 mm`, retaining the centered Beidou/pivot detail while opening the inner general-sector annulus.
+
+### Scope and concerns
+
+- No generated LOD, source `.blend`, `.blend1`, or `tools/node/` content was changed or staged. The temporary render is outside the repository.
+- The visual review uses the neutral graybox review rig to inspect composition and bounds; Task 5 remains responsible for regenerated material/export evidence.

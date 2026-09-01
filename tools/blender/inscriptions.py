@@ -5,9 +5,6 @@ from pathlib import Path
 
 import bpy
 
-from geometry import add_beveled_box
-
-
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXED_INSCRIPTIONS_PATH = (
     REPOSITORY_ROOT / "assets/daliuren/inscriptions/fixed-inscriptions.json"
@@ -47,8 +44,10 @@ TEXT_SIZES = {
     "historical-mansion": 0.0048,
     "historical-month-deity": 0.0045,
 }
-FUNCTIONAL_GLYPH_SPAN = 0.0496
-FUNCTIONAL_GLYPH_MESH_SPAN = 0.044
+FUNCTIONAL_GLYPH_SPANS = {
+    "earth": (0.028, 0.025),
+    "heaven": (0.0496, 0.044),
+}
 BRANCH_BED_SPANS = {
     "earth": (0.052, 0.052),
     "heaven": (0.052, 0.05199),
@@ -189,15 +188,16 @@ def _add_mesh_text(
     bpy.ops.object.convert(target="MESH")
     obj.select_set(False)
     if item.role in FUNCTIONAL_ROLES:
+        glyph_span, mesh_span = FUNCTIONAL_GLYPH_SPANS[surface]
         for axis in (0, 1):
             minimum = min(vertex.co[axis] for vertex in obj.data.vertices)
             maximum = max(vertex.co[axis] for vertex in obj.data.vertices)
             center = (minimum + maximum) / 2
-            scale = FUNCTIONAL_GLYPH_MESH_SPAN / (maximum - minimum)
+            scale = mesh_span / (maximum - minimum)
             for vertex in obj.data.vertices:
                 vertex.co[axis] = (vertex.co[axis] - center) * scale
-        obj.scale.x = FUNCTIONAL_GLYPH_SPAN / FUNCTIONAL_GLYPH_MESH_SPAN
-        obj.scale.y = FUNCTIONAL_GLYPH_SPAN / FUNCTIONAL_GLYPH_MESH_SPAN
+        obj.scale.x = glyph_span / mesh_span
+        obj.scale.y = glyph_span / mesh_span
         obj.data.update()
     surface_z = max(corner[2] for corner in parent.bound_box)
     local_top = max(vertex.co.z for vertex in obj.data.vertices)
@@ -281,20 +281,16 @@ def _cut_branch_recess(parent, inlay):
     cutter = _duplicate_mesh(inlay, f"cutter/{inlay['node_id']}")
     _apply_exact_difference(parent, cutter, inlay["node_id"])
 
+    if inlay["surface"] == "earth":
+        _recess_mesh_top(inlay, BRANCH_RECESS)
+        return
+
     bed_name = f"detail/branch-bed/{inlay['surface']}/{inlay['branch']}"
     surface_z = max(corner[2] for corner in parent.bound_box)
-    if inlay["surface"] == "heaven":
-        bed = _add_heaven_branch_bed(
-            bed_name,
-            math.hypot(inlay.location.x, inlay.location.y),
-        )
-    else:
-        bed = add_beveled_box(
-            bed_name,
-            (BRANCH_BED_MESH_SPAN, BRANCH_BED_MESH_SPAN, BRANCH_BED_DEPTH),
-            (0.0, 0.0, 0.0),
-            0.0012,
-        )
+    bed = _add_heaven_branch_bed(
+        bed_name,
+        math.hypot(inlay.location.x, inlay.location.y),
+    )
     del bed["node_id"]
     bed.parent = parent
     bed.location = (

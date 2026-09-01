@@ -242,15 +242,19 @@ class ComponentContractTest(unittest.TestCase):
 
     def test_fixed_black_earth_branch_inlays_form_the_only_branch_ring(self):
         parent = bpy.data.objects["plate/earth"]
-        node_ids = [f"branch/earth/{branch}" for branch in BRANCHES]
+        node_ids = [f"branch/earth/{branch}" for branch in VISUAL_EARTH_ORDER]
         ring = [bpy.data.objects[node_id] for node_id in node_ids]
         self.assertEqual(len(ring), 12)
         for index, inlay in enumerate(ring):
             self.assertEqual(inlay.parent, parent)
-            self.assertEqual(inlay["branch"], BRANCHES[index])
+            self.assertEqual(inlay["branch"], VISUAL_EARTH_ORDER[index])
             self.assertEqual(inlay["ring_index"], index)
-            self.assertAlmostEqual(math.hypot(inlay.location.x, inlay.location.y), 0.194)
-            self.assertNotIn(f"branch/heaven/{BRANCHES[index]}", bpy.data.objects)
+            self.assertAlmostEqual(math.hypot(inlay.location.x, inlay.location.y), 0.145, places=4)
+            self.assertAlmostEqual(inlay.location.x, 0.145 * math.cos(math.radians(90 - index * 30)), places=4)
+            self.assertAlmostEqual(inlay.location.y, 0.145 * math.sin(math.radians(90 - index * 30)), places=4)
+            self.assertLess(max(inlay.dimensions.x, inlay.dimensions.y), 0.030)
+            self.assertNotIn(f"detail/branch-bed/earth/{VISUAL_EARTH_ORDER[index]}", bpy.data.objects)
+            self.assertNotIn(f"branch/heaven/{VISUAL_EARTH_ORDER[index]}", bpy.data.objects)
 
     def test_reference_plate_has_two_linked_outer_rings_fixed_general_ring_and_fixed_core(self):
         heaven = bpy.data.objects["plate/heaven"]
