@@ -45,7 +45,7 @@ function node(id: string) {
 
 function fixture(
   dynamicIds: readonly string[] = ["dynamic/calendar"],
-  options: { invalidBranchMaterialId?: string; includeLegacyOverlay?: boolean } = {},
+  options: { invalidBranchMaterialId?: string; includeLegacyOverlay?: boolean; observeListeners?: boolean } = {},
 ) {
   let nowMs = 0;
   const canvas = document.createElement("canvas");
@@ -186,6 +186,8 @@ function fixture(
     onAnnotationError: vi.fn(),
     onMonthGeneralInput: vi.fn(),
   };
+  const addEventListener = options.observeListeners ? vi.spyOn(canvas, "addEventListener") : undefined;
+  const removeEventListener = options.observeListeners ? vi.spyOn(canvas, "removeEventListener") : undefined;
   const monthGlyphOriginalMaterials = new Map(
     [...monthGlyphs].map(([id, glyph]) => [id, glyph.material]),
   );
@@ -203,6 +205,7 @@ function fixture(
     trace, traceGeometry, traceMaterial, legacyOverlay,
     heaven, generalSeat, core, generalSlots, monthGlyphs, interactionRing,
     monthGlyphOriginalMaterials, generalNameOriginalMaterials,
+    addEventListener, removeEventListener,
     setNow: (value: number) => { nowMs = value; },
   };
 }
@@ -282,15 +285,36 @@ function generalPose(targetEarth: EarthlyBranch): ArtifactPose {
   };
 }
 
-function eventAtRing(canvas: HTMLCanvasElement, camera: THREE.Camera, type: string) {
-  const projected = new THREE.Vector3(0.14, 0, 0).project(camera);
+function eventAtRing(
+  canvas: HTMLCanvasElement,
+  camera: THREE.Camera,
+  type: string,
+  point = new THREE.Vector3(0.14, 0, 0),
+  pointerId = 7,
+) {
+  const projected = point.project(camera);
   const event = new MouseEvent(type, {
     bubbles: true,
     clientX: (projected.x + 1) * 100,
     clientY: (1 - projected.y) * 100,
   });
-  Object.defineProperty(event, "pointerId", { value: 7 });
+  Object.defineProperty(event, "pointerId", { value: pointerId });
   return event;
+}
+
+function enabledRingFixture() {
+  const current = fixture();
+  Object.defineProperty(current.canvas, "getBoundingClientRect", { value: () => ({ left: 0, top: 0, width: 200, height: 200 }) });
+  Object.defineProperty(current.canvas, "setPointerCapture", { value: vi.fn() });
+  Object.defineProperty(current.canvas, "releasePointerCapture", { value: vi.fn() });
+  current.controller.setMonthGeneralInteractionEnabled(true);
+  current.controller.resize(200, 200, 1);
+  current.controller.render();
+  current.canvas.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 }));
+  return {
+    ...current,
+    camera: vi.mocked(current.renderer.render).mock.calls.at(-1)![1] as THREE.Camera,
+  };
 }
 
 const displayState = {
@@ -349,7 +373,7 @@ describe("ArtifactSceneController", () => {
   });
 
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
-    const { controller, controls, environmentTexture, renderer } = fixture();
+    const { controller, controls, environmentTexture, interactionRing, renderer } = fixture();
 
     controller.resize(800, 400, 2);
     controller.render();
@@ -376,6 +400,7 @@ describe("ArtifactSceneController", () => {
     const camera = vi.mocked(renderer.render).mock.calls[0][1] as THREE.PerspectiveCamera;
     expect(camera).toMatchObject({ fov: 34, near: 0.05, far: 4 });
     expect(controls.autoRotate).toBe(false);
+    expect(interactionRing.material).toMatchObject({ transparent: true, opacity: 0, colorWrite: false, depthWrite: false });
   });
 
   it("keeps only the fixed black earthly-branch glyphs without void recoloring", () => {
@@ -476,6 +501,119 @@ describe("ArtifactSceneController", () => {
     controller.setMonthGeneralInteractionEnabled(false);
     canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown"));
     expect(controls.enabled).toBe(true);
+  });
+
+  it("handles confirmed ring and wheel input before an OrbitControls bubble listener", () => {
+    const { callbacks, camera, canvas, controls, controller } = enabledRingFixture();
+    const orbitPointer = vi.fn();
+    const orbitWheel = vi.fn();
+    canvas.addEventListener("pointerdown", orbitPointer);
+    canvas.addEventListener("wheel", orbitWheel);
+
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown"));
+    const wheel = new Event("wheel", { bubbles: true, cancelable: true });
+    Object.defineProperty(wheel, "deltaY", { value: 1 });
+    canvas.dispatchEvent(wheel);
+
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-start" }));
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "step", delta: 1 }));
+    expect(controls.enabled).toBe(false);
+    expect(orbitPointer).not.toHaveBeenCalled();
+    expect(orbitWheel).not.toHaveBeenCalled();
+    controller.dispose();
+  });
+
+  it("leaves disabled and non-ring pointer, wheel, and key events to other handlers", () => {
+    const { callbacks, camera, canvas, controller } = enabledRingFixture();
+    const orbitPointer = vi.fn();
+    const orbitWheel = vi.fn();
+    const orbitKey = vi.fn();
+    canvas.addEventListener("pointerdown", orbitPointer);
+    canvas.addEventListener("wheel", orbitWheel);
+    canvas.addEventListener("keydown", orbitKey);
+
+    canvas.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 }));
+    controller.setMonthGeneralInteractionEnabled(false);
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown"));
+    const disabledWheel = new Event("wheel", { bubbles: true, cancelable: true });
+    Object.defineProperty(disabledWheel, "deltaY", { value: 1 });
+    canvas.dispatchEvent(disabledWheel);
+    canvas.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+
+    expect(callbacks.onMonthGeneralInput).not.toHaveBeenCalled();
+    expect(orbitPointer).toHaveBeenCalledTimes(2);
+    expect(orbitWheel).toHaveBeenCalledOnce();
+    expect(orbitKey).toHaveBeenCalledOnce();
+  });
+
+  it("emits ArrowRight only while ring interaction is enabled", () => {
+    const { callbacks, canvas } = enabledRingFixture();
+
+    canvas.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "step", delta: 1 }));
+  });
+
+  it("normalizes a wraparound drag and restores capture exactly once on cancellation", () => {
+    const { callbacks, camera, canvas, controls } = enabledRingFixture();
+    const capture = canvas.setPointerCapture as unknown as ReturnType<typeof vi.fn>;
+    const release = canvas.releasePointerCapture as unknown as ReturnType<typeof vi.fn>;
+    const unrelatedMove = vi.fn();
+    const start = new THREE.Vector3(0.01, 0, -0.14);
+    const acrossBoundary = new THREE.Vector3(-0.01, 0, -0.14);
+    canvas.addEventListener("pointermove", unrelatedMove);
+
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown", start));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointermove", acrossBoundary, 8));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointermove", acrossBoundary));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointercancel", acrossBoundary));
+
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-move", angleRad: expect.any(Number) }));
+    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-end", angularVelocityRadMs: 0 }));
+    expect(capture).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledOnce();
+    expect(unrelatedMove).toHaveBeenCalledOnce();
+    expect(controls.enabled).toBe(true);
+  });
+
+  it("restores a captured gesture after callback, render, disable, and disposal errors", () => {
+    const callbackFailure = enabledRingFixture();
+    callbackFailure.callbacks.onMonthGeneralInput.mockImplementationOnce(() => { throw new Error("callback failed"); });
+    callbackFailure.canvas.dispatchEvent(eventAtRing(callbackFailure.canvas, callbackFailure.camera, "pointerdown"));
+    expect(callbackFailure.controls.enabled).toBe(true);
+    expect(callbackFailure.canvas.releasePointerCapture).toHaveBeenCalledOnce();
+
+    const renderFailure = enabledRingFixture();
+    renderFailure.canvas.dispatchEvent(eventAtRing(renderFailure.canvas, renderFailure.camera, "pointerdown"));
+    vi.mocked(renderFailure.renderer.render).mockImplementation(() => { throw new Error("render failed"); });
+    renderFailure.controller.render();
+    expect(renderFailure.controls.enabled).toBe(true);
+    expect(renderFailure.canvas.releasePointerCapture).toHaveBeenCalledOnce();
+
+    const disabled = enabledRingFixture();
+    disabled.canvas.dispatchEvent(eventAtRing(disabled.canvas, disabled.camera, "pointerdown"));
+    disabled.controller.setMonthGeneralInteractionEnabled(false);
+    disabled.controller.dispose();
+    expect(disabled.controls.enabled).toBe(true);
+    expect(disabled.canvas.releasePointerCapture).toHaveBeenCalledOnce();
+
+    const disposed = enabledRingFixture();
+    disposed.canvas.dispatchEvent(eventAtRing(disposed.canvas, disposed.camera, "pointerdown"));
+    disposed.controller.dispose();
+    expect(disposed.controls.enabled).toBe(true);
+    expect(disposed.canvas.releasePointerCapture).toHaveBeenCalledOnce();
+  });
+
+  it("removes capture listeners with the exact options used for registration", () => {
+    const observed = fixture(["dynamic/calendar"], { observeListeners: true });
+    observed.controller.dispose();
+
+    for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "wheel"]) {
+      const added = observed.addEventListener!.mock.calls.find(([eventType]) => eventType === type)!;
+      const removed = observed.removeEventListener!.mock.calls.find(([eventType]) => eventType === type)!;
+      expect(added[2]).toEqual(type === "wheel" ? { capture: true, passive: false } : { capture: true });
+      expect(removed[2]).toBe(added[2]);
+    }
   });
 
   it("measures actual projected branch vertices instead of an inflated world AABB", () => {

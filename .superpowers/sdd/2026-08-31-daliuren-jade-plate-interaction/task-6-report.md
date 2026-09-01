@@ -26,3 +26,10 @@
 ## Concerns
 
 - React ownership and reduction of emitted gesture events are deliberately deferred to Task 7; this task contains no React/state-machine integration.
+
+## Review follow-up
+
+- Pointer down, move, up, cancel, and wheel listeners now use shared capture-phase option objects; removal receives the identical option object used for registration.
+- A confirmed annulus hit or enabled wheel/key gesture calls both `preventDefault()` and `stopImmediatePropagation()` before dispatching the normalized event. Disabled, non-ring, and unrelated-pointer events continue to other handlers.
+- Focused regression coverage now proves bubble-phase OrbitControls listeners do not observe confirmed ring/wheel gestures; it also covers wraparound drag, cancellation, ArrowRight, first-frame annulus invisibility, callback/render recovery, disable/dispose while captured, and exactly-once capture release.
+- Follow-up GREEN: `npm test -- src/features/artifact-scene/three/month-general-pointer.test.ts src/features/artifact-scene/three/ArtifactSceneController.test.ts src/features/artifact-scene/three/load-artifact.test.ts` passed: 3 files, 42 tests.

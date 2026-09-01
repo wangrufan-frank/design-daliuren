@@ -125,6 +125,8 @@ const LABEL_SIZE = { width: 512, height: 256 } as const;
 const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
 const DAY_NIGHT_TEXT = { day: "昼", night: "夜" } as const;
 const OLD_GOLD = new THREE.Color(0xb98a38);
+const RING_CAPTURE_OPTIONS = { capture: true } as const;
+const WHEEL_CAPTURE_OPTIONS = { capture: true, passive: false } as const;
 
 interface TextMaterialBinding {
   mesh: THREE.Mesh;
@@ -198,12 +200,24 @@ export class ArtifactSceneController {
   private readonly handleWheel = (event: WheelEvent) => {
     if (!this.interactionEnabled || event.deltaY === 0) return;
     event.preventDefault();
-    this.emitMonthGeneralInput({ type: "step", delta: event.deltaY > 0 ? 1 : -1, nowMs: this.now() });
+    event.stopImmediatePropagation();
+    try {
+      this.emitMonthGeneralInput({ type: "step", delta: event.deltaY > 0 ? 1 : -1, nowMs: this.now() });
+    } catch (error) {
+      this.restoreRingGesture();
+      this.callbacks.onError(error);
+    }
   };
   private readonly handleKeyDown = (event: KeyboardEvent) => {
     if (!this.interactionEnabled || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
     event.preventDefault();
-    this.emitMonthGeneralInput({ type: "step", delta: event.key === "ArrowRight" ? 1 : -1, nowMs: this.now() });
+    event.stopImmediatePropagation();
+    try {
+      this.emitMonthGeneralInput({ type: "step", delta: event.key === "ArrowRight" ? 1 : -1, nowMs: this.now() });
+    } catch (error) {
+      this.restoreRingGesture();
+      this.callbacks.onError(error);
+    }
   };
 
   constructor(
@@ -263,11 +277,11 @@ export class ArtifactSceneController {
     this.controls.addEventListener("start", this.handleControlStart);
     if (renderer.domElement.tabIndex < 0) renderer.domElement.tabIndex = 0;
     renderer.domElement.addEventListener("webglcontextlost", this.handleContextLost);
-    renderer.domElement.addEventListener("pointerdown", this.handlePointerDown);
-    renderer.domElement.addEventListener("pointermove", this.handlePointerMove);
-    renderer.domElement.addEventListener("pointerup", this.handlePointerUp);
-    renderer.domElement.addEventListener("pointercancel", this.handlePointerCancel);
-    renderer.domElement.addEventListener("wheel", this.handleWheel, { passive: false });
+    renderer.domElement.addEventListener("pointerdown", this.handlePointerDown, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("pointermove", this.handlePointerMove, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("pointerup", this.handlePointerUp, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("pointercancel", this.handlePointerCancel, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("wheel", this.handleWheel, WHEEL_CAPTURE_OPTIONS);
     renderer.domElement.addEventListener("keydown", this.handleKeyDown);
 
     for (const [id, object] of artifact.nodes) {
@@ -692,7 +706,7 @@ export class ArtifactSceneController {
       this.controls.enabled = false;
       this.renderer.domElement.setPointerCapture?.(event.pointerId);
       event.preventDefault();
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       this.emitMonthGeneralInput({ type: "drag-start", angleRad, nowMs });
     } catch (error) {
       this.restoreRingGesture();
@@ -710,6 +724,7 @@ export class ArtifactSceneController {
       gesture.angleRad = angleRad;
       gesture.atMs = nowMs;
       event.preventDefault();
+      event.stopImmediatePropagation();
       this.emitMonthGeneralInput({ type: "drag-move", angleRad, nowMs });
     } catch (error) {
       this.restoreRingGesture();
@@ -726,6 +741,7 @@ export class ArtifactSceneController {
       const elapsedMs = Math.max(1, nowMs - gesture.atMs);
       const delta = Math.atan2(Math.sin(angleRad - gesture.angleRad), Math.cos(angleRad - gesture.angleRad));
       event.preventDefault();
+      event.stopImmediatePropagation();
       if (this.interactionEnabled) {
         this.emitMonthGeneralInput({
           type: "drag-end",
@@ -784,11 +800,11 @@ export class ArtifactSceneController {
     this.stopped = true;
     this.restoreRingGesture();
     this.renderer.domElement.removeEventListener("webglcontextlost", this.handleContextLost);
-    this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown);
-    this.renderer.domElement.removeEventListener("pointermove", this.handlePointerMove);
-    this.renderer.domElement.removeEventListener("pointerup", this.handlePointerUp);
-    this.renderer.domElement.removeEventListener("pointercancel", this.handlePointerCancel);
-    this.renderer.domElement.removeEventListener("wheel", this.handleWheel);
+    this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("pointermove", this.handlePointerMove, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("pointerup", this.handlePointerUp, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("pointercancel", this.handlePointerCancel, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("wheel", this.handleWheel, WHEEL_CAPTURE_OPTIONS);
     this.renderer.domElement.removeEventListener("keydown", this.handleKeyDown);
     this.controls.removeEventListener("start", this.handleControlStart);
     this.controls.dispose();
