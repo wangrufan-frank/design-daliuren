@@ -150,7 +150,7 @@ function fixture(
           : earthBranchMaterial,
       );
       branchNode.userData.node_id = id;
-      branchNode.position.set((index - 5.5) * 0.018, 0, 0);
+      branchNode.position.set((index - 5.5) * 0.018 + 0.03, 0, -0.02);
       root.add(branchNode);
       branchNodes.set(id, branchNode);
   });
@@ -386,7 +386,7 @@ describe("ArtifactSceneController", () => {
 
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
     const {
-      controller, controls, environmentTexture, generalSeatRecess, generalSeatSurface,
+      branchNodes, controller, controls, environmentTexture, generalSeatRecess, generalSeatSurface,
       interactionRing, renderer,
     } = fixture();
 
@@ -421,7 +421,9 @@ describe("ArtifactSceneController", () => {
     expect(camera.projectionMatrix.elements[8]).toBeCloseTo(0.24417912, 8);
     expect(camera.projectionMatrix.elements[9]).toBeCloseTo(-0.359587978, 8);
     expect(camera.userData.v10HeroRollRadians).toBeCloseTo(-0.0997904, 6);
-    expect(generalSeatRecess.material).toMatchObject({ color: new THREE.Color(0xeee9df), roughness: 0.34 });
+    expect(generalSeatRecess.visible).toBe(false);
+    expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.x, 0) / branchNodes.size).toBeCloseTo(0);
+    expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.z, 0) / branchNodes.size).toBeCloseTo(0);
     expect(controls.autoRotate).toBe(false);
     expect(interactionRing.material).toMatchObject({ transparent: true, opacity: 0, colorWrite: false, depthWrite: false });
   });
@@ -891,7 +893,7 @@ describe("ArtifactSceneController", () => {
     resetPose.nodes["calendar/slip"].visible = true;
     controller.applyPose(resetPose);
     expect(movingNode.visible).toBe(true);
-    expect((labelSurface.material as THREE.MeshBasicMaterial).opacity).toBe(1);
+    expect((labelSurface.material as THREE.MeshBasicMaterial).opacity).toBe(0);
     expect((trace.material as THREE.MeshStandardMaterial).opacity).toBe(0);
   });
 

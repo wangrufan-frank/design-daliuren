@@ -526,7 +526,7 @@ export class ArtifactSceneController {
     }
     this.applyJadePlateMotion(pose.jadePlate);
     for (const [dynamicId, binding] of this.labelBindings) {
-      binding.material.opacity = pose.labelOpacity[dynamicId] ?? 1;
+      binding.material.opacity = pose.labelOpacity[dynamicId] ?? 0;
     }
     this.courseTraceMaterial.opacity = pose.courseTraceOpacity;
     return this.captureAppliedState(pose);
@@ -694,35 +694,29 @@ export class ArtifactSceneController {
       object.position.x = 0;
       object.position.z = 0;
     }
+    const branchCenter = new THREE.Vector2();
+    for (const mesh of this.branchMeshes.values()) {
+      branchCenter.x += mesh.position.x;
+      branchCenter.y += mesh.position.z;
+    }
+    branchCenter.multiplyScalar(1 / this.branchMeshes.size);
+    for (const mesh of this.branchMeshes.values()) {
+      mesh.position.x -= branchCenter.x;
+      mesh.position.z -= branchCenter.y;
+    }
   }
 
   private harmonizeJadeSurfaces(): void {
-    let seatMaterial: THREE.MeshStandardMaterial | undefined;
-    this.artifact.nodes.get("plate/generals")?.traverse((object) => {
-      if (seatMaterial || !(object instanceof THREE.Mesh)) return;
-      const material = Array.isArray(object.material) ? object.material[0] : object.material;
-      if (material instanceof THREE.MeshStandardMaterial) seatMaterial = material;
-    });
-    if (!seatMaterial) return;
-    const cleanJade = seatMaterial.clone();
-    cleanJade.name = "runtime/clean-jade-recess";
-    cleanJade.color.set(0xeee9df);
-    cleanJade.map = null;
-    cleanJade.aoMap = null;
-    cleanJade.normalMap = null;
-    cleanJade.metalnessMap = null;
-    cleanJade.roughnessMap = null;
-    cleanJade.metalness = 0;
-    cleanJade.roughness = 0.34;
-    cleanJade.needsUpdate = true;
     const pearlJade = new THREE.MeshPhysicalMaterial({
       name: "runtime/pearl-jade",
       color: 0xf5f1e8,
       metalness: 0,
       roughness: 0.2,
-      transmission: 0.18,
+      transmission: 0,
+      transparent: false,
+      opacity: 1,
+      depthWrite: true,
       ior: 1.46,
-      thickness: 0.006,
       clearcoat: 0.16,
       clearcoatRoughness: 0.24,
     });
@@ -731,7 +725,7 @@ export class ArtifactSceneController {
         object.userData.surface_treatment === "general-seat-recess"
         || object.name.includes("general-recess/")
       )) {
-        object.material = cleanJade;
+        object.visible = false;
       }
       if (object instanceof THREE.Mesh && (
         object.userData.visual_role === "corner-pearl"

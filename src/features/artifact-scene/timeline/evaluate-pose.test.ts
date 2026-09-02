@@ -15,9 +15,9 @@ const referenceState: ArtifactDisplayState = {
   noble: { dayNight: "day", nobleHeaven: "子", nobleEarth: "子", direction: "forward" },
 };
 
-it("uses the exact 27-second duration and hands off a clean physical plate", () => {
+it("uses the concise two-stage duration and keeps explanation props out of the 3D demo", () => {
   const pose = evaluateArtifactPose(referenceState, ARTIFACT_DURATION_MS, false);
-  expect(ARTIFACT_DURATION_MS).toBe(27_000);
+  expect(ARTIFACT_DURATION_MS).toBe(8_200);
   expect(pose.nodes["plate/heaven"]).toMatchObject({
     translationY: 0,
     rotationY: 6 * Math.PI / 6,
@@ -32,51 +32,33 @@ it("uses the exact 27-second duration and hands off a clean physical plate", () 
     "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
     "transmission/initial", "transmission/middle", "transmission/final", "transmission/method",
   ]) expect(pose.nodes[id].visible).toBe(false);
-  expect(Object.values(pose.labelOpacity).every((opacity) => opacity === 0)).toBe(true);
+  expect(pose.labelOpacity).toEqual({});
   expect(pose.nodes["general/noble"].visible).toBe(true);
   expect(pose.courseTraceOpacity).toBe(0);
   expect(pose).not.toHaveProperty("copy");
   expect(pose).not.toHaveProperty("cameraOrbitRequested");
 });
 
-it("hides lesson slips before their 8000 ms stage and reveals each over a 760 ms placement", () => {
-  expect(evaluateArtifactPose(referenceState, 7_999, false).nodes["lesson/first"].visible).toBe(false);
-  const started = evaluateArtifactPose(referenceState, 8_000, false).nodes["lesson/first"];
-  expect(started).toMatchObject({ visible: true, translationZ: 0.018 });
-  expect(Math.abs(started.translationX)).toBeLessThanOrEqual(0.01);
-  expect(evaluateArtifactPose(referenceState, 8_760, false).nodes["lesson/first"]).toMatchObject({
-    visible: true, translationX: 0, translationY: 0, translationZ: 0,
-  });
-  expect(evaluateArtifactPose(referenceState, 8_800, false).nodes["lesson/second"].visible).toBe(false);
-  expect(evaluateArtifactPose(referenceState, 9_200, false).nodes["lesson/second"].visible).toBe(true);
-});
-
-it("reveals transmission slips one at a time while the noble inlay lands", () => {
-  expect(evaluateArtifactPose(referenceState, 13_000, false).nodes["transmission/initial"]).toMatchObject({ visible: true, translationZ: 0.018 });
-  expect(evaluateArtifactPose(referenceState, 14_000, false).nodes["transmission/middle"].visible).toBe(true);
-  expect(evaluateArtifactPose(referenceState, 15_000, false).nodes["transmission/final"].visible).toBe(true);
-  expect(evaluateArtifactPose(referenceState, 18_250, false).nodes["general/noble"]).toMatchObject({
+it("starts the twelve-general landing after the month-general stage", () => {
+  expect(evaluateArtifactPose(referenceState, 2_999, false).nodes["general/noble"].visible).toBe(false);
+  expect(evaluateArtifactPose(referenceState, 3_250, false).nodes["general/noble"]).toMatchObject({
     visible: true, translationX: 0, translationZ: 0,
   });
-  expect(evaluateArtifactPose(referenceState, 18_250, false).nodes["general/noble"].translationY).toBeGreaterThan(0);
+  expect(evaluateArtifactPose(referenceState, 3_250, false).nodes["general/noble"].translationY).toBeGreaterThan(0);
 });
 
-it("reveals the noble-first general label at 18250 ms for either course direction", () => {
-  const forward = evaluateArtifactPose(referenceState, 18_250, false);
-  const reverse = evaluateArtifactPose({ ...referenceState, noble: { ...referenceState.noble, direction: "reverse" } }, 18_250, false);
-  expect(Object.entries(forward.labelOpacity).filter(([id, opacity]) => id.startsWith("dynamic/general/") && opacity > 0).map(([id]) => id)).toEqual(["dynamic/general/noble"]);
-  expect(Object.entries(reverse.labelOpacity).filter(([id, opacity]) => id.startsWith("dynamic/general/") && opacity > 0).map(([id]) => id)).toEqual(["dynamic/general/noble"]);
-});
-
-it("makes the course trace a deterministic pulse and suppresses it for reduced motion", () => {
-  expect(evaluateArtifactPose(referenceState, 23_999, false).courseTraceOpacity).toBe(0);
-  expect(evaluateArtifactPose(referenceState, 24_600, false).courseTraceOpacity).toBeCloseTo(0.5);
-  expect(evaluateArtifactPose(referenceState, 25_200, false).courseTraceOpacity).toBe(1);
-  expect(evaluateArtifactPose(referenceState, 26_400, false).courseTraceOpacity).toBe(0);
-  expect(evaluateArtifactPose(referenceState, 25_200, true).courseTraceOpacity).toBe(0);
+it("keeps legacy explanation props, labels, and trace hidden throughout", () => {
+  for (const timeMs of [0, 3_000, ARTIFACT_DURATION_MS]) {
+    const pose = evaluateArtifactPose(referenceState, timeMs, false);
+    expect(pose.nodes["calendar/slip"].visible).toBe(false);
+    expect(pose.nodes["lesson/first"].visible).toBe(false);
+    expect(pose.nodes["transmission/initial"].visible).toBe(false);
+    expect(pose.labelOpacity).toEqual({});
+    expect(pose.courseTraceOpacity).toBe(0);
+  }
 });
 
 it("is deterministic for repeated seeks and exposes stable facts for reduced motion", () => {
-  expect(evaluateArtifactPose(referenceState, 18_250, false)).toEqual(evaluateArtifactPose(referenceState, 18_250, false));
+  expect(evaluateArtifactPose(referenceState, 3_250, false)).toEqual(evaluateArtifactPose(referenceState, 3_250, false));
   expect(evaluateArtifactPose(referenceState, ARTIFACT_DURATION_MS, true).nodes["general/queen-of-heaven"].visible).toBe(true);
 });

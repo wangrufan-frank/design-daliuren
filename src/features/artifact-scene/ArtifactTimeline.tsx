@@ -1,6 +1,10 @@
 import type { CSSProperties } from "react";
 import { ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
-import { ARTIFACT_REVIEW_STAGES } from "./timeline/review-stages";
+
+const ARTIFACT_TIMELINE_STAGES = [
+  { id: "heaven-earth", label: "月将加时", settledTimeMs: 3_000 },
+  { id: "generals", label: "十二神将", settledTimeMs: ARTIFACT_DURATION_MS },
+] as const;
 
 interface ArtifactTimelineProps {
   timeMs: number;
@@ -12,7 +16,7 @@ interface ArtifactTimelineProps {
 }
 
 function adjacentStage(timeMs: number, direction: -1 | 1): number {
-  const times = ARTIFACT_REVIEW_STAGES.map((stage) => stage.settledTimeMs);
+  const times = ARTIFACT_TIMELINE_STAGES.map((stage) => stage.settledTimeMs);
   if (direction < 0) return [...times].reverse().find((time) => time < timeMs) ?? 0;
   return times.find((time) => time > timeMs) ?? ARTIFACT_DURATION_MS;
 }
@@ -54,7 +58,7 @@ export function ArtifactTimeline({
           onChange={(event) => onSeek(Number(event.currentTarget.value))}
         />
         <div className="artifact-timeline__stages" aria-hidden="true">
-          {ARTIFACT_REVIEW_STAGES.map((stage) => (
+          {ARTIFACT_TIMELINE_STAGES.map((stage) => (
             <span
               key={stage.id}
               style={{ "--stage-position": `${stage.settledTimeMs / ARTIFACT_DURATION_MS * 100}%` } as CSSProperties}

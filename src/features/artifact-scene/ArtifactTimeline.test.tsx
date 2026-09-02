@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArtifactTimeline } from "./ArtifactTimeline";
-import { ARTIFACT_REVIEW_STAGES } from "./timeline/review-stages";
 
 afterEach(cleanup);
 
@@ -25,7 +24,7 @@ describe("ArtifactTimeline", () => {
 
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("min", "0");
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "27000");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "8200");
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("step", "1");
     await user.click(screen.getByRole("button", { name: "重置视角" }));
     await user.click(screen.getByRole("button", { name: "查看文字课式" }));
@@ -41,26 +40,27 @@ describe("ArtifactTimeline", () => {
     await user.click(screen.getByRole("button", { name: "上一阶段" }));
     await user.click(screen.getByRole("button", { name: "下一阶段" }));
 
-    expect(callbacks.onSeek).toHaveBeenNthCalledWith(1, 3_200);
-    expect(callbacks.onSeek).toHaveBeenNthCalledWith(2, 8_000);
+    expect(callbacks.onSeek).toHaveBeenNthCalledWith(1, 3_000);
+    expect(callbacks.onSeek).toHaveBeenNthCalledWith(2, 8_200);
   });
 
   it("sends integer range seeks and playback intent without hidden replay", async () => {
     const user = userEvent.setup();
-    const callbacks = renderTimeline(8_450, true);
+    const callbacks = renderTimeline(4_450, true);
 
     await user.click(screen.getByRole("button", { name: "暂停推演" }));
-    fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "10300" } });
+    fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "6300" } });
 
     expect(callbacks.onTogglePlayback).toHaveBeenCalledOnce();
-    expect(callbacks.onSeek).toHaveBeenLastCalledWith(10_300);
+    expect(callbacks.onSeek).toHaveBeenLastCalledWith(6_300);
   });
 
-  it("renders its scale markers from the shared review stages", () => {
+  it("renders only the two physical demonstration stages", () => {
     renderTimeline();
 
-    ARTIFACT_REVIEW_STAGES.forEach((stage) => {
-      expect(screen.getByText(stage.label)).toBeVisible();
-    });
+    expect(screen.getByText("月将加时")).toBeVisible();
+    expect(screen.getByText("十二神将")).toBeVisible();
+    expect(screen.queryByText("四课布列")).not.toBeInTheDocument();
+    expect(screen.queryByText("三传成形")).not.toBeInTheDocument();
   });
 });

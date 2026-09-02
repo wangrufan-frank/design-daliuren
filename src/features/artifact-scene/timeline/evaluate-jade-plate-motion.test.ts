@@ -31,7 +31,7 @@ describe("jade plate motion", () => {
   it("moves the month ring through its positive traditional detents", () => {
     expect(evaluateDemoJadePlateMotion(layout, 0, false).monthAngleRad).toBe(0);
 
-    const monthSettledAtMs = 3_200 + Math.max(0, layout.correctDetent * (175 + 60) - 60);
+    const monthSettledAtMs = Math.max(0, layout.correctDetent * (175 + 60) - 60);
     expect(evaluateDemoJadePlateMotion(layout, monthSettledAtMs, false).monthAngleRad)
       .toBeCloseTo(layout.correctAngleRad);
   });

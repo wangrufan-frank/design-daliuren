@@ -249,7 +249,7 @@ describe("ArtifactExperience", () => {
     await act(async () => resolveLoad(resolvedArtifact()));
 
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "27000");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveAttribute("max", "8200");
     await user.click(screen.getByRole("button", { name: "查看文字课式" }));
     expect(onShowCourse).toHaveBeenCalledOnce();
   });
@@ -433,7 +433,7 @@ describe("ArtifactExperience", () => {
     expect(latestController().setDisplayState).toHaveBeenCalledTimes(2);
     expect(latestController().applyPose).toHaveBeenLastCalledWith(expect.objectContaining({
       nodes: expect.objectContaining({
-        "calendar/slip": expect.objectContaining({ translationZ: 0.018, visible: true }),
+        "calendar/slip": expect.objectContaining({ visible: false }),
       }),
     }));
   });
@@ -498,7 +498,7 @@ describe("ArtifactExperience", () => {
     frames.step(100);
     frames.step(27_200);
 
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("27000");
+    expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("8200");
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
   });
 
