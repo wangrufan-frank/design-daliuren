@@ -91,6 +91,17 @@ function fixture(
   root.add(heaven);
   const generalSeat = node("plate/generals");
   generalSeat.position.set(0, 0.01, 0);
+  const generalSeatSurface = new THREE.Mesh(
+    new THREE.RingGeometry(0.06, 0.1, 24),
+    new THREE.MeshStandardMaterial({ color: 0xeee7d9 }),
+  );
+  generalSeat.add(generalSeatSurface);
+  const generalSeatRecess = new THREE.Mesh(
+    new THREE.RingGeometry(0.065, 0.095, 24),
+    new THREE.MeshStandardMaterial({ color: 0x8a8a8a }),
+  );
+  generalSeatRecess.userData.surface_treatment = "general-seat-recess";
+  root.add(generalSeatRecess);
   root.add(generalSeat);
   const core = node("plate/core");
   core.position.set(0, 0.03, 0);
@@ -204,7 +215,7 @@ function fixture(
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
     environmentDispose, environmentTexture, generalNodes, material, movingNode, renderer,
     trace, traceGeometry, traceMaterial, legacyOverlay,
-    heaven, generalSeat, core, generalSlots, monthGlyphs, interactionRing,
+    heaven, generalSeat, generalSeatSurface, generalSeatRecess, core, generalSlots, monthGlyphs, interactionRing,
     monthGlyphOriginalMaterials, generalNameOriginalMaterials,
     addEventListener, removeEventListener,
     setNow: (value: number) => { nowMs = value; },
@@ -374,7 +385,10 @@ describe("ArtifactSceneController", () => {
   });
 
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
-    const { controller, controls, environmentTexture, interactionRing, renderer } = fixture();
+    const {
+      controller, controls, environmentTexture, generalSeatRecess, generalSeatSurface,
+      interactionRing, renderer,
+    } = fixture();
 
     controller.resize(800, 400, 2);
     controller.render();
@@ -385,7 +399,7 @@ describe("ArtifactSceneController", () => {
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(2);
     expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
     const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
-    expect(scene.background).toEqual(new THREE.Color(0xa7a59f));
+    expect(scene.background).toEqual(new THREE.Color(0xb4aea5));
     expect(scene.environment).toBe(environmentTexture);
     expect(scene.environmentIntensity).toBe(0.45);
     expect(controls.minPolarAngle).toBeCloseTo(Math.PI / 9);
@@ -398,11 +412,16 @@ describe("ArtifactSceneController", () => {
     expect(lights[0].color).toEqual(new THREE.Color(0xfff4df));
     expect(lights[1]).toBeInstanceOf(THREE.HemisphereLight);
     expect(lights[2]).toBeInstanceOf(THREE.DirectionalLight);
+    const stone = scene.getObjectByName("environment/stone-ground") as THREE.Mesh;
+    expect(stone).toBeInstanceOf(THREE.Mesh);
+    expect(stone.material).toMatchObject({ roughness: 0.9, vertexColors: true });
     const camera = vi.mocked(renderer.render).mock.calls[0][1] as THREE.PerspectiveCamera;
     expect(camera).toMatchObject({ near: 0.05, far: 4 });
-    expect(camera.fov).toBeCloseTo(11.568469531, 8);
-    expect(camera.projectionMatrix.elements[8]).toBeCloseTo(-0.03552544, 8);
-    expect(camera.projectionMatrix.elements[9]).toBeCloseTo(-0.214078966, 8);
+    expect(camera.fov).toBeCloseTo(10.976174251, 8);
+    expect(camera.projectionMatrix.elements[8]).toBeCloseTo(0.24417912, 8);
+    expect(camera.projectionMatrix.elements[9]).toBeCloseTo(-0.359587978, 8);
+    expect(camera.userData.v10HeroRollRadians).toBeCloseTo(-0.0997904, 6);
+    expect(generalSeatRecess.material).toBe(generalSeatSurface.material);
     expect(controls.autoRotate).toBe(false);
     expect(interactionRing.material).toMatchObject({ transparent: true, opacity: 0, colorWrite: false, depthWrite: false });
   });
@@ -741,8 +760,9 @@ describe("ArtifactSceneController", () => {
     const portraitDistance = camera.position.distanceTo(controls.target);
     const landscapeDistance = new THREE.Vector3(...preset.position)
       .distanceTo(new THREE.Vector3(...preset.target));
-    expect(portraitDistance / landscapeDistance).toBeGreaterThanOrEqual(0.81);
-    expect(portraitDistance / landscapeDistance).toBeLessThanOrEqual(0.83);
+    expect(portraitDistance / landscapeDistance).toBeGreaterThanOrEqual(0.73);
+    expect(portraitDistance / landscapeDistance).toBeLessThanOrEqual(0.75);
+    expect(camera.position.y - controls.target.y).toBeGreaterThan(0.88);
 
     controller.resize(672, 520, 1);
     controller.applyCameraPreset(preset, true);

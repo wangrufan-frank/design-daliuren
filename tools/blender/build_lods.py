@@ -5,6 +5,7 @@ import bpy
 
 from build_graybox import build_master
 from daliuren_contract import BRANCH_INLAY_NODE_IDS, NODE_IDS
+from materials import srgb_hex
 from uv_and_bake import DYNAMIC_LABEL_OWNERS, _add_dynamic_surfaces, assign_primary_uvs
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
@@ -244,7 +245,7 @@ def _uniform_jade_runtime_material():
 
     output = nodes.new("ShaderNodeOutputMaterial")
     principled = nodes.new("ShaderNodeBsdfPrincipled")
-    principled.inputs["Base Color"].default_value = (0.716, 0.807, 0.745, 1.0)
+    principled.inputs["Base Color"].default_value = srgb_hex("#F0EADD")
     principled.inputs["Metallic"].default_value = 0.0
     principled.inputs["Roughness"].default_value = 0.27
     if "Specular IOR Level" in principled.inputs:

@@ -3,8 +3,9 @@
 import math
 
 import bpy
+import numpy as np
 from bpy_extras.object_utils import world_to_camera_view
-from mathutils import Vector
+from mathutils import Quaternion, Vector
 
 from daliuren_contract import VISUAL_ORIENTATION_OFFSET_DEG
 
@@ -70,8 +71,8 @@ REFERENCE_ANCHORS = {
     for name, (x, y) in REFERENCE_SOURCE_ANCHORS.items()
 }
 
-_SEED = (0.200, -0.950, 1.500, 0.000, 0.000, 0.040, 95.0, -0.007, -0.040)
-_STEPS = (0.045, 0.045, 0.080, 0.018, 0.018, 0.020, 7.0, 0.018, 0.018)
+_SEED = (0.24274339, -1.13529613, 1.62462797, -0.05921467, -0.09421716, 0.17937489, 104.41131791, 0.10633623, -0.04963341, 0.09279691)
+_STEPS = (0.045, 0.045, 0.080, 0.018, 0.018, 0.020, 7.0, 0.018, 0.018, 0.05)
 
 
 def _world_points():
@@ -103,14 +104,16 @@ def _world_points():
     for name in ("胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙"):
         points[f"month/{name}"] = bpy.data.objects[f"month-general/{name}"].matrix_world.translation.copy()
     for name in ("noble", "snake", "vermilion-bird", "harmony", "hook-array", "azure-dragon", "void", "white-tiger", "constant", "black-tortoise", "yin", "queen-of-heaven"):
-        points[f"general/{name}"] = bpy.data.objects[f"general/{name}"].matrix_world.translation.copy()
+        points[f"general/{name}"] = bpy.data.objects[f"general/{name}/name"].matrix_world.translation.copy()
     return points
 
 
 def _configure(camera, parameters):
-    x, y, z, tx, ty, tz, lens, shift_x, shift_y = parameters
+    x, y, z, tx, ty, tz, lens, shift_x, shift_y, roll = parameters
     camera.location = (x, y, z)
-    camera.rotation_euler = (Vector((tx, ty, tz)) - camera.location).to_track_quat("-Z", "Y").to_euler()
+    view_axis = (Vector((tx, ty, tz)) - camera.location).normalized()
+    look = view_axis.to_track_quat("-Z", "Y")
+    camera.rotation_euler = (Quaternion(view_axis, roll) @ look).to_euler()
     camera.data.lens = lens
     camera.data.shift_x = shift_x
     camera.data.shift_y = shift_y
@@ -143,63 +146,68 @@ def _cost(scene, camera, points):
     return total / weight_total
 
 
+def _residual_vector(scene, camera, points):
+    weights = {
+        "board": 30.0,
+        "dial": 5.0,
+        "pearl": 4.0,
+        "beidou": 3.0,
+        "rim": 12.0,
+        "branch": 2.0,
+        "month": 2.0,
+        "general": 2.0,
+    }
+    residuals = []
+    for name, point in points.items():
+        predicted = _pixel(scene, camera, point)
+        target = REFERENCE_ANCHORS[name]
+        scale = math.sqrt(weights[name.split("/", 1)[0]])
+        residuals.extend((scale * (predicted[0] - target[0]), scale * (predicted[1] - target[1])))
+    return np.asarray(residuals, dtype=np.float64)
+
+
 def calibrate_v10_camera(scene=None):
-    """Nelder-Mead fit of the review camera against recorded v10 anchors."""
+    """Least-squares fit of the review camera against recorded v10 anchors."""
     scene = scene or bpy.context.scene
     scene.render.resolution_x, scene.render.resolution_y = REFERENCE_SIZE
     scene.render.resolution_percentage = 100
     camera = bpy.data.objects["camera/overall"]
     points = _world_points()
-    def evaluate(normalized):
-        values = [seed + offset * scale for seed, offset, scale in zip(_SEED, normalized, _STEPS)]
-        _configure(camera, values)
-        return _cost(scene, camera, points)
+    seed = np.asarray(_SEED, dtype=np.float64)
+    scales = np.asarray(_STEPS, dtype=np.float64)
 
-    simplex = [[0.0] * len(_SEED)]
-    simplex.extend(
-        [1.0 if index == axis else 0.0 for index in range(len(_SEED))]
-        for axis in range(len(_SEED))
-    )
-    scores = [evaluate(point) for point in simplex]
-    for _ in range(360):
-        order = sorted(range(len(simplex)), key=lambda index: scores[index])
-        simplex = [simplex[index] for index in order]
-        scores = [scores[index] for index in order]
-        centroid = [
-            sum(point[index] for point in simplex[:-1]) / len(_SEED)
-            for index in range(len(_SEED))
-        ]
-        worst = simplex[-1]
-        reflected = [2 * center - value for center, value in zip(centroid, worst)]
-        reflected_score = evaluate(reflected)
-        if reflected_score < scores[0]:
-            expanded = [3 * center - 2 * value for center, value in zip(centroid, worst)]
-            expanded_score = evaluate(expanded)
-            simplex[-1], scores[-1] = (
-                (expanded, expanded_score) if expanded_score < reflected_score else (reflected, reflected_score)
-            )
-        elif reflected_score < scores[-2]:
-            simplex[-1], scores[-1] = reflected, reflected_score
+    def evaluate(normalized):
+        values = seed + np.asarray(normalized) * scales
+        _configure(camera, values)
+        residuals = _residual_vector(scene, camera, points)
+        return residuals, float(residuals @ residuals)
+
+    normalized = np.zeros(len(_SEED), dtype=np.float64)
+    residuals, score = evaluate(normalized)
+    damping = 0.01
+    epsilon = 0.0001
+    for _ in range(120):
+        jacobian = np.empty((len(residuals), len(normalized)), dtype=np.float64)
+        for axis in range(len(normalized)):
+            probe = normalized.copy()
+            probe[axis] += epsilon
+            probe_residuals, _ = evaluate(probe)
+            jacobian[:, axis] = (probe_residuals - residuals) / epsilon
+        diagonal = np.maximum(np.diag(jacobian.T @ jacobian), 1.0)
+        system = jacobian.T @ jacobian + damping * np.diag(diagonal)
+        delta = np.linalg.solve(system, -(jacobian.T @ residuals))
+        candidate = normalized + delta
+        candidate_residuals, candidate_score = evaluate(candidate)
+        if candidate_score < score:
+            normalized, residuals, score = candidate, candidate_residuals, candidate_score
+            damping = max(1e-7, damping * 0.35)
+            if np.linalg.norm(delta) < 1e-7:
+                break
         else:
-            contracted = [0.5 * (center + value) for center, value in zip(centroid, worst)]
-            contracted_score = evaluate(contracted)
-            if contracted_score < scores[-1]:
-                simplex[-1], scores[-1] = contracted, contracted_score
-            else:
-                for index in range(1, len(simplex)):
-                    simplex[index] = [
-                        best + 0.5 * (value - best)
-                        for best, value in zip(simplex[0], simplex[index])
-                    ]
-                    scores[index] = evaluate(simplex[index])
-        if max(scores) - min(scores) < 0.0001:
-            break
-    best_index = min(range(len(simplex)), key=lambda index: scores[index])
-    values = [
-        seed + offset * scale
-        for seed, offset, scale in zip(_SEED, simplex[best_index], _STEPS)
-    ]
-    best = scores[best_index]
+            damping = min(1e7, damping * 6.0)
+            evaluate(normalized)
+    values = seed + normalized * scales
+    best = _cost(scene, camera, points)
     _configure(camera, values)
     camera["v10_calibration_parameters"] = tuple(round(value, 8) for value in values)
     camera["v10_calibration_cost_px2"] = round(best, 6)

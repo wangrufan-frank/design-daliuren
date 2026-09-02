@@ -324,11 +324,12 @@ def add_generals(general_ring, font_path):
         curve.font = font
         curve.align_x = "CENTER"
         curve.align_y = "CENTER"
-        curve.size = 0.016
+        curve.size = 0.0205
         curve.extrude = 0.00015
         glyph = bpy.data.objects.new(f"general/{general_key}/name", curve)
         bpy.context.scene.collection.objects.link(glyph)
         glyph.parent = general
+        glyph.location.y = -0.006
         glyph.location.z = depth / 2
         glyph["text_role"] = "general-name"
         glyph["general_key"] = general_key
@@ -356,7 +357,7 @@ def add_month_general_glyphs(heaven, font_path):
         curve.font = font
         curve.align_x = "CENTER"
         curve.align_y = "CENTER"
-        curve.size = 0.032
+        curve.size = 0.028
         curve.extrude = 0.00035
         obj = bpy.data.objects.new(f"month-general/{month}", curve)
         bpy.context.scene.collection.objects.link(obj)
@@ -460,7 +461,7 @@ def build_graybox():
     heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
     heaven["rotates_independently"] = True
     foundation = add_disc(
-        "detail/heaven/dial-foundation", 0.158, 0.006, (0.0, 0.0, 0.0), 0.001
+        "detail/heaven/dial-foundation", 0.159, 0.006, (0.0, 0.0, 0.0), 0.001
     )
     del foundation["node_id"]
     foundation.parent = heaven
@@ -469,7 +470,7 @@ def build_graybox():
     foundation["visual_role"] = "rotating-dial-foundation"
     # Two visual bands share the same parent, so they can never drift apart.
     for ring_index, (outer_radius, inner_radius) in enumerate(
-        ((0.158, 0.133), (0.132, 0.092)), start=1
+        ((0.159, 0.133), (0.132, 0.092)), start=1
     ):
         band = add_ring(
             f"detail/heaven/linked-ring-{ring_index}",
@@ -518,7 +519,7 @@ def build_graybox():
     build_fixed_inscriptions(earth, heaven, font_path, roles={"earth-branch"})
     add_month_general_glyphs(heaven, font_path)
     interaction = add_ring(
-        "interaction/month-general-ring", 0.163, 0.102, 0.0002, (0.0, 0.0, heaven.dimensions.z / 2 + 0.0002)
+        "interaction/month-general-ring", 0.164, 0.102, 0.0002, (0.0, 0.0, heaven.dimensions.z / 2 + 0.0002)
     )
     interaction.parent = heaven
     interaction["color_write"] = False

@@ -21,10 +21,12 @@ def generate():
     board = Image.open(OUTER_BOARD_SOURCE).convert("RGB").transform(
         (SIZE, SIZE),
         Image.Transform.QUAD,
-        (318, 171, 65, 922, 1108, 1095, 1217, 280),
+        (310, 176, 61, 924, 1112, 1100, 1211, 274),
         resample=Image.Resampling.BICUBIC,
     )
-    board = ImageEnhance.Color(board).enhance(1.16)
+    board = ImageEnhance.Color(board).enhance(1.30)
+    board = ImageEnhance.Contrast(board).enhance(1.04)
+    board = ImageEnhance.Sharpness(board).enhance(1.22)
 
     # The rotating interaction stack, its four pearls, and all of their labels
     # remain independent geometry. Replace those photographed pixels with a

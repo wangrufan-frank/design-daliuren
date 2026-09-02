@@ -130,7 +130,7 @@ def _add_heaven_details():
         heaven,
         "structure/heaven-bronze-rim",
         0,
-        0.157,
+        0.1585,
         0.0022,
         (0.0, 0.0, 0.0048),
         128,
@@ -150,7 +150,7 @@ def _visual_box(name, parent, size, location, rotation_z=0.0, variant="jade"):
 
 def _add_ring_dividers():
     specs = (
-        (bpy.data.objects["plate/heaven"], (0.158, 0.120), 0.0052),
+        (bpy.data.objects["plate/heaven"], (0.159, 0.120), 0.0052),
         (bpy.data.objects["plate/generals"], (0.108, 0.064), 0.0037),
     )
     for parent, (outer_radius, inner_radius), z in specs:
@@ -168,12 +168,35 @@ def _add_ring_dividers():
             )
 
 
+def _add_ring_craft():
+    specs = (
+        (bpy.data.objects["plate/heaven"], 0.1557, 0.00675),
+        (bpy.data.objects["plate/heaven"], 0.1330, 0.00675),
+        (bpy.data.objects["plate/heaven"], 0.1195, 0.00525),
+        (bpy.data.objects["plate/generals"], 0.1010, 0.00355),
+        (bpy.data.objects["plate/core"], 0.0510, 0.00315),
+    )
+    for index, (parent, radius, z) in enumerate(specs):
+        groove = _torus(
+            f"detail/ring/groove-{index:02d}",
+            parent,
+            "structure/heaven-ring-groove",
+            index,
+            radius,
+            0.00028,
+            (0.0, 0.0, z),
+            64,
+        )
+        groove["visual_role"] = "ring-groove"
+        groove["material_variant"] = "gold"
+
+
 def _add_core_details():
     core = bpy.data.objects["plate/core"]
-    points = ((-0.0228, 0.0250), (-0.0244, 0.0062), (-0.0094, 0.0051),
-              (-0.0195, -0.0198), (-0.0001, -0.0311), (0.0299, -0.0117), (0.0304, 0.0270))
+    points = ((-0.0227, 0.0255), (-0.0244, 0.0067), (-0.0092, 0.0053),
+              (-0.0194, -0.0191), (0.0002, -0.0306), (0.0303, -0.0120), (0.0309, 0.0266))
     for index, (x, y) in enumerate(points):
-        dot = add_disc(f"constellation/star-{index:02d}", 0.0023, 0.0010, (0.0, 0.0, 0.0), 0.0002)
+        dot = add_disc(f"constellation/star-{index:02d}", 0.0028, 0.0011, (0.0, 0.0, 0.0), 0.0002)
         del dot["node_id"]
         dot.parent = core
         dot.location = (x, y, 0.0093)
@@ -184,16 +207,16 @@ def _add_core_details():
         _visual_box(
             f"constellation/beidou-link-{index:02d}",
             core,
-            (0.00115, math.hypot(dx, dy), 0.00075),
+            (0.00135, math.hypot(dx, dy), 0.00082),
             ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2, 0.0090),
             math.atan2(dy, dx) - math.pi / 2,
             "gold",
         )["visual_role"] = "beidou-link"
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=0.0065, location=(0.0, 0.0, 0.0))
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=0.0078, location=(0.0, 0.0, 0.0))
     pearl = bpy.context.object
     pearl.name = "detail/core/jade-pivot"
     pearl.parent = core
-    pearl.location = (0.0, 0.0, 0.0135)
+    pearl.location = (0.0, 0.0, 0.0122)
     pearl["visual_role"] = "jade-pivot"
     pearl["material_variant"] = "pearl"
 
@@ -201,7 +224,19 @@ def _add_core_details():
 def _add_corner_pearls():
     earth = bpy.data.objects["plate/earth"]
     surface_z = earth.dimensions.z / 2 + 0.00015
-    for index, (x, y) in enumerate(((-0.1346, 0.1191), (0.1170, 0.1206), (-0.1273, -0.1377), (0.1040, -0.1436))):
+    for index, (x, y) in enumerate(((-0.1342, 0.1270), (0.1189, 0.1230), (-0.1264, -0.1307), (0.1075, -0.1395))):
+        seat = _torus(
+            f"detail/earth/corner-pearl-seat-{index:02d}",
+            earth,
+            "structure/plate-pearl-seat",
+            index,
+            0.0132,
+            0.00105,
+            (x, y, surface_z + 0.00035),
+            64,
+        )
+        seat["visual_role"] = "pearl-seat"
+        seat["material_variant"] = "jade-panel"
         bpy.ops.mesh.primitive_uv_sphere_add(
             segments=48,
             ring_count=24,
@@ -230,6 +265,7 @@ def upgrade_to_high_detail(root):
     _add_base_details()
     _add_heaven_details()
     _add_ring_dividers()
+    _add_ring_craft()
     _add_core_details()
     _add_corner_pearls()
     _add_runtime_bevels()

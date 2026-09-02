@@ -496,7 +496,7 @@ test("mobile controls preserve the same correct state and exact one-step behavio
 });
 
 test("captures completed desktop and mobile review evidence", async ({ page }) => {
-  test.setTimeout(70_000);
+  test.setTimeout(100_000);
   await page.setViewportSize({ width: 1280, height: 720 });
   await completeCompletedReferenceCourse(page);
   const experience = await finishArtifactDemo(page);

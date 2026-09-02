@@ -117,11 +117,12 @@ const ANNOTATION_DESCRIPTORS_BY_ID = new Map(
   ARTIFACT_ANNOTATION_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor]),
 );
 const CAMERA_TWEEN_DURATION_MS = 700;
-const REVIEW_HORIZONTAL_FOV_DEGREES = 21.507819615785298;
-const REVIEW_CAMERA_SHIFT_X = -0.01776272;
-const REVIEW_CAMERA_SHIFT_Y = -0.02892959;
-const PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE = 0.82;
-const PORTRAIT_REVIEW_CAMERA_ELEVATION = THREE.MathUtils.degToRad(60);
+const REVIEW_HORIZONTAL_FOV_DEGREES = 20.4268144654051;
+const REVIEW_CAMERA_SHIFT_X = 0.12208956;
+const REVIEW_CAMERA_SHIFT_Y = -0.04859297;
+const REVIEW_CAMERA_ROLL_RADIANS = -0.0997904;
+const PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE = 0.74;
+const PORTRAIT_REVIEW_CAMERA_ELEVATION = THREE.MathUtils.degToRad(69);
 const PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT = 0.016;
 
 const LABEL_SIZE = { width: 512, height: 256 } as const;
@@ -155,11 +156,44 @@ function defaultDependencies(): ArtifactSceneDependencies {
   };
 }
 
+function createStoneGround(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> {
+  const geometry = new THREE.PlaneGeometry(6, 6, 48, 48);
+  const positions = geometry.getAttribute("position");
+  const colors: number[] = [];
+  const base = new THREE.Color(0xb4aea5);
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const variation = 0.035 * (
+      Math.sin(x * 8.3 + y * 3.1)
+      + Math.sin(x * 19.7 - y * 13.9) * 0.45
+    );
+    colors.push(
+      THREE.MathUtils.clamp(base.r + variation, 0, 1),
+      THREE.MathUtils.clamp(base.g + variation * 0.96, 0, 1),
+      THREE.MathUtils.clamp(base.b + variation * 0.90, 0, 1),
+    );
+  }
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 0,
+    roughness: 0.9,
+    vertexColors: true,
+  });
+  const ground = new THREE.Mesh(geometry, material);
+  ground.name = "environment/stone-ground";
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.001;
+  return ground;
+}
+
 export class ArtifactSceneController {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(REVIEW_HORIZONTAL_FOV_DEGREES, 1, 0.05, 4);
   private readonly controls: ControlsLike;
   private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
+  private readonly stoneGround = createStoneGround();
   private readonly baseTransforms = new Map<string, BaseTransform>();
   private readonly generalSlots = new Map<EarthlyBranch, BaseTransform>();
   private readonly labelBindings = new Map<string, LabelBinding>();
@@ -250,11 +284,12 @@ export class ArtifactSceneController {
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMappingExposure = 0.82;
-    this.scene.background = new THREE.Color(0xa7a59f);
+    this.scene.background = new THREE.Color(0xb4aea5);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
     this.scene.environmentIntensity = 0.45;
     this.configureInteractionRing();
+    this.harmonizeGeneralSeatRecesses();
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 
@@ -265,7 +300,7 @@ export class ArtifactSceneController {
     sideFill.position.set(0.75, 0.5, 0.35);
     const rimLight = new THREE.DirectionalLight(0xf3dba8, 0.55);
     rimLight.position.set(-0.5, 0.8, -0.7);
-    this.scene.add(keyLight, fillLight, sideFill, rimLight);
+    this.scene.add(this.stoneGround, keyLight, fillLight, sideFill, rimLight);
 
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialTarget);
@@ -615,6 +650,8 @@ export class ArtifactSceneController {
     try {
       this.updateCameraTween(timestampMs);
       this.controls.update();
+      this.camera.rotateZ(REVIEW_CAMERA_ROLL_RADIANS);
+      this.camera.userData.v10HeroRollRadians = REVIEW_CAMERA_ROLL_RADIANS;
       this.renderer.render(this.scene, this.camera);
       return cameraWasMoving && this.cameraTween === undefined;
     } catch (error) {
@@ -644,6 +681,21 @@ export class ArtifactSceneController {
         material.colorWrite = false;
         material.depthWrite = false;
         material.needsUpdate = true;
+      }
+    });
+  }
+
+  private harmonizeGeneralSeatRecesses(): void {
+    let seatMaterial: THREE.MeshStandardMaterial | undefined;
+    this.artifact.nodes.get("plate/generals")?.traverse((object) => {
+      if (seatMaterial || !(object instanceof THREE.Mesh)) return;
+      const material = Array.isArray(object.material) ? object.material[0] : object.material;
+      if (material instanceof THREE.MeshStandardMaterial) seatMaterial = material;
+    });
+    if (!seatMaterial) return;
+    this.artifact.root.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.userData.surface_treatment === "general-seat-recess") {
+        object.material = seatMaterial!;
       }
     });
   }
@@ -833,6 +885,8 @@ export class ArtifactSceneController {
     this.courseTraceMesh.material = this.courseTraceOriginalMaterial;
     this.courseTraceMaterial.dispose();
     this.labels.dispose();
+    this.stoneGround.geometry.dispose();
+    this.stoneGround.material.dispose();
     this.scene.environment = null;
     this.environment.dispose();
     disposeArtifact(this.artifact.root);

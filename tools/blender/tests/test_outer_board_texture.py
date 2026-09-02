@@ -28,7 +28,7 @@ class OuterBoardTextureTest(unittest.TestCase):
                 minimum_luminance = min(minimum_luminance, sum(albedo.getpixel((x, y))) / 3)
         self.assertGreater(minimum_luminance, 107)
 
-        for point, minimum_chroma in (((1730, 1350), 100), ((650, 1800), 25)):
+        for point, minimum_chroma in (((1730, 1350), 150), ((650, 1800), 40)):
             color = albedo.getpixel(point)
             with self.subTest(point=point):
                 self.assertGreater(max(color) - min(color), minimum_chroma)

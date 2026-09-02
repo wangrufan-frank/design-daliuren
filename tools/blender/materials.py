@@ -22,11 +22,11 @@ MASK_NAMES = (
 )
 PALETTE = {
     "ink": "#27231F",
-    "jadeBody": "#DCE8E0",
-    "jadeInlay": "#C7E5D2",
-    "jadeRecess": "#B9C9BE",
+    "jadeBody": "#F0EADD",
+    "jadeInlay": "#EEE7D9",
+    "jadeRecess": "#E3DCCD",
     "cinnabar": "#C54A32",
-    "oldGold": "#C8953D",
+    "oldGold": "#D6A13A",
 }
 MASK_ATTRIBUTES = {
     "mask_contact_wear": "causal_contact_wear",
@@ -430,6 +430,8 @@ def _physical_material_name(obj):
     if role:
         return "M_InkText"
     variant = obj.get("material_variant")
+    if variant == "pearl":
+        return "M_TranslucentJade"
     if variant in {"gold", "zodiac-gold", "zodiac-red"}:
         return "M_OldGold"
     if variant == "jade-recess":

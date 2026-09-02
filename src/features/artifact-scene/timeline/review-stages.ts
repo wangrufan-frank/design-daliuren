@@ -12,8 +12,8 @@ export interface ArtifactReviewStage {
 }
 
 const STABLE_CAMERA = {
-  position: [0.19096628, 1.48967427, 1.03677363] as const,
-  target: [0.0064732, 0.13488113, 0.07347428] as const,
+  position: [0.22851157, 1.55946329, 1.08636922] as const,
+  target: [-0.07094929, 0.16790507, 0.09019913] as const,
 };
 
 export const ARTIFACT_REVIEW_STAGES = [

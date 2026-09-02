@@ -29,6 +29,8 @@ EXPECTED_DETAIL_COUNTS = {
     "structure/base-bottom-seam": 1,
     "structure/base-corner-transition": 4,
     "structure/heaven-bronze-rim": 1,
+    "structure/heaven-ring-groove": 5,
+    "structure/plate-pearl-seat": 4,
 }
 FORBIDDEN_TOKENS = (
     "dovetail",
@@ -122,7 +124,7 @@ class HighDetailGeometryTest(unittest.TestCase):
         self.assertTrue(all(obj.type == "MESH" for obj in pearls))
         self.assertEqual(
             {tuple(round(value, 4) for value in pearl.location.xy) for pearl in pearls},
-            {(-0.1346, 0.1191), (0.1170, 0.1206), (-0.1273, -0.1377), (0.1040, -0.1436)},
+            {(-0.1342, 0.1270), (0.1189, 0.1230), (-0.1264, -0.1307), (0.1075, -0.1395)},
         )
 
     def test_colored_connected_beidou_is_real_center_geometry(self):

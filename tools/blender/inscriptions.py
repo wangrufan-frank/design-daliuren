@@ -48,7 +48,7 @@ TEXT_SIZES = {
     "historical-month-deity": 0.0045,
 }
 FUNCTIONAL_GLYPH_SPANS = {
-    "earth": (0.020, 0.020),
+    "earth": (0.015, 0.020),
     "heaven": (0.0496, 0.044),
 }
 BRANCH_BED_SPANS = {

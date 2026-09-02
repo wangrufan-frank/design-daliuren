@@ -8,22 +8,35 @@ plate. The photographed interaction circle and pearls are removed from that
 material, while the functional branch, month-general, and general rings remain
 independent geometry. The former voxel zodiac/cloud carriers are absent in all
 three LODs, and every exposed heaven-ring carrier now owns the same untextured
-white-jade material, eliminating the dark radial sectors.
+warm-white jade material, eliminating the dark radial sectors. Five continuous
+gold ring grooves, four pearl seats, larger Beidou points and a brighter center
+pivot provide the visible local craft without changing the interaction state.
 
-The current overlay still shows objective residuals: the runtime board and dial
-are offset and scaled against the reference by visible pixels, the functional
-glyph proportions/strokes differ, and the central ring depths and material
-response remain flatter than v10. These prevent a comprehensive-fidelity claim.
+The current overlay no longer has the former dominant rotational double image,
+but it still shows objective residuals: the outer silhouette and circular plate
+have faint scale/position double edges measured in visible pixels, the
+functional glyph proportions/strokes and baselines differ, and the central ring
+depths and material response remain flatter than v10. These prevent a
+comprehensive-fidelity claim.
 
 Focused evidence:
 
 - `jade-plate-default.png`: authored desktop pose, `1254 x 1254` canvas.
 - `jade-plate-overlay.png`: exact 50% cover-fit blend against the user v10
-  reference. The unchanged anchor calibration reports `9.61 px` combined RMS;
-  this is a geometry-anchor measurement, not a pixel-fidelity score.
+  reference. The frozen physical-camera anchor calibration reports `7.89 px`
+  combined RMS: board `6.40 px`, dial center `3.03 px`, pearls `2.79 px`,
+  Beidou `3.02 px`, rim `9.45 px`, branches `11.18 px`, month generals
+  `6.80 px`, and heavenly generals `8.19 px`. These are geometry-anchor
+  measurements, not a pixel-fidelity score; forcing every hand-measured glyph
+  group below `5 px` would require non-circular per-glyph distortion and would
+  break palace alignment.
 - `jade-plate-mobile.png`: completed portrait pose. Runtime must reframe after
   an orientation change and keep the minimum earthly-branch projection at
   least `8 CSS px` without cropping the square plate.
+
+The hidden inlay construction cannot be recovered from one photograph. The
+model therefore retains the approved `4 mm` inlay thickness and `IOR 1.48` as
+explicit physical assumptions.
 
 This review does not convert the legacy PENDING rows below into PASS results.
 
@@ -76,16 +89,16 @@ This review does not convert the legacy PENDING rows below into PASS results.
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `assets/daliuren/source/daliuren-artifact-master.blend` | `e0584e0cd6522a515d179d53c74f644dcae98f7e74885f62ec0e71b4259b606e` |
-| `public/models/daliuren/daliuren-artifact-lod0.glb` | `0f2c6c9e0e5a3ff86ae37e3478f712da21ffb42c2668252bea123c509df9280f` |
-| `public/models/daliuren/daliuren-artifact-lod1.glb` | `8fdf2dc5768d987f070dc16fb049ad2d8886008d50c77be20955a84d8a378714` |
-| `public/models/daliuren/daliuren-artifact-lod2.glb` | `4f93eda17042dd61449efa6b957477ebd177c6139bf418c2dbae7a1ea6e5e7e1` |
-| `assets/daliuren/textures/source/outer-board-v10-albedo.png` | `22a9e36dad71952de5a3f56f032dea0f514b69a9d9fe20b1d25ae87ce616f27f` |
-| `assets/daliuren/textures/source/outer-board-v10-normal.png` | `00fb32c7f6c1210cdda7a289151275eecdd9ba9a6c5660d0fd1297c96cd71592` |
-| `docs/asset-reviews/lookdev/overall.png` | `2226fa3d8d587c46e5159f6e1d158c399014e1a2e44e2f63f9475e2ce5540c9e` |
-| `docs/asset-reviews/lookdev/jade-plate-default.png` | `20b8daff3b32f2d3b76be016fdd9571c2b217ecb2c4aedbc0ac3bc4ed73a7cdb` |
-| `docs/asset-reviews/lookdev/jade-plate-mobile.png` | `4557d2f39ddcb000eb8276bd81305b64f63af36f76c9872220aff1fe71528902` |
-| `docs/asset-reviews/lookdev/jade-plate-overlay.png` | `264e561d0adfed38b0801a647bf72f15490533ea25d625d4d192e4b82d1b4f09` |
+| `assets/daliuren/source/daliuren-artifact-master.blend` | `01085c2fc5a786e7022384f94ee4143fdc456bf0256b47e3ca9d144f2face1aa` |
+| `public/models/daliuren/daliuren-artifact-lod0.glb` | `7b84574393c79ce17ce6806f29bbb46ec942a7a8e795f6885d60de9e844d3161` |
+| `public/models/daliuren/daliuren-artifact-lod1.glb` | `3b276b5da9f331820f92da2baf71f80ac944ba62179cc74b2f58e4f60db327af` |
+| `public/models/daliuren/daliuren-artifact-lod2.glb` | `8e63642c56a2483a598539a5ecb20bd38ceeafad1646b642652b66f30bbe516e` |
+| `assets/daliuren/textures/source/outer-board-v10-albedo.png` | `8e796ac000389ca7064044202e26272d1582efcc8ebbed03a410bfec84ced90e` |
+| `assets/daliuren/textures/source/outer-board-v10-normal.png` | `e56019bf2ac367b3638fdbdfd24e62480f2a06c15627581cbd547d6d08208b09` |
+| `docs/asset-reviews/lookdev/overall.png` | `a6da57ba62e4654da33967b9079695e8f921e434b62f255209e1ca8d62b955b9` |
+| `docs/asset-reviews/lookdev/jade-plate-default.png` | `64b243678358e545254ad234a6eacd93558d4a1dea0a094fa1e5d1785df3bb82` |
+| `docs/asset-reviews/lookdev/jade-plate-mobile.png` | `4630ee1c007f76336385b56d858190021eb3a16032806d1e297b09037ff98536` |
+| `docs/asset-reviews/lookdev/jade-plate-overlay.png` | `de5b32d89b43105ecf3fe31585e607f1fa27cb55b9f72f81ef37e26a7db00632` |
 | `docs/asset-reviews/lookdev/oblique.png` | `5e1b2697587fc912886e83516bd0df0dc45a44db8c8f1c42fc86df3e1ed09e30` |
 | `docs/asset-reviews/lookdev/material-closeup.png` | `0fc672b83ce8d81a3414f458ab60ac5eabdb63607c1bef77d8a052c6e636a7e7` |
 | `docs/asset-reviews/lookdev/rotation-evidence.png` | `71ed31d541d1f55698483c3bd6cfd85dabb56df688b0ab45d157ecf25aa2c60d` |
