@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { acquireKtx2Loader } from "./ktx2-loader-lease";
+import { acquireKtx2Loader, basisTranscoderPath } from "./ktx2-loader-lease";
 
 const ktx2Loaders = vi.hoisted(() => [] as Array<{
   setTranscoderPath: ReturnType<typeof vi.fn>;
@@ -23,6 +23,10 @@ vi.mock("three/examples/jsm/loaders/KTX2Loader.js", () => ({
 describe("KTX2 loader lease", () => {
   beforeEach(() => {
     ktx2Loaders.length = 0;
+  });
+
+  it("resolves the transcoder beneath the deployed Vite base path", () => {
+    expect(basisTranscoderPath("/design-daliuren/")).toBe("/design-daliuren/three/basis/");
   });
 
   it("shares one active loader and disposes it after the final release", () => {

@@ -20,6 +20,7 @@ MATERIAL_NAMES = {
     "M_EarthVoid",
     "M_HeavenVoid",
 }
+RUNTIME_MATERIAL_NAMES = MATERIAL_NAMES | {"M_ReferenceSurface"}
 PALETTE = {
     "ink": "#27231F",
     "bronze": "#E5DED0",
@@ -102,7 +103,7 @@ class MaterialTest(unittest.TestCase):
         contract = json.loads(ASSET_CONTRACT.read_text(encoding="utf-8"))
         families = contract["runtimeAssets"]["materialFamilies"]
 
-        self.assertEqual(set(families), MATERIAL_NAMES)
+        self.assertEqual(set(families), RUNTIME_MATERIAL_NAMES)
         self.assertIn("M_EarthVoid", families)
         self.assertIn("M_HeavenVoid", families)
 
@@ -165,6 +166,20 @@ class MaterialTest(unittest.TestCase):
             if "Emission" in node.bl_idname or "Emission" in node.name
         ]
         self.assertEqual(emissive, [])
+
+    def test_reference_surface_uses_separate_color_and_height_images(self):
+        build_master_materials()
+        material = bpy.data.materials["M_ReferenceSurface"]
+        textures = {
+            node.name: node.image
+            for node in material.node_tree.nodes
+            if node.bl_idname == "ShaderNodeTexImage"
+        }
+
+        self.assertEqual(set(textures), {"Reference surface v10", "Reference relief height v10"})
+        self.assertIsNot(textures["Reference surface v10"], textures["Reference relief height v10"])
+        self.assertEqual(textures["Reference surface v10"].colorspace_settings.name, "sRGB")
+        self.assertEqual(textures["Reference relief height v10"].colorspace_settings.name, "Non-Color")
 
     def test_materialized_master_reopens_with_unique_branch_ownership(self):
         build_master()

@@ -8,11 +8,16 @@ type ActiveLease = {
 
 let active: ActiveLease | undefined;
 
+export function basisTranscoderPath(baseUrl: string): string {
+  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return `${normalizedBase}three/basis/`;
+}
+
 export function acquireKtx2Loader(renderer: THREE.WebGLRenderer) {
   if (!active) {
     const loader = new KTX2Loader();
     try {
-      loader.setTranscoderPath("/three/basis/").detectSupport(renderer);
+      loader.setTranscoderPath(basisTranscoderPath(import.meta.env.BASE_URL)).detectSupport(renderer);
     } catch (cause) {
       loader.dispose();
       throw cause;

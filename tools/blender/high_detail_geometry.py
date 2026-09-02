@@ -20,6 +20,21 @@ GENERAL_KEYS = (
     "yin",
     "queen-of-heaven",
 )
+
+ZODIAC_PANEL_SPECS = (
+    (-0.142, 0.202, 0.146, 0.074),
+    (0.000, 0.202, 0.146, 0.074),
+    (0.148, 0.202, 0.146, 0.074),
+    (0.208, 0.112, 0.074, 0.108),
+    (0.208, 0.006, 0.074, 0.108),
+    (0.208, -0.110, 0.074, 0.108),
+    (0.142, -0.202, 0.146, 0.074),
+    (0.000, -0.202, 0.146, 0.074),
+    (-0.142, -0.202, 0.146, 0.074),
+    (-0.208, -0.110, 0.074, 0.108),
+    (-0.208, 0.006, 0.074, 0.108),
+    (-0.208, 0.112, 0.074, 0.108),
+)
 BEVELED_RUNTIME_IDS = (
     "base/body",
     "plate/earth",
@@ -87,10 +102,10 @@ def _add_runtime_bevels():
 def _add_base_details():
     base = bpy.data.objects["base/body"]
     wall_specs = (
-        ((0.488, 0.008, 0.0008), (0.0, 0.256, -0.0256)),
-        ((0.488, 0.008, 0.0008), (0.0, -0.256, -0.0256)),
-        ((0.008, 0.488, 0.0008), (0.256, 0.0, -0.0256)),
-        ((0.008, 0.488, 0.0008), (-0.256, 0.0, -0.0256)),
+        ((0.488, 0.008, 0.0008), (0.0, 0.256, -0.0136)),
+        ((0.488, 0.008, 0.0008), (0.0, -0.256, -0.0136)),
+        ((0.008, 0.488, 0.0008), (0.256, 0.0, -0.0136)),
+        ((0.008, 0.488, 0.0008), (-0.256, 0.0, -0.0136)),
     )
     for index, (size, location) in enumerate(wall_specs):
         _box(
@@ -108,7 +123,7 @@ def _add_base_details():
         "structure/base-bottom-seam",
         0,
         (0.484, 0.484, 0.0008),
-        (0.0, 0.0, -0.0256),
+        (0.0, 0.0, -0.0136),
         bevel=0.00015,
     )
     for index, (x, y) in enumerate(
@@ -120,7 +135,7 @@ def _add_base_details():
             "structure/base-corner-transition",
             index,
             (0.016, 0.016, 0.0012),
-            (x, y, -0.0254),
+            (x, y, -0.0134),
             bevel=0.0003,
         )
 
@@ -132,9 +147,9 @@ def _add_heaven_details():
         heaven,
         "structure/heaven-bronze-rim",
         0,
-        0.1855,
-        0.0035,
-        (0.0, 0.0, 0.0091),
+        0.163,
+        0.0022,
+        (0.0, 0.0, 0.0048),
         128,
     )
 
@@ -220,8 +235,8 @@ def _add_zodiac_gallery():
 
 def _add_ring_dividers():
     specs = (
-        (bpy.data.objects["plate/heaven"], (0.174, 0.141), 0.0132),
-        (bpy.data.objects["plate/generals"], (0.124, 0.073), 0.0092),
+        (bpy.data.objects["plate/heaven"], (0.164, 0.126), 0.0052),
+        (bpy.data.objects["plate/generals"], (0.108, 0.064), 0.0037),
     )
     for parent, (outer_radius, inner_radius), z in specs:
         length = outer_radius - inner_radius
@@ -258,6 +273,107 @@ def _add_core_details():
     pearl["material_variant"] = "pearl"
 
 
+def _reference_plane(name, parent, center, size, z, role):
+    center_x, center_y = center
+    width, height = size
+    half_width = width / 2
+    half_height = height / 2
+    vertices = (
+        (center_x - half_width, center_y - half_height, z),
+        (center_x + half_width, center_y - half_height, z),
+        (center_x + half_width, center_y + half_height, z),
+        (center_x - half_width, center_y + half_height, z),
+    )
+    mesh = bpy.data.meshes.new(f"{name}/mesh")
+    mesh.from_pydata(vertices, [], ((0, 1, 2, 3),))
+    mesh.update()
+    uv = mesh.uv_layers.new(name="UVMap")
+    uv.active_render = True
+    for loop, vertex_index in zip(mesh.loops, (0, 1, 2, 3)):
+        x, y, _ = vertices[vertex_index]
+        loop_uv = ((x / 0.512) + 0.5, (y / 0.512) + 0.5)
+        uv.data[loop.index].uv = loop_uv
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.parent = parent
+    obj["visual_role"] = role
+    obj["material_variant"] = "reference-surface"
+    return obj
+
+
+def _reference_disc(name, parent, radius, z):
+    segments = 128
+    vertices = [(0.0, 0.0, z)] + [
+        (
+            radius * math.cos(index * math.tau / segments),
+            radius * math.sin(index * math.tau / segments),
+            z,
+        )
+        for index in range(segments)
+    ]
+    faces = [
+        (0, index + 1, (index + 1) % segments + 1)
+        for index in range(segments)
+    ]
+    mesh = bpy.data.meshes.new(f"{name}/mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    uv = mesh.uv_layers.new(name="UVMap")
+    uv.active_render = True
+    for loop in mesh.loops:
+        x, y, _ = vertices[loop.vertex_index]
+        uv.data[loop.index].uv = ((x / 0.512) + 0.5, (y / 0.512) + 0.5)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.parent = parent
+    obj["visual_role"] = "reference-center"
+    obj["material_variant"] = "reference-surface"
+    return obj
+
+
+def _add_reference_surface():
+    earth = bpy.data.objects["plate/earth"]
+    surface_z = earth.dimensions.z / 2 + 0.00015
+    _reference_plane(
+        "detail/reference/surface",
+        earth,
+        (0.0, 0.0),
+        (0.512, 0.512),
+        surface_z,
+        "reference-surface",
+    )
+    _reference_disc(
+        "detail/reference/center-disc",
+        earth,
+        0.164,
+        surface_z + 0.0110,
+    )
+    for index, (x, y, width, height) in enumerate(ZODIAC_PANEL_SPECS):
+        _reference_plane(
+            f"zodiac/{index:02d}/relief-surface",
+            earth,
+            (x, y),
+            (width, height),
+            surface_z + 0.00022,
+            "zodiac-relief",
+        )
+
+    for index, (x, y) in enumerate(((-0.158, 0.158), (0.158, 0.158), (-0.158, -0.158), (0.158, -0.158))):
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=48,
+            ring_count=24,
+            radius=0.0115,
+            location=(0.0, 0.0, 0.0),
+        )
+        pearl = bpy.context.object
+        pearl.name = f"detail/reference/corner-pearl-{index:02d}"
+        pearl.parent = earth
+        pearl.location = (x, y, surface_z + 0.0080)
+        pearl["visual_role"] = "corner-pearl"
+        pearl["material_variant"] = "pearl"
+        bpy.ops.object.shade_smooth()
+
+
 def upgrade_to_high_detail(root):
     if root.get("node_id") != "artifact/root":
         raise ValueError("High-detail upgrade requires artifact/root")
@@ -270,9 +386,9 @@ def upgrade_to_high_detail(root):
 
     _add_base_details()
     _add_heaven_details()
-    _add_zodiac_gallery()
     _add_ring_dividers()
     _add_core_details()
+    _add_reference_surface()
     _add_runtime_bevels()
     bpy.context.view_layer.update()
     return root

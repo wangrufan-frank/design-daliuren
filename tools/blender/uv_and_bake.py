@@ -873,7 +873,11 @@ def _validate_bake_source():
     physical = [
         obj
         for obj in bpy.data.objects
-        if obj.type == "MESH" and not obj.get("dynamic_label_id")
+        if (
+            obj.type == "MESH"
+            and not obj.get("dynamic_label_id")
+            and obj.get("material_variant") != "reference-surface"
+        )
     ]
     if any(obj.get("runtime_texture_family") not in MATERIAL_FAMILIES for obj in physical):
         raise RuntimeError("Daliuren master meshes require runtime texture family ownership")
@@ -917,7 +921,11 @@ def generate_runtime_textures(texture_root, atlas_ids=None):
     }
     groups = {}
     for obj in bpy.data.objects:
-        if obj.type != "MESH" or obj.get("dynamic_label_id"):
+        if (
+            obj.type != "MESH"
+            or obj.get("dynamic_label_id")
+            or obj.get("material_variant") == "reference-surface"
+        ):
             continue
         atlas_id = obj["runtime_atlas_id"]
         groups.setdefault(atlas_id, obj)
@@ -1318,6 +1326,12 @@ def assign_primary_uvs(dynamic_surfaces):
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
         if obj.data.as_pointer() in dynamic_pointers:
             continue
+        if obj.get("material_variant") == "reference-surface":
+            obj["runtime_atlas_id"] = "M_Celadon:reference"
+            obj["runtime_atlas_class"] = "hero"
+            obj["runtime_bake_scale"] = 1
+            obj["runtime_texture_family"] = "M_Celadon"
+            continue
         family = obj.get("material_role")
         if family not in MATERIAL_FAMILIES:
             continue
@@ -1576,6 +1590,8 @@ def prepare_runtime_assets(root, texture_root=DEFAULT_TEXTURE_ROOT, contract_pat
     assign_primary_uvs(surfaces)
     for obj in bpy.data.objects:
         if obj.type != "MESH" or obj.get("dynamic_label_id"):
+            continue
+        if obj.get("material_variant") == "reference-surface":
             continue
         family = obj.get("material_role")
         if family not in MATERIAL_FAMILIES:

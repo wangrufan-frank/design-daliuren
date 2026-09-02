@@ -48,7 +48,7 @@ class ComponentContractTest(unittest.TestCase):
             matches = [obj for obj in runtime_objects if obj["node_id"] == node_id]
             self.assertEqual(len(matches), 1, node_id)
 
-    def test_calendar_is_a_rear_pivot_with_separate_readout(self):
+    def test_calendar_keeps_its_rear_pivot_contract_while_parked(self):
         calendar = bpy.data.objects["calendar/slip"]
         earth = bpy.data.objects["plate/earth"]
         self.assertEqual(calendar.type, "EMPTY")
@@ -72,7 +72,7 @@ class ComponentContractTest(unittest.TestCase):
             self.assertNotIn("node_id", seat)
             self.assertEqual(seat.parent, bpy.data.objects["base/body"])
             self.assertEqual(seat["surface_treatment"], "rear-slip-seat")
-        earth_top = earth.location.z + earth.dimensions.z / 2
+        earth_bottom = earth.location.z - earth.dimensions.z / 2
         calendar_bottom = min(
             (child.matrix_world @ Vector(corner)).z
             for child in calendar.children
@@ -85,9 +85,9 @@ class ComponentContractTest(unittest.TestCase):
             if child.type == "MESH"
             for corner in child.bound_box
         )
-        self.assertGreater(calendar.location.z, earth_top + 0.006)
-        self.assertGreaterEqual(calendar_bottom, earth_top)
-        self.assertLessEqual(calendar_top, 0.092)
+        self.assertLess(calendar.location.z, earth_bottom)
+        self.assertLess(calendar_bottom, earth_bottom)
+        self.assertLess(calendar_top, earth_bottom)
 
     def test_four_lessons_are_independent_slips_at_settled_positions(self):
         expected = {

@@ -22,9 +22,11 @@ FORBIDDEN_NODES = {
 
 class ContractTest(unittest.TestCase):
     def test_dimensions_match_confirmed_blueprint(self):
-        self.assertEqual(DIMENSIONS["base"], (0.520, 0.520, 0.052))
-        self.assertEqual(DIMENSIONS.get("earth_plate"), (0.440, 0.440, 0.014))
-        self.assertEqual(DIMENSIONS["heaven_plate"], (0.380, 0.026))
+        self.assertEqual(DIMENSIONS["base"], (0.520, 0.520, 0.028))
+        self.assertEqual(DIMENSIONS.get("earth_plate"), (0.500, 0.500, 0.006))
+        self.assertEqual(DIMENSIONS["heaven_plate"], (0.332, 0.010))
+        self.assertEqual(DIMENSIONS["general_ring"], (0.218, 0.007))
+        self.assertEqual(DIMENSIONS["fixed_core"], (0.126, 0.006))
         self.assertEqual(DIMENSIONS.get("calendar_slip"), (0.300, 0.038, 0.009))
         self.assertEqual(DIMENSIONS.get("lesson_slip"), (0.074, 0.034, 0.009))
         self.assertEqual(DIMENSIONS.get("transmission_slip"), (0.070, 0.036, 0.010))
