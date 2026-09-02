@@ -9,7 +9,6 @@ import { StageEvidenceDrawer } from "./StageEvidenceDrawer";
 import { StageReviewContent } from "../rule-review/StageReviewContent";
 import { reviewStageFor } from "../artifact-scene/timeline/review-stages";
 import { useId, useState } from "react";
-import { CourseSheet } from "../course-sheet/CourseSheet";
 import { MobileWorkbenchTools, useMobileWorkbenchLayout, type MobileToolId } from "./MobileWorkbenchTools";
 import "./course-workbench.css";
 
@@ -67,8 +66,7 @@ export function CourseWorkbench({
             source={source}
             selectedStage={selectedStage}
             mobileTools={mobileLayout ? {
-              activeTool: activeMobileTool,
-              onActiveToolChange: setActiveMobileTool,
+              onCloseTools: () => setActiveMobileTool(undefined),
               partDirectoryHostId,
               timelineHostId,
             } : undefined}
@@ -98,7 +96,6 @@ export function CourseWorkbench({
           parts={<div id={partDirectoryHostId} />}
           timeline={<div id={timelineHostId} />}
           evidence={evidence}
-          course={<CourseSheet result={source.course} />}
         />
       ) : null}
     </main>

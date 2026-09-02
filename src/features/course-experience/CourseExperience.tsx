@@ -5,13 +5,11 @@ import type { ArtifactSourceResults } from "../artifact-scene/model/types";
 import { CourseSheet } from "../course-sheet/CourseSheet";
 import type { RuleStageId } from "../../domain/chart/types";
 import { reviewStageFor } from "../artifact-scene/timeline/review-stages";
-import type { MobileToolId } from "../course-workbench/MobileWorkbenchTools";
 
 type CourseMode = "artifact" | "text";
 
 export interface CourseExperienceMobileTools {
-  activeTool?: MobileToolId;
-  onActiveToolChange(tool?: MobileToolId): void;
+  onCloseTools(): void;
   partDirectoryHostId: string;
   timelineHostId: string;
 }
@@ -32,15 +30,13 @@ export function CourseExperience({ source, selectedStage = "calendar", mobileToo
       return false;
     }
   }, [source]);
-  const mode: CourseMode = artifactAvailable
-    ? mobileTools ? (mobileTools.activeTool === "course" ? "text" : "artifact") : requestedMode
-    : "text";
+  const mode: CourseMode = artifactAvailable ? requestedMode : "text";
   const stage = reviewStageFor(selectedStage);
   const selectMode = (nextMode: CourseMode) => {
-    if (mobileTools) mobileTools.onActiveToolChange(nextMode === "text" ? "course" : undefined);
-    else setRequestedMode(nextMode);
+    mobileTools?.onCloseTools();
+    setRequestedMode(nextMode);
   };
-  const showArtifact = artifactAvailable && (mode === "artifact" || mobileTools !== undefined);
+  const showArtifact = artifactAvailable && mode === "artifact";
 
   return (
     <section className="course-experience" data-mode={mode}>

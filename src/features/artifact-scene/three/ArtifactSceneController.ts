@@ -160,7 +160,7 @@ function createStoneGround(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandard
   const geometry = new THREE.PlaneGeometry(6, 6, 48, 48);
   const positions = geometry.getAttribute("position");
   const colors: number[] = [];
-  const base = new THREE.Color(0xb4aea5);
+  const base = new THREE.Color(0xd8d2c8);
   for (let index = 0; index < positions.count; index += 1) {
     const x = positions.getX(index);
     const y = positions.getY(index);
@@ -283,22 +283,23 @@ export class ArtifactSceneController {
 
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 0.82;
-    this.scene.background = new THREE.Color(0xb4aea5);
+    renderer.toneMappingExposure = 1.12;
+    this.scene.background = new THREE.Color(0xd8d2c8);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
-    this.scene.environmentIntensity = 0.45;
+    this.scene.environmentIntensity = 0.9;
     this.configureInteractionRing();
-    this.harmonizeGeneralSeatRecesses();
+    this.centerJadePlate();
+    this.harmonizeJadeSurfaces();
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 
-    const keyLight = new THREE.DirectionalLight(0xfff4df, 1.35);
+    const keyLight = new THREE.DirectionalLight(0xfff7e8, 1.65);
     keyLight.position.set(-0.65, 0.95, 0.7);
-    const fillLight = new THREE.HemisphereLight(0xdfe5df, 0x615d57, 0.78);
-    const sideFill = new THREE.DirectionalLight(0xc8d8d1, 0.45);
+    const fillLight = new THREE.HemisphereLight(0xf1f3ef, 0x8f8981, 1.05);
+    const sideFill = new THREE.DirectionalLight(0xdce9e3, 0.65);
     sideFill.position.set(0.75, 0.5, 0.35);
-    const rimLight = new THREE.DirectionalLight(0xf3dba8, 0.55);
+    const rimLight = new THREE.DirectionalLight(0xffe8bb, 0.7);
     rimLight.position.set(-0.5, 0.8, -0.7);
     this.scene.add(this.stoneGround, keyLight, fillLight, sideFill, rimLight);
 
@@ -686,7 +687,16 @@ export class ArtifactSceneController {
     });
   }
 
-  private harmonizeGeneralSeatRecesses(): void {
+  private centerJadePlate(): void {
+    for (const id of ["plate/heaven", "plate/generals", "plate/core"]) {
+      const object = this.artifact.nodes.get(id);
+      if (!object) continue;
+      object.position.x = 0;
+      object.position.z = 0;
+    }
+  }
+
+  private harmonizeJadeSurfaces(): void {
     let seatMaterial: THREE.MeshStandardMaterial | undefined;
     this.artifact.nodes.get("plate/generals")?.traverse((object) => {
       if (seatMaterial || !(object instanceof THREE.Mesh)) return;
@@ -694,9 +704,40 @@ export class ArtifactSceneController {
       if (material instanceof THREE.MeshStandardMaterial) seatMaterial = material;
     });
     if (!seatMaterial) return;
+    const cleanJade = seatMaterial.clone();
+    cleanJade.name = "runtime/clean-jade-recess";
+    cleanJade.color.set(0xeee9df);
+    cleanJade.map = null;
+    cleanJade.aoMap = null;
+    cleanJade.normalMap = null;
+    cleanJade.metalnessMap = null;
+    cleanJade.roughnessMap = null;
+    cleanJade.metalness = 0;
+    cleanJade.roughness = 0.34;
+    cleanJade.needsUpdate = true;
+    const pearlJade = new THREE.MeshPhysicalMaterial({
+      name: "runtime/pearl-jade",
+      color: 0xf5f1e8,
+      metalness: 0,
+      roughness: 0.2,
+      transmission: 0.18,
+      ior: 1.46,
+      thickness: 0.006,
+      clearcoat: 0.16,
+      clearcoatRoughness: 0.24,
+    });
     this.artifact.root.traverse((object) => {
-      if (object instanceof THREE.Mesh && object.userData.surface_treatment === "general-seat-recess") {
-        object.material = seatMaterial!;
+      if (object instanceof THREE.Mesh && (
+        object.userData.surface_treatment === "general-seat-recess"
+        || object.name.includes("general-recess/")
+      )) {
+        object.material = cleanJade;
+      }
+      if (object instanceof THREE.Mesh && (
+        object.userData.visual_role === "corner-pearl"
+        || /corner-pearl-\d+$/.test(object.name)
+      )) {
+        object.material = pearlJade;
       }
     });
   }

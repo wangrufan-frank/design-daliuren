@@ -89,7 +89,7 @@ it("keeps stage selection inside the workbench and updates the central caption",
   expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
 });
 
-it("keeps the selected stage when text mode opens and closes on mobile", async () => {
+it("keeps the selected stage while switching between separate mobile child pages", async () => {
   vi.stubGlobal("innerWidth", 390);
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
     matches: query === "(max-width: 899px)",
@@ -113,43 +113,14 @@ it("keeps the selected stage when text mode opens and closes on mobile", async (
   await user.click(within(mobileStages).getByRole("button", { name: "三传取法，已完成" }));
   await user.click(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" }));
 
-  expect(screen.getByRole("region", { name: "移动工具面板" })).toHaveTextContent("大六壬 · 标准文字课式");
+  expect(screen.getByLabelText("标准文字课式")).toBeVisible();
+  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
   expect(within(mobileStages).getByRole("button", { name: "三传取法，已完成" })).toHaveAttribute("aria-current", "page");
 
-  await user.keyboard("{Escape}");
-  expect(screen.queryByRole("region", { name: "移动工具面板" })).not.toBeInTheDocument();
+  await user.click(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "三维推演" }));
   expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
+  expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
   expect(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "三维推演" })).toHaveAttribute("aria-pressed", "true");
-});
-
-it.each(["关闭按钮", "Escape"] as const)("returns focus to the top text-course trigger after %s", async (closeMethod) => {
-  vi.stubGlobal("innerWidth", 390);
-  const user = userEvent.setup();
-
-  render(
-    <CourseWorkbench
-      input={referenceSession.input}
-      source={source}
-      selectedStage="course"
-      onSelectStage={vi.fn()}
-      onRestart={vi.fn()}
-    />,
-  );
-  const topTrigger = within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" });
-  const dockTrigger = within(screen.getByRole("toolbar", { name: "工作台工具" })).getByRole("button", { name: "文字课式" });
-  expect(topTrigger).not.toBe(dockTrigger);
-  await user.click(topTrigger);
-  expect(screen.getByRole("region", { name: "移动工具面板" })).toBeVisible();
-
-  if (closeMethod === "关闭按钮") {
-    await user.click(screen.getByRole("button", { name: "关闭移动工具面板" }));
-  } else {
-    await user.keyboard("{Escape}");
-  }
-
-  expect(screen.queryByRole("region", { name: "移动工具面板" })).not.toBeInTheDocument();
-  expect(topTrigger).toHaveFocus();
-  expect(dockTrigger).not.toHaveFocus();
 });
 
 it("mounts one calendar review when an open desktop evidence drawer moves to mobile", async () => {
@@ -206,9 +177,8 @@ it("keeps mobile navigation and opens the real text course after artifact loadin
   expect(await screen.findByRole("alert")).toHaveTextContent("三维器物无法加载");
   expect(screen.getByRole("navigation", { name: "移动推演阶段" })).toBeVisible();
 
-  await user.click(screen.getByRole("button", { name: "查看文字课式" }));
-
-  expect(screen.getByRole("region", { name: "移动工具面板" })).toHaveTextContent("大六壬 · 标准文字课式");
+  await screen.findByLabelText("标准文字课式");
+  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
 });
 
 it("keeps the mobile dock beside the text course when artifact mapping is unavailable", () => {

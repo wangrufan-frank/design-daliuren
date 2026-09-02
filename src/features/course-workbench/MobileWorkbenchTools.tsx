@@ -3,14 +3,13 @@ import { RULE_STAGE_ORDER } from "../../domain/chart/stages";
 import type { RuleStageId } from "../../domain/chart/types";
 import { RuleStageRail } from "../rule-review/RuleStageRail";
 
-export type MobileToolId = "context" | "parts" | "timeline" | "evidence" | "course";
+export type MobileToolId = "context" | "parts" | "timeline" | "evidence";
 
 const TOOLS: readonly { id: MobileToolId; label: string }[] = [
   { id: "context", label: "上下文" },
   { id: "parts", label: "部件" },
   { id: "timeline", label: "时间轴" },
   { id: "evidence", label: "阶段证据" },
-  { id: "course", label: "文字课式" },
 ];
 
 function subscribeToMobileWorkbench(onChange: () => void): () => void {
@@ -35,7 +34,6 @@ interface MobileWorkbenchToolsProps {
   parts: ReactNode;
   timeline: ReactNode;
   evidence: ReactNode;
-  course: ReactNode;
 }
 
 export function MobileWorkbenchTools({
@@ -47,7 +45,6 @@ export function MobileWorkbenchTools({
   parts,
   timeline,
   evidence,
-  course,
 }: MobileWorkbenchToolsProps) {
   const panelId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -55,7 +52,7 @@ export function MobileWorkbenchTools({
   const triggerRefs = useRef<Partial<Record<MobileToolId, HTMLButtonElement | null>>>({});
   const openerRef = useRef<HTMLElement | null>(null);
   const lastActiveToolRef = useRef<MobileToolId | undefined>(undefined);
-  const content = { context, parts, timeline, evidence, course };
+  const content = { context, parts, timeline, evidence };
   const panelIdFor = (tool: MobileToolId) => `${panelId}-${tool}`;
 
   useEffect(() => {

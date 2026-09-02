@@ -23,7 +23,6 @@ import { disposeArtifact } from "./three/dispose-artifact";
 import { createArtifactRenderer, loadArtifact } from "./three/load-artifact";
 import type { LoadedArtifact } from "./three/load-artifact";
 import { ArtifactTimeline } from "./ArtifactTimeline";
-import { ArtifactAnnotationLayer } from "./ArtifactAnnotationLayer";
 import { ArtifactPartDirectory } from "./ArtifactPartDirectory";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 import { useReducedMotion } from "./use-reduced-motion";
@@ -197,7 +196,6 @@ export function ArtifactExperience({
   const [sourceLinesActive, setSourceLinesActive] = useState(false);
   const [minimumBranchProjectionPx, setMinimumBranchProjectionPx] = useState<number | undefined>(undefined);
   const [minimumBranchEdgeMarginPx, setMinimumBranchEdgeMarginPx] = useState<number | undefined>(undefined);
-  const [annotationError, setAnnotationError] = useState<string | undefined>(undefined);
   const [mobileHosts, setMobileHosts] = useState<{ parts: HTMLElement; timeline: HTMLElement }>();
   const [interaction, setInteraction] = useState<MonthGeneralInteractionState>(() => interactionRef.current);
   const [seatedCount, setSeatedCount] = useState(0);
@@ -468,9 +466,6 @@ export function ArtifactExperience({
         },
         onContextLost: failExperience,
         onError: failExperience,
-        onAnnotationError: (error) => setAnnotationError(
-          error instanceof Error ? error.message : String(error),
-        ),
         onMonthGeneralInput: applyInteractionEvent,
       });
       ownedController = controller;
@@ -492,7 +487,6 @@ export function ArtifactExperience({
         };
         window.__artifactSetVisualReviewPose = ownedVisualReviewPoseHook;
       }
-      setAnnotationError(undefined);
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
       controller.setMonthGeneralInteractionEnabled(false);
@@ -664,13 +658,6 @@ export function ArtifactExperience({
       <div className="artifact-experience__viewport">
         <canvas ref={canvasRef} aria-label="大六壬三维器物" />
         {status === "loading" && <p className="artifact-experience__loading" role="status">正在加载三维器物</p>}
-        {status === "ready" && controllerRef.current && (
-          <ArtifactAnnotationLayer
-            source={controllerRef.current}
-            featuredIds={reviewStageFor(selectedStage).annotationIds}
-            allowAll={!compactLayout}
-          />
-        )}
       </div>
       {status === "loading" && (
         <div className="artifact-experience__loading-actions">
@@ -680,11 +667,6 @@ export function ArtifactExperience({
       {status === "ready" && (
         <>
           <AccessibleFacts state={displayState} interaction={interaction} seatedCount={seatedCount} />
-          {annotationError && (
-            <p className="artifact-visually-hidden" role="status" aria-label="标注状态">
-              {annotationError}
-            </p>
-          )}
           {showPartDirectory && compactLayout && !mobileToolHosts ? partDirectory : null}
           {monthGeneralControls}
           {showTimeline && !mobileToolHosts ? timeline : null}

@@ -280,7 +280,7 @@
 
   .mobile-workbench-tools__toolbar {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .mobile-workbench-tools__toolbar button,

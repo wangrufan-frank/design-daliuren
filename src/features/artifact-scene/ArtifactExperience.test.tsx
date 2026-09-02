@@ -23,7 +23,7 @@ interface ControllerDouble {
     onUserControlStart(): void;
     onContextLost(): void;
     onError(error: unknown): void;
-    onAnnotationError(error: unknown): void;
+    onAnnotationError?(error: unknown): void;
     onMonthGeneralInput(event: MonthGeneralInputEvent): void;
   };
   resize: any;
@@ -393,17 +393,12 @@ describe("ArtifactExperience", () => {
     expect(latestController().dispose).toHaveBeenCalledOnce();
   });
 
-  it("shows stage annotations by default and exposes all or no annotations on demand", async () => {
-    const user = userEvent.setup();
+  it("keeps external annotation cards out of the model viewport", async () => {
     render(<ArtifactExperience source={referenceSourceResults} selectedStage="calendar" onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
 
-    expect(screen.getByRole("button", { name: "本阶段" })).toHaveAttribute("aria-pressed", "true");
-    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(3);
-    await user.click(screen.getByRole("button", { name: "全部" }));
-    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(ARTIFACT_ANNOTATION_DESCRIPTORS.length);
-    await user.click(screen.getByRole("button", { name: "隐藏" }));
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
+    expect(document.querySelectorAll(".artifact-annotations__leader")).toHaveLength(0);
   });
 
   it("keeps compact canvases to stage annotations and focuses parts from the complete directory", async () => {
@@ -412,7 +407,7 @@ describe("ArtifactExperience", () => {
     render(<ArtifactExperience source={referenceSourceResults} selectedStage="heaven-earth" onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
 
-    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(3);
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
     expect(screen.queryByRole("button", { name: "全部" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查看文字课式" })).toBeVisible();
 
@@ -424,19 +419,6 @@ describe("ArtifactExperience", () => {
     expect(latestController().focusNode).toHaveBeenCalledWith("plate/heaven");
     expect(screen.queryByRole("dialog", { name: "全部部件" })).not.toBeInTheDocument();
     expect(screen.getByText("当前聚焦：月将环")).toBeVisible();
-  });
-
-  it("keeps the 3D experience usable when annotation sampling reports a missing node", async () => {
-    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
-    await screen.findByRole("slider", { name: "推演时间轴" });
-
-    act(() => latestController().callbacks.onAnnotationError(new Error(
-      'Artifact annotation "plate/heaven" requires missing node "plate/heaven"',
-    )));
-
-    expect(screen.getByRole("status", { name: "标注状态" })).toHaveTextContent("plate/heaven");
-    expect(screen.getByRole("slider", { name: "推演时间轴" })).toBeVisible();
-    expect(latestController().dispose).not.toHaveBeenCalled();
   });
 
   it("reuses the loaded artifact and resets the absolute pose when source changes", async () => {

@@ -394,22 +394,22 @@ describe("ArtifactSceneController", () => {
     controller.render();
 
     expect(renderer.toneMapping).toBe(THREE.AgXToneMapping);
-    expect(renderer.toneMappingExposure).toBe(0.82);
+    expect(renderer.toneMappingExposure).toBe(1.12);
     expect(renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
     expect(renderer.setPixelRatio).toHaveBeenCalledWith(2);
     expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
     const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
-    expect(scene.background).toEqual(new THREE.Color(0xb4aea5));
+    expect(scene.background).toEqual(new THREE.Color(0xd8d2c8));
     expect(scene.environment).toBe(environmentTexture);
-    expect(scene.environmentIntensity).toBe(0.45);
+    expect(scene.environmentIntensity).toBe(0.9);
     expect(controls.minPolarAngle).toBeCloseTo(Math.PI / 9);
     expect(controls.maxPolarAngle).toBeCloseTo(5 * Math.PI / 12);
     expect(controls.minAzimuthAngle).toBe(-Infinity);
     expect(controls.maxAzimuthAngle).toBe(Infinity);
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
     expect(lights).toHaveLength(4);
-    expect(lights.map((light) => light.intensity)).toEqual([1.35, 0.78, 0.45, 0.55]);
-    expect(lights[0].color).toEqual(new THREE.Color(0xfff4df));
+    expect(lights.map((light) => light.intensity)).toEqual([1.65, 1.05, 0.65, 0.7]);
+    expect(lights[0].color).toEqual(new THREE.Color(0xfff7e8));
     expect(lights[1]).toBeInstanceOf(THREE.HemisphereLight);
     expect(lights[2]).toBeInstanceOf(THREE.DirectionalLight);
     const stone = scene.getObjectByName("environment/stone-ground") as THREE.Mesh;
@@ -421,7 +421,7 @@ describe("ArtifactSceneController", () => {
     expect(camera.projectionMatrix.elements[8]).toBeCloseTo(0.24417912, 8);
     expect(camera.projectionMatrix.elements[9]).toBeCloseTo(-0.359587978, 8);
     expect(camera.userData.v10HeroRollRadians).toBeCloseTo(-0.0997904, 6);
-    expect(generalSeatRecess.material).toBe(generalSeatSurface.material);
+    expect(generalSeatRecess.material).toMatchObject({ color: new THREE.Color(0xeee9df), roughness: 0.34 });
     expect(controls.autoRotate).toBe(false);
     expect(interactionRing.material).toMatchObject({ transparent: true, opacity: 0, colorWrite: false, depthWrite: false });
   });

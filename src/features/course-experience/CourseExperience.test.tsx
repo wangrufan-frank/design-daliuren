@@ -1,7 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { CalendarResult } from "../../domain/calendar/types";
 import type { CourseResult } from "../../domain/course/types";
@@ -66,7 +65,7 @@ it("opens the three-dimensional experience for a complete guarded bundle and swi
   expect(textCourse).toHaveTextContent("夜贵寅");
 });
 
-it("keeps the artifact mounted while controlled mobile text mode opens", async () => {
+it("shows mobile artifact and text modes as separate pages", async () => {
   vi.stubGlobal("innerWidth", 390);
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
     matches: query === "(max-width: 899px)",
@@ -80,7 +79,6 @@ it("keeps the artifact mounted while controlled mobile text mode opens", async (
   })));
   const user = userEvent.setup();
   function Harness() {
-    const [activeTool, setActiveTool] = useState<"context" | "parts" | "timeline" | "evidence" | "course">();
     return (
       <>
         <div id="parts-host" />
@@ -89,8 +87,7 @@ it("keeps the artifact mounted while controlled mobile text mode opens", async (
           source={source}
           selectedStage="three-transmissions"
           mobileTools={{
-            activeTool,
-            onActiveToolChange: setActiveTool,
+            onCloseTools: vi.fn(),
             partDirectoryHostId: "parts-host",
             timelineHostId: "timeline-host",
           }}
@@ -103,7 +100,8 @@ it("keeps the artifact mounted while controlled mobile text mode opens", async (
   await user.click(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" }));
 
   expect(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByLabelText("大六壬三维器物")).toBeInTheDocument();
+  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("标准文字课式")).toBeVisible();
 });
 
 it("shows the selected stage's shared two-line caption", () => {
