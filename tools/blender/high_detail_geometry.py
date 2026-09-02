@@ -1,6 +1,4 @@
 import math
-from pathlib import Path
-
 import bpy
 
 from daliuren_contract import VISUAL_ORIENTATION_OFFSET_DEG
@@ -32,25 +30,6 @@ BEVELED_RUNTIME_IDS = (
     "transmission/middle",
     "transmission/final",
 )
-
-ZODIAC_LAYOUT = (
-    ("snake", (-0.140, 0.210), (0.120, 0.070)),
-    ("horse", (0.000, 0.210), (0.120, 0.070)),
-    ("goat", (0.140, 0.210), (0.120, 0.070)),
-    ("monkey", (0.210, 0.105), (0.070, 0.120)),
-    ("rooster", (0.210, 0.000), (0.070, 0.120)),
-    ("dog", (0.210, -0.105), (0.070, 0.120)),
-    ("pig", (0.140, -0.210), (0.120, 0.070)),
-    ("rat", (0.000, -0.210), (0.120, 0.070)),
-    ("ox", (-0.140, -0.210), (0.120, 0.070)),
-    ("tiger", (-0.210, -0.105), (0.070, 0.120)),
-    ("rabbit", (-0.210, 0.000), (0.070, 0.120)),
-    ("dragon", (-0.210, 0.105), (0.070, 0.120)),
-)
-
-REPOSITORY_ROOT = Path(__file__).parents[2]
-ZODIAC_RELIEF_TEXTURE = REPOSITORY_ROOT / "assets/daliuren/textures/source/zodiac-relief-artwork.png"
-
 
 def _finish_detail(obj, parent, detail_id, index, location):
     if "node_id" in obj:
@@ -169,132 +148,6 @@ def _visual_box(name, parent, size, location, rotation_z=0.0, variant="jade"):
     return obj
 
 
-def _zodiac_box(name, parent, index, animal, size, location, role, variant):
-    obj = add_beveled_box(name, size, (0.0, 0.0, 0.0), 0.00065)
-    del obj["node_id"]
-    obj.parent = parent
-    obj.location = location
-    obj["visual_role"] = role
-    obj["zodiac_index"] = index
-    obj["zodiac_animal"] = animal
-    obj["material_variant"] = variant
-    return obj
-
-
-def _sample_relief_pixel(pixels, image_size, world_x, world_y):
-    width, height = image_size
-    u = max(0.0, min(1.0, 2.0 * world_x + 0.5))
-    v = max(0.0, min(1.0, 2.0 * world_y + 0.5))
-    x = min(width - 1, int(u * (width - 1)))
-    y = min(height - 1, int(v * (height - 1)))
-    offset = (y * width + x) * 4
-    return tuple(pixels[offset + channel] for channel in range(3))
-
-
-def _zodiac_relief(name, parent, index, animal, center, panel_size, pixels, image_size):
-    columns, rows = ((60, 36) if panel_size[0] > panel_size[1] else (36, 60))
-    cell_width = panel_size[0] * 0.92 / columns
-    cell_height = panel_size[1] * 0.92 / rows
-    samples = []
-    for row in range(rows):
-        y = -panel_size[1] * 0.46 + (row + 0.5) * cell_height
-        for column in range(columns):
-            x = -panel_size[0] * 0.46 + (column + 0.5) * cell_width
-            color = _sample_relief_pixel(pixels, image_size, center[0] + x, center[1] + y)
-            chroma = max(color) - min(color)
-            luminance = sum(color) / 3.0
-            samples.append((chroma, luminance, x, y))
-
-    selected = [sample for sample in samples if sample[0] >= 0.20 and sample[1] <= 0.90]
-    if len(selected) < 55:
-        selected = sorted(samples, reverse=True)[:55]
-
-    vertices = []
-    faces = []
-    for chroma, luminance, x, y in selected:
-        relief = 0.00011 + min(0.00034, chroma * 0.00055 + (0.82 - min(luminance, 0.82)) * 0.00012)
-        z = 0.00302 + relief
-        start = len(vertices)
-        vertices.extend((
-            (x - cell_width / 2, y - cell_height / 2, 0.00302),
-            (x + cell_width / 2, y - cell_height / 2, z),
-            (x + cell_width / 2, y + cell_height / 2, z),
-            (x - cell_width / 2, y + cell_height / 2, 0.00302),
-        ))
-        faces.append((start, start + 1, start + 2, start + 3))
-
-    mesh = bpy.data.meshes.new(f"{name}/mesh")
-    mesh.from_pydata(vertices, (), faces)
-    mesh.update()
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.parent = parent
-    obj.location = (*center, 0.0)
-    obj["visual_role"] = "zodiac-animal-relief"
-    obj["zodiac_index"] = index
-    obj["zodiac_animal"] = animal
-    obj["material_variant"] = f"zodiac-motif-{animal}"
-    obj["relief_source"] = "v10-zodiac-silhouette"
-    return obj
-
-
-def _zodiac_cloud(name, parent, index, animal, center, panel_size):
-    curve = bpy.data.curves.new(f"{name}/curve", "CURVE")
-    curve.dimensions = "3D"
-    curve.resolution_u = 2
-    curve.bevel_depth = 0.00025
-    curve.bevel_resolution = 3
-    curve.fill_mode = "FULL"
-    spline = curve.splines.new("POLY")
-    length = min(panel_size) * 0.38
-    points = ((-length, 0.0), (-length * 0.38, length * 0.25),
-              (0.0, -length * 0.10), (length * 0.36, length * 0.28),
-              (length, 0.0))
-    spline.points.add(len(points) - 1)
-    for point, (x, y) in zip(spline.points, points):
-        point.co = (x, y, 0.0, 1.0)
-    obj = bpy.data.objects.new(name, curve)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.parent = parent
-    obj.location = (center[0], center[1] - panel_size[1] * 0.28, 0.00320)
-    obj["visual_role"] = "zodiac-cloud-relief"
-    obj["zodiac_index"] = index
-    obj["zodiac_animal"] = animal
-    obj["material_variant"] = "gold"
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
-    bpy.ops.object.convert(target="MESH")
-    obj.select_set(False)
-    return obj
-
-
-def _add_zodiac_gallery():
-    earth = bpy.data.objects["plate/earth"]
-    if not ZODIAC_RELIEF_TEXTURE.is_file():
-        raise RuntimeError(f"Missing zodiac relief artwork: {ZODIAC_RELIEF_TEXTURE}")
-    image = bpy.data.images.load(str(ZODIAC_RELIEF_TEXTURE), check_existing=True)
-    pixels = tuple(image.pixels[:])
-    image_size = tuple(image.size)
-    for index, (animal, center, panel_size) in enumerate(ZODIAC_LAYOUT):
-        _zodiac_box(
-            f"zodiac/{index:02d}/panel-frame", earth, index, animal,
-            (panel_size[0] + 0.003, panel_size[1] + 0.003, 0.00020),
-            (*center, 0.00285), "zodiac-panel-frame", "gold",
-        )
-        _zodiac_box(
-            f"zodiac/{index:02d}/panel-recess", earth, index, animal,
-            (*panel_size, 0.00015), (*center, 0.00282),
-            "zodiac-panel-recess", "jade-recess",
-        )
-        _zodiac_relief(
-            f"zodiac/{index:02d}/animal-relief", earth, index, animal, center, panel_size,
-            pixels, image_size,
-        )
-        _zodiac_cloud(
-            f"zodiac/{index:02d}/cloud-relief", earth, index, animal, center, panel_size
-        )
-
-
 def _add_ring_dividers():
     specs = (
         (bpy.data.objects["plate/heaven"], (0.158, 0.120), 0.0052),
@@ -378,7 +231,6 @@ def upgrade_to_high_detail(root):
     _add_heaven_details()
     _add_ring_dividers()
     _add_core_details()
-    _add_zodiac_gallery()
     _add_corner_pearls()
     _add_runtime_bevels()
     bpy.context.view_layer.update()

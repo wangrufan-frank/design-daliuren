@@ -177,37 +177,49 @@ class MaterialTest(unittest.TestCase):
             self.assertEqual(bpy.data.objects[f"branch/earth/{branch}"]["material_role"], "M_InkText")
             self.assertEqual(bpy.data.objects[f"detail/general-recess/{branch}"]["material_role"], "M_JadeRecess")
 
-    def test_zodiac_reliefs_own_the_reference_artwork_without_a_flat_board_copy(self):
+    def test_outer_board_owns_the_continuous_v10_albedo_and_normal(self):
         build_master()
 
         motifs = [
             obj for obj in bpy.data.objects
-            if obj.get("visual_role") == "zodiac-animal-relief"
+            if obj.get("visual_role") in {
+                "zodiac-animal-relief",
+                "zodiac-cloud-relief",
+                "zodiac-panel-frame",
+                "zodiac-panel-recess",
+            }
         ]
-        self.assertEqual(len(motifs), 12)
-        for motif in motifs:
-            material = motif.data.materials[0]
-            image_nodes = [node for node in material.node_tree.nodes if node.type == "TEX_IMAGE"]
-            with self.subTest(animal=motif["zodiac_animal"]):
-                self.assertEqual(motif["material_role"], "M_JadeBody")
-                self.assertEqual(material.name, "M_ZodiacReliefArtwork")
-                self.assertEqual(len(image_nodes), 1)
-                self.assertTrue(image_nodes[0].image.filepath.replace("\\", "/").endswith("zodiac-relief-artwork.png"))
+        self.assertEqual(motifs, [])
+
+        board = bpy.data.objects["plate/earth"]
+        material = board.data.materials[0]
+        image_files = {
+            node.image.filepath.replace("\\", "/").rsplit("/", 1)[-1]
+            for node in material.node_tree.nodes
+            if node.type == "TEX_IMAGE" and node.image
+        }
+        self.assertEqual(board["material_role"], "M_JadeBody")
+        self.assertEqual(material.name, "M_OuterBoardV10")
+        self.assertEqual(
+            image_files,
+            {"outer-board-v10-albedo.png", "outer-board-v10-normal.png"},
+        )
 
         self.assertFalse(any(
             material.name.startswith("M_ZodiacMotif/")
             for material in bpy.data.materials
         ))
 
-    def test_outer_board_is_physical_jade_not_a_flat_reference_projection(self):
+    def test_outer_board_texture_is_bound_to_the_physical_jade_plate(self):
         build_master()
 
         board = bpy.data.objects["plate/earth"]
         material = board.data.materials[0]
-        images = [node.image for node in material.node_tree.nodes if node.type == "TEX_IMAGE"]
         self.assertEqual(board["material_role"], "M_JadeBody")
-        self.assertEqual(material.name, "M_JadeBody")
-        self.assertEqual(images, [])
+        self.assertEqual(material.name, "M_OuterBoardV10")
+        self.assertEqual(board.type, "MESH")
+        self.assertGreater(board.dimensions.z, 0.005)
+        self.assertIsNotNone(board.data.uv_layers.get("BoardUV"))
         self.assertFalse(any(
             material.get("source_art") == "daliuren-heaven-plate-blank-v1.png"
             for material in bpy.data.materials

@@ -366,34 +366,38 @@ def build_master_materials():
     return materials
 
 
-def _zodiac_relief_artwork_material():
-    name = "M_ZodiacReliefArtwork"
+def _outer_board_v10_material():
+    name = "M_OuterBoardV10"
     existing = bpy.data.materials.get(name)
     if existing is not None:
         return existing
-    path = REPOSITORY_ROOT / "assets/daliuren/textures/source/zodiac-relief-artwork.png"
-    if not path.is_file():
-        raise RuntimeError(f"Missing generated zodiac relief artwork texture: {path}")
+    albedo_path = REPOSITORY_ROOT / "assets/daliuren/textures/source/outer-board-v10-albedo.png"
+    normal_path = REPOSITORY_ROOT / "assets/daliuren/textures/source/outer-board-v10-normal.png"
+    if not albedo_path.is_file() or not normal_path.is_file():
+        raise RuntimeError("Missing generated v10 outer-board textures")
     material, shader = _base_material(name, PALETTE["jadeBody"], 0.0, 0.31)
-    image = bpy.data.images.load(str(path), check_existing=True)
-    image.colorspace_settings.name = "sRGB"
-    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
-    texture.name = "Approved zodiac relief artwork"
-    texture.image = image
-    texture.projection = "FLAT"
-    coordinates = material.node_tree.nodes.new("ShaderNodeTexCoord")
-    coordinates.name = "Shared plate/earth projection"
-    coordinates.object = bpy.data.objects["plate/earth"]
-    mapping = material.node_tree.nodes.new("ShaderNodeMapping")
-    mapping.name = "Square board calibration"
-    mapping.inputs["Scale"].default_value = (2.0, 2.0, 1.0)
-    mapping.inputs["Location"].default_value = (0.5, 0.5, 0.0)
-    material.node_tree.links.new(coordinates.outputs["Object"], mapping.inputs["Vector"])
-    material.node_tree.links.new(mapping.outputs["Vector"], texture.inputs["Vector"])
-    material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Base Color"])
-    material["source_texture"] = path.relative_to(REPOSITORY_ROOT).as_posix()
+    coordinates = material.node_tree.nodes.new("ShaderNodeUVMap")
+    coordinates.uv_map = "BoardUV"
+    albedo_image = bpy.data.images.load(str(albedo_path), check_existing=True)
+    albedo_image.colorspace_settings.name = "sRGB"
+    albedo = material.node_tree.nodes.new("ShaderNodeTexImage")
+    albedo.name = "Outer board v10 albedo"
+    albedo.image = albedo_image
+    normal_image = bpy.data.images.load(str(normal_path), check_existing=True)
+    normal_image.colorspace_settings.name = "Non-Color"
+    normal_texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+    normal_texture.name = "Outer board v10 normal"
+    normal_texture.image = normal_image
+    normal = material.node_tree.nodes.new("ShaderNodeNormalMap")
+    normal.inputs["Strength"].default_value = 0.24
+    material.node_tree.links.new(coordinates.outputs["UV"], albedo.inputs["Vector"])
+    material.node_tree.links.new(coordinates.outputs["UV"], normal_texture.inputs["Vector"])
+    material.node_tree.links.new(albedo.outputs["Color"], shader.inputs["Base Color"])
+    material.node_tree.links.new(normal_texture.outputs["Color"], normal.inputs["Color"])
+    material.node_tree.links.new(normal.outputs["Normal"], shader.inputs["Normal"])
+    material["source_texture"] = albedo_path.relative_to(REPOSITORY_ROOT).as_posix()
     material["source_art"] = "daliuren-heaven-plate-translucent-jade-generals-v10.png"
-    material["projection"] = "raised zodiac relief only"
+    material["projection"] = "physical plate BoardUV; central interaction stack masked"
     return material
 
 
@@ -433,6 +437,14 @@ def _physical_material_name(obj):
     if obj.get("domain") == "general":
         return "M_TranslucentJade"
     return "M_JadeBody"
+
+
+def _assign_outer_board_uv(obj):
+    layer = obj.data.uv_layers.get("BoardUV") or obj.data.uv_layers.new(name="BoardUV")
+    for loop in obj.data.loops:
+        vertex = obj.data.vertices[loop.vertex_index].co
+        layer.data[loop.index].uv = (2.0 * vertex.x + 0.5, 2.0 * vertex.y + 0.5)
+    layer.active_render = True
 
 
 def _normalized_coordinate(value, minimum, maximum):
@@ -567,11 +579,13 @@ def apply_master_materials(root):
 
     interaction = bpy.data.materials.get("M_InteractionRaycast") or _build_interaction_raycast()
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
+        if obj.get("node_id") == "plate/earth":
+            _assign_outer_board_uv(obj)
         name = _physical_material_name(obj)
         variant = obj.get("material_variant", "")
         material_role = name
-        if obj.get("visual_role") == "zodiac-animal-relief":
-            material = _zodiac_relief_artwork_material()
+        if obj.get("node_id") == "plate/earth":
+            material = _outer_board_v10_material()
             material_role = "M_JadeBody"
         elif variant == "beidou-blue":
             material = _beidou_blue_material()

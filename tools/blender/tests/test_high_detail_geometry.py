@@ -101,52 +101,21 @@ class HighDetailGeometryTest(unittest.TestCase):
 
         zodiac = [
             obj for obj in bpy.data.objects
-            if obj.get("visual_role") == "zodiac-animal-relief"
-        ]
-        clouds = [
-            obj for obj in bpy.data.objects
-            if obj.get("visual_role") == "zodiac-cloud-relief"
+            if obj.get("visual_role") in {
+                "zodiac-animal-relief",
+                "zodiac-cloud-relief",
+                "zodiac-panel-frame",
+                "zodiac-panel-recess",
+            }
         ]
         pearls = [
             obj for obj in bpy.data.objects
             if obj.get("visual_role") == "corner-pearl"
         ]
-        self.assertEqual(len(zodiac), 12)
-        self.assertTrue(all(obj.type == "MESH" for obj in zodiac))
-        # A real relief must carry the animal silhouette and height variation in
-        # geometry. A beveled rectangular carrier with the reference painted on
-        # top is not an acceptable substitute.
-        for glyph in zodiac:
-            with self.subTest(relief=glyph.name):
-                self.assertGreaterEqual(len(glyph.data.vertices), 200)
-                local_heights = {round(vertex.co.z, 7) for vertex in glyph.data.vertices}
-                self.assertGreaterEqual(len(local_heights), 3)
-        self.assertEqual(
-            [glyph["zodiac_animal"] for glyph in zodiac],
-            ["snake", "horse", "goat", "monkey", "rooster", "dog", "pig", "rat", "ox", "tiger", "rabbit", "dragon"],
-        )
-        self.assertEqual(
-            [tuple(round(value, 3) for value in glyph.location.xy) for glyph in zodiac],
-            [(-0.140, 0.210), (0.000, 0.210), (0.140, 0.210), (0.210, 0.105),
-             (0.210, 0.000), (0.210, -0.105), (0.140, -0.210), (0.000, -0.210),
-             (-0.140, -0.210), (-0.210, -0.105), (-0.210, 0.000), (-0.210, 0.105)],
-        )
-        board_top = max(
-            (bpy.data.objects["plate/earth"].matrix_world @ Vector(corner)).z
-            for corner in bpy.data.objects["plate/earth"].bound_box
-        )
-        self.assertTrue(all(
-            board_top + 0.00008
-            <= max((glyph.matrix_world @ Vector(corner)).z for corner in glyph.bound_box)
-            <= board_top + 0.00055
-            for glyph in zodiac
-        ))
-        self.assertEqual(len(clouds), 12)
-        self.assertTrue(all(cloud.parent == bpy.data.objects["plate/earth"] for cloud in clouds))
-        self.assertTrue(all(
-            max((cloud.matrix_world @ Vector(corner)).z for corner in cloud.bound_box) <= board_top + 0.00055
-            for cloud in clouds
-        ))
+        # The approved hybrid uses one continuous high-resolution BoardUV
+        # surface on the real thick plate. Sparse voxel/point carriers create
+        # visible pixel blocks and must never be renderable geometry.
+        self.assertEqual(zodiac, [])
         self.assertFalse(any(obj.get("visual_role") == "zodiac-glyph" for obj in bpy.data.objects))
         self.assertFalse(any(obj.name.endswith("/glyph") and obj.name.startswith("zodiac/") for obj in bpy.data.objects))
         self.assertEqual(len(pearls), 4)
