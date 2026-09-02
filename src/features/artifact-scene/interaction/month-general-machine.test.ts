@@ -115,6 +115,7 @@ describe("month-general interaction", () => {
     expect(wrong).toMatchObject({ phase: "exploring", aligned: false, detent: 1 });
     expect(wrong.transition).toBeUndefined();
     expect(correct).toMatchObject({ phase: "landing", aligned: true, detent: layout.correctDetent });
+    expect(correct.transition?.startedAtMs).toBe(30_320);
   });
 
   it("cancels a partial landing from its current progress without delayed work", () => {

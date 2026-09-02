@@ -88,6 +88,54 @@ describe("jade plate motion", () => {
     expect(exit.generals[11].seatProgress).toBeLessThan(1);
     expect(exit.generals[10].seatProgress).toBe(1);
     expect(evaluateGeneralTransition(layout, exiting, 1_700, false).generals.every((item) => item.visible === false)).toBe(true);
+    expect(evaluateGeneralTransition(layout, exiting, 1_740, false).generals.every((item) => item.seatProgress === 0)).toBe(true);
+  });
+
+  it("exits only started pieces in their actual reverse order without waiting for unstarted pieces", () => {
+    const exiting: GeneralTransition = {
+      kind: "exit", startedAtMs: 10_000,
+      fromProgress: [1, 0.65, 0.2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
+    const firstFrame = evaluateGeneralTransition(layout, exiting, 10_001, false).generals;
+    expect(firstFrame[2].seatProgress).toBeLessThan(0.2);
+    expect(firstFrame[1].seatProgress).toBe(0.65);
+    expect(firstFrame[0].seatProgress).toBe(1);
+
+    const secondStarts = evaluateGeneralTransition(layout, exiting, 10_121, false).generals;
+    expect(secondStarts[1].seatProgress).toBeLessThan(0.65);
+    expect(secondStarts[0].seatProgress).toBe(1);
+
+    const thirdStarts = evaluateGeneralTransition(layout, exiting, 10_241, false).generals;
+    expect(thirdStarts[0].seatProgress).toBeLessThan(1);
+    expect(evaluateGeneralTransition(layout, exiting, 10_660, false).generals.every((item) => item.seatProgress === 0)).toBe(true);
+  });
+
+  it("turns the aligned month general gold for 220ms before the first general starts landing", () => {
+    const interactive = {
+      layout,
+      phase: "landing" as const,
+      angleRad: layout.correctAngleRad,
+      detent: layout.correctDetent,
+      aligned: true,
+      transition: {
+        kind: "landing" as const,
+        startedAtMs: 20_220,
+        fromProgress: Array(12).fill(0),
+      },
+    };
+
+    const aligned = evaluateInteractiveJadePlateMotion(interactive, 20_000, false);
+    const halfwayGold = evaluateInteractiveJadePlateMotion(interactive, 20_110, false);
+    const goldComplete = evaluateInteractiveJadePlateMotion(interactive, 20_220, false);
+
+    expect(aligned.activeMonthGoldProgress).toBe(0);
+    expect(halfwayGold.activeMonthGoldProgress).toBeGreaterThan(0);
+    expect(halfwayGold.activeMonthGoldProgress).toBeLessThan(1);
+    expect(goldComplete.activeMonthGoldProgress).toBe(1);
+    expect(aligned.generals.every((item) => item.visible === false)).toBe(true);
+    expect(halfwayGold.generals.every((item) => item.visible === false)).toBe(true);
+    expect(goldComplete.generals[0].seatProgress).toBe(0);
   });
 
   it("settles reduced motion immediately and is seek-safe", () => {

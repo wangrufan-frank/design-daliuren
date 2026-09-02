@@ -612,6 +612,67 @@ describe("ArtifactExperience", () => {
     expect(reversingExit.generals[0].seatProgress).toBe(partialLanding.generals[0].seatProgress);
   });
 
+  it("settles a completed manual landing and keeps a stationary click seated", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 30_000 }));
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "landing");
+
+    frames.step(35_230);
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "seated");
+
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "drag-start", angleRad: 0, nowMs: 35_240 }));
+    act(() => controller.callbacks.onMonthGeneralInput({
+      type: "drag-end", angularVelocityRadMs: 0, nowMs: 35_250,
+    }));
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "seated");
+  });
+
+  it("keeps an immediate re-entry in landing until its gold and landing window completes", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 28_000 }));
+    frames.step(28_100);
+
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "landing");
+    expect(Number(screen.getByTestId("artifact-experience").getAttribute("data-active-month-gold"))).toBeGreaterThan(0);
+    expect(Number(screen.getByTestId("artifact-experience").getAttribute("data-active-month-gold"))).toBeLessThan(1);
+  });
+
+  it("settles a reduced-motion manual landing immediately", async () => {
+    installMatchMedia(true);
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 30_000 }));
+
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "seated");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-active-month-gold", "1.000");
+  });
+
   it("replaces completed interaction with the locked state when its source changes", async () => {
     const frames = installAnimationFrames();
     const user = userEvent.setup();

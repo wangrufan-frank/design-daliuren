@@ -1,4 +1,8 @@
-import type { GeneralTransition, MonthGeneralInteractionState } from "../interaction/month-general-machine";
+import {
+  MONTH_GOLD_MS,
+  type GeneralTransition,
+  type MonthGeneralInteractionState,
+} from "../interaction/month-general-machine";
 import { DETENT_RADIANS, type JadePlateLayout } from "../model/jade-plate-layout";
 import type { JadePlateGeneralMotion, JadePlateMotion } from "./types";
 
@@ -9,7 +13,7 @@ export const LAND_STAGGER_MS = 390;
 export const EXIT_MS = 420;
 export const EXIT_STAGGER_MS = 120;
 export const DROP_HEIGHT_M = 0.0275;
-export const MONTH_GOLD_MS = 220;
+export { MONTH_GOLD_MS };
 
 const HEAVEN_EARTH_START_MS = 3_200;
 const GENERAL_START_MS = 18_000;
@@ -83,9 +87,14 @@ function exitMotion(
   transition: GeneralTransition,
   elapsedMs: number,
 ): readonly JadePlateGeneralMotion[] {
+  const activeIndices = transition.fromProgress
+    .map((progress, index) => progress > 0 ? index : -1)
+    .filter((index) => index >= 0);
   return layout.generalSequence.map((piece, index) => {
     const from = transition.fromProgress[index] ?? 0;
-    const localMs = elapsedMs - (layout.generalSequence.length - 1 - index) * EXIT_STAGGER_MS;
+    const activeIndex = activeIndices.indexOf(index);
+    const reverseRank = activeIndex < 0 ? 0 : activeIndices.length - 1 - activeIndex;
+    const localMs = elapsedMs - reverseRank * EXIT_STAGGER_MS;
     const seatProgress = from * (1 - smootherstep(clamp01(localMs / EXIT_MS)));
     return {
       nodeId: piece.nodeId,
@@ -156,10 +165,15 @@ export function evaluateInteractiveJadePlateMotion(
   const generals = state.transition
     ? evaluateGeneralTransition(state.layout, state.transition, nowMs, reducedMotion).generals
     : state.aligned ? seatedGeneralMotion(state.layout) : emptyGeneralMotion(state.layout);
+  const activeMonthGoldProgress = !state.aligned
+    ? 0
+    : reducedMotion || state.transition?.kind !== "landing"
+      ? 1
+      : smootherstep(clamp01((nowMs - (state.transition.startedAtMs - MONTH_GOLD_MS)) / MONTH_GOLD_MS));
   return {
     monthAngleRad: state.angleRad,
     activeMonthGeneralNodeId: state.layout.activeMonthGeneralNodeId,
-    activeMonthGoldProgress: state.aligned ? 1 : 0,
+    activeMonthGoldProgress,
     generals,
   };
 }

@@ -4,6 +4,7 @@ const FULL_TURN_RADIANS = Math.PI * 2;
 const DETENT_COUNT = 12;
 const DRAG_INVALIDATION_RADIANS = 2 * Math.PI / 180;
 const INERTIA_THRESHOLD_RAD_MS = 0.01;
+export const MONTH_GOLD_MS = 220;
 
 export type MonthGeneralPhase = "locked" | "landing" | "seated" | "exiting" | "exploring";
 
@@ -136,7 +137,7 @@ function snapToDetent(
       detent,
       aligned: true,
       drag: undefined,
-      transition: transition("landing", nowMs, progress),
+      transition: transition("landing", nowMs + MONTH_GOLD_MS, progress),
     };
   }
   if (state.aligned) return leavingAlignment(state, angleRad, detent, undefined, nowMs, progress);

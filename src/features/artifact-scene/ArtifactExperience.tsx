@@ -6,7 +6,11 @@ import { deriveJadePlateLayout, type JadePlateLayout } from "./model/jade-plate-
 import { formatVoidBranch, type VoidSurface } from "./model/format-void-branch";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
-import { evaluateInteractiveJadePlateMotion } from "./timeline/evaluate-jade-plate-motion";
+import {
+  evaluateInteractiveJadePlateMotion,
+  LAND_MS,
+  LAND_STAGGER_MS,
+} from "./timeline/evaluate-jade-plate-motion";
 import { evaluateStageReplay } from "./timeline/evaluate-stage-replay";
 import { reviewStageFor, type ArtifactReviewStage } from "./timeline/review-stages";
 import type { RuleStageId } from "../../domain/chart/types";
@@ -97,6 +101,19 @@ function compactViewportSnapshot(): boolean {
 
 function useCompactArtifactLayout(): boolean {
   return useSyncExternalStore(subscribeToViewport, compactViewportSnapshot, () => false);
+}
+
+function settleCompletedLanding(
+  state: MonthGeneralInteractionState,
+  nowMs: number,
+  reducedMotion: boolean,
+): MonthGeneralInteractionState {
+  if (state.phase !== "landing" || state.transition?.kind !== "landing") return state;
+  const landingCompleteAtMs = state.transition.startedAtMs
+    + (state.layout.generalSequence.length - 1) * LAND_STAGGER_MS
+    + LAND_MS;
+  if (!reducedMotion && nowMs < landingCompleteAtMs) return state;
+  return { ...state, phase: "seated", transition: undefined };
 }
 
 function poseHash(state: ArtifactAppliedState): string {
@@ -237,7 +254,13 @@ export function ArtifactExperience({
       controller.applyJadePlateMotion(motion);
       publishInteractionMotion(motion);
     } else if (interactionRef.current.phase !== "locked") {
-      const motion = evaluateInteractiveJadePlateMotion(interactionRef.current, nowMs, reducedMotionRef.current);
+      const currentInteraction = interactionRef.current;
+      const motion = evaluateInteractiveJadePlateMotion(currentInteraction, nowMs, reducedMotionRef.current);
+      const settledInteraction = settleCompletedLanding(currentInteraction, nowMs, reducedMotionRef.current);
+      if (settledInteraction !== currentInteraction) {
+        interactionRef.current = settledInteraction;
+        setInteraction(settledInteraction);
+      }
       controller.applyJadePlateMotion(motion);
       publishInteractionMotion(motion);
     }
@@ -273,9 +296,10 @@ export function ArtifactExperience({
     const next = event.type === "drag-start"
       ? reduceMonthGeneralState(current, event)
       : reduceMonthGeneralState(current, { ...event, generalProgress });
-    interactionRef.current = next;
-    setInteraction(next);
     const nextMotion = evaluateInteractiveJadePlateMotion(next, event.nowMs, reducedMotionRef.current);
+    const settledNext = settleCompletedLanding(next, event.nowMs, reducedMotionRef.current);
+    interactionRef.current = settledNext;
+    setInteraction(settledNext);
     controllerRef.current?.applyJadePlateMotion(nextMotion);
     publishInteractionMotion(nextMotion);
   }, [publishInteractionMotion]);
