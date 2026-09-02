@@ -9,6 +9,7 @@ from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).parent))
 
 from daliuren_contract import (
+    CORE_CENTER_OFFSET_M,
     DIAL_CENTER_OFFSET_M,
     DIMENSIONS,
     GENERAL_ANGULAR_CLEARANCE_DEG,
@@ -451,7 +452,7 @@ def build_graybox():
     heaven = add_ring(
         "plate/heaven",
         heaven_diameter / 2,
-        0.125,
+        0.119,
         heaven_depth,
         (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + heaven_depth / 2),
         0.002,
@@ -459,7 +460,7 @@ def build_graybox():
     heaven["closed_rotation_euler"] = tuple(heaven.rotation_euler)
     heaven["rotates_independently"] = True
     foundation = add_disc(
-        "detail/heaven/dial-foundation", 0.164, 0.006, (0.0, 0.0, 0.0), 0.001
+        "detail/heaven/dial-foundation", 0.158, 0.006, (0.0, 0.0, 0.0), 0.001
     )
     del foundation["node_id"]
     foundation.parent = heaven
@@ -468,7 +469,7 @@ def build_graybox():
     foundation["visual_role"] = "rotating-dial-foundation"
     # Two visual bands share the same parent, so they can never drift apart.
     for ring_index, (outer_radius, inner_radius) in enumerate(
-        ((0.165, 0.137), (0.136, 0.096)), start=1
+        ((0.158, 0.133), (0.132, 0.092)), start=1
     ):
         band = add_ring(
             f"detail/heaven/linked-ring-{ring_index}",
@@ -489,7 +490,7 @@ def build_graybox():
     general_ring = add_ring(
         "plate/generals",
         general_diameter / 2,
-        0.063,
+        0.052,
         general_depth,
         (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + 0.0035),
         0.001,
@@ -501,7 +502,7 @@ def build_graybox():
         "plate/core",
         core_diameter / 2,
         core_depth,
-        (*DIAL_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + 0.0092),
+        (*CORE_CENTER_OFFSET_M, base_height + DIMENSIONS["earth_plate"][2] + 0.0092),
         0.001,
     )
     core["fixed"] = True
@@ -517,7 +518,7 @@ def build_graybox():
     build_fixed_inscriptions(earth, heaven, font_path, roles={"earth-branch"})
     add_month_general_glyphs(heaven, font_path)
     interaction = add_ring(
-        "interaction/month-general-ring", 0.170, 0.112, 0.0002, (0.0, 0.0, heaven.dimensions.z / 2 + 0.0002)
+        "interaction/month-general-ring", 0.163, 0.102, 0.0002, (0.0, 0.0, heaven.dimensions.z / 2 + 0.0002)
     )
     interaction.parent = heaven
     interaction["color_write"] = False

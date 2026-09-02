@@ -10,7 +10,7 @@ from uv_and_bake import DYNAMIC_LABEL_OWNERS, _add_dynamic_surfaces, assign_prim
 REPOSITORY_ROOT = Path(__file__).parents[2]
 MATERIAL_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
 TEXTURE_ROOT = REPOSITORY_ROOT / "assets/daliuren/textures"
-OUTER_BOARD_TEXTURE_PATH = TEXTURE_ROOT / "source/outer-board-artwork.png"
+ZODIAC_RELIEF_TEXTURE_PATH = TEXTURE_ROOT / "source/zodiac-relief-artwork.png"
 SOURCE_MARKER = "daliuren_lod_source"
 LEGACY_EXPORT_MATERIALS = ("M_EarthVoid", "M_HeavenVoid")
 
@@ -50,8 +50,7 @@ def _duplicate_collection(level):
     copies = {}
     for obj in source:
         if (
-            obj.get("visual_role", "").startswith("zodiac-")
-            or obj.get("surface_treatment") in {"rear-slip-seat", "shallow-slot"}
+            obj.get("surface_treatment") in {"rear-slip-seat", "shallow-slot"}
             or obj.get("role") == "fixed-historical-inscription"
         ):
             continue
@@ -185,16 +184,16 @@ def _runtime_material(atlas_id, family, texture_lod, atlas):
     return material
 
 
-def _outer_board_runtime_material():
-    name = "RT_M_JadeBody_outer_board"
+def _zodiac_relief_runtime_material():
+    name = "RT_M_JadeBody_zodiac_relief"
     material = bpy.data.materials.get(name)
     if material is not None:
         return material
 
     material = bpy.data.materials.new(name)
     material["material_family"] = "M_JadeBody"
-    material["runtime_projection"] = "outer-board"
-    material["source_texture"] = OUTER_BOARD_TEXTURE_PATH.relative_to(REPOSITORY_ROOT).as_posix()
+    material["runtime_projection"] = "zodiac-relief"
+    material["source_texture"] = ZODIAC_RELIEF_TEXTURE_PATH.relative_to(REPOSITORY_ROOT).as_posix()
     material.use_nodes = True
     nodes = material.node_tree.nodes
     nodes.clear()
@@ -206,10 +205,10 @@ def _outer_board_runtime_material():
     principled.inputs["Roughness"].default_value = 0.31
     links.new(principled.outputs["BSDF"], output.inputs["Surface"])
 
-    image = bpy.data.images.load(str(OUTER_BOARD_TEXTURE_PATH), check_existing=True)
+    image = bpy.data.images.load(str(ZODIAC_RELIEF_TEXTURE_PATH), check_existing=True)
     image.colorspace_settings.name = "sRGB"
     texture = nodes.new("ShaderNodeTexImage")
-    texture.name = "Continuous outer-board artwork"
+    texture.name = "Zodiac relief artwork"
     texture.image = image
     coordinates = nodes.new("ShaderNodeUVMap")
     coordinates.uv_map = "BoardUV"
@@ -245,15 +244,8 @@ def _uniform_jade_runtime_material():
 
 def _uses_uniform_jade(obj):
     return (
-        obj.get("node_id") in {"base/body", "plate/core"}
+        obj.get("node_id") in {"base/body", "plate/earth", "plate/core"}
         or obj.get("visual_role") in {"corner-pearl", "jade-pivot"}
-    )
-
-
-def _uses_outer_board_projection(obj):
-    return (
-        obj.get("node_id") == "plate/earth"
-        or obj.get("visual_role") in {"zodiac-panel-frame", "zodiac-panel-recess"}
     )
 
 
@@ -272,7 +264,7 @@ def _bind_runtime_textures(collection, level):
     texture_lod = "lod2" if level == 2 else "lod0"
     materials = {}
     board = next(obj for obj in collection.all_objects if obj.get("node_id") == "plate/earth")
-    outer_board_material = _outer_board_runtime_material()
+    zodiac_relief_material = _zodiac_relief_runtime_material()
     uniform_jade_material = _uniform_jade_runtime_material()
     for obj in collection.all_objects:
         if obj.type != "MESH" or obj.get("dynamic_label_id"):
@@ -287,11 +279,11 @@ def _bind_runtime_textures(collection, level):
             obj.data.materials.clear()
             obj.data.materials.append(uniform_jade_material)
             continue
-        if _uses_outer_board_projection(obj):
+        if obj.get("visual_role") == "zodiac-animal-relief":
             _assign_outer_board_uv(obj, board)
-            obj["runtime_projection"] = "outer-board"
+            obj["runtime_projection"] = "zodiac-relief"
             obj.data.materials.clear()
-            obj.data.materials.append(outer_board_material)
+            obj.data.materials.append(zodiac_relief_material)
             continue
         atlas_id = obj["runtime_atlas_id"]
         atlas = runtime["families"][family]["atlases"][atlas_id]

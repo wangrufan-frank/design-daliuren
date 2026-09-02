@@ -347,6 +347,7 @@ export function ArtifactExperience({
     let loadedArtifact: LoadedArtifact | undefined;
     let ownedController: ArtifactSceneController | undefined;
     let ownedVisualReviewPoseHook: Window["__artifactSetVisualReviewPose"];
+    let portraitLayout: boolean | undefined;
     let renderer: ReturnType<typeof createArtifactRenderer>;
     try {
       renderer = createArtifactRenderer(canvas);
@@ -363,11 +364,18 @@ export function ArtifactExperience({
       const controller = ownedController;
       if (!controller) return;
       const bounds = canvas.getBoundingClientRect();
+      const nextPortraitLayout = bounds.width < bounds.height;
       controller.resize(
         bounds.width || window.innerWidth,
         bounds.height || 560,
         window.devicePixelRatio || 1,
       );
+      if (portraitLayout !== undefined
+        && portraitLayout !== nextPortraitLayout
+        && !userControlledRef.current) {
+        controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, true);
+      }
+      portraitLayout = nextPortraitLayout;
       if (measure) measureBranchProjection();
     };
     const resizeObserver = typeof ResizeObserver === "undefined"

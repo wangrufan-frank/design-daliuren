@@ -13,8 +13,8 @@ describe("ARTIFACT_REVIEW_STAGES", () => {
 
   it("uses the v10-calibrated camera focused on the modeled dial center", () => {
     for (const { camera } of ARTIFACT_REVIEW_STAGES) {
-      expect(camera.position).toEqual([0.12044204, 1.65952395, 0.95771196]);
-      expect(camera.target).toEqual([0.00243791, 0.03725838, -0.00050031]);
+      expect(camera.position).toEqual([0.19096628, 1.48967427, 1.03677363]);
+      expect(camera.target).toEqual([0.0064732, 0.13488113, 0.07347428]);
     }
   });
 });

@@ -13,7 +13,7 @@ def encoder_options(mode):
         "srgb": mode == "etc1s",
         "linear": mode == "uastc",
         "mipmaps": True,
-        "threads": 1,
+        "threads": 0,
     }
     if mode == "uastc":
         return {

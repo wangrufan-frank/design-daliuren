@@ -6,6 +6,8 @@ import bpy
 from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
+from daliuren_contract import VISUAL_ORIENTATION_OFFSET_DEG
+
 
 REFERENCE_SIZE = (1254, 1253)
 REFERENCE_SOURCE_SIZE = (1286, 1223)
@@ -52,10 +54,18 @@ REFERENCE_SOURCE_ANCHORS = {
          (529.0, 648.0), (512.0, 592.0), (533.0, 541.0), (586.0, 500.0)),
     )),
 }
+_REFERENCE_COVER_SCALE = max(
+    REFERENCE_SOURCE_SIZE[0] / REFERENCE_SIZE[0],
+    REFERENCE_SOURCE_SIZE[1] / REFERENCE_SIZE[1],
+)
+_REFERENCE_COVER_CROP = (
+    (REFERENCE_SIZE[0] * _REFERENCE_COVER_SCALE - REFERENCE_SOURCE_SIZE[0]) / 2,
+    (REFERENCE_SIZE[1] * _REFERENCE_COVER_SCALE - REFERENCE_SOURCE_SIZE[1]) / 2,
+)
 REFERENCE_ANCHORS = {
     name: (
-        x * REFERENCE_SIZE[0] / REFERENCE_SOURCE_SIZE[0],
-        y * REFERENCE_SIZE[1] / REFERENCE_SOURCE_SIZE[1],
+        (x + _REFERENCE_COVER_CROP[0]) / _REFERENCE_COVER_SCALE,
+        (y + _REFERENCE_COVER_CROP[1]) / _REFERENCE_COVER_SCALE,
     )
     for name, (x, y) in REFERENCE_SOURCE_ANCHORS.items()
 }
@@ -83,13 +93,11 @@ def _world_points():
         ].matrix_world.translation.copy()
     heaven = bpy.data.objects["plate/heaven"]
     rim_z = 0.0068
-    for name, point in {
-        "north": (0.0, 0.166, rim_z),
-        "east": (0.166, 0.0, rim_z),
-        "south": (0.0, -0.166, rim_z),
-        "west": (-0.166, 0.0, rim_z),
-    }.items():
-        points[f"rim/{name}"] = heaven.matrix_world @ Vector(point)
+    for name, degrees in {"north": 90, "east": 0, "south": -90, "west": 180}.items():
+        angle = math.radians(degrees + VISUAL_ORIENTATION_OFFSET_DEG)
+        points[f"rim/{name}"] = heaven.matrix_world @ Vector(
+            (0.159 * math.cos(angle), 0.159 * math.sin(angle), rim_z)
+        )
     for name in "午未申酉戌亥子丑寅卯辰巳":
         points[f"branch/{name}"] = bpy.data.objects[f"branch/earth/{name}"].matrix_world.translation.copy()
     for name in ("胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙"):
@@ -117,10 +125,10 @@ def _pixel(scene, camera, point):
 def _cost(scene, camera, points):
     weights = {
         "board": 3.0,
-        "dial": 2.0,
+        "dial": 5.0,
         "pearl": 3.0,
-        "beidou": 1.0,
-        "rim": 2.0,
+        "beidou": 3.0,
+        "rim": 4.0,
         "branch": 1.5,
         "month": 1.5,
         "general": 1.5,
@@ -153,7 +161,7 @@ def calibrate_v10_camera(scene=None):
         for axis in range(len(_SEED))
     )
     scores = [evaluate(point) for point in simplex]
-    for _ in range(120):
+    for _ in range(360):
         order = sorted(range(len(simplex)), key=lambda index: scores[index])
         simplex = [simplex[index] for index in order]
         scores = [scores[index] for index in order]

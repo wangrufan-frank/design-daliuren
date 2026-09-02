@@ -1,8 +1,8 @@
 import math
 
 
-GENERAL_SECTOR_INNER_RADIUS = 0.064
-GENERAL_SECTOR_OUTER_RADIUS = 0.108
+GENERAL_SECTOR_INNER_RADIUS = 0.054
+GENERAL_SECTOR_OUTER_RADIUS = 0.100
 GENERAL_SECTOR_ANGLE_DEG = 30.0
 GENERAL_RADIAL_CLEARANCE_M = 0.00008
 GENERAL_ANGULAR_CLEARANCE_DEG = 0.12
@@ -17,16 +17,21 @@ GENERAL_INLAY_DIMENSIONS = (
     GENERAL_INLAY_DEPTH_M,
 )
 
-MONTH_GENERAL_RADIUS_M = 0.118
-FIXED_CORE_DIAMETER_M = 0.112
+MONTH_GENERAL_RADIUS_M = 0.110
+FIXED_CORE_DIAMETER_M = 0.100
 DIAL_CENTER_OFFSET_M = (-0.0078, -0.0237)
+CORE_CENTER_OFFSET_M = (
+    DIAL_CENTER_OFFSET_M[0] - 0.0022,
+    DIAL_CENTER_OFFSET_M[1] - 0.0060,
+)
+VISUAL_ORIENTATION_OFFSET_DEG = 12.0
 
 
 DIMENSIONS = {
     "base": (0.520, 0.520, 0.028),
     "earth_plate": (0.500, 0.500, 0.006),
-    "heaven_plate": (0.332, 0.010),
-    "general_ring": (0.218, 0.007),
+    "heaven_plate": (0.318, 0.010),
+    "general_ring": (0.202, 0.007),
     "fixed_core": (FIXED_CORE_DIAMETER_M, 0.006),
     "calendar_slip": (0.300, 0.038, 0.009),
     "lesson_slip": (0.074, 0.034, 0.009),
@@ -45,7 +50,7 @@ BRANCH_INLAY_NODE_IDS = tuple(f"branch/earth/{branch}" for branch in BRANCHES)
 
 
 def visual_angle(index):
-    return math.radians(90 - index * 30)
+    return math.radians(90 + VISUAL_ORIENTATION_OFFSET_DEG - index * 30)
 
 NODE_IDS = (
     "artifact/root", "base/body", "plate/earth", "plate/heaven",

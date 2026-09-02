@@ -9,7 +9,10 @@ from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_graybox
-from daliuren_contract import BRANCHES, DIMENSIONS, NODE_IDS, VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER
+from daliuren_contract import (
+    BRANCHES, DIAL_CENTER_OFFSET_M, DIMENSIONS, NODE_IDS,
+    VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle,
+)
 
 
 GENERAL_KEYS = (
@@ -187,7 +190,7 @@ class ComponentContractTest(unittest.TestCase):
         locations = set()
         rotations = set()
         for index, branch in enumerate(VISUAL_EARTH_ORDER):
-            angle = math.radians(90 - index * 30)
+            angle = visual_angle(index)
             slot = bpy.data.objects[f"general-slot/{branch}"]
             general = next(obj for obj in bpy.data.objects if obj.get("target_earth") == branch)
             recess = bpy.data.objects[f"detail/general-recess/{branch}"]
@@ -198,7 +201,7 @@ class ComponentContractTest(unittest.TestCase):
                 places=6,
             )
             self.assertAlmostEqual(slot.rotation_euler.z, angle - math.pi / 2, places=6)
-            self.assertGreater(math.hypot(slot.location.x, slot.location.y), 0.08)
+            self.assertGreater(math.hypot(slot.location.x, slot.location.y), 0.07)
             self.assertVectorAlmostEqual(general.location, slot.location)
             self.assertVectorAlmostEqual(general.rotation_euler, slot.rotation_euler)
             general_top = max((general.matrix_world @ Vector(corner)).z for corner in general.bound_box)
@@ -255,9 +258,17 @@ class ComponentContractTest(unittest.TestCase):
             self.assertEqual(inlay.parent, parent)
             self.assertEqual(inlay["branch"], VISUAL_EARTH_ORDER[index])
             self.assertEqual(inlay["ring_index"], index)
-            self.assertAlmostEqual(math.hypot(inlay.location.x, inlay.location.y), 0.145, places=4)
-            self.assertAlmostEqual(inlay.location.x, 0.145 * math.cos(math.radians(90 - index * 30)), places=4)
-            self.assertAlmostEqual(inlay.location.y, 0.145 * math.sin(math.radians(90 - index * 30)), places=4)
+            angle = visual_angle(index)
+            self.assertAlmostEqual(
+                math.hypot(
+                    inlay.location.x - DIAL_CENTER_OFFSET_M[0],
+                    inlay.location.y - DIAL_CENTER_OFFSET_M[1],
+                ),
+                0.144,
+                places=4,
+            )
+            self.assertAlmostEqual(inlay.location.x, DIAL_CENTER_OFFSET_M[0] + 0.144 * math.cos(angle), places=4)
+            self.assertAlmostEqual(inlay.location.y, DIAL_CENTER_OFFSET_M[1] + 0.144 * math.sin(angle), places=4)
             self.assertGreater(max(inlay.dimensions.x, inlay.dimensions.y), 0.018)
             self.assertLess(max(inlay.dimensions.x, inlay.dimensions.y), 0.022)
             inlay_top = max((inlay.matrix_world @ Vector(corner)).z for corner in inlay.bound_box)

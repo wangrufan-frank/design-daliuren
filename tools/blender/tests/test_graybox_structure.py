@@ -34,8 +34,8 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertVectorAlmostEqual(base.dimensions, (0.520, 0.520, 0.028))
         self.assertAlmostEqual(base.location.z - base.dimensions.z / 2, 0.0, places=4)
         self.assertVectorAlmostEqual(earth.dimensions, (0.500, 0.500, 0.006))
-        self.assertAlmostEqual(heaven.dimensions.x, 0.332, places=4)
-        self.assertAlmostEqual(heaven.dimensions.y, 0.332, places=4)
+        self.assertAlmostEqual(heaven.dimensions.x, 0.318, places=4)
+        self.assertAlmostEqual(heaven.dimensions.y, 0.318, places=4)
         self.assertAlmostEqual(heaven.dimensions.z, 0.010, places=4)
 
     def test_scene_stack_reaches_the_declared_lod_height(self):
@@ -68,8 +68,8 @@ class GrayboxStructureTest(unittest.TestCase):
         foundation = bpy.data.objects["detail/heaven/dial-foundation"]
         self.assertIs(foundation.parent, heaven)
         self.assertNotIn("node_id", foundation)
-        self.assertAlmostEqual(foundation.dimensions.x, 0.328, places=4)
-        self.assertAlmostEqual(foundation.dimensions.y, 0.328, places=4)
+        self.assertAlmostEqual(foundation.dimensions.x, 0.316, places=4)
+        self.assertAlmostEqual(foundation.dimensions.y, 0.316, places=4)
         self.assertLess(foundation.location.z, 0.0)
         foundation_top = foundation.location.z + foundation.dimensions.z / 2
         for name in ("detail/heaven/linked-ring-1", "detail/heaven/linked-ring-2"):
@@ -107,10 +107,10 @@ class GrayboxStructureTest(unittest.TestCase):
             self.assertIs(glyph.parent, earth)
             self.assertEqual(glyph["ring_index"], index)
             self.assertAlmostEqual(
-                glyph.location.x, 0.145 * math.cos(visual_angle(index)), places=4
+                glyph.location.x, DIAL_CENTER_OFFSET_M[0] + 0.144 * math.cos(visual_angle(index)), places=4
             )
             self.assertAlmostEqual(
-                glyph.location.y, 0.145 * math.sin(visual_angle(index)), places=4
+                glyph.location.y, DIAL_CENTER_OFFSET_M[1] + 0.144 * math.sin(visual_angle(index)), places=4
             )
             self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.018)
             self.assertLess(max(glyph.dimensions.x, glyph.dimensions.y), 0.022)
@@ -120,9 +120,9 @@ class GrayboxStructureTest(unittest.TestCase):
         for index, month in enumerate(VISUAL_MONTH_ORDER):
             glyph = bpy.data.objects[f"month-general/{month}"]
             self.assertIs(glyph.parent, heaven)
-            self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.118, places=4)
-            self.assertAlmostEqual(glyph.location.x, 0.118 * math.cos(visual_angle(index)), places=4)
-            self.assertAlmostEqual(glyph.location.y, 0.118 * math.sin(visual_angle(index)), places=4)
+            self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.110, places=4)
+            self.assertAlmostEqual(glyph.location.x, 0.110 * math.cos(visual_angle(index)), places=4)
+            self.assertAlmostEqual(glyph.location.y, 0.110 * math.sin(visual_angle(index)), places=4)
             self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.020)
 
     def test_functional_glyphs_clear_their_visible_carriers(self):
@@ -135,6 +135,7 @@ class GrayboxStructureTest(unittest.TestCase):
         earth_carrier_top = max(
             top(bpy.data.objects["plate/heaven"]),
             *(top(obj) for obj in bpy.data.objects if obj.name.startswith("general/") and not obj.name.endswith("/name")),
+            *(top(obj) for obj in bpy.data.objects if obj.name.startswith("detail/heaven/linked-ring-")),
         )
         for branch in VISUAL_EARTH_ORDER:
             clearance = bottom(bpy.data.objects[f"branch/earth/{branch}"]) - earth_carrier_top

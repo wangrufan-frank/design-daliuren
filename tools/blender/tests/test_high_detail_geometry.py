@@ -113,6 +113,14 @@ class HighDetailGeometryTest(unittest.TestCase):
         ]
         self.assertEqual(len(zodiac), 12)
         self.assertTrue(all(obj.type == "MESH" for obj in zodiac))
+        # A real relief must carry the animal silhouette and height variation in
+        # geometry. A beveled rectangular carrier with the reference painted on
+        # top is not an acceptable substitute.
+        for glyph in zodiac:
+            with self.subTest(relief=glyph.name):
+                self.assertGreaterEqual(len(glyph.data.vertices), 200)
+                local_heights = {round(vertex.co.z, 7) for vertex in glyph.data.vertices}
+                self.assertGreaterEqual(len(local_heights), 3)
         self.assertEqual(
             [glyph["zodiac_animal"] for glyph in zodiac],
             ["snake", "horse", "goat", "monkey", "rooster", "dog", "pig", "rat", "ox", "tiger", "rabbit", "dragon"],
@@ -128,7 +136,9 @@ class HighDetailGeometryTest(unittest.TestCase):
             for corner in bpy.data.objects["plate/earth"].bound_box
         )
         self.assertTrue(all(
-            max((glyph.matrix_world @ Vector(corner)).z for corner in glyph.bound_box) <= board_top + 0.00005
+            board_top + 0.00008
+            <= max((glyph.matrix_world @ Vector(corner)).z for corner in glyph.bound_box)
+            <= board_top + 0.00055
             for glyph in zodiac
         ))
         self.assertEqual(len(clouds), 12)

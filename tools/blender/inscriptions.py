@@ -6,6 +6,8 @@ from pathlib import Path
 import bpy
 from mathutils import Vector
 
+from daliuren_contract import DIAL_CENTER_OFFSET_M, VISUAL_ORIENTATION_OFFSET_DEG
+
 REPOSITORY_ROOT = Path(__file__).parents[2]
 FIXED_INSCRIPTIONS_PATH = (
     REPOSITORY_ROOT / "assets/daliuren/inscriptions/fixed-inscriptions.json"
@@ -163,10 +165,14 @@ def _add_mesh_text(
     bpy.context.scene.collection.objects.link(obj)
     obj.parent = parent
 
-    angle = math.radians(90 - item.angular_index * 360 / ROLE_ANGLES[item.role])
+    orientation_offset = VISUAL_ORIENTATION_OFFSET_DEG if item.role == "earth-branch" else 0.0
+    angle = math.radians(
+        90 + orientation_offset - item.angular_index * 360 / ROLE_ANGLES[item.role]
+    )
+    center = DIAL_CENTER_OFFSET_M if item.role == "earth-branch" else (0.0, 0.0)
     obj.location = (
-        item.radius * math.cos(angle),
-        item.radius * math.sin(angle),
+        center[0] + item.radius * math.cos(angle),
+        center[1] + item.radius * math.sin(angle),
         0.0,
     )
     obj.rotation_euler.z = angle - math.pi / 2

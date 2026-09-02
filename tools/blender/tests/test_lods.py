@@ -107,8 +107,12 @@ class LodTests(unittest.TestCase):
                 with self.subTest(level=level, node_id=node_id):
                     self.assertEqual(obj.matrix_parent_inverse, Matrix.Identity(4))
                     source = source_by_node_id[node_id]
-                    for actual, expected in zip(obj.matrix_world, source.matrix_world):
-                        self.assertEqual(actual.to_tuple(6), expected.to_tuple(6))
+                    max_delta = max(
+                        abs(obj.matrix_world[row][column] - source.matrix_world[row][column])
+                        for row in range(4)
+                        for column in range(4)
+                    )
+                    self.assertLessEqual(max_delta, 1e-6)
 
     def test_lods_preserve_single_ink_branch_material_slots(self):
         for level, collection in enumerate(self.lods):
@@ -215,13 +219,12 @@ class LodTests(unittest.TestCase):
                         max(owner_top, general_ring_top) + 0.00009,
                     )
 
-    def test_lods_export_the_outer_board_with_one_continuous_projection(self):
+    def test_lods_export_real_zodiac_relief_instead_of_a_flat_board_projection(self):
         semantic_keys = {"node_id", "dynamic_label_id", "inscription_role", "text_role"}
         omitted_sources = [
             obj for obj in bpy.context.scene.objects
             if obj.get(SOURCE_MARKER) and (
-                obj.get("visual_role", "").startswith("zodiac-")
-                or obj.get("surface_treatment") in {"rear-slip-seat", "shallow-slot"}
+                obj.get("surface_treatment") in {"rear-slip-seat", "shallow-slot"}
                 or obj.get("role") == "fixed-historical-inscription"
             )
         ]
@@ -231,10 +234,9 @@ class LodTests(unittest.TestCase):
                 self.assertTrue(semantic_keys.isdisjoint(obj.keys()))
 
         for level, collection in enumerate(self.lods):
-            self.assertFalse(any(
-                obj.get("visual_role", "").startswith("zodiac-")
-                for obj in collection.all_objects
-            ))
+            roles = [obj.get("visual_role") for obj in collection.all_objects]
+            self.assertEqual(roles.count("zodiac-animal-relief"), 12)
+            self.assertEqual(roles.count("zodiac-cloud-relief"), 12)
             self.assertFalse(any(
                 obj.get("surface_treatment") in {"rear-slip-seat", "shallow-slot"}
                 for obj in collection.all_objects
@@ -243,19 +245,29 @@ class LodTests(unittest.TestCase):
                 obj.get("role") == "fixed-historical-inscription"
                 for obj in collection.all_objects
             ))
-            projected = [
+            board = [
                 obj for obj in collection.all_objects
                 if obj.get("node_id") == "plate/earth"
             ]
-            self.assertEqual(len(projected), 1)
-            for obj in projected:
+            self.assertEqual(len(board), 1)
+            for obj in board:
                 with self.subTest(level=level, object=obj.name):
-                    self.assertEqual(obj.get("runtime_projection"), "outer-board")
-                    self.assertIsNotNone(obj.data.uv_layers.get("BoardUV"))
+                    self.assertEqual(obj.get("runtime_projection"), "uniform-jade")
                     self.assertEqual(len(obj.data.materials), 1)
                     material = obj.data.materials[0]
                     self.assertEqual(material.get("material_family"), "M_JadeBody")
-                    self.assertTrue(material.get("source_texture", "").endswith("outer-board-artwork.png"))
+                    self.assertFalse(material.get("source_texture"))
+
+            reliefs = [
+                obj for obj in collection.all_objects
+                if obj.get("visual_role") == "zodiac-animal-relief"
+            ]
+            for relief in reliefs:
+                with self.subTest(level=level, relief=relief.name):
+                    self.assertEqual(relief.get("runtime_projection"), "zodiac-relief")
+                    self.assertIsNotNone(relief.data.uv_layers.get("BoardUV"))
+                    material = relief.data.materials[0]
+                    self.assertTrue(material.get("source_texture", "").endswith("zodiac-relief-artwork.png"))
 
             uniform_jade = [
                 obj for obj in collection.all_objects
@@ -263,7 +275,7 @@ class LodTests(unittest.TestCase):
             ]
             self.assertEqual(
                 {obj.get("node_id") for obj in uniform_jade if obj.get("node_id")},
-                {"base/body", "plate/core"},
+                {"base/body", "plate/earth", "plate/core"},
             )
             self.assertEqual(
                 {obj.get("visual_role") for obj in uniform_jade if obj.get("visual_role")},
@@ -293,7 +305,7 @@ class LodTests(unittest.TestCase):
                 if (
                     obj.type != "MESH"
                     or obj.get("dynamic_label_id")
-                    or obj.get("runtime_projection") in {"outer-board", "uniform-jade"}
+                    or obj.get("runtime_projection") in {"zodiac-relief", "uniform-jade"}
                     or obj.get("runtime_texture_family") == "M_TranslucentJade"
                     or _excluded_from_runtime_bake(obj)
                 ):

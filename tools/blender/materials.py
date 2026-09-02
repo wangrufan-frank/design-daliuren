@@ -366,19 +366,19 @@ def build_master_materials():
     return materials
 
 
-def _outer_board_artwork_material():
-    name = "M_OuterBoardArtwork"
+def _zodiac_relief_artwork_material():
+    name = "M_ZodiacReliefArtwork"
     existing = bpy.data.materials.get(name)
     if existing is not None:
         return existing
-    path = REPOSITORY_ROOT / "assets/daliuren/textures/source/outer-board-artwork.png"
+    path = REPOSITORY_ROOT / "assets/daliuren/textures/source/zodiac-relief-artwork.png"
     if not path.is_file():
-        raise RuntimeError(f"Missing generated outer-board artwork texture: {path}")
+        raise RuntimeError(f"Missing generated zodiac relief artwork texture: {path}")
     material, shader = _base_material(name, PALETTE["jadeBody"], 0.0, 0.31)
     image = bpy.data.images.load(str(path), check_existing=True)
     image.colorspace_settings.name = "sRGB"
     texture = material.node_tree.nodes.new("ShaderNodeTexImage")
-    texture.name = "Approved outer-board artwork"
+    texture.name = "Approved zodiac relief artwork"
     texture.image = image
     texture.projection = "FLAT"
     coordinates = material.node_tree.nodes.new("ShaderNodeTexCoord")
@@ -388,24 +388,12 @@ def _outer_board_artwork_material():
     mapping.name = "Square board calibration"
     mapping.inputs["Scale"].default_value = (2.0, 2.0, 1.0)
     mapping.inputs["Location"].default_value = (0.5, 0.5, 0.0)
-    mix = material.node_tree.nodes.new("ShaderNodeMixRGB")
-    mix.name = "Masked board artwork over jade"
-    mix.blend_type = "MIX"
-    mix.inputs[1].default_value = srgb_hex(PALETTE["jadeBody"])
-    bump = material.node_tree.nodes.new("ShaderNodeBump")
-    bump.name = "Board relief micro-bump"
-    bump.inputs["Strength"].default_value = 0.12
-    bump.inputs["Distance"].default_value = 0.00012
     material.node_tree.links.new(coordinates.outputs["Object"], mapping.inputs["Vector"])
     material.node_tree.links.new(mapping.outputs["Vector"], texture.inputs["Vector"])
-    material.node_tree.links.new(texture.outputs["Alpha"], mix.inputs[0])
-    material.node_tree.links.new(texture.outputs["Color"], mix.inputs[2])
-    material.node_tree.links.new(mix.outputs["Color"], shader.inputs["Base Color"])
-    material.node_tree.links.new(texture.outputs["Color"], bump.inputs["Height"])
-    material.node_tree.links.new(bump.outputs["Normal"], shader.inputs["Normal"])
+    material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Base Color"])
     material["source_texture"] = path.relative_to(REPOSITORY_ROOT).as_posix()
-    material["source_art"] = "daliuren-heaven-plate-blank-v1.png"
-    material["projection"] = "plate/earth shared object coordinates"
+    material["source_art"] = "daliuren-heaven-plate-translucent-jade-generals-v10.png"
+    material["projection"] = "raised zodiac relief only"
     return material
 
 
@@ -415,7 +403,6 @@ def _beidou_blue_material():
     if existing is not None:
         return existing
     material, _ = _base_material(name, "#285FA8", 0.35, 0.26)
-    material["source_art"] = "daliuren-heaven-plate-blank-v1.png"
     return material
 
 
@@ -583,10 +570,8 @@ def apply_master_materials(root):
         name = _physical_material_name(obj)
         variant = obj.get("material_variant", "")
         material_role = name
-        if obj.name == "plate/earth" or obj.get("visual_role") in {
-            "zodiac-panel-frame", "zodiac-panel-recess",
-        }:
-            material = _outer_board_artwork_material()
+        if obj.get("visual_role") == "zodiac-animal-relief":
+            material = _zodiac_relief_artwork_material()
             material_role = "M_JadeBody"
         elif variant == "beidou-blue":
             material = _beidou_blue_material()

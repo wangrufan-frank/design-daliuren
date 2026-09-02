@@ -24,15 +24,15 @@ class ContractTest(unittest.TestCase):
     def test_dimensions_match_confirmed_blueprint(self):
         self.assertEqual(DIMENSIONS["base"], (0.520, 0.520, 0.028))
         self.assertEqual(DIMENSIONS.get("earth_plate"), (0.500, 0.500, 0.006))
-        self.assertEqual(DIMENSIONS["heaven_plate"], (0.332, 0.010))
-        self.assertEqual(DIMENSIONS["general_ring"], (0.218, 0.007))
-        self.assertEqual(DIMENSIONS["fixed_core"], (0.112, 0.006))
+        self.assertEqual(DIMENSIONS["heaven_plate"], (0.318, 0.010))
+        self.assertEqual(DIMENSIONS["general_ring"], (0.202, 0.007))
+        self.assertEqual(DIMENSIONS["fixed_core"], (0.100, 0.006))
         self.assertEqual(DIMENSIONS.get("calendar_slip"), (0.300, 0.038, 0.009))
         self.assertEqual(DIMENSIONS.get("lesson_slip"), (0.074, 0.034, 0.009))
         self.assertEqual(DIMENSIONS.get("transmission_slip"), (0.070, 0.036, 0.010))
         self.assertEqual(DIMENSIONS.get("method_slip"), (0.098, 0.024, 0.008))
-        self.assertAlmostEqual(DIMENSIONS["general_inlay"][0], 0.055427, places=6)
-        self.assertAlmostEqual(DIMENSIONS["general_inlay"][1], 0.045989, places=6)
+        self.assertAlmostEqual(DIMENSIONS["general_inlay"][0], 0.051318, places=6)
+        self.assertAlmostEqual(DIMENSIONS["general_inlay"][1], 0.047654, places=6)
         self.assertEqual(DIMENSIONS["general_inlay"][2], 0.004)
 
     def test_runtime_ids_are_unique_paths(self):
@@ -57,8 +57,8 @@ class ContractTest(unittest.TestCase):
             daliuren_contract.VISUAL_MONTH_ORDER,
             ("胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙"),
         )
-        self.assertEqual(daliuren_contract.visual_angle(0), daliuren_contract.math.radians(90))
-        self.assertEqual(daliuren_contract.visual_angle(1), daliuren_contract.math.radians(60))
+        self.assertEqual(daliuren_contract.visual_angle(0), daliuren_contract.math.radians(102))
+        self.assertEqual(daliuren_contract.visual_angle(1), daliuren_contract.math.radians(72))
         for month in daliuren_contract.VISUAL_MONTH_ORDER:
             self.assertIn(f"month-general/{month}", NODE_IDS)
         self.assertIn("interaction/month-general-ring", NODE_IDS)

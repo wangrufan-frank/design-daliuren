@@ -1,5 +1,24 @@
 # Daliuren Artifact Lookdev Review
 
+## v10 runtime fidelity review — 2026-09-02
+
+Status: **NOT A FULL-FIDELITY PASS.** The production scene now uses real zodiac
+and cloud relief geometry in every LOD, not the retired whole-board artwork
+projection. The calibrated overlay is materially closer and no longer has the
+previous dominant board/ring double image, but local text shapes, zodiac edge
+fidelity, cloud carving, and material response still differ visibly from v10.
+
+Focused evidence:
+
+- `jade-plate-default.png`: authored desktop pose, `1254 x 1254` canvas.
+- `jade-plate-overlay.png`: exact 50% cover-fit blend against the user v10
+  reference; calibrated combined RMS is `9.61 px`.
+- `jade-plate-mobile.png`: completed portrait pose. Runtime must reframe after
+  an orientation change and keep the minimum earthly-branch projection at
+  least `8 CSS px` without cropping the square plate.
+
+This review does not convert the legacy PENDING rows below into PASS results.
+
 ## Render manifest
 
 - Blender: `4.5.12 LTS`
@@ -41,7 +60,7 @@
 | jade, ink, cinnabar, and old-gold material separation | material-closeup | PENDING |
 | contact-driven wear | oblique / material-closeup | PENDING |
 | recess oxidation | oblique / material-closeup | PENDING |
-| readable functional inscription | overall / material-closeup | PASS (mean=0.567, dark=0.002, contrast=6.14) |
+| readable functional inscription | overall / material-closeup | PENDING (legacy metric invalidated by regenerated runtime frame) |
 | lower-contrast historical inscription | overall / material-closeup | PENDING |
 | grounded contact shadow | overall / oblique | PENDING |
 
@@ -49,11 +68,15 @@
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `assets/daliuren/source/daliuren-artifact-master.blend` | `94ad738528e0a11c0bcf76f4a76398eddd9ca3ef4d4a2ed9b88f9f2ebfc5544e` |
-| `public/models/daliuren/daliuren-artifact-lod0.glb` | `752e11e091ede0b6f57ac61dbf5f9546bde5bfd94c67d6ee3c0dc3972c288db7` |
-| `public/models/daliuren/daliuren-artifact-lod1.glb` | `ddfad5fc04fd9d9998501240dba1afd0c72a038edb3b86edd7dc540310c0a222` |
-| `public/models/daliuren/daliuren-artifact-lod2.glb` | `2e9f2eed714b34a4175f677c4da44ef6c8ab8dd897419dde0aab5f94eab1f8ec` |
-| `docs/asset-reviews/lookdev/overall.png` | `d9f5f61ce2c994a8e107cd69ac30c1a2357b40679917e7cc8afd1833077b8a69` |
+| `assets/daliuren/source/daliuren-artifact-master.blend` | `69870f3279666e3f9ba66108b14a72dae93ae69fb5f5e77df833ddae93e47e24` |
+| `public/models/daliuren/daliuren-artifact-lod0.glb` | `ca2db1c1288a798e67e1018e1a52926aeb48f2997ffa9fcbe667eac0d69c0a88` |
+| `public/models/daliuren/daliuren-artifact-lod1.glb` | `f0576491bf19d04237f96ce1a226db7928aa5a16ae90d8e0dc9a6005ad18c5c3` |
+| `public/models/daliuren/daliuren-artifact-lod2.glb` | `3fbdbc16343a75d31e2688fa62b40bdf45cf16f278e0781c0d622aaa66345870` |
+| `assets/daliuren/textures/source/zodiac-relief-artwork.png` | `ee72a3396cc348ac46670d92c11f71d3cba595cd1e926d33befe2589bc56f7a1` |
+| `docs/asset-reviews/lookdev/overall.png` | `b8b8fbfa1feb140f590a3c8d6422b6195dc6e0210659e0e450db932845a55260` |
+| `docs/asset-reviews/lookdev/jade-plate-default.png` | `e5eae02a845ebe263b79fb6ffc9f2da255f6e2f78c6c36c2afddeee2eedda468` |
+| `docs/asset-reviews/lookdev/jade-plate-mobile.png` | `7e82fbdcaec166f2f24d31d6c0cce89f965807222203e1d4978ef97b26c87bfb` |
+| `docs/asset-reviews/lookdev/jade-plate-overlay.png` | `55b1fa89ceaa902ebc29d8b4e0e5872dabee415d9978447279d3d0349386dd40` |
 | `docs/asset-reviews/lookdev/oblique.png` | `5e1b2697587fc912886e83516bd0df0dc45a44db8c8f1c42fc86df3e1ed09e30` |
 | `docs/asset-reviews/lookdev/material-closeup.png` | `0fc672b83ce8d81a3414f458ab60ac5eabdb63607c1bef77d8a052c6e636a7e7` |
 | `docs/asset-reviews/lookdev/rotation-evidence.png` | `71ed31d541d1f55698483c3bd6cfd85dabb56df688b0ab45d157ecf25aa2c60d` |

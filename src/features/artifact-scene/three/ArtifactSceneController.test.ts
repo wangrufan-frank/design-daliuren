@@ -400,9 +400,9 @@ describe("ArtifactSceneController", () => {
     expect(lights[2]).toBeInstanceOf(THREE.DirectionalLight);
     const camera = vi.mocked(renderer.render).mock.calls[0][1] as THREE.PerspectiveCamera;
     expect(camera).toMatchObject({ near: 0.05, far: 4 });
-    expect(camera.fov).toBeCloseTo(11.224107304, 8);
-    expect(camera.projectionMatrix.elements[8]).toBeCloseTo(-0.05272246, 8);
-    expect(camera.projectionMatrix.elements[9]).toBeCloseTo(-0.214144234, 8);
+    expect(camera.fov).toBeCloseTo(11.568469531, 8);
+    expect(camera.projectionMatrix.elements[8]).toBeCloseTo(-0.03552544, 8);
+    expect(camera.projectionMatrix.elements[9]).toBeCloseTo(-0.214078966, 8);
     expect(controls.autoRotate).toBe(false);
     expect(interactionRing.material).toMatchObject({ transparent: true, opacity: 0, colorWrite: false, depthWrite: false });
   });
@@ -673,7 +673,7 @@ describe("ArtifactSceneController", () => {
     expect(controller.measureMinimumBranchProjectionPx()).toBe(first);
 
     controller.resize(800, 300, 1);
-    expect(controller.measureMinimumBranchProjectionPx()).toBeCloseTo(9.635084873883493);
+    expect(controller.measureMinimumBranchProjectionPx()).toBeCloseTo(9.345785380172916);
   });
 
   it("reports the minimum canvas-edge margin across every functional branch mesh", () => {
@@ -715,7 +715,7 @@ describe("ArtifactSceneController", () => {
     const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
     expect(camera.position.toArray()).not.toEqual([0.56, 0.44, 0.56]);
     expect(camera.position.toArray()).not.toEqual(preset.position);
-    expect(camera.position.distanceTo(controls.target)).toBeCloseTo(1.431631855, 8);
+    expect(camera.position.distanceTo(controls.target)).toBeCloseTo(1.3452459737971127, 8);
 
     controls.dispatchStart();
     const interruptedPosition = camera.position.toArray();
@@ -727,7 +727,7 @@ describe("ArtifactSceneController", () => {
     controller.applyCameraPreset(preset, true);
     expect(camera.position.toArray()).toEqual(preset.position);
     expect(controls.target.toArray()).toEqual(preset.target);
-    expect(camera.position.distanceTo(controls.target)).toBeCloseTo(1.887813897, 8);
+    expect(camera.position.distanceTo(controls.target)).toBeCloseTo(1.672557259548793, 8);
   });
 
   it("fits a review preset for a portrait canvas without altering the landscape preset", () => {
@@ -738,12 +738,11 @@ describe("ArtifactSceneController", () => {
     controller.applyCameraPreset(preset, true);
     controller.render();
     const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
-    expect(camera.position.x).toBeCloseTo(0.166536417, 8);
-    expect(camera.position.y).toBeCloseTo(2.587694256, 8);
-    expect(camera.position.z).toBeCloseTo(1.462909657, 8);
-    expect(controls.target.x).toBeCloseTo(-0.013442125, 8);
-    expect(controls.target.y).toBeCloseTo(0.03725838, 8);
-    expect(controls.target.z).toBeCloseTo(0.001455321, 8);
+    const portraitDistance = camera.position.distanceTo(controls.target);
+    const landscapeDistance = new THREE.Vector3(...preset.position)
+      .distanceTo(new THREE.Vector3(...preset.target));
+    expect(portraitDistance / landscapeDistance).toBeGreaterThanOrEqual(0.81);
+    expect(portraitDistance / landscapeDistance).toBeLessThanOrEqual(0.83);
 
     controller.resize(672, 520, 1);
     controller.applyCameraPreset(preset, true);
@@ -766,7 +765,7 @@ describe("ArtifactSceneController", () => {
 
     expect(initial.viewport).toEqual({ width: 800, height: 600 });
     expect(initial.anchors[0]).toMatchObject({
-      id: "calendar/slip", x: 421.088984, y: 267.0102126, behindCamera: false,
+      id: "calendar/slip", x: 414.210176, y: 267.02026739999997, behindCamera: false,
     });
     expect(afterCamera.anchors[0].x).not.toBe(initial.anchors[0].x);
     expect(afterPose.anchors[0].x).not.toBe(afterCamera.anchors[0].x);

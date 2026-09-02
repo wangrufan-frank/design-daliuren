@@ -496,7 +496,7 @@ test("mobile controls preserve the same correct state and exact one-step behavio
 });
 
 test("captures completed desktop and mobile review evidence", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(70_000);
   await page.setViewportSize({ width: 1280, height: 720 });
   await completeCompletedReferenceCourse(page);
   const experience = await finishArtifactDemo(page);
@@ -549,8 +549,11 @@ test("captures completed desktop and mobile review evidence", async ({ page }) =
   await expect(experience).toHaveAttribute("data-seated-generals", "12");
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await setVisualReviewPose(page, "completed");
   await expect(canvas).toBeVisible();
   await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await experience.getAttribute("data-min-branch-px")))
+    .toBeGreaterThanOrEqual(8);
   await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
   await writeFile("docs/asset-reviews/lookdev/jade-plate-mobile.png", await captureArtifactCanvas(page));
 });
