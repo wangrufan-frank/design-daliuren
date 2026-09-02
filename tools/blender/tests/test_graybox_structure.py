@@ -1,5 +1,6 @@
 import sys
 import unittest
+import math
 from pathlib import Path
 
 import bpy
@@ -8,6 +9,7 @@ from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_graybox
+from daliuren_contract import DIAL_CENTER_OFFSET_M, VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle
 
 
 class GrayboxStructureTest(unittest.TestCase):
@@ -32,8 +34,8 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertVectorAlmostEqual(base.dimensions, (0.520, 0.520, 0.028))
         self.assertAlmostEqual(base.location.z - base.dimensions.z / 2, 0.0, places=4)
         self.assertVectorAlmostEqual(earth.dimensions, (0.500, 0.500, 0.006))
-        self.assertAlmostEqual(heaven.dimensions.x, 0.332, places=4)
-        self.assertAlmostEqual(heaven.dimensions.y, 0.332, places=4)
+        self.assertAlmostEqual(heaven.dimensions.x, 0.318, places=4)
+        self.assertAlmostEqual(heaven.dimensions.y, 0.318, places=4)
         self.assertAlmostEqual(heaven.dimensions.z, 0.010, places=4)
 
     def test_scene_stack_reaches_the_declared_lod_height(self):
@@ -48,7 +50,103 @@ class GrayboxStructureTest(unittest.TestCase):
 
     def test_earth_plate_is_fixed_and_heaven_plate_has_center_pivot(self):
         self.assertTrue(bpy.data.objects["plate/earth"]["fixed"])
-        self.assertEqual(tuple(bpy.data.objects["plate/heaven"].location[:2]), (0.0, 0.0))
+        for actual, expected in zip(bpy.data.objects["plate/heaven"].location[:2], DIAL_CENTER_OFFSET_M):
+            self.assertAlmostEqual(actual, expected, places=6)
+
+    def test_month_ring_is_the_only_rotating_plate_layer(self):
+        heaven = bpy.data.objects["plate/heaven"]
+        generals = bpy.data.objects["plate/generals"]
+        core = bpy.data.objects["plate/core"]
+        self.assertTrue(heaven["rotates_independently"])
+        self.assertTrue(generals["fixed"])
+        self.assertTrue(core["fixed"])
+        self.assertEqual(heaven.parent, self.root)
+        self.assertEqual(generals.parent, self.root)
+
+    def test_rotating_plate_has_a_real_jade_dial_foundation_below_its_rings(self):
+        heaven = bpy.data.objects["plate/heaven"]
+        foundation = bpy.data.objects["detail/heaven/dial-foundation"]
+        self.assertIs(foundation.parent, heaven)
+        self.assertNotIn("node_id", foundation)
+        self.assertAlmostEqual(foundation.dimensions.x, 0.316, places=4)
+        self.assertAlmostEqual(foundation.dimensions.y, 0.316, places=4)
+        self.assertLess(foundation.location.z, 0.0)
+        foundation_top = foundation.location.z + foundation.dimensions.z / 2
+        for name in ("detail/heaven/linked-ring-1", "detail/heaven/linked-ring-2"):
+            ring = bpy.data.objects[name]
+            ring_bottom = ring.location.z - ring.dimensions.z / 2
+            self.assertGreater(ring_bottom - foundation_top, 0.0001, name)
+
+    def test_core_relief_and_general_inlays_are_non_coplanar_but_visually_flush(self):
+        def vertical_bounds(obj):
+            heights = [(obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box]
+            return min(heights), max(heights)
+
+        _, foundation_top = vertical_bounds(bpy.data.objects["detail/heaven/dial-foundation"])
+        core_bottom, _ = vertical_bounds(bpy.data.objects["plate/core"])
+        self.assertGreater(core_bottom - foundation_top, 0.0001, "plate/core")
+
+        _, general_ring_top = vertical_bounds(bpy.data.objects["plate/generals"])
+        names = [
+            obj.name
+            for obj in bpy.data.objects
+            if obj.name.startswith(("general/", "detail/general-recess/"))
+            and not obj.name.endswith("/name")
+        ]
+        for name in names:
+            _, inlay_top = vertical_bounds(bpy.data.objects[name])
+            clearance = inlay_top - general_ring_top
+            self.assertGreater(clearance, 0.0, name)
+            self.assertLessEqual(clearance, 0.00005, name)
+
+    def test_reference_top_orientation_keeps_branches_and_months_on_compact_circular_rings(self):
+        earth = bpy.data.objects["plate/earth"]
+        heaven = bpy.data.objects["plate/heaven"]
+        for index, branch in enumerate(VISUAL_EARTH_ORDER):
+            glyph = bpy.data.objects[f"branch/earth/{branch}"]
+            self.assertIs(glyph.parent, earth)
+            self.assertEqual(glyph["ring_index"], index)
+            self.assertAlmostEqual(
+                glyph.location.x, DIAL_CENTER_OFFSET_M[0] + 0.144 * math.cos(visual_angle(index)), places=4
+            )
+            self.assertAlmostEqual(
+                glyph.location.y, DIAL_CENTER_OFFSET_M[1] + 0.144 * math.sin(visual_angle(index)), places=4
+            )
+            self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.018)
+            self.assertLess(max(glyph.dimensions.x, glyph.dimensions.y), 0.022)
+            self.assertNotIn(f"detail/branch-bed/earth/{branch}", bpy.data.objects)
+        self.assertEqual(VISUAL_EARTH_ORDER[0], "午")
+        self.assertEqual(VISUAL_MONTH_ORDER[0], "胜光")
+        for index, month in enumerate(VISUAL_MONTH_ORDER):
+            glyph = bpy.data.objects[f"month-general/{month}"]
+            self.assertIs(glyph.parent, heaven)
+            self.assertAlmostEqual(math.hypot(glyph.location.x, glyph.location.y), 0.110, places=4)
+            self.assertAlmostEqual(glyph.location.x, 0.110 * math.cos(visual_angle(index)), places=4)
+            self.assertAlmostEqual(glyph.location.y, 0.110 * math.sin(visual_angle(index)), places=4)
+            self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.020)
+
+    def test_functional_glyphs_clear_their_visible_carriers(self):
+        def bottom(obj):
+            return min((obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box)
+
+        def top(obj):
+            return max((obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box)
+
+        earth_carrier_top = max(
+            top(bpy.data.objects["plate/heaven"]),
+            *(top(obj) for obj in bpy.data.objects if obj.name.startswith("general/") and not obj.name.endswith("/name")),
+            *(top(obj) for obj in bpy.data.objects if obj.name.startswith("detail/heaven/linked-ring-")),
+        )
+        for branch in VISUAL_EARTH_ORDER:
+            clearance = bottom(bpy.data.objects[f"branch/earth/{branch}"]) - earth_carrier_top
+            self.assertAlmostEqual(clearance, 0.00010, places=6, msg=branch)
+        heaven_top = top(bpy.data.objects["plate/heaven"])
+        for month in VISUAL_MONTH_ORDER:
+            self.assertGreater(bottom(bpy.data.objects[f"month-general/{month}"]) - heaven_top, 0.00009, month)
+        carriers = [obj for obj in bpy.data.objects if obj.name.startswith("general/") and not obj.name.endswith("/name")]
+        for carrier in carriers:
+            glyph = bpy.data.objects[f"{carrier.name}/name"]
+            self.assertGreater(bottom(glyph) - top(carrier), 0.00009, carrier.name)
 
     def test_runtime_parts_have_stable_ids_and_root_parent(self):
         runtime_names = ("base/body", "plate/earth", "plate/heaven")
@@ -64,6 +162,7 @@ class GrayboxStructureTest(unittest.TestCase):
         self.assertEqual(ring["role"], "fixed-historical-inscription")
         self.assertNotIn("node_id", ring)
         self.assertIsNone(ring.parent)
+        self.assertTrue(ring.hide_render)
 
     def test_default_scene_objects_are_removed(self):
         self.assertNotIn("Camera", bpy.data.objects)

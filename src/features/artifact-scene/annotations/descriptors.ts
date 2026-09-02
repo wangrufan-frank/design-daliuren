@@ -3,7 +3,8 @@ import type { ArtifactAnnotationDescriptor } from "./types";
 export const ARTIFACT_ANNOTATION_DESCRIPTORS = [
   { id: "calendar/slip", nodeId: "calendar/slip", label: "历书", detail: "记载占时与月将的历法依据。", stages: ["calendar", "heaven-earth", "course"] },
   { id: "plate/earth", nodeId: "plate/earth", label: "地盘", detail: "承载十二支方位，作为加临的基准。", stages: ["calendar", "heaven-earth", "course"] },
-  { id: "plate/heaven", nodeId: "plate/heaven", label: "天盘", detail: "随月将转动，显示天盘加临位置。", stages: ["calendar", "heaven-earth", "course"] },
+  { id: "plate/heaven", nodeId: "plate/heaven", label: "月将环", detail: "月将文字所在的白玉环独立旋转，显示加临位置。", stages: ["calendar", "heaven-earth", "course"] },
+  { id: "plate/generals", nodeId: "plate/generals", label: "十二神将承位", detail: "固定的十二宫承位，承接依次落定的神将嵌片。", stages: ["heavenly-generals", "course"] },
   { id: "lesson/first", nodeId: "lesson/first", label: "第一课", detail: "由日干与其上神构成首课。", stages: ["four-lessons", "course"] },
   { id: "lesson/second", nodeId: "lesson/second", label: "第二课", detail: "由日支与其上神承接第二层。", stages: ["four-lessons"] },
   { id: "lesson/third", nodeId: "lesson/third", label: "第三课", detail: "循首课上神再取其上神而成。", stages: ["four-lessons"] },

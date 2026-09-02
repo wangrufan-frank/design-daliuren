@@ -171,6 +171,16 @@
 }
 
 @media (min-width: 900px) and (max-height: 800px) {
+  .course-workbench { padding-top: 4px; }
+
+  .course-workbench__header {
+    padding-bottom: 2px;
+  }
+
+  .course-workbench__header h1 { font-size: 1.25rem; }
+  .course-workbench__header p { font-size: 0.62rem; }
+  .course-workbench__grid { padding-top: 0; }
+
   .course-workbench__stage,
   .course-workbench .course-experience,
   .course-workbench__stage .artifact-experience {
@@ -178,16 +188,11 @@
   }
 
   .course-workbench__stage .course-experience .artifact-experience__viewport {
-    min-height: 520px;
+    min-height: 488px;
   }
 
-  .course-workbench__stage .artifact-timeline {
-    position: absolute;
-    z-index: 3;
-    right: 0;
-    bottom: 0;
-    left: 0;
-  }
+  .course-workbench__stage .month-general-controls { padding-block: 0; }
+  .course-workbench__stage .artifact-timeline { padding-block: 6px; }
 
   .course-workbench__stage .course-experience__caption {
     position: absolute;

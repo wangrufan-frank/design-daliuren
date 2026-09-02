@@ -1,8 +1,7 @@
 import math
-from pathlib import Path
-
 import bpy
 
+from daliuren_contract import VISUAL_ORIENTATION_OFFSET_DEG
 from geometry import add_beveled_box, add_disc
 
 
@@ -21,20 +20,6 @@ GENERAL_KEYS = (
     "queen-of-heaven",
 )
 
-ZODIAC_PANEL_SPECS = (
-    (-0.142, 0.202, 0.146, 0.074),
-    (0.000, 0.202, 0.146, 0.074),
-    (0.148, 0.202, 0.146, 0.074),
-    (0.208, 0.112, 0.074, 0.108),
-    (0.208, 0.006, 0.074, 0.108),
-    (0.208, -0.110, 0.074, 0.108),
-    (0.142, -0.202, 0.146, 0.074),
-    (0.000, -0.202, 0.146, 0.074),
-    (-0.142, -0.202, 0.146, 0.074),
-    (-0.208, -0.110, 0.074, 0.108),
-    (-0.208, 0.006, 0.074, 0.108),
-    (-0.208, 0.112, 0.074, 0.108),
-)
 BEVELED_RUNTIME_IDS = (
     "base/body",
     "plate/earth",
@@ -44,9 +29,7 @@ BEVELED_RUNTIME_IDS = (
     "transmission/initial",
     "transmission/middle",
     "transmission/final",
-    *(f"general/{key}" for key in GENERAL_KEYS),
 )
-
 
 def _finish_detail(obj, parent, detail_id, index, location):
     if "node_id" in obj:
@@ -147,7 +130,7 @@ def _add_heaven_details():
         heaven,
         "structure/heaven-bronze-rim",
         0,
-        0.163,
+        0.1585,
         0.0022,
         (0.0, 0.0, 0.0048),
         128,
@@ -165,84 +148,16 @@ def _visual_box(name, parent, size, location, rotation_z=0.0, variant="jade"):
     return obj
 
 
-def _visual_text(name, text, parent, font, location, rotation_z, variant):
-    curve = bpy.data.curves.new(f"{name}/curve", "FONT")
-    curve.body = text
-    curve.font = font
-    curve.align_x = "CENTER"
-    curve.align_y = "CENTER"
-    curve.size = 0.023
-    curve.extrude = 0.00045
-    curve.bevel_depth = 0.00012
-    curve.resolution_u = 3
-    obj = bpy.data.objects.new(name, curve)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.parent = parent
-    obj.location = location
-    obj.rotation_euler.z = rotation_z
-    obj["visual_role"] = "zodiac-glyph"
-    obj["material_variant"] = variant
-    bpy.ops.object.select_all(action="DESELECT")
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
-    bpy.ops.object.convert(target="MESH")
-    obj.select_set(False)
-    return obj
-
-
-def _add_zodiac_gallery():
-    earth = bpy.data.objects["plate/earth"]
-    font_path = Path(__file__).parents[2] / "assets/daliuren/fonts/STKaiti.ttf"
-    if not font_path.is_file():
-        font_path = Path(__file__).parents[2] / "assets/daliuren/fonts/NotoSerifCJKsc-Regular.otf"
-    font = bpy.data.fonts.load(str(font_path), check_existing=True)
-    animals = tuple("鼠牛虎兔龙蛇马羊猴鸡狗猪")
-    variants = (
-        "zodiac-blue", "zodiac-gold", "zodiac-gold", "zodiac-red",
-        "zodiac-blue", "zodiac-green", "zodiac-red", "zodiac-blue",
-        "zodiac-gold", "zodiac-green", "zodiac-gold", "zodiac-red",
-    )
-    for index, (animal, variant) in enumerate(zip(animals, variants)):
-        angle = math.radians(90 - index * 30)
-        x, y = 0.232 * math.cos(angle), 0.232 * math.sin(angle)
-        rotation = angle - math.pi / 2
-        _visual_box(
-            f"zodiac/{index:02d}/gold-frame",
-            earth,
-            (0.056, 0.038, 0.0020),
-            (x, y, 0.0080),
-            rotation,
-            "gold",
-        )
-        _visual_box(
-            f"zodiac/{index:02d}/jade-panel",
-            earth,
-            (0.051, 0.033, 0.0013),
-            (x, y, 0.0093),
-            rotation,
-            "jade-panel",
-        )
-        _visual_text(
-            f"zodiac/{index:02d}/glyph",
-            animal,
-            earth,
-            font,
-            (x, y, 0.0101),
-            rotation,
-            variant,
-        )
-
-
 def _add_ring_dividers():
     specs = (
-        (bpy.data.objects["plate/heaven"], (0.164, 0.126), 0.0052),
+        (bpy.data.objects["plate/heaven"], (0.159, 0.120), 0.0052),
         (bpy.data.objects["plate/generals"], (0.108, 0.064), 0.0037),
     )
     for parent, (outer_radius, inner_radius), z in specs:
         length = outer_radius - inner_radius
         center_radius = (outer_radius + inner_radius) / 2
         for index in range(12):
-            angle = math.radians(90 - index * 30)
+            angle = math.radians(90 + VISUAL_ORIENTATION_OFFSET_DEG - index * 30)
             _visual_box(
                 f"divider/{parent.name.rsplit('/', 1)[-1]}/{index:02d}",
                 parent,
@@ -253,112 +168,75 @@ def _add_ring_dividers():
             )
 
 
+def _add_ring_craft():
+    specs = (
+        (bpy.data.objects["plate/heaven"], 0.1557, 0.00675),
+        (bpy.data.objects["plate/heaven"], 0.1330, 0.00675),
+        (bpy.data.objects["plate/heaven"], 0.1195, 0.00525),
+        (bpy.data.objects["plate/generals"], 0.1010, 0.00355),
+        (bpy.data.objects["plate/core"], 0.0510, 0.00315),
+    )
+    for index, (parent, radius, z) in enumerate(specs):
+        groove = _torus(
+            f"detail/ring/groove-{index:02d}",
+            parent,
+            "structure/heaven-ring-groove",
+            index,
+            radius,
+            0.00028,
+            (0.0, 0.0, z),
+            64,
+        )
+        groove["visual_role"] = "ring-groove"
+        groove["material_variant"] = "gold"
+
+
 def _add_core_details():
     core = bpy.data.objects["plate/core"]
-    points = ((-0.042, 0.026), (-0.026, 0.006), (-0.012, 0.018),
-              (-0.020, -0.014), (0.006, -0.030), (0.039, -0.021), (0.047, 0.021))
+    points = ((-0.0227, 0.0255), (-0.0244, 0.0067), (-0.0092, 0.0053),
+              (-0.0194, -0.0191), (0.0002, -0.0306), (0.0303, -0.0120), (0.0309, 0.0266))
     for index, (x, y) in enumerate(points):
-        dot = add_disc(f"constellation/star-{index:02d}", 0.0023, 0.0010, (0.0, 0.0, 0.0), 0.0002)
+        dot = add_disc(f"constellation/star-{index:02d}", 0.0028, 0.0011, (0.0, 0.0, 0.0), 0.0002)
         del dot["node_id"]
         dot.parent = core
         dot.location = (x, y, 0.0093)
-        dot["visual_role"] = "constellation-star"
-        dot["material_variant"] = "gold"
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=0.0065, location=(0.0, 0.0, 0.0))
+        dot["visual_role"] = "beidou-star"
+        dot["material_variant"] = "beidou-blue"
+    for index, (start, end) in enumerate(zip(points, points[1:])):
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        _visual_box(
+            f"constellation/beidou-link-{index:02d}",
+            core,
+            (0.00135, math.hypot(dx, dy), 0.00082),
+            ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2, 0.0090),
+            math.atan2(dy, dx) - math.pi / 2,
+            "gold",
+        )["visual_role"] = "beidou-link"
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=0.0078, location=(0.0, 0.0, 0.0))
     pearl = bpy.context.object
     pearl.name = "detail/core/jade-pivot"
     pearl.parent = core
-    pearl.location = (0.0, 0.0, 0.0135)
+    pearl.location = (0.0, 0.0, 0.0122)
     pearl["visual_role"] = "jade-pivot"
     pearl["material_variant"] = "pearl"
 
 
-def _reference_plane(name, parent, center, size, z, role):
-    center_x, center_y = center
-    width, height = size
-    half_width = width / 2
-    half_height = height / 2
-    vertices = (
-        (center_x - half_width, center_y - half_height, z),
-        (center_x + half_width, center_y - half_height, z),
-        (center_x + half_width, center_y + half_height, z),
-        (center_x - half_width, center_y + half_height, z),
-    )
-    mesh = bpy.data.meshes.new(f"{name}/mesh")
-    mesh.from_pydata(vertices, [], ((0, 1, 2, 3),))
-    mesh.update()
-    uv = mesh.uv_layers.new(name="UVMap")
-    uv.active_render = True
-    for loop, vertex_index in zip(mesh.loops, (0, 1, 2, 3)):
-        x, y, _ = vertices[vertex_index]
-        loop_uv = ((x / 0.512) + 0.5, (y / 0.512) + 0.5)
-        uv.data[loop.index].uv = loop_uv
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.parent = parent
-    obj["visual_role"] = role
-    obj["material_variant"] = "reference-surface"
-    return obj
-
-
-def _reference_disc(name, parent, radius, z):
-    segments = 128
-    vertices = [(0.0, 0.0, z)] + [
-        (
-            radius * math.cos(index * math.tau / segments),
-            radius * math.sin(index * math.tau / segments),
-            z,
-        )
-        for index in range(segments)
-    ]
-    faces = [
-        (0, index + 1, (index + 1) % segments + 1)
-        for index in range(segments)
-    ]
-    mesh = bpy.data.meshes.new(f"{name}/mesh")
-    mesh.from_pydata(vertices, [], faces)
-    mesh.update()
-    uv = mesh.uv_layers.new(name="UVMap")
-    uv.active_render = True
-    for loop in mesh.loops:
-        x, y, _ = vertices[loop.vertex_index]
-        uv.data[loop.index].uv = ((x / 0.512) + 0.5, (y / 0.512) + 0.5)
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.parent = parent
-    obj["visual_role"] = "reference-center"
-    obj["material_variant"] = "reference-surface"
-    return obj
-
-
-def _add_reference_surface():
+def _add_corner_pearls():
     earth = bpy.data.objects["plate/earth"]
     surface_z = earth.dimensions.z / 2 + 0.00015
-    _reference_plane(
-        "detail/reference/surface",
-        earth,
-        (0.0, 0.0),
-        (0.512, 0.512),
-        surface_z,
-        "reference-surface",
-    )
-    _reference_disc(
-        "detail/reference/center-disc",
-        earth,
-        0.164,
-        surface_z + 0.0110,
-    )
-    for index, (x, y, width, height) in enumerate(ZODIAC_PANEL_SPECS):
-        _reference_plane(
-            f"zodiac/{index:02d}/relief-surface",
+    for index, (x, y) in enumerate(((-0.1342, 0.1270), (0.1189, 0.1230), (-0.1264, -0.1307), (0.1075, -0.1395))):
+        seat = _torus(
+            f"detail/earth/corner-pearl-seat-{index:02d}",
             earth,
-            (x, y),
-            (width, height),
-            surface_z + 0.00022,
-            "zodiac-relief",
+            "structure/plate-pearl-seat",
+            index,
+            0.0132,
+            0.00105,
+            (x, y, surface_z + 0.00035),
+            64,
         )
-
-    for index, (x, y) in enumerate(((-0.158, 0.158), (0.158, 0.158), (-0.158, -0.158), (0.158, -0.158))):
+        seat["visual_role"] = "pearl-seat"
+        seat["material_variant"] = "jade-panel"
         bpy.ops.mesh.primitive_uv_sphere_add(
             segments=48,
             ring_count=24,
@@ -366,7 +244,7 @@ def _add_reference_surface():
             location=(0.0, 0.0, 0.0),
         )
         pearl = bpy.context.object
-        pearl.name = f"detail/reference/corner-pearl-{index:02d}"
+        pearl.name = f"detail/earth/corner-pearl-{index:02d}"
         pearl.parent = earth
         pearl.location = (x, y, surface_z + 0.0080)
         pearl["visual_role"] = "corner-pearl"
@@ -387,8 +265,9 @@ def upgrade_to_high_detail(root):
     _add_base_details()
     _add_heaven_details()
     _add_ring_dividers()
+    _add_ring_craft()
     _add_core_details()
-    _add_reference_surface()
+    _add_corner_pearls()
     _add_runtime_bevels()
     bpy.context.view_layer.update()
     return root

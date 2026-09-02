@@ -1,3 +1,4 @@
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,11 +25,12 @@ ALLOWED_DETAIL_PREFIXES = (
     "wear/contact-",
 )
 EXPECTED_DETAIL_COUNTS = {
-    "structure/bronze-inlay-branch-bed": 24,
     "structure/base-shell-thickness": 4,
     "structure/base-bottom-seam": 1,
     "structure/base-corner-transition": 4,
     "structure/heaven-bronze-rim": 1,
+    "structure/heaven-ring-groove": 5,
+    "structure/plate-pearl-seat": 4,
 }
 FORBIDDEN_TOKENS = (
     "dovetail",
@@ -93,33 +95,56 @@ class HighDetailGeometryTest(unittest.TestCase):
     def tearDown(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
 
-    def test_reference_face_has_twelve_relief_zodiacs_and_four_corner_pearls(self):
+    def test_reference_surface_is_not_runtime_geometry(self):
         upgrade_to_high_detail(self.root)
 
-        surface = bpy.data.objects["detail/reference/surface"]
-        self.assertEqual(surface.type, "MESH")
-        self.assertEqual(surface["visual_role"], "reference-surface")
-        self.assertEqual(surface.parent, bpy.data.objects["plate/earth"])
-        self.assertGreater(surface.dimensions.x, 0.49)
-        self.assertGreater(surface.dimensions.y, 0.49)
+        self.assertIsNone(bpy.data.objects.get("detail/reference/surface"))
+        self.assertIsNone(bpy.data.objects.get("detail/reference/center-disc"))
 
         zodiac = [
             obj for obj in bpy.data.objects
-            if obj.get("visual_role") == "zodiac-relief"
+            if obj.get("visual_role") in {
+                "zodiac-animal-relief",
+                "zodiac-cloud-relief",
+                "zodiac-panel-frame",
+                "zodiac-panel-recess",
+            }
         ]
         pearls = [
             obj for obj in bpy.data.objects
             if obj.get("visual_role") == "corner-pearl"
         ]
-        self.assertEqual(len(zodiac), 12)
-        self.assertTrue(all(obj.type == "MESH" for obj in zodiac))
+        # The approved hybrid uses one continuous high-resolution BoardUV
+        # surface on the real thick plate. Sparse voxel/point carriers create
+        # visible pixel blocks and must never be renderable geometry.
+        self.assertEqual(zodiac, [])
+        self.assertFalse(any(obj.get("visual_role") == "zodiac-glyph" for obj in bpy.data.objects))
+        self.assertFalse(any(obj.name.endswith("/glyph") and obj.name.startswith("zodiac/") for obj in bpy.data.objects))
         self.assertEqual(len(pearls), 4)
         self.assertTrue(all(obj.type == "MESH" for obj in pearls))
+        self.assertEqual(
+            {tuple(round(value, 4) for value in pearl.location.xy) for pearl in pearls},
+            {(-0.1342, 0.1270), (0.1189, 0.1230), (-0.1264, -0.1307), (0.1075, -0.1395)},
+        )
+
+    def test_colored_connected_beidou_is_real_center_geometry(self):
+        upgrade_to_high_detail(self.root)
+
+        core = bpy.data.objects["plate/core"]
+        stars = [obj for obj in bpy.data.objects if obj.get("visual_role") == "beidou-star"]
+        links = [obj for obj in bpy.data.objects if obj.get("visual_role") == "beidou-link"]
+        self.assertEqual(len(stars), 7)
+        self.assertEqual(len(links), 6)
+        self.assertTrue(all(obj.parent == core for obj in (*stars, *links)))
+        self.assertTrue(all(obj.get("material_variant") == "beidou-blue" for obj in stars))
+        self.assertTrue(all(obj.get("material_variant") == "gold" for obj in links))
 
     def test_unapproved_motion_parts_are_parked_below_the_reference_face(self):
         upgrade_to_high_detail(self.root)
-        surface = bpy.data.objects["detail/reference/surface"]
-        surface_z = (surface.matrix_world @ Vector(surface.bound_box[0])).z
+        surface_z = max(
+            (bpy.data.objects["plate/earth"].matrix_world @ Vector(corner)).z
+            for corner in bpy.data.objects["plate/earth"].bound_box
+        )
         parked = (
             "calendar/slip",
             "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
@@ -212,7 +237,7 @@ class HighDetailGeometryTest(unittest.TestCase):
         self.assertGreaterEqual(minimum_z, -0.00005)
         self.assertLessEqual(maximum_z, 0.10205)
         self.assertGreater(maximum_z - minimum_z, 0.055)
-        self.assertLess(maximum_z - minimum_z, 0.061)
+        self.assertLess(maximum_z - minimum_z, 0.0633)
 
     def test_saved_master_reopens_with_recessed_branch_nodes_and_no_cutters(self):
         build_master()
@@ -229,8 +254,8 @@ class HighDetailGeometryTest(unittest.TestCase):
                 obj for obj in bpy.data.objects if "inscription_role" in obj
             ]
             self.assertEqual({obj["node_id"] for obj in runtime}, set(NODE_IDS))
-            self.assertEqual(len(branches), 24)
-            self.assertEqual(len(inscriptions), 71)
+            self.assertEqual(len(branches), 12)
+            self.assertEqual(len(inscriptions), 59)
             self.assertTrue(
                 all(obj["surface_treatment"] == "recessed-inlay" for obj in branches)
             )

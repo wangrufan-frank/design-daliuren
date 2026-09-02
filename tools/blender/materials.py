@@ -7,35 +7,32 @@ from mathutils import Matrix, Vector
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 MATERIAL_NAMES = (
-    "M_Bronze",
-    "M_Patina",
-    "M_Celadon",
+    "M_JadeBody",
+    "M_TranslucentJade",
+    "M_JadeRecess",
+    "M_InkText",
+    "M_CinnabarText",
     "M_OldGold",
-    "M_AshText",
-    "M_EarthVoid",
-    "M_HeavenVoid",
 )
 MASK_NAMES = (
     "mask_contact_wear",
     "mask_recess_oxidation",
     "mask_insert_dirt",
-    "mask_celadon_crackle",
+    "mask_jade_microtexture",
 )
 PALETTE = {
     "ink": "#27231F",
-    "bronze": "#E5DED0",
-    "patina": "#C8BDAA",
-    "celadon": "#F2EEE5",
-    "ash": "#2B2926",
-    "oldGold": "#B98A38",
-    "earthVoid": "#A94B34",
-    "heavenVoid": "#315F73",
+    "jadeBody": "#F0EADD",
+    "jadeInlay": "#EEE7D9",
+    "jadeRecess": "#E3DCCD",
+    "cinnabar": "#C54A32",
+    "oldGold": "#D6A13A",
 }
 MASK_ATTRIBUTES = {
     "mask_contact_wear": "causal_contact_wear",
     "mask_recess_oxidation": "causal_recess_oxidation",
     "mask_insert_dirt": "causal_insert_boundary",
-    "mask_celadon_crackle": "causal_celadon_crackle",
+    "mask_jade_microtexture": "causal_jade_microtexture",
 }
 CONTACT_DETAIL_IDS = {
     "mechanism/heaven-detent",
@@ -192,15 +189,15 @@ def _build_insert_dirt_group():
     return group
 
 
-def _build_crackle_group():
-    group = _new_group("mask_celadon_crackle", "celadon_crackle")
-    group["affected_surfaces"] = "celadon surfaces only"
+def _build_jade_microtexture_group():
+    group = _new_group("mask_jade_microtexture", "jade_microtexture")
+    group["affected_surfaces"] = "jade surfaces only"
     input_node, output_node = _group_io(group)
-    painted = _attribute(group, "Painted celadon island", MASK_ATTRIBUTES[group.name])
+    painted = _attribute(group, "Painted jade island", MASK_ATTRIBUTES[group.name])
     coordinates = group.nodes.new("ShaderNodeTexCoord")
-    coordinates.name = "Celadon-local coordinates"
+    coordinates.name = "Jade-local coordinates"
     scale = group.nodes.new("ShaderNodeVectorMath")
-    scale.name = "Crackle scale"
+    scale.name = "Microtexture scale"
     scale.operation = "SCALE"
     scale.inputs[3].default_value = 14.0
     voronoi = group.nodes.new("ShaderNodeTexVoronoi")
@@ -212,10 +209,10 @@ def _build_crackle_group():
     threshold.operation = "LESS_THAN"
     threshold.inputs[1].default_value = 0.045
     confine = group.nodes.new("ShaderNodeMath")
-    confine.name = "Confine cracks to celadon"
+    confine.name = "Confine microtexture to jade"
     confine.operation = "MULTIPLY"
     strength = group.nodes.new("ShaderNodeMath")
-    strength.name = "Crackle strength"
+    strength.name = "Microtexture strength"
     strength.operation = "MULTIPLY"
     strength.use_clamp = True
     group.links.new(coordinates.outputs["Generated"], scale.inputs[0])
@@ -256,133 +253,95 @@ def _base_material(name, color, metallic, roughness):
     return material, shader
 
 
-def _build_bronze():
-    material, shader = _base_material("M_Bronze", PALETTE["bronze"], 0.0, 0.38)
+def _link_jade_recess_tone(material, shader):
     nodes = material.node_tree.nodes
-    links = material.node_tree.links
-    recess = _group_node(nodes, "mask_recess_oxidation", "Causal recess tint", 0.52)
-    tint = nodes.new("ShaderNodeMixRGB")
-    tint.name = "Bronze to recessed patina"
-    tint.blend_type = "MIX"
-    tint.inputs[1].default_value = srgb_hex(PALETTE["bronze"])
-    tint.inputs[2].default_value = srgb_hex(PALETTE["patina"])
-    links.new(recess.outputs["Factor"], tint.inputs[0])
-    links.new(tint.outputs["Color"], _socket(shader, "Base Color"))
-    return material
+    attribute = nodes.new("ShaderNodeAttribute")
+    attribute.name = "Sheltered recess tone"
+    attribute.attribute_name = MASK_ATTRIBUTES["mask_recess_oxidation"]
+    mix = nodes.new("ShaderNodeMixRGB")
+    mix.name = "Darken sheltered jade recesses"
+    mix.blend_type = "MIX"
+    mix.inputs[1].default_value = _socket(shader, "Base Color").default_value
+    mix.inputs[2].default_value = srgb_hex("#A5B6AC")
+    material.node_tree.links.new(attribute.outputs["Fac"], mix.inputs[0])
+    material.node_tree.links.new(mix.outputs["Color"], _socket(shader, "Base Color"))
 
 
-def _build_patina():
-    material, _ = _base_material("M_Patina", PALETTE["patina"], 0.0, 0.58)
-    return material
+def _link_jade_micro_normal(material, shader):
+    microtexture = material.node_tree.nodes.new("ShaderNodeGroup")
+    microtexture.name = "Jade microtexture mask"
+    microtexture.node_tree = bpy.data.node_groups["mask_jade_microtexture"]
+    bump = material.node_tree.nodes.new("ShaderNodeBump")
+    bump.name = "Jade micro-normal"
+    bump.inputs["Strength"].default_value = 0.14
+    bump.inputs["Distance"].default_value = 0.00025
+    material.node_tree.links.new(microtexture.outputs["Factor"], bump.inputs["Height"])
+    material.node_tree.links.new(bump.outputs["Normal"], _socket(shader, "Normal"))
 
 
-def _build_celadon():
-    material, shader = _base_material("M_Celadon", PALETTE["celadon"], 0.0, 0.27)
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+def _build_jade_body():
+    material, shader = _base_material("M_JadeBody", PALETTE["jadeBody"], 0.0, 0.27)
+    _link_jade_recess_tone(material, shader)
+    _link_jade_micro_normal(material, shader)
     _socket(shader, "Specular IOR Level").default_value = 0.34
     _socket(shader, "Coat Weight").default_value = 0.18
     _socket(shader, "Coat Roughness").default_value = 0.28
-    _socket(shader, "Subsurface Weight").default_value = 0.055
+    return material
 
-    dirt = _group_node(nodes, "mask_insert_dirt", "Causal insert-boundary dirt", 0.38)
-    crackle = _group_node(nodes, "mask_celadon_crackle", "Celadon-only crackle", 0.65)
-    dirt_tint = nodes.new("ShaderNodeMixRGB")
-    dirt_tint.name = "Boundary dirt tint"
-    dirt_tint.inputs[1].default_value = srgb_hex(PALETTE["celadon"])
-    dirt_tint.inputs[2].default_value = srgb_hex(PALETTE["patina"])
-    crackle_tint = nodes.new("ShaderNodeMath")
-    crackle_tint.name = "Restrained crackle tint"
-    crackle_tint.operation = "MULTIPLY"
-    crackle_tint.inputs[1].default_value = 0.12
-    combined_tint = nodes.new("ShaderNodeMath")
-    combined_tint.name = "Boundary and crackle tint"
-    combined_tint.operation = "ADD"
-    combined_tint.use_clamp = True
-    links.new(crackle.outputs["Factor"], crackle_tint.inputs[0])
-    links.new(dirt.outputs["Factor"], combined_tint.inputs[0])
-    links.new(crackle_tint.outputs[0], combined_tint.inputs[1])
-    links.new(combined_tint.outputs[0], dirt_tint.inputs[0])
-    links.new(dirt_tint.outputs["Color"], _socket(shader, "Base Color"))
 
-    roughness = nodes.new("ShaderNodeMapRange")
-    roughness.name = "Crackle roughness response"
-    roughness.inputs["From Min"].default_value = 0.0
-    roughness.inputs["From Max"].default_value = 1.0
-    roughness.inputs["To Min"].default_value = 0.34
-    roughness.inputs["To Max"].default_value = 0.48
-    roughness.clamp = True
-    links.new(crackle.outputs["Factor"], roughness.inputs["Value"])
-    links.new(roughness.outputs["Result"], _socket(shader, "Roughness"))
+def _build_translucent_jade():
+    material, shader = _base_material("M_TranslucentJade", PALETTE["jadeInlay"], 0.0, 0.24)
+    _socket(shader, "IOR").default_value = 1.48
+    _socket(shader, "Transmission Weight").default_value = 0.12
+    _socket(shader, "Coat Weight").default_value = 0.16
+    _socket(shader, "Emission Strength").default_value = 0.0
+    material["modeled_thickness_m"] = 0.004
+    return material
 
-    coordinates = nodes.new("ShaderNodeTexCoord")
-    coordinates.name = "Glaze coordinates"
-    orange_peel = nodes.new("ShaderNodeTexNoise")
-    orange_peel.name = "Glaze orange peel"
-    orange_peel.noise_dimensions = "3D"
-    orange_peel.inputs["Scale"].default_value = 72.0
-    orange_peel.inputs["Detail"].default_value = 2.0
-    orange_peel.inputs["Roughness"].default_value = 0.38
-    bump = nodes.new("ShaderNodeBump")
-    bump.name = "Restrained glaze micro-normal"
-    bump.inputs["Strength"].default_value = 0.12
-    bump.inputs["Distance"].default_value = 0.00022
-    crackle_bump = nodes.new("ShaderNodeBump")
-    crackle_bump.name = "Shallow crackle groove"
-    crackle_bump.inputs["Strength"].default_value = 0.09
-    crackle_bump.inputs["Distance"].default_value = 0.00006
-    links.new(coordinates.outputs["Generated"], orange_peel.inputs["Vector"])
-    links.new(crackle.outputs["Factor"], crackle_bump.inputs["Height"])
-    links.new(crackle_bump.outputs["Normal"], bump.inputs["Normal"])
-    links.new(orange_peel.outputs["Fac"], bump.inputs["Height"])
-    links.new(bump.outputs["Normal"], _socket(shader, "Normal"))
+
+def _build_jade_recess():
+    material, shader = _base_material("M_JadeRecess", PALETTE["jadeRecess"], 0.0, 0.42)
+    _socket(shader, "Emission Strength").default_value = 0.0
     return material
 
 
 def _build_old_gold():
-    material, shader = _base_material("M_OldGold", PALETTE["oldGold"], 1.0, 0.48)
+    material, shader = _base_material("M_OldGold", PALETTE["oldGold"], 1.0, 0.32)
+    _socket(shader, "Metallic").default_value = 0.68
     _socket(shader, "Coat Weight").default_value = 0.04
+    _socket(shader, "Emission Strength").default_value = 0.0
     return material
 
 
-def _build_ash_text():
-    material, shader = _base_material("M_AshText", PALETTE["ash"], 0.0, 0.48)
-    _socket(shader, "Specular IOR Level").default_value = 0.24
+def _build_ink_text():
+    material, shader = _base_material("M_InkText", PALETTE["ink"], 0.0, 0.92)
+    _socket(shader, "Specular IOR Level").default_value = 0.0
+    _socket(shader, "Coat Weight").default_value = 0.0
     return material
 
 
-def _build_void(name, palette_key):
-    material, _ = _base_material(name, PALETTE[palette_key], 0.0, 0.52)
+def _build_cinnabar_text():
+    material, shader = _base_material("M_CinnabarText", PALETTE["cinnabar"], 0.0, 0.88)
+    _socket(shader, "Specular IOR Level").default_value = 0.0
+    _socket(shader, "Coat Weight").default_value = 0.0
     return material
 
 
-def _build_reference_surface():
-    image_path = REPOSITORY_ROOT / "public/models/daliuren/reference-surface-v10.png"
-    height_path = REPOSITORY_ROOT / "public/models/daliuren/reference-surface-v10-height.png"
-    for path in (image_path, height_path):
-        if not path.is_file():
-            raise FileNotFoundError(path)
-    material, shader = _base_material("M_ReferenceSurface", PALETTE["celadon"], 0.0, 0.40)
-    image = bpy.data.images.load(str(image_path), check_existing=True)
-    image.colorspace_settings.name = "sRGB"
-    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
-    texture.name = "Reference surface v10"
-    texture.image = image
-    material.node_tree.links.new(texture.outputs["Color"], _socket(shader, "Base Color"))
-    _socket(shader, "Specular IOR Level").default_value = 0.28
-    _socket(shader, "Coat Weight").default_value = 0.12
-    _socket(shader, "Coat Roughness").default_value = 0.32
-    bump = material.node_tree.nodes.new("ShaderNodeBump")
-    bump.name = "Shallow enamel relief"
-    bump.inputs["Strength"].default_value = 0.07
-    bump.inputs["Distance"].default_value = 0.00035
-    height_image = bpy.data.images.load(str(height_path), check_existing=True)
-    height_image.colorspace_settings.name = "Non-Color"
-    height_texture = material.node_tree.nodes.new("ShaderNodeTexImage")
-    height_texture.name = "Reference relief height v10"
-    height_texture.image = height_image
-    material.node_tree.links.new(height_texture.outputs["Color"], bump.inputs["Height"])
-    material.node_tree.links.new(bump.outputs["Normal"], _socket(shader, "Normal"))
+def _build_interaction_raycast():
+    material, shader = _base_material("M_InteractionRaycast", "#000000", 0.0, 1.0)
+    _socket(shader, "Alpha").default_value = 0.0
+    transparent = material.node_tree.nodes.new("ShaderNodeBsdfTransparent")
+    transparent.name = "Raycast-only transparency"
+    mix = material.node_tree.nodes.new("ShaderNodeMixShader")
+    mix.name = "Suppress interaction annulus render"
+    mix.inputs[0].default_value = 0.0
+    material.node_tree.links.new(transparent.outputs[0], mix.inputs[1])
+    material.node_tree.links.new(shader.outputs["BSDF"], mix.inputs[2])
+    material.node_tree.links.new(mix.outputs[0], material.node_tree.nodes["Material Output"].inputs["Surface"])
+    material.surface_render_method = "DITHERED"
+    material["runtime_visibility"] = "raycast-only"
+    material["color_write"] = False
+    material["depth_write"] = False
     return material
 
 
@@ -395,55 +354,99 @@ def build_master_materials():
     _build_contact_group()
     _build_recess_group()
     _build_insert_dirt_group()
-    _build_crackle_group()
+    _build_jade_microtexture_group()
     materials = (
-        _build_bronze(),
-        _build_patina(),
-        _build_celadon(),
+        _build_jade_body(),
+        _build_translucent_jade(),
+        _build_jade_recess(),
+        _build_ink_text(),
+        _build_cinnabar_text(),
         _build_old_gold(),
-        _build_ash_text(),
-        _build_void("M_EarthVoid", "earthVoid"),
-        _build_void("M_HeavenVoid", "heavenVoid"),
     )
-    _build_reference_surface()
     return materials
 
 
+def _outer_board_v10_material():
+    name = "M_OuterBoardV10"
+    existing = bpy.data.materials.get(name)
+    if existing is not None:
+        return existing
+    albedo_path = REPOSITORY_ROOT / "assets/daliuren/textures/source/outer-board-v10-albedo.png"
+    normal_path = REPOSITORY_ROOT / "assets/daliuren/textures/source/outer-board-v10-normal.png"
+    if not albedo_path.is_file() or not normal_path.is_file():
+        raise RuntimeError("Missing generated v10 outer-board textures")
+    material, shader = _base_material(name, PALETTE["jadeBody"], 0.0, 0.31)
+    coordinates = material.node_tree.nodes.new("ShaderNodeUVMap")
+    coordinates.uv_map = "BoardUV"
+    albedo_image = bpy.data.images.load(str(albedo_path), check_existing=True)
+    albedo_image.colorspace_settings.name = "sRGB"
+    albedo = material.node_tree.nodes.new("ShaderNodeTexImage")
+    albedo.name = "Outer board v10 albedo"
+    albedo.image = albedo_image
+    normal_image = bpy.data.images.load(str(normal_path), check_existing=True)
+    normal_image.colorspace_settings.name = "Non-Color"
+    normal_texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+    normal_texture.name = "Outer board v10 normal"
+    normal_texture.image = normal_image
+    normal = material.node_tree.nodes.new("ShaderNodeNormalMap")
+    normal.inputs["Strength"].default_value = 0.24
+    material.node_tree.links.new(coordinates.outputs["UV"], albedo.inputs["Vector"])
+    material.node_tree.links.new(coordinates.outputs["UV"], normal_texture.inputs["Vector"])
+    material.node_tree.links.new(albedo.outputs["Color"], shader.inputs["Base Color"])
+    material.node_tree.links.new(normal_texture.outputs["Color"], normal.inputs["Color"])
+    material.node_tree.links.new(normal.outputs["Normal"], shader.inputs["Normal"])
+    material["source_texture"] = albedo_path.relative_to(REPOSITORY_ROOT).as_posix()
+    material["source_art"] = "daliuren-heaven-plate-translucent-jade-generals-v10.png"
+    material["projection"] = "physical plate BoardUV; central interaction stack masked"
+    return material
+
+
+def _beidou_blue_material():
+    name = "M_BeidouBlue"
+    existing = bpy.data.materials.get(name)
+    if existing is not None:
+        return existing
+    material, _ = _base_material(name, "#285FA8", 0.35, 0.26)
+    return material
+
+
 def _physical_material_name(obj):
+    if obj.name in {
+        "plate/heaven",
+        "detail/heaven/dial-foundation",
+        "detail/heaven/linked-ring-1",
+        "detail/heaven/linked-ring-2",
+        "plate/generals",
+        "plate/core",
+    }:
+        return "M_JadeBody"
     role = obj.get("inscription_role")
     if role in {"earth-branch", "heaven-branch"}:
-        return "M_AshText"
+        return "M_InkText"
+    if obj.get("text_role") == "general-name":
+        return "M_InkText"
+    if obj.get("text_role") == "month-general":
+        return "M_CinnabarText"
     if role:
-        return "M_AshText"
-    detail_id = obj.get("detail_id")
+        return "M_InkText"
     variant = obj.get("material_variant")
-    if variant == "reference-surface":
-        return "M_ReferenceSurface"
-    if variant in {"gold", "zodiac-gold"}:
+    if variant == "pearl":
+        return "M_TranslucentJade"
+    if variant in {"gold", "zodiac-gold", "zodiac-red"}:
         return "M_OldGold"
-    if variant in {"zodiac-blue", "zodiac-green"}:
-        return "M_Patina"
-    if variant in {"zodiac-red"}:
-        return "M_OldGold"
-    if variant in {"jade", "jade-panel", "jade-ring", "pearl"}:
-        return "M_Celadon"
-    if detail_id in PATINA_DETAIL_IDS:
-        return "M_Patina"
-    if detail_id in CELADON_DETAIL_IDS:
-        return "M_Celadon"
-    if obj.name.endswith("/readout") or "/readout/" in obj.name:
-        return "M_Celadon"
-    if obj.get("node_id") in {
-        "transmission/initial",
-        "transmission/middle",
-        "transmission/final",
-    }:
-        return "M_Celadon"
-    if obj.get("node_id") in {
-        "base/body", "plate/earth", "plate/heaven", "plate/generals", "plate/core",
-    }:
-        return "M_Celadon"
-    return "M_Bronze"
+    if variant == "jade-recess":
+        return "M_JadeRecess"
+    if obj.get("domain") == "general":
+        return "M_TranslucentJade"
+    return "M_JadeBody"
+
+
+def _assign_outer_board_uv(obj):
+    layer = obj.data.uv_layers.get("BoardUV") or obj.data.uv_layers.new(name="BoardUV")
+    for loop in obj.data.loops:
+        vertex = obj.data.vertices[loop.vertex_index].co
+        layer.data[loop.index].uv = (2.0 * vertex.x + 0.5, 2.0 * vertex.y + 0.5)
+    layer.active_render = True
 
 
 def _normalized_coordinate(value, minimum, maximum):
@@ -576,28 +579,24 @@ def apply_master_materials(root):
     if any(obj.get("material_role") for obj in bpy.data.objects if obj.type == "MESH"):
         raise RuntimeError("Artifact materials are already assigned")
 
-    branch_bed_material = None
+    interaction = bpy.data.materials.get("M_InteractionRaycast") or _build_interaction_raycast()
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
+        if obj.get("node_id") == "plate/earth":
+            _assign_outer_board_uv(obj)
         name = _physical_material_name(obj)
-        material = bpy.data.materials[name]
-        if obj.get("inscription_role") in {"earth-branch", "heaven-branch"}:
-            material = material.copy()
-            material.name = f"{name}/{obj['node_id']}"
-            material["material_family"] = name
-        elif obj.get("material_variant") == "ink-bronze":
-            if branch_bed_material is None:
-                branch_bed_material, branch_bed_shader = _base_material(
-                    "M_Bronze/branch-bed",
-                    PALETTE["ink"],
-                    0.0,
-                    0.62,
-                )
-                _socket(branch_bed_shader, "Specular IOR Level").default_value = 0.0
-                branch_bed_material["material_family"] = "M_Bronze"
-            material = branch_bed_material
+        variant = obj.get("material_variant", "")
+        material_role = name
+        if obj.get("node_id") == "plate/earth":
+            material = _outer_board_v10_material()
+            material_role = "M_JadeBody"
+        elif variant == "beidou-blue":
+            material = _beidou_blue_material()
+            material_role = "M_JadeBody"
+        else:
+            material = interaction if obj.get("node_id") == "interaction/month-general-ring" else bpy.data.materials[name]
         obj.data.materials.clear()
         obj.data.materials.append(material)
-        obj["material_role"] = name
+        obj["material_role"] = material_role
 
         detail_id = obj.get("detail_id")
         if obj.name in CONTACT_OBJECTS or detail_id in CONTACT_DETAIL_IDS:
@@ -612,7 +611,7 @@ def apply_master_materials(root):
                 MASK_ATTRIBUTES["mask_recess_oxidation"],
                 _face_mask_values(obj, "recess"),
             )
-        if name == "M_Celadon":
+        if name == "M_JadeBody":
             _set_face_attribute(
                 obj,
                 MASK_ATTRIBUTES["mask_insert_dirt"],
@@ -620,7 +619,7 @@ def apply_master_materials(root):
             )
             _set_float_attribute(
                 obj,
-                MASK_ATTRIBUTES["mask_celadon_crackle"],
+                MASK_ATTRIBUTES["mask_jade_microtexture"],
                 _attribute_pattern(obj, "crackle"),
             )
             _set_float_attribute(obj, "dirt_phase", _lesson_phase(obj))
@@ -728,7 +727,7 @@ def build_material_board_scene():
     ground.data.materials.append(ground_material)
 
     order = MATERIAL_NAMES
-    x_positions = (-3.8, -1.9, 0.0, 1.9, 3.8)
+    x_positions = (-4.75, -2.85, -0.95, 0.95, 2.85, 4.75)
     for index, (name, x) in enumerate(zip(order, x_positions)):
         bpy.ops.mesh.primitive_uv_sphere_add(
             segments=96,
@@ -764,10 +763,10 @@ def build_material_board_scene():
         location=(0.0, 0.0, 0.0),
     )
     closeup = bpy.context.object
-    closeup.name = "review/celadon-closeup"
-    closeup["review_material"] = "M_Celadon"
+    closeup.name = "review/jade-closeup"
+    closeup["review_material"] = "M_JadeBody"
     closeup["review_role"] = "micro-surface-inset"
-    closeup.data.materials.append(bpy.data.materials["M_Celadon"])
+    closeup.data.materials.append(bpy.data.materials["M_JadeBody"])
     bpy.ops.object.shade_smooth()
     _set_face_attribute(
         closeup,
@@ -776,17 +775,17 @@ def build_material_board_scene():
     )
     _set_float_attribute(
         closeup,
-        MASK_ATTRIBUTES["mask_celadon_crackle"],
+        MASK_ATTRIBUTES["mask_jade_microtexture"],
         1.0,
     )
     _set_float_attribute(closeup, "dirt_phase", 0.41)
 
-    key_data = bpy.data.lights.new("material-board/key-4300K", "SUN")
+    key_data = bpy.data.lights.new("material-board/key-5200K", "SUN")
     key_data.energy = 2.8
     key_data.angle = math.radians(8.0)
     key_data.use_temperature = True
-    key_data.temperature = 4300.0
-    key = bpy.data.objects.new("material-board/key-4300K", key_data)
+    key_data.temperature = 5200.0
+    key = bpy.data.objects.new("material-board/key-5200K", key_data)
     scene.collection.objects.link(key)
     key.location = (-4.5, -4.8, 6.2)
     _look_at(key, (0.0, 0.0, 0.7))
@@ -818,18 +817,18 @@ def build_material_board_scene():
     bpy.context.view_layer.update()
     inset_region = (790, 2, 1300, 360)
     frame_material = _review_principled_material(
-        "review/celadon-inset-frame-material",
-        srgb_hex(PALETTE["celadon"]),
+        "review/jade-inset-frame-material",
+        srgb_hex(PALETTE["jadeBody"]),
         0.32,
     )
     panel_material = _review_principled_material(
-        "review/celadon-inset-panel-material",
+        "review/jade-inset-panel-material",
         srgb_hex(PALETTE["ink"]),
         0.12,
     )
     label_material = _review_principled_material(
-        "review/celadon-inset-label-material",
-        srgb_hex(PALETTE["ash"]),
+        "review/jade-inset-label-material",
+        srgb_hex(PALETTE["ink"]),
         0.62,
     )
     _camera_facing_plane(

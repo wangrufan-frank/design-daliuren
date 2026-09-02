@@ -9,10 +9,10 @@ from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from build_graybox import build_graybox
-from daliuren_contract import DIMENSIONS, NODE_IDS
-
-
-BRANCHES = tuple("子丑寅卯辰巳午未申酉戌亥")
+from daliuren_contract import (
+    BRANCHES, DIAL_CENTER_OFFSET_M, DIMENSIONS, NODE_IDS,
+    VISUAL_EARTH_ORDER, VISUAL_MONTH_ORDER, visual_angle,
+)
 
 
 GENERAL_KEYS = (
@@ -162,37 +162,121 @@ class ComponentContractTest(unittest.TestCase):
                 ) / 2
                 self.assertTrue(separated_x or separated_y, f"{first.name} overlaps {second.name}")
 
-    def test_generals_are_independent_objects_on_one_shared_mesh(self):
+    def test_general_inlays_match_their_sector_slots(self):
         generals = [obj for obj in bpy.data.objects if obj.get("domain") == "general"]
         general_ring = bpy.data.objects["plate/generals"]
         self.assertEqual(len(generals), 12)
         self.assertEqual({obj["general_key"] for obj in generals}, set(GENERAL_KEYS))
         self.assertEqual(len({obj.name for obj in generals}), 12)
-        self.assertEqual(len({obj.data.name for obj in generals}), 1)
-        self.assertEqual(len({obj.data.as_pointer() for obj in generals}), 1)
+        self.assertEqual(len({obj.data.name for obj in generals}), 12)
+        self.assertEqual(len({obj.data.as_pointer() for obj in generals}), 12)
         self.assertEqual(len({id(obj) for obj in generals}), 12)
-        for general in generals:
+        for branch in BRANCHES:
+            slot = bpy.data.objects[f"general-slot/{branch}"]
+            general = next(obj for obj in generals if obj["target_earth"] == branch)
             self.assertEqual(general.parent, general_ring)
-            self.assertAlmostEqual(general.dimensions.x, 0.028)
-            self.assertAlmostEqual(general.dimensions.y, 0.028)
+            self.assertEqual(slot.parent, general_ring)
             self.assertAlmostEqual(general.dimensions.z, 0.004)
-            self.assertAlmostEqual(math.hypot(general.location.x, general.location.y), 0.098)
+            self.assertEqual(general["sector_inner_radius_m"], slot["sector_inner_radius_m"])
+            self.assertEqual(general["sector_outer_radius_m"], slot["sector_outer_radius_m"])
+            self.assertEqual(general["sector_angle_deg"], 30.0)
+            self.assertEqual(general["radial_clearance_m"], 0.00008)
+            self.assertEqual(general["angular_clearance_deg"], 0.12)
+            self.assertAlmostEqual(general["settled_z_m"], slot["seat_z_m"], places=6)
 
-    def test_branch_inlays_form_complete_surface_rings(self):
-        for surface, radius in (("earth", 0.194), ("heaven", 0.164)):
-            parent = bpy.data.objects[f"plate/{surface}"]
-            node_ids = [f"branch/{surface}/{branch}" for branch in BRANCHES]
-            for node_id in node_ids:
-                self.assertIn(node_id, bpy.data.objects)
-            ring = [bpy.data.objects[node_id] for node_id in node_ids]
-            self.assertEqual(len(ring), 12)
-            for index, inlay in enumerate(ring):
-                self.assertEqual(inlay.parent, parent)
-                self.assertEqual(inlay["branch"], BRANCHES[index])
-                self.assertEqual(inlay["ring_index"], index)
-                self.assertAlmostEqual(math.hypot(inlay.location.x, inlay.location.y), radius)
+    def test_slots_are_distinct_palace_transforms_with_strictly_non_coplanar_flush_inlays(self):
+        seat = bpy.data.objects["plate/generals"]
+        seat_top = seat.matrix_world.translation.z + seat.dimensions.z / 2
+        locations = set()
+        rotations = set()
+        for index, branch in enumerate(VISUAL_EARTH_ORDER):
+            angle = visual_angle(index)
+            slot = bpy.data.objects[f"general-slot/{branch}"]
+            general = next(obj for obj in bpy.data.objects if obj.get("target_earth") == branch)
+            recess = bpy.data.objects[f"detail/general-recess/{branch}"]
+            self.assertEqual(slot.parent, seat)
+            self.assertAlmostEqual(
+                math.atan2(math.sin(math.atan2(slot.location.y, slot.location.x) - angle), math.cos(math.atan2(slot.location.y, slot.location.x) - angle)),
+                0.0,
+                places=6,
+            )
+            self.assertAlmostEqual(slot.rotation_euler.z, angle - math.pi / 2, places=6)
+            self.assertGreater(math.hypot(slot.location.x, slot.location.y), 0.07)
+            self.assertVectorAlmostEqual(general.location, slot.location)
+            self.assertVectorAlmostEqual(general.rotation_euler, slot.rotation_euler)
+            general_top = max((general.matrix_world @ Vector(corner)).z for corner in general.bound_box)
+            recess_top = max((recess.matrix_world @ Vector(corner)).z for corner in recess.bound_box)
+            for name, top in ((general.name, general_top), (recess.name, recess_top)):
+                with self.subTest(component=name):
+                    self.assertGreater(top - seat_top, 0.0)
+                    self.assertLessEqual(top - seat_top, 0.00005)
+            self.assertGreater(general_top, recess_top)
+            self.assertAlmostEqual(general["settled_z_m"], slot["seat_z_m"], places=6)
+            locations.add(tuple(round(value, 6) for value in slot.location))
+            rotations.add(round(slot.rotation_euler.z, 6))
+        self.assertEqual(len(locations), 12)
+        self.assertEqual(len(rotations), 12)
 
-    def test_reference_plate_has_two_linked_outer_rings_independent_general_ring_and_fixed_core(self):
+    def test_direct_general_can_use_any_slot_as_its_single_world_transform(self):
+        seat = bpy.data.objects["plate/generals"]
+        general = bpy.data.objects["general/noble"]
+        self.assertEqual(general.parent, seat)
+        for branch in (VISUAL_EARTH_ORDER[0], VISUAL_EARTH_ORDER[4]):
+            target = bpy.data.objects[f"general-slot/{branch}"]
+            general.location = target.location
+            general.rotation_euler = target.rotation_euler
+            bpy.context.view_layer.update()
+            self.assertVectorAlmostEqual(general.matrix_world.translation, target.matrix_world.translation)
+            self.assertAlmostEqual(
+                general.matrix_world.to_quaternion().rotation_difference(target.matrix_world.to_quaternion()).angle,
+                0.0,
+                places=6,
+            )
+
+    def test_slots_month_glyphs_and_interaction_ring_follow_reference_order(self):
+        seat = bpy.data.objects["plate/generals"]
+        heaven = bpy.data.objects["plate/heaven"]
+        self.assertEqual(
+            [bpy.data.objects[f"general-slot/{branch}"]["visual_index"] for branch in VISUAL_EARTH_ORDER],
+            list(range(12)),
+        )
+        for month in VISUAL_MONTH_ORDER:
+            self.assertEqual(bpy.data.objects[f"month-general/{month}"].parent, heaven)
+        interaction = bpy.data.objects["interaction/month-general-ring"]
+        self.assertEqual(interaction.parent, heaven)
+        self.assertFalse(interaction["color_write"])
+        self.assertEqual(seat["fixed"], True)
+
+    def test_fixed_black_earth_branch_inlays_form_the_only_branch_ring(self):
+        parent = bpy.data.objects["plate/earth"]
+        heaven = bpy.data.objects["plate/heaven"]
+        heaven_top = max((heaven.matrix_world @ Vector(corner)).z for corner in heaven.bound_box)
+        node_ids = [f"branch/earth/{branch}" for branch in VISUAL_EARTH_ORDER]
+        ring = [bpy.data.objects[node_id] for node_id in node_ids]
+        self.assertEqual(len(ring), 12)
+        for index, inlay in enumerate(ring):
+            self.assertEqual(inlay.parent, parent)
+            self.assertEqual(inlay["branch"], VISUAL_EARTH_ORDER[index])
+            self.assertEqual(inlay["ring_index"], index)
+            angle = visual_angle(index)
+            self.assertAlmostEqual(
+                math.hypot(
+                    inlay.location.x - DIAL_CENTER_OFFSET_M[0],
+                    inlay.location.y - DIAL_CENTER_OFFSET_M[1],
+                ),
+                0.144,
+                places=4,
+            )
+            self.assertAlmostEqual(inlay.location.x, DIAL_CENTER_OFFSET_M[0] + 0.144 * math.cos(angle), places=4)
+            self.assertAlmostEqual(inlay.location.y, DIAL_CENTER_OFFSET_M[1] + 0.144 * math.sin(angle), places=4)
+            self.assertGreater(max(inlay.dimensions.x, inlay.dimensions.y), 0.018)
+            self.assertLess(max(inlay.dimensions.x, inlay.dimensions.y), 0.022)
+            inlay_top = max((inlay.matrix_world @ Vector(corner)).z for corner in inlay.bound_box)
+            self.assertGreater(inlay_top, heaven_top)
+            self.assertNotIn(f"detail/branch-bed/earth/{VISUAL_EARTH_ORDER[index]}", bpy.data.objects)
+            self.assertNotIn(f"branch/heaven/{VISUAL_EARTH_ORDER[index]}", bpy.data.objects)
+
+    def test_reference_plate_has_two_linked_outer_rings_fixed_general_ring_and_fixed_core(self):
         heaven = bpy.data.objects["plate/heaven"]
         general_ring = bpy.data.objects["plate/generals"]
         core = bpy.data.objects["plate/core"]
@@ -200,8 +284,8 @@ class ComponentContractTest(unittest.TestCase):
         self.assertEqual(heaven.parent, self.root)
         self.assertEqual(general_ring.parent, self.root)
         self.assertEqual(core.parent, self.root)
-        self.assertTrue(heaven["rotates_with_outer_ring"])
-        self.assertTrue(general_ring["rotates_independently"])
+        self.assertTrue(heaven["rotates_independently"])
+        self.assertTrue(general_ring["fixed"])
         self.assertTrue(core["fixed"])
         self.assertEqual(
             {
@@ -215,6 +299,20 @@ class ComponentContractTest(unittest.TestCase):
             bpy.data.objects[f"general/{key}"] for key in GENERAL_KEYS
         )))
         self.assertFalse(any(child.parent == core for child in (heaven, general_ring)))
+
+    def test_general_sector_top_faces_are_upward_for_pale_jade_lighting(self):
+        for key in GENERAL_KEYS:
+            sector = bpy.data.objects[f"general/{key}"]
+            top_faces = [face for face in sector.data.polygons if face.center.z >= 0.001999]
+            with self.subTest(general=key):
+                self.assertTrue(top_faces)
+                self.assertTrue(all(face.normal.z > 0.95 for face in top_faces))
+
+    def test_general_names_are_legible_within_their_pale_sector_inlays(self):
+        for key in GENERAL_KEYS:
+            glyph = bpy.data.objects[f"general/{key}/name"]
+            with self.subTest(general=key):
+                self.assertGreater(max(glyph.dimensions.x, glyph.dimensions.y), 0.010)
 
     def test_helper_children_do_not_claim_runtime_ids(self):
         for obj in bpy.data.objects:

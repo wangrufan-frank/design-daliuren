@@ -29,7 +29,7 @@ class ReviewSceneTest(unittest.TestCase):
     def tearDown(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
 
-    def test_review_rig_uses_fixed_wide_4300k_key_and_low_rim(self):
+    def test_review_rig_uses_fixed_wide_5200k_key_and_low_rim(self):
         build_lookdev_scene()
 
         key = bpy.data.objects["light/key"].data
@@ -37,7 +37,7 @@ class ReviewSceneTest(unittest.TestCase):
         rim = bpy.data.objects["light/rim"].data
         self.assertEqual(key.type, "AREA")
         self.assertTrue(key.use_temperature)
-        self.assertEqual(key.temperature, 4300.0)
+        self.assertEqual(key.temperature, 5200.0)
         self.assertGreaterEqual(key.size, 0.70)
         self.assertGreaterEqual(fill.energy / key.energy, 0.35)
         self.assertLessEqual(fill.energy / key.energy, 0.45)

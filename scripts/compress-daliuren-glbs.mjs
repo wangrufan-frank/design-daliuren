@@ -15,47 +15,12 @@ import { listTextureSlots } from "@gltf-transform/functions";
 const LOD_FILES = [0, 1, 2].map(
   (level) => `public/models/daliuren/daliuren-artifact-lod${level}.glb`,
 );
-const VOID_PALETTE = [
-  ["M_EarthVoid", "#8A563B"],
-  ["M_HeavenVoid", "#477B9D"],
-];
 const COLOR_SLOTS = new Set(["baseColorTexture", "emissiveTexture"]);
 const DATA_SLOTS = new Set([
   "normalTexture",
   "occlusionTexture",
   "metallicRoughnessTexture",
 ]);
-
-function linearChannel(hex) {
-  const value = Number.parseInt(hex, 16) / 255;
-  return value <= 0.04045
-    ? value / 12.92
-    : ((value + 0.055) / 1.055) ** 2.4;
-}
-
-function linearColor(value) {
-  return [
-    linearChannel(value.slice(1, 3)),
-    linearChannel(value.slice(3, 5)),
-    linearChannel(value.slice(5, 7)),
-    1,
-  ];
-}
-
-export function addVoidPaletteMaterials(document) {
-  const root = document.getRoot();
-  for (const [family, color] of VOID_PALETTE) {
-    const material = root.listMaterials().find(
-      (candidate) => candidate.getName() === family,
-    ) ?? document.createMaterial(family);
-    material
-      .setExtras({ ...material.getExtras(), material_family: family })
-      .setBaseColorFactor(linearColor(color))
-      .setMetallicFactor(0)
-      .setRoughnessFactor(0.52);
-  }
-  return document;
-}
 
 export function textureEncoderMode(slots) {
   const hasColor = slots.some((slot) => COLOR_SLOTS.has(slot));
@@ -126,7 +91,6 @@ async function transformGlb(source, destination, {
 }) {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
   const document = await io.read(source);
-  addVoidPaletteMaterials(document);
   document.createExtension(KHRTextureBasisu).setRequired(true);
   const textures = document.getRoot().listTextures();
   for (const [index, texture] of textures.entries()) {

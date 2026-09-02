@@ -11,15 +11,26 @@ import type { HeavenEarthResult } from "../../domain/heaven-earth/types";
 import type { ThreeTransmissionsResult } from "../../domain/three-transmissions/types";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { reviewStageFor } from "./timeline/review-stages";
+import { ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
 import type { ArtifactPose } from "./timeline/types";
+import type { MonthGeneralInputEvent } from "./three/ArtifactSceneController";
 import { referenceSession } from "../../test/reference-session";
 import { useReducedMotion } from "./use-reduced-motion";
+import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 
 interface ControllerDouble {
-  callbacks: { onUserControlStart(): void; onContextLost(): void; onError(error: unknown): void; onAnnotationError(error: unknown): void };
+  callbacks: {
+    onUserControlStart(): void;
+    onContextLost(): void;
+    onError(error: unknown): void;
+    onAnnotationError(error: unknown): void;
+    onMonthGeneralInput(event: MonthGeneralInputEvent): void;
+  };
   resize: any;
   setDisplayState: any;
   applyPose: any;
+  applyJadePlateMotion: any;
+  setMonthGeneralInteractionEnabled: any;
   applyCameraPreset: any;
   measureMinimumBranchProjectionPx: any;
   measureMinimumBranchEdgeMarginPx: any;
@@ -78,10 +89,12 @@ beforeAll(async () => {
   }));
   vi.doMock("./three/ArtifactSceneController", () => ({
     ArtifactSceneController: class {
-      callbacks: { onUserControlStart(): void; onContextLost(): void; onError(error: unknown): void; onAnnotationError(error: unknown): void };
+      callbacks: ControllerDouble["callbacks"];
       resize = vi.fn();
       setDisplayState = vi.fn();
       applyPose = vi.fn((pose: ArtifactPose) => appliedStateFromPose(pose));
+      applyJadePlateMotion = vi.fn();
+      setMonthGeneralInteractionEnabled = vi.fn();
       applyCameraPreset = vi.fn();
       measureMinimumBranchProjectionPx = vi.fn(() => 21.6);
       measureMinimumBranchEdgeMarginPx = vi.fn(() => 4.25);
@@ -380,7 +393,7 @@ describe("ArtifactExperience", () => {
     expect(latestController().dispose).toHaveBeenCalledOnce();
   });
 
-  it("shows stage annotations by default and exposes all 22 or no annotations on demand", async () => {
+  it("shows stage annotations by default and exposes all or no annotations on demand", async () => {
     const user = userEvent.setup();
     render(<ArtifactExperience source={referenceSourceResults} selectedStage="calendar" onShowCourse={vi.fn()} />);
     await screen.findByRole("slider", { name: "推演时间轴" });
@@ -388,7 +401,7 @@ describe("ArtifactExperience", () => {
     expect(screen.getByRole("button", { name: "本阶段" })).toHaveAttribute("aria-pressed", "true");
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(3);
     await user.click(screen.getByRole("button", { name: "全部" }));
-    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(22);
+    expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(ARTIFACT_ANNOTATION_DESCRIPTORS.length);
     await user.click(screen.getByRole("button", { name: "隐藏" }));
     expect(document.querySelectorAll(".artifact-annotations__card")).toHaveLength(0);
   });
@@ -405,12 +418,12 @@ describe("ArtifactExperience", () => {
 
     await user.click(screen.getByRole("button", { name: "打开部件目录" }));
     const dialog = screen.getByRole("dialog", { name: "全部部件" });
-    expect(dialog.querySelectorAll("button[data-part-id]")).toHaveLength(22);
+    expect(dialog.querySelectorAll("button[data-part-id]")).toHaveLength(ARTIFACT_ANNOTATION_DESCRIPTORS.length);
     await user.click(dialog.querySelector<HTMLButtonElement>('button[data-part-id="plate/heaven"]')!);
 
     expect(latestController().focusNode).toHaveBeenCalledWith("plate/heaven");
     expect(screen.queryByRole("dialog", { name: "全部部件" })).not.toBeInTheDocument();
-    expect(screen.getByText("当前聚焦：天盘")).toBeVisible();
+    expect(screen.getByText("当前聚焦：月将环")).toBeVisible();
   });
 
   it("keeps the 3D experience usable when annotation sampling reports a missing node", async () => {
@@ -505,6 +518,189 @@ describe("ArtifactExperience", () => {
 
     expect(screen.getByRole("slider", { name: "推演时间轴" })).toHaveValue("27000");
     expect(screen.getByRole("button", { name: "播放推演" })).toBeVisible();
+  });
+
+  it("hands the completed demonstration directly to the enabled month-general controls", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+
+    expect(screen.getByRole("button", { name: "月将环向左一宫" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(ARTIFACT_DURATION_MS + 100);
+
+    expect(screen.getByRole("button", { name: "月将环向左一宫" })).toBeEnabled();
+    expect(latestController().setMonthGeneralInteractionEnabled).toHaveBeenLastCalledWith(true);
+    expect(latestController().setMonthGeneralInteractionEnabled.mock.calls.filter(([enabled]: [boolean]) => enabled)).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /试玩|进入操作|重置月将环/ })).not.toBeInTheDocument();
+  });
+
+  it("relocks month-general interaction when seeking before the final demonstration frame", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(ARTIFACT_DURATION_MS + 100);
+
+    fireEvent.change(screen.getByRole("slider", { name: "推演时间轴" }), { target: { value: "400" } });
+
+    expect(screen.getByRole("button", { name: "月将环向左一宫" })).toBeDisabled();
+    expect(latestController().setMonthGeneralInteractionEnabled).toHaveBeenLastCalledWith(false);
+  });
+
+  it("ignores controller month-general input while the demonstration remains locked", async () => {
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    const controller = latestController();
+    controller.applyJadePlateMotion.mockClear();
+
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 200 }));
+
+    expect(controller.applyJadePlateMotion).not.toHaveBeenCalled();
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-detent", "0");
+  });
+
+  it("uses the shared reducer for controller steps after the handoff", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(ARTIFACT_DURATION_MS + 100);
+
+    act(() => latestController().callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 28_000 }));
+
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-detent", "7");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-aligned", "false");
+    expect(latestController().applyJadePlateMotion).toHaveBeenCalled();
+  });
+
+  it("reverses an interrupted partial landing from the exact current progress", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 30_000 }));
+    frames.step(33_600);
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "drag-start", angleRad: 0, nowMs: 33_600 }));
+    const partialLanding = controller.applyJadePlateMotion.mock.lastCall[0];
+
+    expect(partialLanding.generals[8].seatProgress).toBeGreaterThan(0);
+    expect(partialLanding.generals[8].seatProgress).toBeLessThan(1);
+    act(() => controller.callbacks.onMonthGeneralInput({
+      type: "drag-move", angleRad: 3 * Math.PI / 180, nowMs: 33_600,
+    }));
+    const exitAtInterruption = controller.applyJadePlateMotion.mock.lastCall[0];
+
+    expect(exitAtInterruption.generals.map((general: { seatProgress: number }) => general.seatProgress))
+      .toEqual(partialLanding.generals.map((general: { seatProgress: number }) => general.seatProgress));
+
+    frames.step(34_000);
+    const reversingExit = controller.applyJadePlateMotion.mock.lastCall[0];
+    expect(reversingExit.generals[8].seatProgress).toBeLessThan(partialLanding.generals[8].seatProgress);
+    expect(reversingExit.generals[0].seatProgress).toBe(partialLanding.generals[0].seatProgress);
+  });
+
+  it("settles a completed manual landing and keeps a stationary click seated", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 30_000 }));
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "landing");
+
+    frames.step(35_230);
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "seated");
+
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "drag-start", angleRad: 0, nowMs: 35_240 }));
+    act(() => controller.callbacks.onMonthGeneralInput({
+      type: "drag-end", angularVelocityRadMs: 0, nowMs: 35_250,
+    }));
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "seated");
+  });
+
+  it("keeps an immediate re-entry in landing until its gold and landing window completes", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 28_000 }));
+    frames.step(28_100);
+
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "landing");
+    expect(Number(screen.getByTestId("artifact-experience").getAttribute("data-active-month-gold"))).toBeGreaterThan(0);
+    expect(Number(screen.getByTestId("artifact-experience").getAttribute("data-active-month-gold"))).toBeLessThan(1);
+  });
+
+  it("settles a reduced-motion manual landing immediately", async () => {
+    installMatchMedia(true);
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(27_100);
+
+    const controller = latestController();
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: -1, nowMs: 28_000 }));
+    act(() => controller.callbacks.onMonthGeneralInput({ type: "step", delta: 1, nowMs: 30_000 }));
+
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-phase", "seated");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-active-month-gold", "1.000");
+  });
+
+  it("replaces completed interaction with the locked state when its source changes", async () => {
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    const { rerender } = render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(ARTIFACT_DURATION_MS + 100);
+
+    rerender(<ArtifactExperience source={{ ...referenceSourceResults }} onShowCourse={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "月将环向左一宫" })).toBeDisabled();
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-detent", "0");
+  });
+
+  it("reaches the same completed interactive state with reduced motion", async () => {
+    installMatchMedia(true);
+    const frames = installAnimationFrames();
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await screen.findByRole("slider", { name: "推演时间轴" });
+    await user.click(screen.getByRole("button", { name: "播放推演" }));
+    frames.step(100);
+    frames.step(ARTIFACT_DURATION_MS + 100);
+
+    expect(screen.getByRole("button", { name: "月将环向左一宫" })).toBeEnabled();
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-aligned", "true");
+    expect(screen.getByTestId("artifact-experience")).toHaveAttribute("data-month-general-seated-count", "12");
   });
 
   it("rounds fractional frame accumulation before exposing and evaluating timeline time", async () => {

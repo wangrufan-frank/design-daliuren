@@ -93,7 +93,7 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   assert.equal(ASSET_CONTRACT.schemaVersion, 1);
   const nodeIds = new Set(ASSET_CONTRACT.nodeIds);
   assert.equal(nodeIds.size, ASSET_CONTRACT.nodeIds.length);
-  assert.equal(nodeIds.size, 52);
+  assert.equal(nodeIds.size, 65);
   assert.equal(nodeIds.has("plate/generals"), true);
   assert.equal(nodeIds.has("plate/core"), true);
   for (const forbidden of [
@@ -106,10 +106,8 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   }
   assert.equal(nodeIds.has("transmission/method"), true);
   assert.equal(nodeIds.has("trace/course"), true);
-  for (const surface of ["earth", "heaven"]) {
-    for (const branch of "子丑寅卯辰巳午未申酉戌亥") {
-      assert.equal(nodeIds.has(`branch/${surface}/${branch}`), true);
-    }
+  for (const branch of "子丑寅卯辰巳午未申酉戌亥") {
+    assert.equal(nodeIds.has(`branch/earth/${branch}`), true);
   }
   assert.deepEqual(ASSET_CONTRACT.poseIds, [
     "closed", "calendar", "plate", "lessons", "transmissions", "generals",
@@ -124,14 +122,15 @@ test("asset contract freezes the non-mechanical runtime ids and six pose ids", (
   ]);
 });
 
-function fakeMesh(name, primitives) {
+function fakeMesh(name, primitives, materialsByName = new Map()) {
   return {
     getName: () => name,
     getExtras: () => ({}),
-    listPrimitives: () => primitives.map(({ mode, count, indexed = true }) => ({
+    listPrimitives: () => primitives.map(({ mode, count, indexed = true, material }) => ({
       getMode: () => mode,
       getIndices: () => indexed ? { getCount: () => count } : null,
       getAttribute: () => ({ getCount: () => count }),
+      getMaterial: () => materialsByName.get(material) ?? null,
     })),
   };
 }
@@ -166,19 +165,27 @@ function fakeDocument(nodes, {
   textures = [],
   extensionsUsed = [],
 } = {}) {
+  const materialsByName = new Map(materials.map((material) => [material.name, {
+    getName: () => material.name,
+    getExtras: () => material.extras ?? (material.family ? { material_family: material.family } : {}),
+    getAlphaMode: () => material.alphaMode ?? "OPAQUE",
+    getAlphaCutoff: () => material.alphaCutoff ?? 0.5,
+    getBaseColorFactor: () => material.baseColorFactor ?? [1, 1, 1, 1],
+  }]));
   let propertiesByName;
   const properties = nodes.map(({
     name,
     extras = {},
     bounds,
     triangles = 0,
+    material,
     mesh,
     children = [],
     localMatrix,
     worldMatrix,
   }) => {
     const nodeMesh = mesh ?? (triangles
-      ? fakeMesh(`${name}/mesh`, [{ mode: 4, count: triangles * 3 }])
+      ? fakeMesh(`${name}/mesh`, [{ mode: 4, count: triangles * 3, material }], materialsByName)
       : null);
     return {
       getName: () => name,
@@ -215,10 +222,7 @@ function fakeDocument(nodes, {
       listAnimations: () => [],
       listBuffers: () => [],
       listCameras: () => [],
-      listMaterials: () => materials.map(({ name, family }) => ({
-        getName: () => name,
-        getExtras: () => family ? { material_family: family } : {},
-      })),
+      listMaterials: () => [...materialsByName.values()],
       listMeshes: () => meshes ?? properties.map((node) => node.getMesh()).filter(Boolean),
       listSkins: () => [],
       listTextures: () => textures.map(({
@@ -461,6 +465,75 @@ test("validates runtime material families and dynamic label owner extras", () =>
   ]);
 });
 
+test("only excludes the contract-declared invisible interaction surface from material families", () => {
+  const contract = {
+    ...LOD_CONTRACT,
+    nodeIds: [...LOD_CONTRACT.nodeIds, "interaction/month-general-ring"],
+    runtimeAssets: {
+      ...LOD_CONTRACT.runtimeAssets,
+      materialFamilies: ["M_Bronze", "M_Celadon"],
+      interactionSurfaces: {
+        "interaction/month-general-ring": {
+          material: "M_InteractionRaycast",
+          runtimeVisibility: "raycast-only",
+          colorWrite: false,
+          depthWrite: false,
+        },
+      },
+    },
+  };
+  const document = validLodDocument({
+    nodes: [
+      { name: "root", extras: { node_id: "artifact/root" } },
+      { name: "heaven", extras: { node_id: "plate/heaven" }, triangles: 2 },
+      {
+        name: "interaction",
+        extras: {
+          node_id: "interaction/month-general-ring",
+          runtime_visibility: "raycast-only",
+          color_write: false,
+          depth_write: false,
+        },
+        triangles: 1,
+        material: "M_InteractionRaycast",
+      },
+      {
+        name: "surface/dynamic/calendar",
+        extras: { dynamic_label_id: "dynamic/calendar", owner_node_id: "artifact/root" },
+      },
+      {
+        name: "surface/dynamic/heaven",
+        extras: { dynamic_label_id: "dynamic/heaven", owner_node_id: "plate/heaven" },
+      },
+    ],
+    materials: [
+      { name: "bronze", family: "M_Bronze" },
+      { name: "celadon", family: "M_Celadon" },
+      {
+        name: "M_InteractionRaycast",
+        extras: {
+          material_family: "M_InteractionRaycast",
+          runtime_visibility: "raycast-only",
+          color_write: false,
+          depth_write: false,
+        },
+        alphaMode: "MASK",
+        alphaCutoff: 0.5,
+        baseColorFactor: [0, 0, 0, 0],
+      },
+      {
+        name: "unrelated-raycast-tag",
+        family: "M_Unexpected",
+        extras: { material_family: "M_Unexpected", runtime_visibility: "raycast-only" },
+      },
+    ],
+  });
+
+  assert.deepEqual(validateArtifactDocument(document, contract, { lodId: "lod2" }), [
+    "material family unexpected: M_Unexpected",
+  ]);
+});
+
 test("validates final LOD scene bounds instead of graybox component bounds", () => {
   const invalid = validLodDocument({
     sceneBounds: {
@@ -479,25 +552,25 @@ test("asset contract declares final LOD budgets and runtime texture validation",
     lod0: {
       file: "public/models/daliuren/daliuren-artifact-lod0.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.102, 0.52],
+      sceneBoundsMeters: [0.52, 0.07605, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod1: {
       file: "public/models/daliuren/daliuren-artifact-lod1.glb",
       triangleBudget: { min: 1, max: 300000 },
-      sceneBoundsMeters: [0.52, 0.102, 0.52],
+      sceneBoundsMeters: [0.52, 0.07605, 0.52],
       textureMaxDimensions: { hero: [4096, 4096], moving: [2048, 2048] },
     },
     lod2: {
       file: "public/models/daliuren/daliuren-artifact-lod2.glb",
-      triangleBudget: { min: 1, max: 80000 },
-      sceneBoundsMeters: [0.52, 0.102, 0.52],
+      triangleBudget: { min: 1, max: 82000 },
+      sceneBoundsMeters: [0.52, 0.07605, 0.52],
       textureMaxDimensions: { hero: [2048, 2048], moving: [1024, 1024] },
     },
   });
   assert.deepEqual(ASSET_CONTRACT.runtimeAssets.materialFamilies, [
-    "M_Bronze", "M_Patina", "M_Celadon", "M_OldGold", "M_AshText",
-    "M_EarthVoid", "M_HeavenVoid",
+    "M_JadeBody", "M_TranslucentJade", "M_JadeRecess", "M_InkText",
+    "M_CinnabarText", "M_OldGold",
   ]);
   assert.equal(ASSET_CONTRACT.runtimeAssets.requiredTextureExtension, "KHR_texture_basisu");
   assert.equal(Object.keys(ASSET_CONTRACT.runtimeAssets.dynamicLabelOwners).length, 21);

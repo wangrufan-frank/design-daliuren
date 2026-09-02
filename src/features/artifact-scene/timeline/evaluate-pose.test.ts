@@ -15,7 +15,7 @@ const referenceState: ArtifactDisplayState = {
   noble: { dayNight: "day", nobleHeaven: "子", nobleEarth: "子", direction: "forward" },
 };
 
-it("uses the exact 27-second duration and rotates the exported heaven plate in its horizontal plane", () => {
+it("uses the exact 27-second duration and hands off a clean physical plate", () => {
   const pose = evaluateArtifactPose(referenceState, ARTIFACT_DURATION_MS, false);
   expect(ARTIFACT_DURATION_MS).toBe(27_000);
   expect(pose.nodes["plate/heaven"]).toMatchObject({
@@ -24,10 +24,16 @@ it("uses the exact 27-second duration and rotates the exported heaven plate in i
     rotationZ: 0,
   });
   expect(pose.nodes["plate/generals"]).toMatchObject({
-    rotationY: 2 * Math.PI,
+    rotationY: 0,
     rotationZ: 0,
   });
-  expect(pose.nodes["transmission/initial"].visible).toBe(true);
+  for (const id of [
+    "calendar/slip",
+    "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
+    "transmission/initial", "transmission/middle", "transmission/final", "transmission/method",
+  ]) expect(pose.nodes[id].visible).toBe(false);
+  expect(Object.values(pose.labelOpacity).every((opacity) => opacity === 0)).toBe(true);
+  expect(pose.nodes["general/noble"].visible).toBe(true);
   expect(pose.courseTraceOpacity).toBe(0);
   expect(pose).not.toHaveProperty("copy");
   expect(pose).not.toHaveProperty("cameraOrbitRequested");
@@ -45,20 +51,21 @@ it("hides lesson slips before their 8000 ms stage and reveals each over a 760 ms
   expect(evaluateArtifactPose(referenceState, 9_200, false).nodes["lesson/second"].visible).toBe(true);
 });
 
-it("reveals transmission slips one at a time without lifting the general inlays", () => {
+it("reveals transmission slips one at a time while the noble inlay lands", () => {
   expect(evaluateArtifactPose(referenceState, 13_000, false).nodes["transmission/initial"]).toMatchObject({ visible: true, translationZ: 0.018 });
   expect(evaluateArtifactPose(referenceState, 14_000, false).nodes["transmission/middle"].visible).toBe(true);
   expect(evaluateArtifactPose(referenceState, 15_000, false).nodes["transmission/final"].visible).toBe(true);
   expect(evaluateArtifactPose(referenceState, 18_250, false).nodes["general/noble"]).toMatchObject({
-    visible: true, translationX: 0, translationY: 0, translationZ: 0,
+    visible: true, translationX: 0, translationZ: 0,
   });
+  expect(evaluateArtifactPose(referenceState, 18_250, false).nodes["general/noble"].translationY).toBeGreaterThan(0);
 });
 
-it("reveals only the first directional general label at 18250 ms", () => {
+it("reveals the noble-first general label at 18250 ms for either course direction", () => {
   const forward = evaluateArtifactPose(referenceState, 18_250, false);
   const reverse = evaluateArtifactPose({ ...referenceState, noble: { ...referenceState.noble, direction: "reverse" } }, 18_250, false);
   expect(Object.entries(forward.labelOpacity).filter(([id, opacity]) => id.startsWith("dynamic/general/") && opacity > 0).map(([id]) => id)).toEqual(["dynamic/general/noble"]);
-  expect(Object.entries(reverse.labelOpacity).filter(([id, opacity]) => id.startsWith("dynamic/general/") && opacity > 0).map(([id]) => id)).toEqual(["dynamic/general/queen-of-heaven"]);
+  expect(Object.entries(reverse.labelOpacity).filter(([id, opacity]) => id.startsWith("dynamic/general/") && opacity > 0).map(([id]) => id)).toEqual(["dynamic/general/noble"]);
 });
 
 it("makes the course trace a deterministic pulse and suppresses it for reduced motion", () => {

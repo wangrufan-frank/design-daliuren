@@ -4,13 +4,14 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { ArtifactDisplayState } from "../model/types";
-import { formatVoidBranch, VOID_SURFACE_COLORS, type VoidSurface } from "../model/format-void-branch";
-import type { ArtifactPose } from "../timeline/types";
+import { formatVoidBranch, type VoidSurface } from "../model/format-void-branch";
+import type { ArtifactPose, JadePlateMotion } from "../timeline/types";
 import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "../annotations/descriptors";
 import { projectArtifactAnnotations } from "../annotations/project-annotations";
 import type { ArtifactAnnotationId, ProjectedAnchor } from "../annotations/types";
 import { disposeArtifact } from "./dispose-artifact";
 import type { LoadedArtifact } from "./load-artifact";
+import { angleOnPlatePlane } from "./month-general-pointer";
 import {
   createLabelMaterial,
   LabelTextureCache,
@@ -22,7 +23,14 @@ interface ArtifactSceneCallbacks {
   onContextLost(): void;
   onError(error: unknown): void;
   onAnnotationError?(error: unknown): void;
+  onMonthGeneralInput?(event: MonthGeneralInputEvent): void;
 }
+
+export type MonthGeneralInputEvent =
+  | { type: "drag-start"; angleRad: number; nowMs: number }
+  | { type: "drag-move"; angleRad: number; nowMs: number }
+  | { type: "drag-end"; angularVelocityRadMs: number; nowMs: number }
+  | { type: "step"; delta: -1 | 1; nowMs: number };
 
 export interface AnnotationFrame {
   viewport: { width: number; height: number };
@@ -37,6 +45,7 @@ export interface AnnotationFrameSource {
 interface ControlsLike {
   target: THREE.Vector3;
   autoRotate: boolean;
+  enabled: boolean;
   minPolarAngle: number;
   maxPolarAngle: number;
   minAzimuthAngle: number;
@@ -104,36 +113,33 @@ const GENERAL_DYNAMIC_IDS = {
   太阴: "dynamic/general/yin",
   天后: "dynamic/general/queen-of-heaven",
 } as const;
-const GENERAL_SLOT_NODE_IDS = [
-  "general/noble", "general/snake", "general/vermilion-bird", "general/harmony",
-  "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
-  "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
-] as const;
 const ANNOTATION_DESCRIPTORS_BY_ID = new Map(
   ARTIFACT_ANNOTATION_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor]),
 );
 const CAMERA_TWEEN_DURATION_MS = 700;
-const PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE = 1.56;
-const PORTRAIT_REVIEW_CAMERA_ELEVATION = THREE.MathUtils.degToRad(60);
+const REVIEW_HORIZONTAL_FOV_DEGREES = 20.4268144654051;
+const REVIEW_CAMERA_SHIFT_X = 0.12208956;
+const REVIEW_CAMERA_SHIFT_Y = -0.04859297;
+const REVIEW_CAMERA_ROLL_RADIANS = -0.0997904;
+const PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE = 0.74;
+const PORTRAIT_REVIEW_CAMERA_ELEVATION = THREE.MathUtils.degToRad(69);
 const PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT = 0.016;
 
 const LABEL_SIZE = { width: 512, height: 256 } as const;
 const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
 const DAY_NIGHT_TEXT = { day: "昼", night: "夜" } as const;
-const REFERENCE_REPLACED_PREFIXES = (
-  ["branch/", "divider/", "detail/branch-bed/", "inscription/"] as const
-);
+const OLD_GOLD = new THREE.Color(0xb98a38);
+const RING_CAPTURE_OPTIONS = { capture: true } as const;
+const WHEEL_CAPTURE_OPTIONS = { capture: true, passive: false } as const;
 
-function isReplacedByReferenceSurface(object: THREE.Object3D): boolean {
-  const nodeId = typeof object.userData.node_id === "string" ? object.userData.node_id : "";
-  return object.userData.detail_id === "structure/bronze-inlay-branch-bed"
-    || typeof object.userData.inscription_role === "string"
-    || ["_divider_", "_detail_branch-bed_", "_inscription_"].some((token) => object.name.includes(token))
-    || REFERENCE_REPLACED_PREFIXES.some((prefix) => (
-    object.name.startsWith(prefix)
-    || object.name.includes(`/${prefix}`)
-    || nodeId.startsWith(prefix)
-    ));
+interface TextMaterialBinding {
+  mesh: THREE.Mesh;
+  originalMaterial: THREE.MeshStandardMaterial;
+  material: THREE.MeshStandardMaterial;
+  originalColor: THREE.Color;
+  originalMetalness: number;
+  originalRoughness: number;
+  nodeId: string;
 }
 
 function defaultDependencies(): ArtifactSceneDependencies {
@@ -150,18 +156,51 @@ function defaultDependencies(): ArtifactSceneDependencies {
   };
 }
 
+function createStoneGround(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> {
+  const geometry = new THREE.PlaneGeometry(6, 6, 48, 48);
+  const positions = geometry.getAttribute("position");
+  const colors: number[] = [];
+  const base = new THREE.Color(0xb4aea5);
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index);
+    const y = positions.getY(index);
+    const variation = 0.035 * (
+      Math.sin(x * 8.3 + y * 3.1)
+      + Math.sin(x * 19.7 - y * 13.9) * 0.45
+    );
+    colors.push(
+      THREE.MathUtils.clamp(base.r + variation, 0, 1),
+      THREE.MathUtils.clamp(base.g + variation * 0.96, 0, 1),
+      THREE.MathUtils.clamp(base.b + variation * 0.90, 0, 1),
+    );
+  }
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 0,
+    roughness: 0.9,
+    vertexColors: true,
+  });
+  const ground = new THREE.Mesh(geometry, material);
+  ground.name = "environment/stone-ground";
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.001;
+  return ground;
+}
+
 export class ArtifactSceneController {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(34, 1, 0.05, 4);
+  private readonly camera = new THREE.PerspectiveCamera(REVIEW_HORIZONTAL_FOV_DEGREES, 1, 0.05, 4);
   private readonly controls: ControlsLike;
   private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
+  private readonly stoneGround = createStoneGround();
   private readonly baseTransforms = new Map<string, BaseTransform>();
   private readonly generalSlots = new Map<EarthlyBranch, BaseTransform>();
   private readonly labelBindings = new Map<string, LabelBinding>();
   private readonly branchMeshes = new Map<string, THREE.Mesh>();
-  private readonly branchMaterials = new Map<string, THREE.MeshStandardMaterial>();
-  private readonly branchOriginalMaterials = new Map<string, THREE.MeshStandardMaterial>();
-  private readonly branchNormalColors = new Map<string, THREE.Color>();
+  private readonly monthGlyphMaterials = new Map<string, TextMaterialBinding>();
+  private readonly generalNameMaterials = new Map<string, TextMaterialBinding>();
+  private readonly interactionRing: THREE.Object3D;
   private readonly courseTraceMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   private readonly courseTraceMaterial: THREE.MeshStandardMaterial;
   private readonly courseTraceOriginalMaterial: THREE.MeshStandardMaterial;
@@ -170,9 +209,13 @@ export class ArtifactSceneController {
   private readonly initialTarget = new THREE.Vector3(0, 0.05, 0);
   private readonly now: () => number;
   private readonly annotationRaycaster = new THREE.Raycaster();
+  private readonly interactionRaycaster = new THREE.Raycaster();
+  private readonly pointer = new THREE.Vector2();
   private readonly reportedAnnotationErrors = new Set<ArtifactAnnotationId>();
   private annotationViewport = { width: 1, height: 1 };
   private cameraTween: CameraTween | undefined;
+  private interactionEnabled = false;
+  private activeRingGesture: { pointerId: number; angleRad: number; atMs: number; controlsEnabled: boolean } | undefined;
   private stopped = false;
   private disposed = false;
 
@@ -183,8 +226,35 @@ export class ArtifactSceneController {
   private readonly handleContextLost = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
+    this.restoreRingGesture();
     this.stopped = true;
     this.callbacks.onContextLost();
+  };
+  private readonly handlePointerDown = (event: PointerEvent) => this.startRingGesture(event);
+  private readonly handlePointerMove = (event: PointerEvent) => this.moveRingGesture(event);
+  private readonly handlePointerUp = (event: PointerEvent) => this.endRingGesture(event);
+  private readonly handlePointerCancel = (event: PointerEvent) => this.endRingGesture(event, true);
+  private readonly handleWheel = (event: WheelEvent) => {
+    if (!this.interactionEnabled || event.deltaY === 0) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    try {
+      this.emitMonthGeneralInput({ type: "step", delta: event.deltaY > 0 ? 1 : -1, nowMs: this.now() });
+    } catch (error) {
+      this.restoreRingGesture();
+      this.callbacks.onError(error);
+    }
+  };
+  private readonly handleKeyDown = (event: KeyboardEvent) => {
+    if (!this.interactionEnabled || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    try {
+      this.emitMonthGeneralInput({ type: "step", delta: event.key === "ArrowRight" ? 1 : -1, nowMs: this.now() });
+    } catch (error) {
+      this.restoreRingGesture();
+      this.callbacks.onError(error);
+    }
   };
 
   constructor(
@@ -193,18 +263,17 @@ export class ArtifactSceneController {
     private readonly callbacks: ArtifactSceneCallbacks,
     dependencies: ArtifactSceneDependencies = defaultDependencies(),
   ) {
-    const branchEntries: Array<readonly [string, THREE.Mesh, THREE.MeshStandardMaterial]> = [];
-    for (const surface of ["earth", "heaven"] as const) {
-      for (const branch of EARTHLY_BRANCHES) {
-        const id = `branch/${surface}/${branch}`;
-        const mesh = artifact.nodes.get(id);
-        const material = mesh instanceof THREE.Mesh ? mesh.material : undefined;
-        if (!(mesh instanceof THREE.Mesh) || !(material instanceof THREE.MeshStandardMaterial)) {
-          throw new Error(`Invalid branch inlay ${id}`);
-        }
-        branchEntries.push([id, mesh, material]);
+    for (const branch of EARTHLY_BRANCHES) {
+      const id = `branch/earth/${branch}`;
+      const mesh = artifact.nodes.get(id);
+      if (!(mesh instanceof THREE.Mesh) || !(mesh.material instanceof THREE.MeshStandardMaterial)) {
+        throw new Error(`Invalid branch inlay ${id}`);
       }
+      this.branchMeshes.set(id, mesh);
     }
+    const interactionRing = artifact.nodes.get("interaction/month-general-ring");
+    if (!interactionRing) throw new Error("Missing interaction ring interaction/month-general-ring");
+    this.interactionRing = interactionRing;
     const courseTrace = artifact.nodes.get("trace/course");
     const courseTraceOriginalMaterial = courseTrace instanceof THREE.Mesh ? courseTrace.material : undefined;
     if (!(courseTrace instanceof THREE.Mesh)
@@ -214,16 +283,13 @@ export class ArtifactSceneController {
 
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 0.72;
-    this.scene.background = new THREE.Color(0x8b8984);
+    renderer.toneMappingExposure = 0.82;
+    this.scene.background = new THREE.Color(0xb4aea5);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
     this.scene.environmentIntensity = 0.45;
-    artifact.root.traverse((object) => {
-      if (object instanceof THREE.Mesh && isReplacedByReferenceSurface(object)) {
-        object.visible = false;
-      }
-    });
+    this.configureInteractionRing();
+    this.harmonizeGeneralSeatRecesses();
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 
@@ -234,7 +300,7 @@ export class ArtifactSceneController {
     sideFill.position.set(0.75, 0.5, 0.35);
     const rimLight = new THREE.DirectionalLight(0xf3dba8, 0.55);
     rimLight.position.set(-0.5, 0.8, -0.7);
-    this.scene.add(keyLight, fillLight, sideFill, rimLight);
+    this.scene.add(this.stoneGround, keyLight, fillLight, sideFill, rimLight);
 
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialTarget);
@@ -247,7 +313,14 @@ export class ArtifactSceneController {
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.update();
     this.controls.addEventListener("start", this.handleControlStart);
+    if (renderer.domElement.tabIndex < 0) renderer.domElement.tabIndex = 0;
     renderer.domElement.addEventListener("webglcontextlost", this.handleContextLost);
+    renderer.domElement.addEventListener("pointerdown", this.handlePointerDown, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("pointermove", this.handlePointerMove, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("pointerup", this.handlePointerUp, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("pointercancel", this.handlePointerCancel, RING_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("wheel", this.handleWheel, WHEEL_CAPTURE_OPTIONS);
+    renderer.domElement.addEventListener("keydown", this.handleKeyDown);
 
     for (const [id, object] of artifact.nodes) {
       this.baseTransforms.set(id, {
@@ -256,14 +329,6 @@ export class ArtifactSceneController {
         scale: object.scale.clone(),
       });
     }
-    for (const [id, mesh, originalMaterial] of branchEntries) {
-      const material = originalMaterial.clone();
-      mesh.material = material;
-      this.branchMeshes.set(id, mesh);
-      this.branchMaterials.set(id, material);
-      this.branchOriginalMaterials.set(id, originalMaterial);
-      this.branchNormalColors.set(id, originalMaterial.color.clone());
-    }
     this.courseTraceMesh = courseTrace as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
     this.courseTraceOriginalMaterial = courseTraceOriginalMaterial;
     this.courseTraceMaterial = courseTraceOriginalMaterial.clone();
@@ -271,10 +336,12 @@ export class ArtifactSceneController {
     this.courseTraceMaterial.opacity = 0;
     this.courseTraceMaterial.depthWrite = true;
     this.courseTraceMesh.material = this.courseTraceMaterial;
-    EARTHLY_BRANCHES.forEach((earth, index) => {
-      const transform = this.baseTransforms.get(GENERAL_SLOT_NODE_IDS[index]);
+    EARTHLY_BRANCHES.forEach((earth) => {
+      const transform = this.baseTransforms.get(`general-slot/${earth}`);
       if (transform) this.generalSlots.set(earth, transform);
     });
+
+    this.bindJadeTextMaterials();
 
     this.labels = new LabelTextureCache(renderer.capabilities.getMaxAnisotropy());
     artifact.root.traverse((object) => {
@@ -291,7 +358,15 @@ export class ArtifactSceneController {
     if (this.disposed) return;
     this.annotationViewport = { width: Math.max(1, width), height: Math.max(1, height) };
     this.camera.aspect = this.annotationViewport.width / this.annotationViewport.height;
+    const landscapeFovScale = 1 + Math.max(0, this.camera.aspect - 1) * 0.065;
+    this.camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(
+      Math.tan(THREE.MathUtils.degToRad(REVIEW_HORIZONTAL_FOV_DEGREES * landscapeFovScale) / 2) / this.camera.aspect,
+    ));
     this.camera.updateProjectionMatrix();
+    this.camera.projectionMatrix.elements[8] = 2 * REVIEW_CAMERA_SHIFT_X;
+    const verticalShiftScale = this.camera.aspect <= 1 ? this.camera.aspect : 2.7 * this.camera.aspect - 1.7;
+    this.camera.projectionMatrix.elements[9] = 2 * REVIEW_CAMERA_SHIFT_Y * verticalShiftScale;
+    this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(width, height, false);
   }
@@ -343,16 +418,6 @@ export class ArtifactSceneController {
   setDisplayState(state: ArtifactDisplayState): void {
     if (this.disposed) return;
     try {
-      for (const surface of ["earth", "heaven"] as const) {
-        for (const branch of EARTHLY_BRANCHES) {
-          const id = `branch/${surface}/${branch}`;
-          const material = this.branchMaterials.get(id)!;
-          material.color.copy(this.branchNormalColors.get(id)!);
-          if (state.calendar.voidBranches.includes(branch)) {
-            material.color.set(VOID_SURFACE_COLORS[surface]);
-          }
-        }
-      }
       const markVoid = (branch: string, surface: VoidSurface = "neutral") => formatVoidBranch(
         branch,
         state.calendar.voidBranches,
@@ -398,6 +463,40 @@ export class ArtifactSceneController {
     }
   }
 
+  setMonthGeneralInteractionEnabled(enabled: boolean): void {
+    if (this.disposed) return;
+    this.interactionEnabled = enabled;
+    if (!enabled) this.restoreRingGesture();
+  }
+
+  applyJadePlateMotion(motion: JadePlateMotion): void {
+    if (this.disposed) return;
+    const heaven = this.artifact.nodes.get("plate/heaven");
+    if (heaven) {
+      this.restoreTransform("plate/heaven", heaven);
+      heaven.rotateY(motion.monthAngleRad);
+    }
+    for (const id of ["plate/generals", "plate/core"]) {
+      const object = this.artifact.nodes.get(id);
+      if (object) this.restoreTransform(id, object);
+    }
+    for (const general of motion.generals) {
+      const object = this.artifact.nodes.get(general.nodeId);
+      const base = this.baseTransforms.get(general.nodeId);
+      const slot = this.generalSlots.get(general.targetEarth);
+      if (!object || !base || !slot) continue;
+      object.position.copy(slot.position);
+      object.quaternion.copy(slot.quaternion);
+      object.scale.copy(base.scale);
+      object.position.y += general.heightMeters;
+      object.visible = general.visible;
+      this.applyTextColor(this.generalNameMaterials.get(general.nodeId), general.goldProgress);
+    }
+    for (const [nodeId, binding] of this.monthGlyphMaterials) {
+      this.applyTextColor(binding, nodeId === motion.activeMonthGeneralNodeId ? motion.activeMonthGoldProgress : 0);
+    }
+  }
+
   applyPose(pose: ArtifactPose): ArtifactAppliedState {
     if (this.disposed) return this.captureAppliedState(pose);
     for (const [id, base] of this.baseTransforms) {
@@ -424,6 +523,7 @@ export class ArtifactSceneController {
       object.rotateZ(delta.rotationZ);
       if (delta.visible !== undefined) object.visible = delta.visible;
     }
+    this.applyJadePlateMotion(pose.jadePlate);
     for (const [dynamicId, binding] of this.labelBindings) {
       binding.material.opacity = pose.labelOpacity[dynamicId] ?? 1;
     }
@@ -550,9 +650,13 @@ export class ArtifactSceneController {
     try {
       this.updateCameraTween(timestampMs);
       this.controls.update();
+      this.camera.lookAt(this.controls.target);
+      this.camera.rotateZ(REVIEW_CAMERA_ROLL_RADIANS);
+      this.camera.userData.v10HeroRollRadians = REVIEW_CAMERA_ROLL_RADIANS;
       this.renderer.render(this.scene, this.camera);
       return cameraWasMoving && this.cameraTween === undefined;
     } catch (error) {
+      this.restoreRingGesture();
       this.stopped = true;
       this.callbacks.onError(error);
       return false;
@@ -569,6 +673,182 @@ export class ArtifactSceneController {
     if (rawProgress === 1) this.cameraTween = undefined;
   }
 
+  private configureInteractionRing(): void {
+    this.interactionRing.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        material.transparent = true;
+        material.opacity = 0;
+        material.colorWrite = false;
+        material.depthWrite = false;
+        material.needsUpdate = true;
+      }
+    });
+  }
+
+  private harmonizeGeneralSeatRecesses(): void {
+    let seatMaterial: THREE.MeshStandardMaterial | undefined;
+    this.artifact.nodes.get("plate/generals")?.traverse((object) => {
+      if (seatMaterial || !(object instanceof THREE.Mesh)) return;
+      const material = Array.isArray(object.material) ? object.material[0] : object.material;
+      if (material instanceof THREE.MeshStandardMaterial) seatMaterial = material;
+    });
+    if (!seatMaterial) return;
+    this.artifact.root.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.userData.surface_treatment === "general-seat-recess") {
+        object.material = seatMaterial!;
+      }
+    });
+  }
+
+  private bindJadeTextMaterials(): void {
+    this.artifact.root.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const textRole = object.userData.text_role;
+      if (textRole !== "month-general" && textRole !== "general-name") return;
+      if (!(object.material instanceof THREE.MeshStandardMaterial)) {
+        throw new Error(`Invalid jade text material on ${object.name}`);
+      }
+      const nodeId = textRole === "month-general"
+        ? object.userData.node_id
+        : this.ancestorNodeId(object, "general/");
+      if (typeof nodeId !== "string") throw new Error(`Missing jade text owner on ${object.name}`);
+      const originalMaterial = object.material;
+      const material = originalMaterial.clone();
+      object.material = material;
+      const binding: TextMaterialBinding = {
+        mesh: object,
+        originalMaterial,
+        material,
+        originalColor: originalMaterial.color.clone(),
+        originalMetalness: originalMaterial.metalness,
+        originalRoughness: originalMaterial.roughness,
+        nodeId,
+      };
+      (textRole === "month-general" ? this.monthGlyphMaterials : this.generalNameMaterials).set(nodeId, binding);
+    });
+  }
+
+  private applyTextColor(binding: TextMaterialBinding | undefined, progress: number): void {
+    if (!binding) return;
+    const amount = Math.min(1, Math.max(0, progress));
+    binding.material.color.lerpColors(binding.originalColor, OLD_GOLD, amount);
+    binding.material.metalness = THREE.MathUtils.lerp(binding.originalMetalness, 1, amount);
+    binding.material.roughness = THREE.MathUtils.lerp(binding.originalRoughness, 0.38, amount);
+  }
+
+  private restoreTransform(id: string, object: THREE.Object3D): void {
+    const base = this.baseTransforms.get(id);
+    if (!base) return;
+    object.position.copy(base.position);
+    object.quaternion.copy(base.quaternion);
+    object.scale.copy(base.scale);
+  }
+
+  private ancestorNodeId(object: THREE.Object3D, prefix: string): string | undefined {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      const nodeId = current.userData.node_id;
+      if (typeof nodeId === "string" && nodeId.startsWith(prefix)) return nodeId;
+      current = current.parent;
+    }
+    return undefined;
+  }
+
+  private startRingGesture(event: PointerEvent): void {
+    if (!this.interactionEnabled || this.activeRingGesture) return;
+    try {
+      const angleRad = this.angleFromPointer(event, true);
+      if (angleRad === undefined) return;
+      const nowMs = this.now();
+      this.activeRingGesture = {
+        pointerId: event.pointerId,
+        angleRad,
+        atMs: nowMs,
+        controlsEnabled: this.controls.enabled,
+      };
+      this.controls.enabled = false;
+      this.renderer.domElement.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.emitMonthGeneralInput({ type: "drag-start", angleRad, nowMs });
+    } catch (error) {
+      this.restoreRingGesture();
+      this.callbacks.onError(error);
+    }
+  }
+
+  private moveRingGesture(event: PointerEvent): void {
+    const gesture = this.activeRingGesture;
+    if (!this.interactionEnabled || !gesture || event.pointerId !== gesture.pointerId) return;
+    try {
+      const angleRad = this.angleFromPointer(event, false);
+      if (angleRad === undefined) return;
+      const nowMs = this.now();
+      gesture.angleRad = angleRad;
+      gesture.atMs = nowMs;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.emitMonthGeneralInput({ type: "drag-move", angleRad, nowMs });
+    } catch (error) {
+      this.restoreRingGesture();
+      this.callbacks.onError(error);
+    }
+  }
+
+  private endRingGesture(event: PointerEvent, cancelled = false): void {
+    const gesture = this.activeRingGesture;
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+    try {
+      const angleRad = this.angleFromPointer(event, false) ?? gesture.angleRad;
+      const nowMs = this.now();
+      const elapsedMs = Math.max(1, nowMs - gesture.atMs);
+      const delta = Math.atan2(Math.sin(angleRad - gesture.angleRad), Math.cos(angleRad - gesture.angleRad));
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (this.interactionEnabled) {
+        this.emitMonthGeneralInput({
+          type: "drag-end",
+          angularVelocityRadMs: cancelled ? 0 : delta / elapsedMs,
+          nowMs,
+        });
+      }
+    } catch (error) {
+      this.callbacks.onError(error);
+    } finally {
+      this.restoreRingGesture();
+    }
+  }
+
+  private restoreRingGesture(): void {
+    const gesture = this.activeRingGesture;
+    if (!gesture) return;
+    this.activeRingGesture = undefined;
+    this.controls.enabled = gesture.controlsEnabled;
+    this.renderer.domElement.releasePointerCapture?.(gesture.pointerId);
+  }
+
+  private angleFromPointer(event: PointerEvent, requireRingHit: boolean): number | undefined {
+    const bounds = this.renderer.domElement.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return undefined;
+    this.pointer.set(
+      ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+      -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+    );
+    this.artifact.root.updateMatrixWorld(true);
+    this.camera.updateMatrixWorld();
+    this.interactionRaycaster.setFromCamera(this.pointer, this.camera);
+    if (requireRingHit && this.interactionRaycaster.intersectObject(this.interactionRing, true).length === 0) return undefined;
+    const heaven = this.artifact.nodes.get("plate/heaven");
+    const center = heaven?.getWorldPosition(new THREE.Vector3()) ?? new THREE.Vector3();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -center.y);
+    return angleOnPlatePlane(this.interactionRaycaster.ray, plane, center);
+  }
+
+  private emitMonthGeneralInput(event: MonthGeneralInputEvent): void {
+    this.callbacks.onMonthGeneralInput?.(event);
+  }
+
   private isNodeOrDescendant(candidate: THREE.Object3D, node: THREE.Object3D): boolean {
     let current: THREE.Object3D | null = candidate;
     while (current) {
@@ -582,7 +862,14 @@ export class ArtifactSceneController {
     if (this.disposed) return;
     this.disposed = true;
     this.stopped = true;
+    this.restoreRingGesture();
     this.renderer.domElement.removeEventListener("webglcontextlost", this.handleContextLost);
+    this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("pointermove", this.handlePointerMove, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("pointerup", this.handlePointerUp, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("pointercancel", this.handlePointerCancel, RING_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("wheel", this.handleWheel, WHEEL_CAPTURE_OPTIONS);
+    this.renderer.domElement.removeEventListener("keydown", this.handleKeyDown);
     this.controls.removeEventListener("start", this.handleControlStart);
     this.controls.dispose();
 
@@ -592,13 +879,15 @@ export class ArtifactSceneController {
       binding.material.dispose();
       binding.mesh.material = binding.originalMaterial;
     }
-    for (const [id, mesh] of this.branchMeshes) {
-      mesh.material = this.branchOriginalMaterials.get(id)!;
-      this.branchMaterials.get(id)!.dispose();
+    for (const binding of [...this.monthGlyphMaterials.values(), ...this.generalNameMaterials.values()]) {
+      binding.mesh.material = binding.originalMaterial;
+      binding.material.dispose();
     }
     this.courseTraceMesh.material = this.courseTraceOriginalMaterial;
     this.courseTraceMaterial.dispose();
     this.labels.dispose();
+    this.stoneGround.geometry.dispose();
+    this.stoneGround.material.dispose();
     this.scene.environment = null;
     this.environment.dispose();
     disposeArtifact(this.artifact.root);

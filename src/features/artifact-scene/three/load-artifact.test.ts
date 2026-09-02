@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { REQUIRED_NODE_IDS } from "../model/asset-contract";
+import { GENERAL_INLAY_DIMENSIONS_METERS, REQUIRED_NODE_IDS } from "../model/asset-contract";
 import { disposeArtifact } from "./dispose-artifact";
 import { indexArtifactNodes, loadArtifact } from "./load-artifact";
 
@@ -78,6 +78,10 @@ describe("artifact loader", () => {
 
     expect(artifact.root).toBe(root);
     expect(artifact.nodes.get("plate/heaven")).toBeDefined();
+    expect(artifact.nodes.get("general-slot/午")).toBeDefined();
+    expect(artifact.nodes.get("month-general/胜光")).toBeDefined();
+    expect(artifact.nodes.get("interaction/month-general-ring")).toBeDefined();
+    expect(GENERAL_INLAY_DIMENSIONS_METERS).toEqual([0.055427, 0.004, 0.045989]);
     expect(artifact.animations).toEqual(animations);
     expect(artifact.url).toBe("/models/daliuren/daliuren-artifact-lod1.glb");
     expect(ktx2Loaders[0].setTranscoderPath).toHaveBeenCalledWith("/three/basis/");

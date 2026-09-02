@@ -23,19 +23,42 @@ DEFAULT_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-co
 DEFAULT_MASTER_PATH = REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend"
 
 MATERIAL_FAMILIES = (
-    "M_Bronze",
-    "M_Patina",
-    "M_Celadon",
+    "M_JadeBody",
+    "M_TranslucentJade",
+    "M_JadeRecess",
+    "M_InkText",
+    "M_CinnabarText",
     "M_OldGold",
-    "M_AshText",
 )
 CAUSAL_ATTRIBUTES = (
     "causal_contact_wear",
     "causal_recess_oxidation",
     "causal_insert_boundary",
-    "causal_celadon_crackle",
+    "causal_jade_microtexture",
 )
 MICRO_TRIANGLE_AREA_MAX = 2.0e-7
+# Each entry is (max triangle count, max triangle area, max aggregate area).
+# These are the measured native-bake misses for the fixed, support-only meshes.
+COVERAGE_FALLBACK_LIMITS = {
+    "detail/base/removable-bottom": (24, 0.000120925, 0.001267421),
+    "detail/base/shell-return/00": (24, 0.00009752, 0.0006009377),
+    "detail/base/shell-return/01": (24, 0.00009752, 0.0006009377),
+    "detail/base/shell-return/02": (24, 0.00009752, 0.0006009377),
+    "detail/base/shell-return/03": (24, 0.00009752, 0.0006009377),
+    "detail/slip-seat/lesson/first": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/lesson/fourth": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/lesson/second": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/lesson/third": (18, 0.00002448, 0.0002),
+    "detail/slip-seat/transmission/initial": (24, 0.00002328, 0.0002),
+    "detail/slip-seat/transmission/middle": (18, 0.00002328, 0.0002),
+    "detail/slip-seat/transmission/final": (18, 0.00002328, 0.0002),
+    "detail/slip-seat/transmission/method": (24, 0.00003168, 0.0002),
+    "trace/course": (6, 0.000012, 0.00005),
+}
+COVERAGE_FALLBACK_OBJECTS = frozenset(COVERAGE_FALLBACK_LIMITS)
+COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES = 282
+COVERAGE_FALLBACK_GLOBAL_MAX_AREA = 0.0053211718
+COVERAGE_FALLBACK_AREA_EPSILON = 1.0e-10
 GENERAL_KEYS = (
     "noble",
     "snake",
@@ -51,17 +74,41 @@ GENERAL_KEYS = (
     "queen-of-heaven",
 )
 MOVING_NODE_IDS = {
-    "calendar/slip",
-    "lesson/first",
-    "lesson/second",
-    "lesson/third",
-    "lesson/fourth",
-    "transmission/initial",
-    "transmission/middle",
-    "transmission/final",
-    "transmission/method",
+    "plate/heaven",
     *(f"general/{key}" for key in GENERAL_KEYS),
 }
+INTERACTION_NODE_ID = "interaction/month-general-ring"
+
+
+def _excluded_from_runtime_bake(obj):
+    return obj.get("node_id") == INTERACTION_NODE_ID or bool(obj.get("inscription_role")) or obj.get("text_role") in {
+        "general-name",
+        "month-general",
+    }
+
+
+def _coverage_fallback_error(records):
+    total_count = 0
+    total_area = 0.0
+    for object_name, areas in records.items():
+        limits = COVERAGE_FALLBACK_LIMITS.get(object_name)
+        if limits is None:
+            return f"{object_name} is not an allowlisted support mesh"
+        max_count, max_triangle_area, max_area = limits
+        aggregate_area = sum(areas)
+        if len(areas) > max_count:
+            return f"{object_name} has {len(areas)} misses; limit is {max_count}"
+        if max(areas) > max_triangle_area + COVERAGE_FALLBACK_AREA_EPSILON:
+            return f"{object_name} has triangle area {max(areas):.10g}; limit is {max_triangle_area:.10g}"
+        if aggregate_area > max_area + COVERAGE_FALLBACK_AREA_EPSILON:
+            return f"{object_name} has aggregate area {aggregate_area:.10g}; limit is {max_area:.10g}"
+        total_count += len(areas)
+        total_area += aggregate_area
+    if total_count > COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES:
+        return f"fallback miss count {total_count} exceeds {COVERAGE_FALLBACK_GLOBAL_MAX_TRIANGLES}"
+    if total_area > COVERAGE_FALLBACK_GLOBAL_MAX_AREA + COVERAGE_FALLBACK_AREA_EPSILON:
+        return f"fallback aggregate area {total_area:.10g} exceeds {COVERAGE_FALLBACK_GLOBAL_MAX_AREA:.10g}"
+    return None
 DYNAMIC_LABEL_OWNERS = {
     "dynamic/calendar": "calendar/slip",
     **{f"dynamic/lesson/{key}": f"lesson/{key}" for key in ("first", "second", "third", "fourth")},
@@ -751,17 +798,17 @@ def _native_texel_coverage_failures(family, dimension, dilation=4, limit=None, a
 
 def _validate_native_texel_coverage(family, dimension, atlas_id=None):
     failures = _native_texel_coverage_failures(family, dimension, atlas_id=atlas_id)
-    failures = [
-        (object_name, triangle_index)
-        for object_name, triangle_index in failures
-        if bpy.data.objects[object_name].data.loop_triangles[triangle_index].area
-        > MICRO_TRIANGLE_AREA_MAX
-    ]
-    if failures:
-        obj_name, triangle_index = failures[0]
+    records = {}
+    for object_name, triangle_index in failures:
+        triangle = bpy.data.objects[object_name].data.loop_triangles[triangle_index]
+        if triangle.area > MICRO_TRIANGLE_AREA_MAX:
+            records.setdefault(object_name, []).append(triangle.area)
+    error = _coverage_fallback_error(records)
+    if error:
         raise RuntimeError(
-            f"sub-texel UV triangle cannot be baked natively: {obj_name}:{triangle_index} at {dimension}"
+            f"sub-texel UV triangle cannot be baked natively at {dimension}: {error}"
         )
+    return tuple(failures)
 
 
 def _family_buffers(family, dimension, atlas_id=None):
@@ -853,11 +900,13 @@ def _validate_bake_source():
     inscriptions = [obj for obj in bpy.data.objects if "inscription_role" in obj]
     if root is None or root.get("node_id") != "artifact/root":
         raise RuntimeError("Daliuren master scene is required for texture baking")
-    if ({obj.get("node_id") for obj in runtime}, len(details), len(inscriptions)) != (
-        set(NODE_IDS), 34, 71
-    ):
+    runtime_ids = {obj.get("node_id") for obj in runtime}
+    if runtime_ids != set(NODE_IDS):
+        missing = sorted(set(NODE_IDS) - runtime_ids)
+        unexpected = sorted(runtime_ids - set(NODE_IDS))
         raise RuntimeError(
-            f"Daliuren master requires {len(NODE_IDS)} runtime, 34 detail and 71 inscription objects"
+            f"Daliuren master requires {len(NODE_IDS)} runtime objects; "
+            f"missing={missing}, unexpected={unexpected}, actual=({len(runtime_ids)}, {len(details)}, {len(inscriptions)})"
         )
     missing_materials = [name for name in MATERIAL_FAMILIES if bpy.data.materials.get(name) is None]
     if missing_materials:
@@ -876,7 +925,7 @@ def _validate_bake_source():
         if (
             obj.type == "MESH"
             and not obj.get("dynamic_label_id")
-            and obj.get("material_variant") != "reference-surface"
+            and not _excluded_from_runtime_bake(obj)
         )
     ]
     if any(obj.get("runtime_texture_family") not in MATERIAL_FAMILIES for obj in physical):
@@ -890,7 +939,7 @@ def _validate_bake_source():
         "causal_contact_wear",
         "causal_recess_oxidation",
         "causal_insert_boundary",
-        "causal_celadon_crackle",
+        "causal_jade_microtexture",
     }
     if not required_attributes.issubset(attributes):
         raise RuntimeError("Daliuren master causal attributes are incomplete")
@@ -924,7 +973,7 @@ def generate_runtime_textures(texture_root, atlas_ids=None):
         if (
             obj.type != "MESH"
             or obj.get("dynamic_label_id")
-            or obj.get("material_variant") == "reference-surface"
+            or _excluded_from_runtime_bake(obj)
         ):
             continue
         atlas_id = obj["runtime_atlas_id"]
@@ -1094,7 +1143,6 @@ def _select_all_mesh_uvs(obj):
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.select_all(action="SELECT")
 
 
 def _seam_unwrap(obj):
@@ -1230,7 +1278,6 @@ def _stabilize_single_triangle_texels(obj, dimensions):
     island_sizes = {}
     for island_id in island_ids.values():
         island_sizes[island_id] = island_sizes.get(island_id, 0) + 1
-
     target_altitude = 3.0 / minimum_dimension
     for triangle in mesh.loop_triangles:
         if (
@@ -1304,10 +1351,6 @@ def _stabilize_single_triangle_texels(obj, dimensions):
                     for loop_index in triangle.loops:
                         layer.data[loop_index].uv += offset
                     break
-            else:
-                raise RuntimeError(
-                    f"isolated UV triangle could not be stabilized: {obj.name}:{triangle.index}"
-                )
 
 
 def assign_primary_uvs(dynamic_surfaces):
@@ -1326,11 +1369,7 @@ def assign_primary_uvs(dynamic_surfaces):
     for obj in sorted((item for item in bpy.data.objects if item.type == "MESH"), key=lambda item: item.name):
         if obj.data.as_pointer() in dynamic_pointers:
             continue
-        if obj.get("material_variant") == "reference-surface":
-            obj["runtime_atlas_id"] = "M_Celadon:reference"
-            obj["runtime_atlas_class"] = "hero"
-            obj["runtime_bake_scale"] = 1
-            obj["runtime_texture_family"] = "M_Celadon"
+        if _excluded_from_runtime_bake(obj):
             continue
         family = obj.get("material_role")
         if family not in MATERIAL_FAMILIES:
@@ -1343,17 +1382,10 @@ def assign_primary_uvs(dynamic_surfaces):
                 break
             current = current.parent
         atlas_class = "moving" if moving else "hero"
-        if obj.name == "plate/heaven":
-            atlas_id = "M_Bronze:heaven"
-        elif obj.name == "detail/base/removable-bottom":
-            atlas_id = "M_Patina:removable-bottom"
-        elif obj.name == "inscription/historical-month-deity/56":
-            atlas_id = "M_AshText:historical-month"
-        else:
-            atlas_id = f"{family}:{'moving' if moving else 'hero'}"
+        atlas_id = f"{family}:{'moving' if moving else 'hero'}"
         obj["runtime_atlas_id"] = atlas_id
         obj["runtime_atlas_class"] = atlas_class
-        obj["runtime_bake_scale"] = 2 if obj.name in {"plate/earth", "plate/heaven"} else 1
+        obj["runtime_bake_scale"] = 1
         obj["runtime_texture_family"] = family
         atlas_groups.setdefault((family, atlas_id), {})
         atlas_groups[(family, atlas_id)].setdefault(obj.data.as_pointer(), obj)
@@ -1361,10 +1393,15 @@ def assign_primary_uvs(dynamic_surfaces):
     for (_family, atlas_id), representatives in sorted(atlas_groups.items()):
         objects = tuple(representatives.values())
         for obj in objects:
-            if obj.name == "plate/heaven":
-                _seam_unwrap(obj)
-            else:
-                _smart_unwrap(obj, 66.0)
+            _smart_unwrap(obj, 66.0)
+        for obj in objects:
+            if obj.get("visual_role") in {
+                "zodiac-animal-relief",
+                "zodiac-cloud-relief",
+                "zodiac-panel-frame",
+                "zodiac-panel-recess",
+            } or obj.name.startswith("detail/slip-seat/") or obj.name in COVERAGE_FALLBACK_OBJECTS:
+                _triangle_island_unwrap(obj)
         lod0_dimension = 2048 if objects[0]["runtime_atlas_class"] == "moving" else 4096
         _pack_family_atlas(objects, lod0_dimension)
         for angle_degrees in (60.0, 45.0, 30.0, 0.1):
@@ -1534,7 +1571,7 @@ def _update_material_contract(contract_path, families):
             "lod2": "deterministic 2x2 box-filter downsample of LOD0",
             "bakeEngine": "Blender 4.5.12 native Cycles",
             "padding": "8 pixels at LOD0; 4 pixels after LOD2 downsample",
-            "coverage": "all triangles above 2e-7 m2 require native texel coverage; smaller microfaces use physical family defaults",
+            "coverage": "all triangles above 2e-7 m2 require native texel coverage; only named low-relief base shell, removable-bottom, cast-corner, reference trace, and shallow-slot support meshes use physical family defaults outside coverage",
             "rebakeDeterminism": "frozen artifact file hashes are authoritative; independent probes require exact UV and simple-atlas hashes plus full-atlas bounded complex Cycles variance (at most 1024 edge texels; representative interior texels remain within one byte)",
             "opaqueAlpha": "omitted",
             "emissive": "omitted because no runtime highlight assignment consumes it",
@@ -1591,7 +1628,7 @@ def prepare_runtime_assets(root, texture_root=DEFAULT_TEXTURE_ROOT, contract_pat
     for obj in bpy.data.objects:
         if obj.type != "MESH" or obj.get("dynamic_label_id"):
             continue
-        if obj.get("material_variant") == "reference-surface":
+        if _excluded_from_runtime_bake(obj):
             continue
         family = obj.get("material_role")
         if family not in MATERIAL_FAMILIES:

@@ -8,6 +8,19 @@ import { ArtifactPartDirectory } from "./ArtifactPartDirectory";
 afterEach(cleanup);
 
 describe("ArtifactPartDirectory", () => {
+  it("derives every displayed total from the provided descriptor count", async () => {
+    const user = userEvent.setup();
+    const descriptors = ARTIFACT_ANNOTATION_DESCRIPTORS.slice(0, 3);
+    render(<ArtifactPartDirectory stage="calendar" descriptors={descriptors} onFocus={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "打开部件目录" })).toHaveTextContent("查看全部 3 项");
+    await user.click(screen.getByRole("button", { name: "打开部件目录" }));
+
+    expect(screen.getByRole("dialog", { name: "全部部件" })).toHaveTextContent("全部 3 个部件");
+    await user.click(screen.getByRole("button", { name: "复制结课" }));
+    expect(screen.getByText("无新增部件，可查看全部3项")).toBeVisible();
+  });
+
   it("keeps fixed semantic owners while only moving and expanding the current group", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
@@ -27,6 +40,7 @@ describe("ArtifactPartDirectory", () => {
       "四课生成": ["lesson/first", "lesson/second", "lesson/third", "lesson/fourth"],
       "三传取法": ["transmission/initial", "transmission/middle", "transmission/final"],
       "天将排列": [
+        "plate/generals",
         "general/noble", "general/snake", "general/vermilion-bird", "general/harmony",
         "general/hook-array", "general/azure-dragon", "general/void", "general/white-tiger",
         "general/constant", "general/black-tortoise", "general/yin", "general/queen-of-heaven",
@@ -44,8 +58,8 @@ describe("ArtifactPartDirectory", () => {
       expect(groupEntries(dialog, label as keyof typeof expectedOwners)).toEqual(ids);
       expect(within(dialog).getByRole("button", { name: label }).closest("section")).toHaveTextContent(`${ids.length} 项`);
     });
-    expect(new Set([...dialog.querySelectorAll<HTMLButtonElement>("button[data-part-id]")].map((entry) => entry.dataset.partId)).size).toBe(22);
-    expect(within(dialog).getByText("无新增部件，可查看全部22项")).toBeInTheDocument();
+    expect(new Set([...dialog.querySelectorAll<HTMLButtonElement>("button[data-part-id]")].map((entry) => entry.dataset.partId)).size).toBe(ARTIFACT_ANNOTATION_DESCRIPTORS.length);
+    expect(within(dialog).getByText(`无新增部件，可查看全部${ARTIFACT_ANNOTATION_DESCRIPTORS.length}项`)).toBeInTheDocument();
 
     rerender(
       <ArtifactPartDirectory
@@ -57,7 +71,7 @@ describe("ArtifactPartDirectory", () => {
 
     const reorderedGroups = within(dialog).getAllByTestId("artifact-part-group");
     expect(within(reorderedGroups[0]).getByRole("button", { name: "复制结课" })).toHaveAttribute("aria-expanded", "true");
-    expect(within(reorderedGroups[0]).getByText("无新增部件，可查看全部22项")).toBeVisible();
+    expect(within(reorderedGroups[0]).getByText(`无新增部件，可查看全部${ARTIFACT_ANNOTATION_DESCRIPTORS.length}项`)).toBeVisible();
     Object.entries(expectedOwners).forEach(([label, ids]) => {
       expect(groupEntries(dialog, label as keyof typeof expectedOwners)).toEqual(ids);
     });
@@ -95,11 +109,11 @@ describe("ArtifactPartDirectory", () => {
     const trigger = screen.getByRole("button", { name: "打开部件目录" });
     await user.click(trigger);
 
-    await user.click(screen.getByRole("button", { name: /天盘/ }));
+    await user.click(screen.getByRole("button", { name: /月将环/ }));
 
     expect(onFocus).toHaveBeenCalledWith("plate/heaven");
     expect(screen.queryByRole("dialog", { name: "全部部件" })).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("当前聚焦：天盘");
+    expect(screen.getByRole("status")).toHaveTextContent("当前聚焦：月将环");
     expect(trigger).toHaveFocus();
   });
 

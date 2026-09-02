@@ -52,7 +52,7 @@ class LookdevSceneTest(unittest.TestCase):
         self.assertTrue(scene.cycles.use_denoising)
 
         background = scene.world.node_tree.nodes["Background"]
-        expected_background = srgb_hex("#121817")
+        expected_background = srgb_hex("#101818")
         self.assertEqual(
             tuple(round(channel, 6) for channel in background.inputs["Color"].default_value),
             tuple(round(channel, 6) for channel in expected_background),
@@ -71,7 +71,7 @@ class LookdevSceneTest(unittest.TestCase):
         rim = bpy.data.objects["light/rim"].data
         self.assertEqual(key.type, "AREA")
         self.assertTrue(key.use_temperature)
-        self.assertEqual(key.temperature, 4300.0)
+        self.assertEqual(key.temperature, 5200.0)
         self.assertEqual(key.energy, 90.0)
         self.assertEqual(fill.energy, 36.0)
         self.assertEqual(rim.energy, 18.0)
@@ -98,10 +98,10 @@ class LookdevSceneTest(unittest.TestCase):
             (90.0, 36.0, 18.0),
         )
         evidence = {
-            "lesson/second": "M_Bronze",
-            "transmission/final": "M_Celadon",
-            "branch/earth/辰": "M_OldGold",
-            "branch/heaven/辰": "M_AshText",
+            "lesson/second": "M_JadeBody",
+            "general/noble": "M_TranslucentJade",
+            "branch/earth/辰": "M_InkText",
+            "month-general/胜光": "M_CinnabarText",
         }
         for object_name, material_name in evidence.items():
             obj = bpy.data.objects[object_name]
@@ -124,14 +124,24 @@ class LookdevSceneTest(unittest.TestCase):
             max(point.y for point in projected_corners) - min(point.y for point in projected_corners),
         )
         self.assertGreaterEqual(projected_size, 0.012)
-        self.assertLess(
-            (
-                bpy.data.objects["branch/earth/辰"].matrix_world.translation
-                - bpy.data.objects["detail/branch-bed/earth/辰"].matrix_world.translation
-            ).length,
-            0.001,
-        )
+        self.assertIsNone(bpy.data.objects.get("detail/branch-bed/earth/辰"))
+        self.assertEqual(bpy.data.objects["branch/earth/辰"].parent.name, "plate/earth")
         self.assertTrue(camera.data.dof.use_dof)
+        self.assertTrue(bpy.data.objects["interaction/month-general-ring"].hide_render)
+
+    def test_legibility_uses_distinct_object_index_masks_for_glyphs_and_jade(self):
+        build_lookdev_scene()
+
+        scene = bpy.context.scene
+        glyph = bpy.data.objects["branch/earth/辰"]
+        jade = bpy.data.objects["plate/earth"]
+        self.assertTrue(scene.view_layers[0].use_pass_object_index)
+        self.assertGreater(glyph.pass_index, 0)
+        self.assertGreater(jade.pass_index, 0)
+        self.assertNotEqual(glyph.pass_index, jade.pass_index)
+        object_index_output = scene.node_tree.nodes.get("lookdev/legibility-object-index")
+        self.assertIsNotNone(object_index_output)
+        self.assertIsNotNone(object_index_output.inputs[0].links[0].from_socket)
 
     def test_review_manifest_records_render_settings_hashes_and_visual_results(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -228,6 +228,32 @@
   border-top: 1px solid var(--patina);
 }
 
+.month-general-controls {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--patina);
+  background: var(--ink);
+}
+
+.month-general-controls button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--patina);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ru-celadon);
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.month-general-controls button:hover:not(:disabled) { border-color: var(--ru-celadon); color: var(--ash); }
+.month-general-controls button:focus-visible { outline: 2px solid var(--ash); outline-offset: 3px; }
+.month-general-controls button:disabled { cursor: default; opacity: 0.48; }
+
 .artifact-timeline__scale {
   min-width: 0;
 }

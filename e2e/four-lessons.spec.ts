@@ -27,7 +27,7 @@ function isNonLocalNetworkUrl(url: string) {
 }
 
 function isArtifactAssetUrl(url: string) {
-  return /^\/models\/daliuren\/daliuren-artifact-lod[0-2]\.glb$/.test(new URL(url).pathname);
+  return /\/models\/daliuren\/daliuren-artifact-lod[0-2]\.glb$/.test(new URL(url).pathname);
 }
 
 for (const viewport of VIEWPORTS) {

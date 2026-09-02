@@ -278,9 +278,71 @@ function validateRuntimeAssets(document, contract, lodProfile) {
   const runtime = contract.runtimeAssets;
   if (!runtime || !lodProfile) return errors;
 
+  const excludedInteractionMaterials = new Set();
+  for (const [nodeId, expected] of Object.entries(runtime.interactionSurfaces ?? {})) {
+    const matchingNodes = root.listNodes().filter((node) => (
+      node.getExtras?.()?.node_id === nodeId
+    ));
+    if (matchingNodes.length === 0) {
+      errors.push(`interaction surface missing: ${nodeId}`);
+      continue;
+    }
+    if (matchingNodes.length > 1) {
+      errors.push(`interaction surface duplicate: ${nodeId}`);
+      continue;
+    }
+    const node = matchingNodes[0];
+    const nodeExtras = node.getExtras?.() ?? {};
+    if (nodeExtras.runtime_visibility !== expected.runtimeVisibility) {
+      errors.push(`interaction visibility mismatch: ${nodeId}`);
+    }
+    if (nodeExtras.color_write !== expected.colorWrite) {
+      errors.push(`interaction color write mismatch: ${nodeId}`);
+    }
+    if (nodeExtras.depth_write !== expected.depthWrite) {
+      errors.push(`interaction depth write mismatch: ${nodeId}`);
+    }
+    const primitives = node.getMesh?.()?.listPrimitives?.() ?? [];
+    if (primitives.length === 0) {
+      errors.push(`interaction surface has no primitives: ${nodeId}`);
+      continue;
+    }
+    const materials = primitives.map((primitive) => primitive.getMaterial?.());
+    if (materials.some((material) => !material || material.getName?.() !== expected.material)) {
+      errors.push(`interaction material binding mismatch: ${nodeId}`);
+      continue;
+    }
+    const material = materials[0];
+    if (materials.some((candidate) => candidate !== material)) {
+      errors.push(`interaction material binding is not unique: ${nodeId}`);
+      continue;
+    }
+    excludedInteractionMaterials.add(material);
+    const materialExtras = material.getExtras?.() ?? {};
+    if (materialExtras.runtime_visibility !== expected.runtimeVisibility) {
+      errors.push(`interaction material visibility mismatch: ${nodeId}`);
+    }
+    if (materialExtras.color_write !== expected.colorWrite) {
+      errors.push(`interaction material color write mismatch: ${nodeId}`);
+    }
+    if (materialExtras.depth_write !== expected.depthWrite) {
+      errors.push(`interaction material depth write mismatch: ${nodeId}`);
+    }
+    if (material.getAlphaMode?.() !== "MASK") {
+      errors.push(`interaction alpha mode mismatch: ${nodeId}`);
+    }
+    if (material.getAlphaCutoff?.() !== 0.5) {
+      errors.push(`interaction alpha cutoff mismatch: ${nodeId}`);
+    }
+    if ((material.getBaseColorFactor?.() ?? [1, 1, 1, 1])[3] >= 0.5) {
+      errors.push(`interaction alpha discard mismatch: ${nodeId}`);
+    }
+  }
+
   const expectedFamilies = new Set(runtime.materialFamilies ?? []);
   const actualFamilies = new Set(
     root.listMaterials()
+      .filter((material) => !excludedInteractionMaterials.has(material))
       .map((material) => material.getExtras?.()?.material_family)
       .filter((family) => typeof family === "string"),
   );

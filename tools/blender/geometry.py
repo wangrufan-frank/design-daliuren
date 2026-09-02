@@ -71,3 +71,40 @@ def add_ring(node_id, outer_radius, inner_radius, depth, location, bevel=0.0):
     bpy.context.scene.collection.objects.link(obj)
     obj.location = location
     return _finish_runtime_object(obj, node_id, bevel)
+
+
+def add_annular_sector(node_id, inner_radius, outer_radius, angle_start, angle_end, depth, location, bevel):
+    if not 0 < inner_radius < outer_radius:
+        raise ValueError("Sector radii must satisfy 0 < inner < outer")
+    if not 0 < angle_end - angle_start <= math.tau:
+        raise ValueError("Sector angle must be positive and at most one turn")
+    steps = max(2, math.ceil((angle_end - angle_start) / math.tau * 128))
+    angles = [angle_start + (angle_end - angle_start) * index / steps for index in range(steps + 1)]
+    half = depth / 2
+    vertices = []
+    for z in (-half, half):
+        for radius in (inner_radius, outer_radius):
+            vertices.extend((radius * math.cos(angle), radius * math.sin(angle), z) for angle in angles)
+    count = steps + 1
+    bottom_inner, bottom_outer, top_inner, top_outer = 0, count, count * 2, count * 3
+    faces = []
+    for index in range(steps):
+        next_index = index + 1
+        faces.extend((
+            (top_inner + index, top_outer + index, top_outer + next_index, top_inner + next_index),
+            (bottom_inner + next_index, bottom_outer + next_index, bottom_outer + index, bottom_inner + index),
+            (bottom_inner + index, top_inner + index, top_inner + next_index, bottom_inner + next_index),
+            (bottom_outer + next_index, top_outer + next_index, top_outer + index, bottom_outer + index),
+        ))
+    faces.extend((
+        (bottom_inner, bottom_outer, top_outer, top_inner),
+        (bottom_inner + steps, top_inner + steps, top_outer + steps, bottom_outer + steps),
+    ))
+    mesh = bpy.data.meshes.new(f"{node_id}/mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.validate(clean_customdata=False)
+    mesh.update()
+    obj = bpy.data.objects.new(node_id, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.location = location
+    return _finish_runtime_object(obj, node_id, bevel)

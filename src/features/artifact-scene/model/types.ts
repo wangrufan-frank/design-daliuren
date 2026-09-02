@@ -1,4 +1,4 @@
-import type { CalendarResult } from "../../../domain/calendar/types";
+import type { CalendarResult, MonthGeneralName } from "../../../domain/calendar/types";
 import type { EarthlyBranch } from "../../../domain/chart/types";
 import type { CourseResult } from "../../../domain/course/types";
 import type { FourLessonsResult } from "../../../domain/four-lessons/types";
@@ -19,7 +19,7 @@ export interface ArtifactDisplayState {
   calendar: {
     pillars: readonly [string, string, string, string];
     monthBuild: EarthlyBranch;
-    monthGeneral: string;
+    monthGeneral: MonthGeneralName;
     monthGeneralBranch: EarthlyBranch;
     divinationHour: EarthlyBranch;
     voidBranches: readonly [EarthlyBranch, EarthlyBranch];

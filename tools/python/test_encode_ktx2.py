@@ -22,7 +22,7 @@ class EncodeKtx2Test(unittest.TestCase):
                 "srgb": False,
                 "linear": True,
                 "mipmaps": True,
-                "threads": 1,
+                "threads": 0,
                 "zstd_supercompression_level": 18,
                 "uastc_rdo_lambda": 4.0,
             },
@@ -38,7 +38,7 @@ class EncodeKtx2Test(unittest.TestCase):
                 "srgb": True,
                 "linear": False,
                 "mipmaps": True,
-                "threads": 1,
+                "threads": 0,
                 "etc1s_compression_level": 6,
             },
         )
