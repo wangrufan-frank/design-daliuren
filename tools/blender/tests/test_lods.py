@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import bpy
+from mathutils import Matrix, Vector
 
 
 BLENDER_DIR = Path(__file__).parents[1]
@@ -13,7 +14,7 @@ REPOSITORY_ROOT = Path(__file__).parents[3]
 MATERIAL_CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.json"
 sys.path.insert(0, str(BLENDER_DIR))
 
-from build_lods import build_lod
+from build_lods import SOURCE_MARKER, build_lod
 from daliuren_contract import BRANCH_INLAY_NODE_IDS, NODE_IDS
 from export_graybox import export_lod
 from uv_and_bake import DYNAMIC_LABEL_OWNERS, _excluded_from_runtime_bake
@@ -92,6 +93,23 @@ class LodTests(unittest.TestCase):
         self.assertLess(counts[2], counts[1])
         self.assertLessEqual(counts[2], 80_000)
 
+    def test_lods_normalize_parent_inverses_without_changing_source_world_transforms(self):
+        source_by_node_id = {
+            obj["node_id"]: obj
+            for obj in bpy.context.scene.objects
+            if obj.get(SOURCE_MARKER) and obj.get("node_id")
+        }
+        for level, collection in enumerate(self.lods):
+            for obj in collection.all_objects:
+                node_id = obj.get("node_id")
+                if not node_id:
+                    continue
+                with self.subTest(level=level, node_id=node_id):
+                    self.assertEqual(obj.matrix_parent_inverse, Matrix.Identity(4))
+                    source = source_by_node_id[node_id]
+                    for actual, expected in zip(obj.matrix_world, source.matrix_world):
+                        self.assertEqual(actual.to_tuple(6), expected.to_tuple(6))
+
     def test_lods_preserve_single_ink_branch_material_slots(self):
         for level, collection in enumerate(self.lods):
             branches = {
@@ -130,6 +148,140 @@ class LodTests(unittest.TestCase):
                 glyph = by_name[f"month-general/{name}"]
                 self.assertTrue({"node_id", "text_role", "runtime_color_switch"}.issubset(glyph.keys()))
 
+    def test_lods_keep_functional_text_above_the_highest_overlapping_carrier(self):
+        for level, collection in enumerate(self.lods):
+            by_name = {obj.name.removeprefix(f"lod{level}/"): obj for obj in collection.all_objects}
+            bands = [
+                obj for obj in collection.all_objects
+                if obj.get("visual_role") == "linked-heaven-ring"
+                or "detail/heaven/linked-ring-" in obj.name
+            ]
+            self.assertEqual(len(bands), 2)
+            band_top = max(
+                (band.matrix_world @ Vector(corner)).z
+                for band in bands
+                for corner in band.bound_box
+            )
+            earth_names = [
+                obj for obj in collection.all_objects
+                if obj.get("inscription_role") == "earth-branch"
+            ]
+            self.assertEqual(len(earth_names), 12)
+            for glyph in earth_names:
+                glyph_bottom = min(
+                    (glyph.matrix_world @ Vector(corner)).z
+                    for corner in glyph.bound_box
+                )
+                with self.subTest(level=level, role="earth", glyph=glyph.name):
+                    self.assertGreaterEqual(glyph_bottom, band_top + 0.00009)
+
+            month_names = [
+                obj for obj in collection.all_objects
+                if obj.get("text_role") == "month-general"
+            ]
+            self.assertEqual(len(month_names), 12)
+            for glyph in month_names:
+                glyph_bottom = min(
+                    (glyph.matrix_world @ Vector(corner)).z
+                    for corner in glyph.bound_box
+                )
+                with self.subTest(level=level, role="month", glyph=glyph.name):
+                    self.assertGreaterEqual(glyph_bottom, band_top + 0.00009)
+
+            general_names = [
+                obj for obj in collection.all_objects
+                if obj.get("text_role") == "general-name"
+            ]
+            self.assertEqual(len(general_names), 12)
+            general_ring = by_name["plate/generals"]
+            general_ring_top = max(
+                (general_ring.matrix_world @ Vector(corner)).z
+                for corner in general_ring.bound_box
+            )
+            for glyph in general_names:
+                owner = glyph.parent
+                self.assertEqual(owner.get("domain"), "general")
+                owner_top = max(
+                    (owner.matrix_world @ Vector(corner)).z
+                    for corner in owner.bound_box
+                )
+                glyph_bottom = min(
+                    (glyph.matrix_world @ Vector(corner)).z
+                    for corner in glyph.bound_box
+                )
+                with self.subTest(level=level, role="general", glyph=glyph.name):
+                    self.assertGreaterEqual(
+                        glyph_bottom,
+                        max(owner_top, general_ring_top) + 0.00009,
+                    )
+
+    def test_lods_export_the_outer_board_with_one_continuous_projection(self):
+        semantic_keys = {"node_id", "dynamic_label_id", "inscription_role", "text_role"}
+        omitted_sources = [
+            obj for obj in bpy.context.scene.objects
+            if obj.get(SOURCE_MARKER) and (
+                obj.get("visual_role", "").startswith("zodiac-")
+                or obj.get("surface_treatment") in {"rear-slip-seat", "shallow-slot"}
+                or obj.get("role") == "fixed-historical-inscription"
+            )
+        ]
+        self.assertTrue(omitted_sources)
+        for obj in omitted_sources:
+            with self.subTest(source=obj.name):
+                self.assertTrue(semantic_keys.isdisjoint(obj.keys()))
+
+        for level, collection in enumerate(self.lods):
+            self.assertFalse(any(
+                obj.get("visual_role", "").startswith("zodiac-")
+                for obj in collection.all_objects
+            ))
+            self.assertFalse(any(
+                obj.get("surface_treatment") in {"rear-slip-seat", "shallow-slot"}
+                for obj in collection.all_objects
+            ))
+            self.assertFalse(any(
+                obj.get("role") == "fixed-historical-inscription"
+                for obj in collection.all_objects
+            ))
+            projected = [
+                obj for obj in collection.all_objects
+                if obj.get("node_id") == "plate/earth"
+            ]
+            self.assertEqual(len(projected), 1)
+            for obj in projected:
+                with self.subTest(level=level, object=obj.name):
+                    self.assertEqual(obj.get("runtime_projection"), "outer-board")
+                    self.assertIsNotNone(obj.data.uv_layers.get("BoardUV"))
+                    self.assertEqual(len(obj.data.materials), 1)
+                    material = obj.data.materials[0]
+                    self.assertEqual(material.get("material_family"), "M_JadeBody")
+                    self.assertTrue(material.get("source_texture", "").endswith("outer-board-artwork.png"))
+
+            uniform_jade = [
+                obj for obj in collection.all_objects
+                if obj.get("runtime_projection") == "uniform-jade"
+            ]
+            self.assertEqual(
+                {obj.get("node_id") for obj in uniform_jade if obj.get("node_id")},
+                {"base/body", "plate/core"},
+            )
+            self.assertEqual(
+                {obj.get("visual_role") for obj in uniform_jade if obj.get("visual_role")},
+                {"corner-pearl", "jade-pivot"},
+            )
+            self.assertEqual(
+                len([obj for obj in uniform_jade if obj.get("visual_role") == "corner-pearl"]),
+                4,
+            )
+            for obj in uniform_jade:
+                self.assertEqual(len(obj.data.materials), 1)
+                material = obj.data.materials[0]
+                self.assertEqual(material.get("material_family"), "M_JadeBody")
+                self.assertEqual(
+                    [node for node in material.node_tree.nodes if node.type == "TEX_IMAGE"],
+                    [],
+                )
+
     def test_lods_bind_each_current_source_atlas_to_the_frozen_runtime_textures(self):
         contract = json.loads(MATERIAL_CONTRACT_PATH.read_text(encoding="utf-8"))
         runtime = contract["runtimeTextures"]
@@ -138,7 +290,13 @@ class LodTests(unittest.TestCase):
             texture_lod = "lod2" if level == 2 else "lod0"
             bound_atlases = set()
             for obj in collection.all_objects:
-                if obj.type != "MESH" or obj.get("dynamic_label_id") or _excluded_from_runtime_bake(obj):
+                if (
+                    obj.type != "MESH"
+                    or obj.get("dynamic_label_id")
+                    or obj.get("runtime_projection") in {"outer-board", "uniform-jade"}
+                    or obj.get("runtime_texture_family") == "M_TranslucentJade"
+                    or _excluded_from_runtime_bake(obj)
+                ):
                     continue
                 atlas_id = obj["runtime_atlas_id"]
                 family = obj["runtime_texture_family"]
@@ -161,7 +319,8 @@ class LodTests(unittest.TestCase):
                     bound_atlases,
                     {
                         atlas_id
-                        for payload in runtime["families"].values()
+                        for family, payload in runtime["families"].items()
+                        if family != "M_TranslucentJade"
                         for atlas_id in payload["atlases"]
                     },
                 )
@@ -169,8 +328,40 @@ class LodTests(unittest.TestCase):
     def test_exported_lod_contains_runtime_and_texture_extras(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "artifact-lod0.glb"
+            before_export = set(bpy.data.objects)
             export_lod(0, output)
             payload = glb_json(output)
+            exported = set(bpy.data.objects) - before_export
+            exported_core = next(obj for obj in exported if obj.get("node_id") == "plate/core")
+            dependency_graph = bpy.context.evaluated_depsgraph_get()
+            evaluated = exported_core.evaluated_get(dependency_graph)
+            mesh = evaluated.to_mesh()
+            try:
+                layer = mesh.uv_layers["UVMap"]
+                expected_uv_bounds = (
+                    min(item.uv.x for item in layer.data),
+                    max(item.uv.x for item in layer.data),
+                    min(item.uv.y for item in layer.data),
+                    max(item.uv.y for item in layer.data),
+                )
+            finally:
+                evaluated.to_mesh_clear()
+            before_import = set(bpy.data.objects)
+            bpy.ops.import_scene.gltf(filepath=str(output))
+            imported = set(bpy.data.objects) - before_import
+            core = next(obj for obj in imported if obj.get("node_id") == "plate/core")
+            layer = core.data.uv_layers["UVMap"]
+            actual_uv_bounds = (
+                min(item.uv.x for item in layer.data),
+                max(item.uv.x for item in layer.data),
+                min(item.uv.y for item in layer.data),
+                max(item.uv.y for item in layer.data),
+            )
+            for obj in imported:
+                bpy.data.objects.remove(obj, do_unlink=True)
+
+        for actual, expected in zip(actual_uv_bounds, expected_uv_bounds):
+            self.assertAlmostEqual(actual, expected, places=5)
 
         runtime = {
             node.get("extras", {}).get("node_id")
@@ -186,7 +377,11 @@ class LodTests(unittest.TestCase):
         self.assertEqual(dynamic, set(DYNAMIC_LABEL_OWNERS))
         self.assertEqual(
             len(payload["images"]),
-            3 * sum(len(item["atlases"]) for item in json.loads(MATERIAL_CONTRACT_PATH.read_text(encoding="utf-8"))["runtimeTextures"]["families"].values()),
+            1 + 3 * sum(
+                len(item["atlases"])
+                for family, item in json.loads(MATERIAL_CONTRACT_PATH.read_text(encoding="utf-8"))["runtimeTextures"]["families"].items()
+                if family != "M_TranslucentJade"
+            ),
         )
         self.assertLessEqual(glb_triangle_count(payload), 300_000)
 
@@ -209,7 +404,7 @@ class LodTests(unittest.TestCase):
             materials = payload["materials"]
             general_nodes = [
                 node for node in payload["nodes"]
-                if node.get("name") == f"lod{level}/general/noble"
+                if node.get("extras", {}).get("node_id") == "general/noble"
             ]
             self.assertEqual(len(general_nodes), 1)
             primitive = payload["meshes"][general_nodes[0]["mesh"]]["primitives"][0]

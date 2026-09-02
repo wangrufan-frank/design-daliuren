@@ -362,7 +362,11 @@ def build_fixed_inscriptions(
                 earth_glyphs.append(obj)
     bpy.context.view_layer.update()
     if earth_glyphs:
-        carriers = [heaven_plate, *(obj for obj in bpy.data.objects if obj.get("domain") == "general")]
+        carriers = [
+            heaven_plate,
+            *(obj for obj in bpy.data.objects if obj.get("domain") == "general"),
+            *(obj for obj in bpy.data.objects if obj.name.startswith("detail/heaven/linked-ring-")),
+        ]
         carrier_top = max(
             max((obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box)
             for obj in carriers

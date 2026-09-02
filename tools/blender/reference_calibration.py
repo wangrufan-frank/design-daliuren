@@ -29,6 +29,28 @@ REFERENCE_SOURCE_ANCHORS = {
     "beidou/04": (640.0, 646.0),
     "beidou/05": (704.0, 625.0),
     "beidou/06": (718.0, 566.0),
+    "rim/north": (658.0, 343.0),
+    "rim/east": (966.0, 597.0),
+    "rim/south": (659.0, 857.0),
+    "rim/west": (362.0, 597.0),
+    **dict(zip(
+        (f"branch/{name}" for name in "午未申酉戌亥子丑寅卯辰巳"),
+        ((658.0, 376.0), (793.0, 410.0), (894.0, 489.0), (927.0, 598.0),
+         (892.0, 708.0), (795.0, 792.0), (659.0, 825.0), (526.0, 789.0),
+         (431.0, 707.0), (399.0, 598.0), (434.0, 489.0), (527.0, 412.0)),
+    )),
+    **dict(zip(
+        (f"month/{name}" for name in ("胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙")),
+        ((657.0, 425.0), (762.0, 449.0), (838.0, 514.0), (868.0, 594.0),
+         (836.0, 678.0), (759.0, 744.0), (654.0, 773.0), (549.0, 744.0),
+         (474.0, 678.0), (449.0, 593.0), (477.0, 515.0), (551.0, 450.0)),
+    )),
+    **dict(zip(
+        (f"general/{name}" for name in ("noble", "snake", "vermilion-bird", "harmony", "hook-array", "azure-dragon", "void", "white-tiger", "constant", "black-tortoise", "yin", "queen-of-heaven")),
+        ((658.0, 486.0), (731.0, 501.0), (787.0, 539.0), (805.0, 596.0),
+         (782.0, 649.0), (728.0, 690.0), (656.0, 708.0), (583.0, 686.0),
+         (529.0, 648.0), (512.0, 592.0), (533.0, 541.0), (586.0, 500.0)),
+    )),
 }
 REFERENCE_ANCHORS = {
     name: (
@@ -59,6 +81,21 @@ def _world_points():
         points[f"beidou/{index:02d}"] = bpy.data.objects[
             f"constellation/star-{index:02d}"
         ].matrix_world.translation.copy()
+    heaven = bpy.data.objects["plate/heaven"]
+    rim_z = 0.0068
+    for name, point in {
+        "north": (0.0, 0.166, rim_z),
+        "east": (0.166, 0.0, rim_z),
+        "south": (0.0, -0.166, rim_z),
+        "west": (-0.166, 0.0, rim_z),
+    }.items():
+        points[f"rim/{name}"] = heaven.matrix_world @ Vector(point)
+    for name in "午未申酉戌亥子丑寅卯辰巳":
+        points[f"branch/{name}"] = bpy.data.objects[f"branch/earth/{name}"].matrix_world.translation.copy()
+    for name in ("胜光", "小吉", "传送", "从魁", "河魁", "登明", "神后", "大吉", "功曹", "太冲", "天罡", "太乙"):
+        points[f"month/{name}"] = bpy.data.objects[f"month-general/{name}"].matrix_world.translation.copy()
+    for name in ("noble", "snake", "vermilion-bird", "harmony", "hook-array", "azure-dragon", "void", "white-tiger", "constant", "black-tortoise", "yin", "queen-of-heaven"):
+        points[f"general/{name}"] = bpy.data.objects[f"general/{name}"].matrix_world.translation.copy()
     return points
 
 
@@ -78,9 +115,16 @@ def _pixel(scene, camera, point):
 
 
 def _cost(scene, camera, points):
-    # The board owns silhouette alignment; dial and pearls protect the internal
-    # hierarchy while the Beidou dots pin the central orientation.
-    weights = {"board": 10000.0, "dial": 2.0, "pearl": 1.5, "beidou": 1.0}
+    weights = {
+        "board": 3.0,
+        "dial": 2.0,
+        "pearl": 3.0,
+        "beidou": 1.0,
+        "rim": 2.0,
+        "branch": 1.5,
+        "month": 1.5,
+        "general": 1.5,
+    }
     total = 0.0
     weight_total = 0.0
     for name, point in points.items():
@@ -173,6 +217,10 @@ def projection_metrics(scene=None):
         "dial_center_error_px": errors["dial/center"],
         "pearl_rms_px": rms("pearl/"),
         "beidou_rms_px": rms("beidou/"),
+        "rim_rms_px": rms("rim/"),
+        "branch_rms_px": rms("branch/"),
+        "month_rms_px": rms("month/"),
+        "general_rms_px": rms("general/"),
         "rms_px": math.sqrt(sum(value * value for value in errors.values()) / len(errors)),
         "errors_px": errors,
     }

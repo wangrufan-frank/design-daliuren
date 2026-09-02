@@ -117,6 +117,9 @@ const ANNOTATION_DESCRIPTORS_BY_ID = new Map(
   ARTIFACT_ANNOTATION_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor]),
 );
 const CAMERA_TWEEN_DURATION_MS = 700;
+const REVIEW_HORIZONTAL_FOV_DEGREES = 20.87970704;
+const REVIEW_CAMERA_SHIFT_X = -0.02636123;
+const REVIEW_CAMERA_SHIFT_Y = -0.02893841;
 const PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE = 1.56;
 const PORTRAIT_REVIEW_CAMERA_ELEVATION = THREE.MathUtils.degToRad(60);
 const PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT = 0.016;
@@ -154,7 +157,7 @@ function defaultDependencies(): ArtifactSceneDependencies {
 
 export class ArtifactSceneController {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(34, 1, 0.05, 4);
+  private readonly camera = new THREE.PerspectiveCamera(REVIEW_HORIZONTAL_FOV_DEGREES, 1, 0.05, 4);
   private readonly controls: ControlsLike;
   private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
   private readonly baseTransforms = new Map<string, BaseTransform>();
@@ -246,8 +249,8 @@ export class ArtifactSceneController {
 
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 0.72;
-    this.scene.background = new THREE.Color(0x8b8984);
+    renderer.toneMappingExposure = 0.82;
+    this.scene.background = new THREE.Color(0xa7a59f);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
     this.scene.environmentIntensity = 0.45;
@@ -320,7 +323,15 @@ export class ArtifactSceneController {
     if (this.disposed) return;
     this.annotationViewport = { width: Math.max(1, width), height: Math.max(1, height) };
     this.camera.aspect = this.annotationViewport.width / this.annotationViewport.height;
+    const landscapeFovScale = 1 + Math.max(0, this.camera.aspect - 1) * 0.065;
+    this.camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(
+      Math.tan(THREE.MathUtils.degToRad(REVIEW_HORIZONTAL_FOV_DEGREES * landscapeFovScale) / 2) / this.camera.aspect,
+    ));
     this.camera.updateProjectionMatrix();
+    this.camera.projectionMatrix.elements[8] = 2 * REVIEW_CAMERA_SHIFT_X;
+    const verticalShiftScale = this.camera.aspect <= 1 ? this.camera.aspect : 2.7 * this.camera.aspect - 1.7;
+    this.camera.projectionMatrix.elements[9] = 2 * REVIEW_CAMERA_SHIFT_Y * verticalShiftScale;
+    this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(width, height, false);
   }

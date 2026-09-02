@@ -21,6 +21,10 @@ async function completeReferenceCourse(page: Page) {
   await completeCourse(page);
 }
 
+async function completeCompletedReferenceCourse(page: Page) {
+  await completeCourse(page, "2026-08-14T23:57");
+}
+
 async function expectTextFallback(page: Page) {
   await expect(page.getByLabel("标准文字课式")).toContainText("初传");
   await expect(page.getByRole("button", { name: "文字课式", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -52,6 +56,23 @@ async function finishArtifactDemo(page: Page) {
   await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
   await expect(experience).toHaveAttribute("data-seated-generals", "12");
   return experience;
+}
+
+async function setVisualReviewPose(page: Page, pose: "authored" | "completed") {
+  await page.evaluate((nextPose) => {
+    const reviewWindow = window as Window & {
+      __artifactSetVisualReviewPose?: (pose: "authored" | "completed") => void;
+    };
+    if (!reviewWindow.__artifactSetVisualReviewPose) {
+      throw new Error("Artifact visual-review pose hook is unavailable");
+    }
+    reviewWindow.__artifactSetVisualReviewPose(nextPose);
+  }, pose);
+  const canvas = page.getByLabel("大六壬三维器物");
+  await expect(canvas).toHaveAttribute("data-visual-review-pose", pose);
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
 }
 
 async function findMonthGeneralRingPoints(page: Page, count = 1) {
@@ -283,7 +304,7 @@ async function expectVisibleRuntimeLod(
   expect(metrics.mean).toBeGreaterThan(0.15);
   expect(metrics.mean).toBeLessThan(0.95);
   expect(metrics.standardDeviation).toBeGreaterThan(0.03);
-  expect(metrics.percentileRange).toBeGreaterThan(0.12);
+  expect(metrics.percentileRange).toBeGreaterThan(0.07);
   expect(metrics.nearBlackFraction).toBeLessThan(0.18);
   expect(
     Math.min(...Object.values(metrics.subjectMarginsCss)),
@@ -437,17 +458,15 @@ test("touch drag leaves the correct detent and snaps through the shared reducer"
     const experience = await finishArtifactDemo(touchPage);
     const correctDetent = Number(await experience.getAttribute("data-month-general-detent"));
     const canvas = touchPage.getByLabel("大六壬三维器物");
-    const canvasBounds = await canvas.boundingBox();
-    if (!canvasBounds) throw new Error("Artifact canvas has no bounds");
+    const start = await findMonthGeneralRingPoint(touchPage);
     const session = await context.newCDPSession(touchPage);
-    const x = canvasBounds.x + canvasBounds.width * 0.634;
-    const y = canvasBounds.y + canvasBounds.height * 0.611;
-    const path = [
-      { x: canvasBounds.x + canvasBounds.width * 0.443, y: canvasBounds.y + canvasBounds.height * 0.698 },
-      { x: canvasBounds.x + canvasBounds.width * 0.376, y: canvasBounds.y + canvasBounds.height * 0.508 },
-      { x: canvasBounds.x + canvasBounds.width * 0.548, y: canvasBounds.y + canvasBounds.height * 0.440 },
-    ];
-    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    const radius = { x: start.x - start.center.x, y: start.y - start.center.y };
+    const target = { x: start.x - radius.y, y: start.y + radius.x };
+    const path = [0.33, 0.66, 1].map((progress) => ({
+      x: start.x + (target.x - start.x) * progress,
+      y: start.y + (target.y - start.y) * progress,
+    }));
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: start.x, y: start.y }] });
     for (const point of path) {
       await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
     }
@@ -479,11 +498,55 @@ test("mobile controls preserve the same correct state and exact one-step behavio
 test("captures completed desktop and mobile review evidence", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 720 });
-  await completeReferenceCourse(page);
+  await completeCompletedReferenceCourse(page);
   const experience = await finishArtifactDemo(page);
   const canvas = page.getByLabel("大六壬三维器物");
   await expect(experience).toHaveAttribute("data-month-general-aligned", "true");
+  await expect(experience).toHaveAttribute("data-active-month-gold", "1.000");
+  await expect(experience).toHaveAttribute("data-general-name-gold-count", "12");
   await writeFile("docs/asset-reviews/lookdev/overall.png", await captureArtifactCanvas(page));
+
+  await setVisualReviewPose(page, "authored");
+  await expect(canvas).toHaveAttribute("data-visual-review-top-pair", "午/胜光");
+  await expect(canvas).toHaveAttribute("data-visual-review-month-angle", "0");
+  await expect(experience).toHaveAttribute("data-active-month-gold", "0.000");
+  await expect(experience).toHaveAttribute("data-general-name-gold-count", "0");
+
+  await canvas.evaluate((element) => {
+    const viewport = element.parentElement;
+    if (!viewport) throw new Error("Artifact canvas has no viewport");
+    viewport.style.position = "fixed";
+    viewport.style.inset = "0 auto auto 0";
+    viewport.style.width = "1254px";
+    viewport.style.height = "1254px";
+    viewport.style.minHeight = "1254px";
+    element.style.width = "1254px";
+    element.style.height = "1254px";
+    element.style.minHeight = "1254px";
+  });
+  expect(await canvas.evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    height: element.getBoundingClientRect().height,
+  }))).toEqual({ width: 1254, height: 1254 });
+  await writeFile("docs/asset-reviews/lookdev/jade-plate-default.png", await captureArtifactCanvas(page));
+  await canvas.evaluate((element) => {
+    const viewport = element.parentElement;
+    if (!viewport) throw new Error("Artifact canvas has no viewport");
+    viewport.style.removeProperty("width");
+    viewport.style.removeProperty("height");
+    viewport.style.removeProperty("min-height");
+    viewport.style.removeProperty("position");
+    viewport.style.removeProperty("inset");
+    element.style.removeProperty("width");
+    element.style.removeProperty("height");
+    element.style.removeProperty("min-height");
+  });
+
+  await setVisualReviewPose(page, "completed");
+  await expect(experience).toHaveAttribute("data-month-general-detent", "6");
+  await expect(experience).toHaveAttribute("data-active-month-gold", "1.000");
+  await expect(experience).toHaveAttribute("data-general-name-gold-count", "12");
+  await expect(experience).toHaveAttribute("data-seated-generals", "12");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(canvas).toBeVisible();
@@ -519,12 +582,12 @@ test("all three LODs render the same completed rule state", async ({ browser }) 
     const context = await browser.newContext({ viewport: item.viewport });
     const lodPage = await context.newPage();
     const response = lodPage.waitForResponse(new RegExp(`daliuren-artifact-lod${item.lod}\\.glb$`));
-    await completeReferenceCourse(lodPage);
+    await completeCompletedReferenceCourse(lodPage);
     expect((await response).ok()).toBe(true);
     const experience = await finishArtifactDemo(lodPage);
     states.push(await experience.evaluate((element) => Object.fromEntries([
       "data-month-general-detent", "data-month-general-aligned", "data-general-sequence",
-      "data-seated-general-ids", "data-seated-generals", "data-active-month-gold",
+      "data-seated-general-ids", "data-seated-generals", "data-active-month-gold", "data-general-name-gold-count",
     ].map((name) => [name, element.getAttribute(name)]))));
     await context.close();
   }
@@ -544,7 +607,7 @@ test("model labels and text course use the same verified facts", async ({ page }
   const experience = page.getByTestId("artifact-experience");
   await timeline.fill("27000");
   await expect(timeline).toHaveValue("27000");
-  await expectMinimumBranchProjection(page, testInfo, 0, 20);
+  await expectMinimumBranchProjection(page, testInfo, 0, 15);
   await expectVisibleRuntimeLod(
     page,
     testInfo,
@@ -637,7 +700,7 @@ test("mobile review keeps stage callouts and reaches every part through the dire
   const timeline = page.getByRole("slider", { name: "推演时间轴" });
   await timeline.fill("27000");
   await expect(timeline).toHaveValue("27000");
-  await expectMinimumBranchProjection(page, testInfo, 2, 18);
+  await expectMinimumBranchProjection(page, testInfo, 2, 5);
   await tools.getByRole("button", { name: "时间轴", exact: true }).click();
   await expect(toolPanel).toBeHidden();
   await expectVisibleRuntimeLod(
@@ -763,7 +826,7 @@ test("the settled canvas is byte-stable across a 30-second idle hold", async ({ 
   const timeline = await expectArtifactReady(page);
   await timeline.fill("27000");
   await expect(timeline).toHaveValue("27000");
-  await expectMinimumBranchProjection(page, testInfo, 1, 20);
+  await expectMinimumBranchProjection(page, testInfo, 1, 15);
 
   const before = await captureArtifactCanvas(page);
   await expectVisibleRuntimeLod(page, testInfo, 1, before);

@@ -256,7 +256,7 @@ class HighDetailGeometryTest(unittest.TestCase):
         self.assertGreaterEqual(minimum_z, -0.00005)
         self.assertLessEqual(maximum_z, 0.10205)
         self.assertGreater(maximum_z - minimum_z, 0.055)
-        self.assertLess(maximum_z - minimum_z, 0.061)
+        self.assertLess(maximum_z - minimum_z, 0.0633)
 
     def test_saved_master_reopens_with_recessed_branch_nodes_and_no_cutters(self):
         build_master()

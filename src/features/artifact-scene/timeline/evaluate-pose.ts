@@ -12,6 +12,11 @@ const LESSON_START_MS = [8_000, 9_200, 10_400, 11_600] as const;
 const TRANSMISSION_START_MS = [13_000, 14_000, 15_000] as const;
 const LESSON_ACTION_MS = 760;
 const TRANSMISSION_ACTION_MS = 1_000;
+const LEGACY_EXPLANATION_NODES = [
+  "calendar/slip",
+  "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
+  "transmission/initial", "transmission/middle", "transmission/final", "transmission/method",
+] as const;
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const smootherstep = (value: number) => value ** 3 * (value * (value * 6 - 15) + 10);
@@ -93,6 +98,10 @@ export function evaluateArtifactPose(
   const courseTraceOpacity = reducedMotion || time < 24_000 || time >= 26_400
     ? 0
     : Math.sin(Math.PI * (time - 24_000) / 2_400) ** 2;
+  if (time === ARTIFACT_DURATION_MS) {
+    for (const id of LEGACY_EXPLANATION_NODES) nodes[id] = { ...nodes[id], visible: false };
+    for (const id of Object.keys(labels)) labels[id] = 0;
+  }
   return {
     nodes,
     jadePlate,

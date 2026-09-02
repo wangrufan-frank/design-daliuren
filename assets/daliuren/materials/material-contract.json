@@ -291,7 +291,7 @@
               4096,
               4096
             ],
-            "uvLayoutSha256": "39184ea2db43cbe535c96a3ccdcf39462f33d5b175fed98e89f36e98c31a8350",
+            "uvLayoutSha256": "adea5fd291045105f06ca7cb82855b8350efc4273bb92215b7f6d97b57a569d8",
             "marginPixels": 8,
             "microTrianglePolicy": {
               "maxSurfaceAreaM2": 2e-07,
@@ -306,7 +306,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "sRGB",
-                "sha256": "8072eef1f15bd216f41a99b108382c88eded7cb6362c69d6fb4382f7b8c4a313"
+                "sha256": "9419c80c3be78d4ecd99ae085c24b49a152b7ba94c10eb709ac0ebad94c0dd99"
               },
               "orm": {
                 "file": "lod0/jadebody-hero-orm.png",
@@ -316,7 +316,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "41f2d17479cdbdb7c751d20acf09c82f844ecdbf2448fd2a9ee6f36e984c1085"
+                "sha256": "493b1f7e7fd252fe1f38ba3b3350181e6f7ff8516b3420c4d6d13ab43f33dccf"
               },
               "normal": {
                 "file": "lod0/jadebody-hero-normal.png",
@@ -326,7 +326,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "41a8c7e800fd39f0e7c10d0563d6ec277a2118484f1ecf55d10c103931b4b364"
+                "sha256": "c3b5392e68bc77ca6cadd120ef815a308af390fa8e5b0f1bfeb1a6170a105d9a"
               }
             },
             "lod2": {
@@ -338,7 +338,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "sRGB",
-                "sha256": "11c99451e847a915ecc34afbcbc850f682d212a8daeaf063dbf8cbb72966612a"
+                "sha256": "904e13ee97cbf64fa0a347636631be52b41674ab8312bc8e436256a3167bc5c5"
               },
               "orm": {
                 "file": "lod2/jadebody-hero-orm.png",
@@ -348,7 +348,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "34954aaafd482ba688c489bffecc5d0230e47e0f4c7b5a8e787037dbc827a46b"
+                "sha256": "e5e123987c10d787f81411d22e4484033c72d17e416381f50e5c05738b4af66c"
               },
               "normal": {
                 "file": "lod2/jadebody-hero-normal.png",
@@ -358,7 +358,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "9214b7e3f0fdc8af0897dce46e893c55bcf80e8f7c968ebd7de1d8f2491cd388"
+                "sha256": "8c8d6bde33e933d61e643999fe1beb0cb5f5eca45a0920bc4979f11d23bc3b78"
               }
             }
           },
@@ -394,7 +394,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "eb6a0e8137fa0839f689bb2cd8f5f6a4c8f4d7acba79bfe4ee7301f47008712f"
+                "sha256": "ecd7bd56b68717f80664bda8cb0cf6db1417980ca1d7515b0b9ee58771e05277"
               },
               "normal": {
                 "file": "lod0/jadebody-moving-normal.png",
@@ -426,7 +426,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "0010abdbe3f94ddb6ade138e526b2f7b7352f00bba1c688576304ea393c1162a"
+                "sha256": "20239148660398274abe91691be511575915165a3fd74f8ece3209e410bd07b6"
               },
               "normal": {
                 "file": "lod2/jadebody-moving-normal.png",
@@ -477,7 +477,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "5e783c1251af987f481de95121e60bb6a573564d9bb2bf2cc0353f4c83a3f3d8"
+                "sha256": "b7eeab5537dd683561f5c6d885d46b1340011e1eaf2a5235e668868723c05765"
               },
               "normal": {
                 "file": "lod0/translucentjade-moving-normal.png",
@@ -509,7 +509,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "1c49342d5fa409df3bc429e6c7eb9d463d3e60110325851f4f2b6f1acca5ea9e"
+                "sha256": "efe418241df9e76131df898f43bc68609e2b89f356cbfcad27ff26bc0d20a3d2"
               },
               "normal": {
                 "file": "lod2/translucentjade-moving-normal.png",
@@ -560,7 +560,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "b5e80a0de40d0c5457fb8a63ab74595f8fd9b960eefb368e87ddad4ff5c31ef0"
+                "sha256": "d565a004ce977d0bdac3a264a5b216d1ca0c5b8bc18405250ba07e3cb6d2679c"
               },
               "normal": {
                 "file": "lod0/jaderecess-hero-normal.png",
@@ -592,7 +592,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "69a2360017a92e9ddfe598e6a0d0969ac77529679a433534cc86193c871e64ce"
+                "sha256": "55b08ae30b14a9bdba9a35a47b58fded4be9d634408770e72c96a68ee0c5196b"
               },
               "normal": {
                 "file": "lod2/jaderecess-hero-normal.png",
@@ -651,7 +651,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "12543d51219eb8b332c760947192934a56137262ad27ed7408fa12fc7b2d4cb5"
+                "sha256": "3a6a3b73cb3ff87e99faa0549637a088cf9e1aeae308c01a388dbdd84508a70b"
               },
               "normal": {
                 "file": "lod0/oldgold-hero-normal.png",
@@ -683,7 +683,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "bf4ef62419b27b3cfa0e04f0452818eea23071c929f01242fbcf961c9e27d1c6"
+                "sha256": "09299c1384af47f24b4de09837c193d3d38ae8ef17595ca9c07bf4e65574e24d"
               },
               "normal": {
                 "file": "lod2/oldgold-hero-normal.png",
@@ -729,7 +729,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "ce16220df84f7b8593b0047085f4dc4b193f8f9836549a3dd09b0748a21f4ccc"
+                "sha256": "b88a14ae6018212c0f02fb53a60efe462cf3afa3c1b82d0b1cca7870f3f626dd"
               },
               "normal": {
                 "file": "lod0/oldgold-moving-normal.png",
@@ -761,7 +761,7 @@
                 ],
                 "channels": "RGB",
                 "colorSpace": "Non-Color",
-                "sha256": "dc6b3d3db358f04b34c44d5a396a8b9eabfd3b43649a5a465db68c2b8611bec6"
+                "sha256": "2acb0e68ae61efb8d8caef6f75eb0e33556226a224aa622e45d788f734e39b6f"
               },
               "normal": {
                 "file": "lod2/oldgold-moving-normal.png",

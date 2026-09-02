@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { createPortal } from "react-dom";
 import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
-import { deriveJadePlateLayout } from "./model/jade-plate-layout";
+import { deriveJadePlateLayout, type JadePlateLayout } from "./model/jade-plate-layout";
 import { formatVoidBranch, type VoidSurface } from "./model/format-void-branch";
 import type { ArtifactDisplayState, ArtifactSourceResults } from "./model/types";
 import { evaluateArtifactPose, ARTIFACT_DURATION_MS } from "./timeline/evaluate-pose";
@@ -44,6 +44,7 @@ declare global {
 
   interface Window {
     __artifactFrameObserver?: (timestampMs: number) => void;
+    __artifactSetVisualReviewPose?: (pose: "authored" | "completed") => void;
   }
 }
 
@@ -68,6 +69,22 @@ const observableBuild = () => !import.meta.env.PROD || import.meta.env.VITE_ARTI
 const COMPACT_MAX_WIDTH = 520;
 const dayNightText = { day: "昼", night: "夜" } as const;
 const directionText = { forward: "顺", reverse: "逆" } as const;
+
+function authoredVisualReviewMotion(layout: JadePlateLayout) {
+  return {
+    monthAngleRad: 0,
+    activeMonthGeneralNodeId: layout.activeMonthGeneralNodeId,
+    activeMonthGoldProgress: 0,
+    generals: layout.generalSequence.map((general) => ({
+      nodeId: general.nodeId,
+      targetEarth: general.earth,
+      visible: true,
+      heightMeters: 0,
+      seatProgress: 1,
+      goldProgress: 0,
+    })),
+  };
+}
 
 function subscribeToViewport(onChange: () => void): () => void {
   window.addEventListener("resize", onChange);
@@ -153,7 +170,8 @@ export function ArtifactExperience({
   const userControlledRef = useRef(false);
   const stageReplayRef = useRef<ActiveStageReplay | undefined>(undefined);
   const interactionRef = useRef<MonthGeneralInteractionState>(createMonthGeneralState(jadePlateLayout));
-  const interactionMotionObservabilityRef = useRef({ seatedCount: 0, seatedGeneralIds: "", activeMonthGoldProgress: 0 });
+  const visualReviewPoseRef = useRef<"authored" | undefined>(undefined);
+  const interactionMotionObservabilityRef = useRef({ seatedCount: 0, seatedGeneralIds: "", activeMonthGoldProgress: 0, goldGeneralCount: 0 });
   const [status, setStatus] = useState<ExperienceStatus>("loading");
   const [timeMs, setTimeMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -168,9 +186,11 @@ export function ArtifactExperience({
   const [seatedCount, setSeatedCount] = useState(0);
   const [seatedGeneralIds, setSeatedGeneralIds] = useState("");
   const [activeMonthGoldProgress, setActiveMonthGoldProgress] = useState(0);
+  const [goldGeneralCount, setGoldGeneralCount] = useState(0);
 
   const publishInteractionMotion = useCallback((motion: ReturnType<typeof evaluateInteractiveJadePlateMotion>) => {
     const seated = motion.generals.filter((general) => general.seatProgress === 1);
+    const gold = motion.generals.filter((general) => general.goldProgress === 1);
     const nextIds = seated.map((general) => general.nodeId).join(",");
     const current = interactionMotionObservabilityRef.current;
     if (current.seatedCount !== seated.length) setSeatedCount(seated.length);
@@ -178,10 +198,12 @@ export function ArtifactExperience({
     if (current.activeMonthGoldProgress !== motion.activeMonthGoldProgress) {
       setActiveMonthGoldProgress(motion.activeMonthGoldProgress);
     }
+    if (current.goldGeneralCount !== gold.length) setGoldGeneralCount(gold.length);
     interactionMotionObservabilityRef.current = {
       seatedCount: seated.length,
       seatedGeneralIds: nextIds,
       activeMonthGoldProgress: motion.activeMonthGoldProgress,
+      goldGeneralCount: gold.length,
     };
   }, []);
 
@@ -210,7 +232,11 @@ export function ArtifactExperience({
     if (!controller) return;
     const pose = evaluateArtifactPose(displayStateRef.current, nextTime, reducedMotionRef.current);
     const appliedState = controller.applyPose(pose);
-    if (interactionRef.current.phase !== "locked") {
+    if (visualReviewPoseRef.current === "authored") {
+      const motion = authoredVisualReviewMotion(interactionRef.current.layout);
+      controller.applyJadePlateMotion(motion);
+      publishInteractionMotion(motion);
+    } else if (interactionRef.current.phase !== "locked") {
       const motion = evaluateInteractiveJadePlateMotion(interactionRef.current, nowMs, reducedMotionRef.current);
       controller.applyJadePlateMotion(motion);
       publishInteractionMotion(motion);
@@ -228,10 +254,12 @@ export function ArtifactExperience({
     setSeatedCount(0);
     setSeatedGeneralIds("");
     setActiveMonthGoldProgress(0);
+    setGoldGeneralCount(0);
     interactionMotionObservabilityRef.current = {
       seatedCount: 0,
       seatedGeneralIds: "",
       activeMonthGoldProgress: 0,
+      goldGeneralCount: 0,
     };
     controllerRef.current?.setMonthGeneralInteractionEnabled(false);
     return next;
@@ -261,10 +289,12 @@ export function ArtifactExperience({
     const completedIds = next.layout.generalSequence.map((general) => general.nodeId).join(",");
     setSeatedGeneralIds(completedIds);
     setActiveMonthGoldProgress(1);
+    setGoldGeneralCount(12);
     interactionMotionObservabilityRef.current = {
       seatedCount: 12,
       seatedGeneralIds: completedIds,
       activeMonthGoldProgress: 1,
+      goldGeneralCount: 12,
     };
     controllerRef.current?.setMonthGeneralInteractionEnabled(true);
   }, []);
@@ -292,6 +322,7 @@ export function ArtifactExperience({
     let resizeObserverDisconnected = false;
     let loadedArtifact: LoadedArtifact | undefined;
     let ownedController: ArtifactSceneController | undefined;
+    let ownedVisualReviewPoseHook: Window["__artifactSetVisualReviewPose"];
     let renderer: ReturnType<typeof createArtifactRenderer>;
     try {
       renderer = createArtifactRenderer(canvas);
@@ -328,6 +359,14 @@ export function ArtifactExperience({
       if (!ownedController) return false;
       const controller = ownedController;
       ownedController = undefined;
+      if (window.__artifactSetVisualReviewPose === ownedVisualReviewPoseHook) {
+        delete window.__artifactSetVisualReviewPose;
+      }
+      ownedVisualReviewPoseHook = undefined;
+      visualReviewPoseRef.current = undefined;
+      delete canvas.dataset.visualReviewPose;
+      delete canvas.dataset.visualReviewMonthAngle;
+      delete canvas.dataset.visualReviewTopPair;
       if (controllerRef.current === controller) controllerRef.current = undefined;
       controller.dispose();
       loadedArtifact = undefined;
@@ -404,6 +443,23 @@ export function ArtifactExperience({
       });
       ownedController = controller;
       controllerRef.current = controller;
+      if (observableBuild()) {
+        ownedVisualReviewPoseHook = (pose) => {
+          if (controllerRef.current !== controller) return;
+          const current = interactionRef.current;
+          visualReviewPoseRef.current = pose === "authored" ? "authored" : undefined;
+          applyAt(timeRef.current);
+          const motion = pose === "authored"
+            ? authoredVisualReviewMotion(current.layout)
+            : evaluateInteractiveJadePlateMotion(current, performance.now(), reducedMotionRef.current);
+          canvas.dataset.visualReviewPose = pose;
+          canvas.dataset.visualReviewMonthAngle = String(motion.monthAngleRad);
+          if (pose === "authored") canvas.dataset.visualReviewTopPair = "午/胜光";
+          else delete canvas.dataset.visualReviewTopPair;
+          controller.render(performance.now());
+        };
+        window.__artifactSetVisualReviewPose = ownedVisualReviewPoseHook;
+      }
       setAnnotationError(undefined);
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
@@ -519,6 +575,7 @@ export function ArtifactExperience({
     "data-seated-general-ids": seatedGeneralIds,
     "data-general-sequence": jadePlateLayout.generalSequence.map((general) => general.nodeId).join(","),
     "data-active-month-gold": activeMonthGoldProgress.toFixed(3),
+    "data-general-name-gold-count": goldGeneralCount,
     "data-month-general-sequence": jadePlateLayout.generalSequence.map((general) => general.nodeId).join(","),
     "data-month-general-seated-ids": seatedGeneralIds,
     "data-month-general-seated-count": seatedCount,

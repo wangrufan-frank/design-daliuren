@@ -11,14 +11,10 @@ describe("ARTIFACT_REVIEW_STAGES", () => {
     ]);
   });
 
-  it("uses a stable high camera focused on the plate center", () => {
+  it("uses the v10-calibrated camera focused on the modeled dial center", () => {
     for (const { camera } of ARTIFACT_REVIEW_STAGES) {
-      const [x, y, z] = camera.position;
-      expect(y).toBeGreaterThanOrEqual(0.68);
-      expect(y).toBeLessThanOrEqual(0.78);
-      expect(camera.target).toEqual([0, 0.05, 0]);
-      expect(Math.hypot(x, y - camera.target[1], z)).toBeGreaterThanOrEqual(1.02);
-      expect(Math.hypot(x, y - camera.target[1], z)).toBeLessThanOrEqual(1.12);
+      expect(camera.position).toEqual([0.12044204, 1.65952395, 0.95771196]);
+      expect(camera.target).toEqual([0.00243791, 0.03725838, -0.00050031]);
     }
   });
 });

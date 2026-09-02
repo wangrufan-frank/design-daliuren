@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "../src/features/artifact-scene/annotations/descriptors";
 
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
@@ -71,7 +72,7 @@ function isNonLocalNetworkUrl(url: string) {
 }
 
 function isArtifactAssetUrl(url: string) {
-  return /^\/models\/daliuren\/daliuren-artifact-lod[0-2]\.glb$/.test(new URL(url).pathname);
+  return /\/models\/daliuren\/daliuren-artifact-lod[0-2]\.glb$/.test(new URL(url).pathname);
 }
 
 async function expectNoUnimplementedResult(page: Page) {
@@ -507,7 +508,7 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
   await page.getByRole("group", { name: "标注密度" }).getByRole("button", { name: "全部" }).click();
   await expect(page.locator(".artifact-annotations")).toHaveAttribute("data-density", "all");
   const cards = page.locator(".artifact-annotations__card");
-  await expect(cards).toHaveCount(22);
+  await expect(cards).toHaveCount(ARTIFACT_ANNOTATION_DESCRIPTORS.length);
   const rectanglesOverlap = (
     left: { x: number; y: number; width: number; height: number },
     right: { x: number; y: number; width: number; height: number },
@@ -584,7 +585,7 @@ test("desktop keeps the complete review workflow discoverable at 1280 by 720", a
       pairwiseClear: geometry.pairwiseClear,
     };
   }).toEqual({
-    cardCount: 22,
+    cardCount: ARTIFACT_ANNOTATION_DESCRIPTORS.length,
     hasVisibleCards: true,
     visibleCardsAreSafe: true,
     visibleCountIsBounded: true,

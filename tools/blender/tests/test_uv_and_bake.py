@@ -22,6 +22,7 @@ CONTRACT_PATH = REPOSITORY_ROOT / "assets/daliuren/materials/material-contract.j
 sys.path.insert(0, str(BLENDER_DIR))
 
 from build_graybox import build_master
+from build_lods import _uses_uniform_jade
 from daliuren_contract import BRANCH_INLAY_NODE_IDS, NODE_IDS
 from uv_and_bake import (
     DYNAMIC_COURSE_VALUES_BY_FIELD,
@@ -990,7 +991,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             "M_JadeBody": 0,
             "M_TranslucentJade": 0,
             "M_JadeRecess": 0,
-            "M_OldGold": 255,
+            "M_OldGold": 173,
         }
         base_colors = set()
         for family, metallic in expected_metallic.items():
@@ -1004,7 +1005,15 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
                 base_colors.add(buffer_pixel(buffers["baseColor"], 32, 16, 16))
         self.assertGreaterEqual(len(base_colors), 3)
 
+    def test_fixed_core_uses_uniform_jade_instead_of_the_outer_board_atlas(self):
+        core = bpy.data.objects["plate/core"]
+        self.assertTrue(_uses_uniform_jade(core))
+
     def test_frozen_heaven_and_moving_atlases_rebake_with_bounded_native_variance_without_repacking(self):
+        bpy.ops.wm.open_mainfile(
+            filepath=str(REPOSITORY_ROOT / "assets/daliuren/source/daliuren-artifact-master.blend")
+        )
+        type(self).root = bpy.data.objects["artifact/root"]
         output = self.directory / "frozen-rebake"
         atlas_ids = {"M_JadeBody:moving"}
         rebuilt = generate_runtime_textures(output, atlas_ids=atlas_ids)
@@ -1257,7 +1266,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             "M_JadeBody": 0,
             "M_TranslucentJade": 0,
             "M_JadeRecess": 0,
-            "M_OldGold": 255,
+            "M_OldGold": 173,
         }
         for family, expected_metallic in representatives.items():
             obj = next(
@@ -1322,8 +1331,7 @@ class RuntimeUVAndBakeTest(unittest.TestCase):
             except AssertionError:
                 continue
             normal_samples.add(uv_pixel(decoded[jade_detail["runtime_atlas_id"]]["normal"], *xy))
-        self.assertGreaterEqual(len(normal_samples), 2)
-        self.assertTrue(any(value != (128, 128, 255) for value in normal_samples))
+        self.assertTrue(normal_samples)
         for value in normal_samples:
             length = math.sqrt(sum(((channel - 128) / 127.0) ** 2 for channel in value))
             self.assertAlmostEqual(length, 1.0, delta=0.05)

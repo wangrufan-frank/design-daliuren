@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import bpy
+from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -341,6 +342,12 @@ def add_generals(general_ring, font_path):
 
 def add_month_general_glyphs(heaven, font_path):
     font = bpy.data.fonts.load(str(font_path), check_existing=True)
+    carrier_top = max(
+        (band.matrix_world @ Vector(corner)).z
+        for band in bpy.data.objects
+        if band.name.startswith("detail/heaven/linked-ring-")
+        for corner in band.bound_box
+    )
     for index, month in enumerate(VISUAL_MONTH_ORDER):
         angle = visual_angle(index)
         curve = bpy.data.curves.new(f"month-general/{month}/curve", "FONT")
@@ -365,6 +372,12 @@ def add_month_general_glyphs(heaven, font_path):
         bpy.ops.object.convert(target="MESH")
         obj.select_set(False)
         obj.location.z += 0.00045
+        bpy.context.view_layer.update()
+        glyph_bottom = min(
+            (obj.matrix_world @ Vector(corner)).z
+            for corner in obj.bound_box
+        )
+        obj.location.z += carrier_top + 0.0001 - glyph_bottom
 
 
 def _add_course_curve_mesh(name, z, bevel_depth):

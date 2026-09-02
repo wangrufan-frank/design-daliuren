@@ -15,7 +15,7 @@ const referenceState: ArtifactDisplayState = {
   noble: { dayNight: "day", nobleHeaven: "子", nobleEarth: "子", direction: "forward" },
 };
 
-it("uses the exact 27-second duration without rotating the fixed general seats", () => {
+it("uses the exact 27-second duration and hands off a clean physical plate", () => {
   const pose = evaluateArtifactPose(referenceState, ARTIFACT_DURATION_MS, false);
   expect(ARTIFACT_DURATION_MS).toBe(27_000);
   expect(pose.nodes["plate/heaven"]).toMatchObject({
@@ -27,7 +27,13 @@ it("uses the exact 27-second duration without rotating the fixed general seats",
     rotationY: 0,
     rotationZ: 0,
   });
-  expect(pose.nodes["transmission/initial"].visible).toBe(true);
+  for (const id of [
+    "calendar/slip",
+    "lesson/first", "lesson/second", "lesson/third", "lesson/fourth",
+    "transmission/initial", "transmission/middle", "transmission/final", "transmission/method",
+  ]) expect(pose.nodes[id].visible).toBe(false);
+  expect(Object.values(pose.labelOpacity).every((opacity) => opacity === 0)).toBe(true);
+  expect(pose.nodes["general/noble"].visible).toBe(true);
   expect(pose.courseTraceOpacity).toBe(0);
   expect(pose).not.toHaveProperty("copy");
   expect(pose).not.toHaveProperty("cameraOrbitRequested");
