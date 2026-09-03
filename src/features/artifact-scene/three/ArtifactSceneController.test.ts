@@ -79,7 +79,7 @@ function fixture(
     general.rotation.set(index * 0.01, index * 0.02, index * 0.03);
     general.scale.setScalar(index + 1);
     const jade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.004, 0.02), new THREE.MeshStandardMaterial({ color: 0xf4f4ed }));
-    jade.userData = { domain: "general", node_id: id };
+    jade.userData = { domain: "general", node_id: id, ring_index: index };
     general.add(jade);
     const name = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.001, 0.01), new THREE.MeshStandardMaterial({ color: 0x27231f }));
     name.userData.text_role = "general-name";
@@ -310,6 +310,7 @@ function eventAtRing(
   type: string,
   point = new THREE.Vector3(0.14, 0, 0),
   pointerId = 7,
+  pointerType = "touch",
 ) {
   const projected = point.project(camera);
   const event = new MouseEvent(type, {
@@ -318,6 +319,7 @@ function eventAtRing(
     clientY: (1 - projected.y) * 100,
   });
   Object.defineProperty(event, "pointerId", { value: pointerId });
+  Object.defineProperty(event, "pointerType", { value: pointerType });
   return event;
 }
 
@@ -436,11 +438,17 @@ describe("ArtifactSceneController", () => {
       metalness: 0,
       roughness: 0.27,
     });
+    const generalPieceMaterials = generalNodes.map((general) => (
+      (general.children[0] as THREE.Mesh).material as THREE.MeshPhysicalMaterial
+    ));
+    expect(generalPieceMaterials.every((material) => material instanceof THREE.MeshPhysicalMaterial)).toBe(true);
+    expect(new Set(generalPieceMaterials.map((material) => material.color.getHex())).size).toBe(3);
     expect(generalNodes.every((general) => (
       (general.children[0] as THREE.Mesh).material as THREE.Material
-    ).visible === false)).toBe(true);
+    ).visible)).toBe(true);
     expect(generalNodes.every((general) => (general.children[1] as THREE.Mesh).visible)).toBe(true);
     expect([...branchNodes.values()].every((branch) => branch.parent === heaven)).toBe(true);
+    expect(heaven.rotation.y).toBeCloseTo(THREE.MathUtils.degToRad(-10.25));
     expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.x, 0) / branchNodes.size).toBeCloseTo(0);
     expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.z, 0) / branchNodes.size).toBeCloseTo(0);
     expect(controls.autoRotate).toBe(false);
@@ -509,7 +517,7 @@ describe("ArtifactSceneController", () => {
     controller.applyJadePlateMotion(motion);
 
     const slot = generalSlots.get("卯")!;
-    expect(heaven.rotation.y).toBeCloseTo(motion.monthAngleRad);
+    expect(heaven.rotation.y).toBeCloseTo(THREE.MathUtils.degToRad(-10.25) + motion.monthAngleRad);
     expect(generalNodes[0].position.y).toBeCloseTo(slot.position.y + 0.0275);
     expect(generalNodes[0].visible).toBe(true);
     expect(generalJade.material).toBe(jadeMaterial);
@@ -547,11 +555,7 @@ describe("ArtifactSceneController", () => {
     expect(release).toHaveBeenCalledWith(7);
     expect(controls.enabled).toBe(true);
 
-    const wheel = new Event("wheel", { bubbles: true, cancelable: true });
-    Object.defineProperty(wheel, "deltaY", { value: 1 });
-    canvas.dispatchEvent(wheel);
     canvas.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }));
-    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "step", delta: 1 }));
     expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "step", delta: -1 }));
     expect(canvas.tabIndex).toBe(0);
 
@@ -560,7 +564,7 @@ describe("ArtifactSceneController", () => {
     expect(controls.enabled).toBe(true);
   });
 
-  it("handles confirmed ring and wheel input before an OrbitControls bubble listener", () => {
+  it("reserves touch ring input for the dial while leaving mouse drag and wheel to OrbitControls", () => {
     const { callbacks, camera, canvas, controls, controller } = enabledRingFixture();
     const orbitPointer = vi.fn();
     const orbitWheel = vi.fn();
@@ -568,15 +572,17 @@ describe("ArtifactSceneController", () => {
     canvas.addEventListener("wheel", orbitWheel);
 
     canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown"));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerup"));
+    canvas.dispatchEvent(eventAtRing(canvas, camera, "pointerdown", new THREE.Vector3(0.14, 0, 0), 8, "mouse"));
     const wheel = new Event("wheel", { bubbles: true, cancelable: true });
     Object.defineProperty(wheel, "deltaY", { value: 1 });
     canvas.dispatchEvent(wheel);
 
     expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "drag-start" }));
-    expect(callbacks.onMonthGeneralInput).toHaveBeenCalledWith(expect.objectContaining({ type: "step", delta: 1 }));
-    expect(controls.enabled).toBe(false);
-    expect(orbitPointer).not.toHaveBeenCalled();
-    expect(orbitWheel).not.toHaveBeenCalled();
+    expect(callbacks.onMonthGeneralInput).not.toHaveBeenCalledWith(expect.objectContaining({ type: "step" }));
+    expect(controls.enabled).toBe(true);
+    expect(orbitPointer).toHaveBeenCalledOnce();
+    expect(orbitWheel).toHaveBeenCalledOnce();
     controller.dispose();
   });
 
@@ -682,10 +688,10 @@ describe("ArtifactSceneController", () => {
     const observed = fixture(["dynamic/calendar"], { observeListeners: true });
     observed.controller.dispose();
 
-    for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "wheel"]) {
+    for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) {
       const added = observed.addEventListener!.mock.calls.find(([eventType]) => eventType === type)!;
       const removed = observed.removeEventListener!.mock.calls.find(([eventType]) => eventType === type)!;
-      expect(added[2]).toEqual(type === "wheel" ? { capture: true, passive: false } : { capture: true });
+      expect(added[2]).toEqual({ capture: true });
       expect(removed[2]).toBe(added[2]);
     }
   });

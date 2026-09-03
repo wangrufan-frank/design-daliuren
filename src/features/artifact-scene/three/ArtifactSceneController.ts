@@ -121,6 +121,7 @@ const REVIEW_HORIZONTAL_FOV_DEGREES = 20.4268144654051;
 const REVIEW_CAMERA_SHIFT_X = 0.12208956;
 const REVIEW_CAMERA_SHIFT_Y = -0.04859297;
 const REVIEW_CAMERA_ROLL_RADIANS = -0.0997904;
+const DIAL_ORIENTATION_CORRECTION_RADIANS = THREE.MathUtils.degToRad(-10.25);
 const PORTRAIT_REVIEW_CAMERA_DISTANCE_SCALE = 0.74;
 const PORTRAIT_REVIEW_CAMERA_ELEVATION = THREE.MathUtils.degToRad(69);
 const PORTRAIT_REVIEW_CAMERA_LATERAL_SHIFT = 0.016;
@@ -130,7 +131,6 @@ const CALENDAR_LABEL_SIZE = { width: 1024, height: 256 } as const;
 const DAY_NIGHT_TEXT = { day: "昼", night: "夜" } as const;
 const OLD_GOLD = new THREE.Color(0xb98a38);
 const RING_CAPTURE_OPTIONS = { capture: true } as const;
-const WHEEL_CAPTURE_OPTIONS = { capture: true, passive: false } as const;
 
 interface TextMaterialBinding {
   mesh: THREE.Mesh;
@@ -234,17 +234,6 @@ export class ArtifactSceneController {
   private readonly handlePointerMove = (event: PointerEvent) => this.moveRingGesture(event);
   private readonly handlePointerUp = (event: PointerEvent) => this.endRingGesture(event);
   private readonly handlePointerCancel = (event: PointerEvent) => this.endRingGesture(event, true);
-  private readonly handleWheel = (event: WheelEvent) => {
-    if (!this.interactionEnabled || event.deltaY === 0) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    try {
-      this.emitMonthGeneralInput({ type: "step", delta: event.deltaY > 0 ? 1 : -1, nowMs: this.now() });
-    } catch (error) {
-      this.restoreRingGesture();
-      this.callbacks.onError(error);
-    }
-  };
   private readonly handleKeyDown = (event: KeyboardEvent) => {
     if (!this.interactionEnabled || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
     event.preventDefault();
@@ -320,7 +309,6 @@ export class ArtifactSceneController {
     renderer.domElement.addEventListener("pointermove", this.handlePointerMove, RING_CAPTURE_OPTIONS);
     renderer.domElement.addEventListener("pointerup", this.handlePointerUp, RING_CAPTURE_OPTIONS);
     renderer.domElement.addEventListener("pointercancel", this.handlePointerCancel, RING_CAPTURE_OPTIONS);
-    renderer.domElement.addEventListener("wheel", this.handleWheel, WHEEL_CAPTURE_OPTIONS);
     renderer.domElement.addEventListener("keydown", this.handleKeyDown);
 
     for (const [id, object] of artifact.nodes) {
@@ -711,7 +699,10 @@ export class ArtifactSceneController {
       for (const mesh of this.branchMeshes.values()) {
         heavenPlate.attach(mesh);
       }
+      heavenPlate.rotation.y = DIAL_ORIENTATION_CORRECTION_RADIANS;
     }
+    const generalPlate = this.artifact.nodes.get("plate/generals");
+    if (generalPlate) generalPlate.rotation.y = DIAL_ORIENTATION_CORRECTION_RADIANS;
   }
 
   private harmonizeJadeSurfaces(): void {
@@ -735,6 +726,7 @@ export class ArtifactSceneController {
         || object.userData.domain === "general") return;
       object.material = generalRingJade;
     });
+    const generalPieceColors = [0xf7f1e7, 0xf2ebdf, 0xf9f4eb] as const;
     const pearlJade = new THREE.MeshPhysicalMaterial({
       name: "runtime/pearl-jade",
       color: 0xf5f1e8,
@@ -760,14 +752,23 @@ export class ArtifactSceneController {
         && object.userData.domain === "general"
         && typeof object.userData.node_id === "string"
         && object.userData.node_id.startsWith("general/")) {
-        const hideCarrier = (material: THREE.Material) => {
-          const hidden = material.clone();
-          hidden.visible = false;
-          return hidden;
-        };
+        const ringIndex = Number.isInteger(object.userData.ring_index) ? object.userData.ring_index : 0;
+        const generalPieceJade = new THREE.MeshPhysicalMaterial({
+          name: `runtime/general-piece-jade-${ringIndex}`,
+          color: generalPieceColors[ringIndex % generalPieceColors.length],
+          metalness: 0,
+          roughness: 0.2 + (ringIndex % generalPieceColors.length) * 0.025,
+          transmission: 0,
+          transparent: false,
+          opacity: 1,
+          depthWrite: true,
+          ior: 1.46,
+          clearcoat: 0.16,
+          clearcoatRoughness: 0.24,
+        });
         object.material = Array.isArray(object.material)
-          ? object.material.map(hideCarrier)
-          : hideCarrier(object.material);
+          ? object.material.map(() => generalPieceJade)
+          : generalPieceJade;
       }
       if (object instanceof THREE.Mesh && (
         object.userData.visual_role === "corner-pearl"
@@ -833,7 +834,7 @@ export class ArtifactSceneController {
   }
 
   private startRingGesture(event: PointerEvent): void {
-    if (!this.interactionEnabled || this.activeRingGesture) return;
+    if (!this.interactionEnabled || this.activeRingGesture || event.pointerType === "mouse") return;
     try {
       const angleRad = this.angleFromPointer(event, true);
       if (angleRad === undefined) return;
@@ -945,7 +946,6 @@ export class ArtifactSceneController {
     this.renderer.domElement.removeEventListener("pointermove", this.handlePointerMove, RING_CAPTURE_OPTIONS);
     this.renderer.domElement.removeEventListener("pointerup", this.handlePointerUp, RING_CAPTURE_OPTIONS);
     this.renderer.domElement.removeEventListener("pointercancel", this.handlePointerCancel, RING_CAPTURE_OPTIONS);
-    this.renderer.domElement.removeEventListener("wheel", this.handleWheel, WHEEL_CAPTURE_OPTIONS);
     this.renderer.domElement.removeEventListener("keydown", this.handleKeyDown);
     this.controls.removeEventListener("start", this.handleControlStart);
     this.controls.dispose();
