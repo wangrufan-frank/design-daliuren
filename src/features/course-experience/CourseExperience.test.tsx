@@ -106,7 +106,7 @@ it("keeps the text course and copy action usable when artifact loading fails", a
 
   expect(await screen.findByLabelText("标准文字课式")).toBeVisible();
   expect(screen.getByRole("button", { name: "文字课式" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "复制课式图片" })).toBeEnabled();
 });
 
 it("keeps the text course and copy action usable when WebGL renderer creation fails", async () => {
@@ -118,7 +118,7 @@ it("keeps the text course and copy action usable when WebGL renderer creation fa
   expect(await screen.findByLabelText("标准文字课式")).toBeVisible();
   expect(screen.getByRole("button", { name: "文字课式" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "复制课式图片" })).toBeEnabled();
 });
 
 it("opens the ordinary text course when structurally valid artifact facts are inconsistent", () => {
@@ -135,6 +135,6 @@ it("opens the ordinary text course when structurally valid artifact facts are in
   render(<CourseExperience source={inconsistent} />);
 
   expect(screen.getByLabelText("标准文字课式")).toBeVisible();
-  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "复制课式图片" })).toBeEnabled();
   expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
 });

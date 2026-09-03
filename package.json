@@ -28,6 +28,7 @@
     "asset:validate-graybox": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-graybox.glb assets/daliuren/asset-contract.json",
     "asset:validate": "node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod0.glb assets/daliuren/asset-contract.json && node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod1.glb assets/daliuren/asset-contract.json && node scripts/validate-daliuren-glb.mjs public/models/daliuren/daliuren-artifact-lod2.glb assets/daliuren/asset-contract.json",
     "asset:copy-basis": "node scripts/copy-three-basis.mjs",
+    "asset:create-mobile": "node scripts/create-mobile-artifact.mjs",
     "postinstall": "npm run asset:copy-basis",
     "test:asset-runner": "node --test scripts/run-blender.test.mjs",
     "verify:calendar-sources": "node scripts/verify-calendar-cases.mjs"
@@ -38,6 +39,7 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "dependencies": {
+    "html-to-image": "^1.11.13",
     "lunar-typescript": "1.8.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

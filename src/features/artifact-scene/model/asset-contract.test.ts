@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { GENERAL_INLAY_DIMENSIONS_METERS, REQUIRED_NODE_IDS, selectArtifactLod } from "./asset-contract";
+import { artifactPixelRatio, GENERAL_INLAY_DIMENSIONS_METERS, REQUIRED_NODE_IDS, selectArtifactLod } from "./asset-contract";
 
 describe("artifact asset contract", () => {
   it("selects LOD2 for narrow or high-density mobile viewports", () => {
     expect(selectArtifactLod(390, 3)).toBe(2);
     expect(selectArtifactLod(1280, 1)).toBe(1);
     expect(selectArtifactLod(1920, 1)).toBe(0);
+  });
+
+  it("caps mobile render density without reducing desktop density", () => {
+    expect(artifactPixelRatio(390, 3)).toBe(1.5);
+    expect(artifactPixelRatio(1280, 2)).toBe(2);
   });
 
   it("requires the layered jade plate nodes", () => {

@@ -56,9 +56,13 @@ button, input, select { font: inherit; }
 .course-sheet__plate-center { display: grid; position: absolute; inset: 25%; place-content: center; gap: 8px; padding: 12px; border: 1px solid var(--patina); background: var(--dark-bronze); text-align: center; }
 .course-sheet__plate-center strong { color: var(--old-gold); }
 .course-sheet__plate-center small { color: var(--ru-celadon); }
-.course-sheet__copy { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--patina); }
+.course-sheet__copy { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--patina); }
 .course-sheet__copy button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--ru-celadon); border-radius: 0; background: transparent; color: var(--ash); cursor: pointer; }
+.course-sheet__copy button:disabled { cursor: wait; opacity: .6; }
 .course-sheet__copy [role="alert"] { color: var(--error); }
+.course-sheet__image-preview { display: grid; flex-basis: 100%; gap: 8px; margin: 8px 0 0; padding: 10px; border: 1px solid var(--patina); background: var(--dark-bronze); }
+.course-sheet__image-preview figcaption { color: var(--ru-celadon); text-align: center; }
+.course-sheet__image-preview img { display: block; width: 100%; height: auto; }
 .void-branch__mark { display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; margin-inline-start: .32em; border: 1px solid var(--old-gold); color: var(--old-gold); font-family: var(--font-utility); font-size: .42em; font-weight: 600; line-height: 1; vertical-align: .42em; }
 @media (max-width: 760px) {
   .course-sheet { padding: 16px; }

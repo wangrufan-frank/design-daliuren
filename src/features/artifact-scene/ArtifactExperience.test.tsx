@@ -238,6 +238,29 @@ describe("ArtifactExperience", () => {
     expect(onShowCourse).toHaveBeenCalledOnce();
   });
 
+  it("replaces a stalled mobile artifact with the texture-free fallback", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal("devicePixelRatio", 3);
+    mocks.loadArtifact
+      .mockReturnValueOnce(new Promise(() => undefined))
+      .mockResolvedValueOnce(resolvedArtifact());
+
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.loadArtifact).toHaveBeenNthCalledWith(
+      2,
+      "/models/daliuren/daliuren-artifact-mobile.glb",
+      expect.anything(),
+    );
+    expect(latestController().resize).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 1.5);
+  });
+
   it("shows loading, then exposes deterministic controls and the text-course escape", async () => {
     let resolveLoad!: (artifact: ReturnType<typeof resolvedArtifact>) => void;
     mocks.loadArtifact.mockReturnValue(new Promise((resolve) => { resolveLoad = resolve; }));

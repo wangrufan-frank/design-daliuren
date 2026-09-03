@@ -221,7 +221,7 @@ it("keeps the completed text course usable when the guarded artifact bundle is i
   await submitCourse();
 
   expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "复制课式图片" })).toBeEnabled();
   expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
 });
 
@@ -232,7 +232,7 @@ it("escapes from artifact loading failure to the ordinary text course", async ()
 
   expect(await screen.findByRole("article", { name: "标准文字课式" })).toBeVisible();
   expect(screen.getByRole("button", { name: "文字课式" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("button", { name: "复制课式" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "复制课式图片" })).toBeEnabled();
 });
 
 it("keeps five valid upstream stages when final course projection fails", async () => {

@@ -4,6 +4,12 @@ export const ARTIFACT_ASSET_URLS = {
   2: `${import.meta.env.BASE_URL}models/daliuren/daliuren-artifact-lod2.glb`,
 } as const;
 
+export const ARTIFACT_MOBILE_FALLBACK_URL = `${import.meta.env.BASE_URL}models/daliuren/daliuren-artifact-mobile.glb`;
+
+export function artifactPixelRatio(width: number, dpr: number): number {
+  return width < 700 ? Math.min(dpr, 1.5) : dpr;
+}
+
 const BRANCHES = [..."子丑寅卯辰巳午未申酉戌亥"] as const;
 const MONTH_GENERALS = [
   "胜光", "小吉", "传送", "从魁", "河魁", "登明",

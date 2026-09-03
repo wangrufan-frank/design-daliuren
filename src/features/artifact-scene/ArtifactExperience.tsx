@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { ARTIFACT_ASSET_URLS, selectArtifactLod } from "./model/asset-contract";
+import {
+  ARTIFACT_ASSET_URLS,
+  ARTIFACT_MOBILE_FALLBACK_URL,
+  artifactPixelRatio,
+  selectArtifactLod,
+} from "./model/asset-contract";
 import { mapArtifactState } from "./model/map-artifact-state";
 import { deriveJadePlateLayout, type JadePlateLayout } from "./model/jade-plate-layout";
 import { formatVoidBranch, type VoidSurface } from "./model/format-void-branch";
@@ -71,6 +76,7 @@ interface ActiveStageReplay {
 
 const observableBuild = () => !import.meta.env.PROD || import.meta.env.VITE_ARTIFACT_BENCHMARK === "1";
 const COMPACT_MAX_WIDTH = 520;
+const MOBILE_ARTIFACT_TIMEOUT_MS = 10_000;
 const dayNightText = { day: "昼", night: "夜" } as const;
 const directionText = { forward: "顺", reverse: "逆" } as const;
 
@@ -105,6 +111,30 @@ function compactViewportSnapshot(): boolean {
 
 function useCompactArtifactLayout(): boolean {
   return useSyncExternalStore(subscribeToViewport, compactViewportSnapshot, () => false);
+}
+
+async function loadMobileArtifact(
+  url: string,
+  renderer: ReturnType<typeof createArtifactRenderer>,
+): Promise<LoadedArtifact> {
+  let abandoned = false;
+  let timeoutId: number | undefined;
+  const primary = loadArtifact(url, renderer).then((artifact) => {
+    if (!abandoned) return artifact;
+    disposeArtifact(artifact.root);
+    throw new Error("Primary mobile artifact completed after fallback");
+  });
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("Mobile artifact load timed out")), MOBILE_ARTIFACT_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([primary, timeout]);
+  } catch {
+    abandoned = true;
+    return loadArtifact(ARTIFACT_MOBILE_FALLBACK_URL, renderer);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 function settleCompletedLanding(
@@ -381,7 +411,7 @@ export function ArtifactExperience({
       controller.resize(
         bounds.width || window.innerWidth,
         bounds.height || 560,
-        window.devicePixelRatio || 1,
+        artifactPixelRatio(window.innerWidth, window.devicePixelRatio || 1),
       );
       if (portraitLayout !== undefined
         && portraitLayout !== nextPortraitLayout
@@ -467,7 +497,10 @@ export function ArtifactExperience({
 
     const dpr = window.devicePixelRatio || 1;
     const lod = selectArtifactLod(window.innerWidth, dpr);
-    void loadArtifact(ARTIFACT_ASSET_URLS[lod], renderer).then((artifact) => {
+    const artifactRequest = window.innerWidth < 700 || /MicroMessenger/i.test(navigator.userAgent)
+      ? loadMobileArtifact(ARTIFACT_ASSET_URLS[lod], renderer)
+      : loadArtifact(ARTIFACT_ASSET_URLS[lod], renderer);
+    void artifactRequest.then((artifact) => {
       loadedArtifact = artifact;
       if (inactive) {
         disposeArtifact(artifact.root);

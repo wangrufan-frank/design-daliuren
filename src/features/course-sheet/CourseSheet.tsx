@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { serializeCourseText } from "../../domain/course/policy";
+import { toBlob } from "html-to-image";
 import type { CourseResult } from "../../domain/course/types";
 import { VoidBranch } from "../void-branch/VoidBranch";
 
@@ -7,7 +7,10 @@ const dayNightText = { day: "昼", night: "夜" } as const;
 const directionText = { forward: "顺", reverse: "逆" } as const;
 
 export function CourseSheet({ result }: { result: CourseResult }) {
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [copyState, setCopyState] = useState<"idle" | "generating" | "copied" | "preview" | "error">("idle");
+  const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
+  const sheetRef = useRef<HTMLElement>(null);
+  const previewUrlRef = useRef<string | undefined>(undefined);
   const resetTimer = useRef<number | undefined>(undefined);
   const copyRequest = useRef(0);
   const mounted = useRef(false);
@@ -21,10 +24,36 @@ export function CourseSheet({ result }: { result: CourseResult }) {
     const request = ++copyRequest.current;
     window.clearTimeout(resetTimer.current);
     resetTimer.current = undefined;
-    setCopyState("idle");
+    setCopyState("generating");
     try {
-      await navigator.clipboard.writeText(serializeCourseText(result));
+      const sheet = sheetRef.current;
+      if (!sheet) throw new Error("Missing course sheet");
+      const blob = await toBlob(sheet, {
+        backgroundColor: "#f3efe6",
+        cacheBust: true,
+        skipFonts: true,
+        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        filter: (node) => !(node instanceof HTMLElement && node.dataset.courseSection === "copy"),
+      });
+      if (!blob) throw new Error("Course image generation failed");
+      let copied = false;
+      if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          copied = true;
+        } catch {
+          copied = false;
+        }
+      }
       if (!mounted.current || request !== copyRequest.current) return;
+      if (!copied) {
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+        const url = URL.createObjectURL(blob);
+        previewUrlRef.current = url;
+        setPreviewUrl(url);
+        setCopyState("preview");
+        return;
+      }
       setCopyState("copied");
       resetTimer.current = window.setTimeout(() => {
         if (mounted.current && request === copyRequest.current) setCopyState("idle");
@@ -41,16 +70,25 @@ export function CourseSheet({ result }: { result: CourseResult }) {
     window.clearTimeout(resetTimer.current);
     resetTimer.current = undefined;
     setCopyState("idle");
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = undefined;
+    setPreviewUrl(undefined);
     return () => {
       mounted.current = false;
       copyRequest.current += 1;
       window.clearTimeout(resetTimer.current);
       resetTimer.current = undefined;
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = undefined;
     };
   }, [result]);
 
+  const copyLabel = copyState === "generating"
+    ? "正在生成图片"
+    : copyState === "copied" ? "图片已复制" : "复制课式图片";
+
   return (
-    <article className="course-sheet" aria-label="标准文字课式">
+    <article ref={sheetRef} className="course-sheet" aria-label="标准文字课式">
       <header className="course-sheet__summary" data-course-section="summary">
         <div>
           <p>第六阶段 · 已验证事实投影</p>
@@ -110,10 +148,16 @@ export function CourseSheet({ result }: { result: CourseResult }) {
         </section>
       </div>
       <footer className="course-sheet__copy" data-course-section="copy">
-        <span>复制内容使用稳定纯文本分段</span>
-        <button type="button" onClick={copyCourse}>{copyState === "copied" ? "已复制" : "复制课式"}</button>
-        {copyState === "copied" ? <p role="status">课式已复制</p> : null}
-        {copyState === "error" ? <p role="alert">复制失败，请重试</p> : null}
+        <span>生成完整课式图片，不包含本操作区域</span>
+        <button type="button" disabled={copyState === "generating"} onClick={copyCourse}>{copyLabel}</button>
+        {copyState === "copied" ? <p role="status">课式图片已复制</p> : null}
+        {copyState === "preview" ? (
+          <figure className="course-sheet__image-preview">
+            <figcaption role="status">微信内请长按图片保存</figcaption>
+            <img src={previewUrl} alt="生成的大六壬课式" />
+          </figure>
+        ) : null}
+        {copyState === "error" ? <p role="alert">图片生成失败，请重试</p> : null}
       </footer>
     </article>
   );

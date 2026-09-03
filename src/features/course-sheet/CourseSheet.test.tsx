@@ -1,17 +1,30 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import type { CourseResult } from "../../domain/course/types";
-import { serializeCourseText } from "../../domain/course/policy";
 import { referenceSession } from "../../test/reference-session";
 import { CourseSheet } from "./CourseSheet";
+
+const imageMocks = vi.hoisted(() => ({ toBlob: vi.fn() }));
+vi.mock("html-to-image", () => ({ toBlob: (...args: unknown[]) => imageMocks.toBlob(...args) }));
+
+const pngBlob = new Blob(["course-image"], { type: "image/png" });
+
+beforeEach(() => {
+  imageMocks.toBlob.mockReset();
+  imageMocks.toBlob.mockResolvedValue(pngBlob);
+  vi.stubGlobal("ClipboardItem", class {
+    constructor(readonly data: Record<string, Blob>) {}
+  });
+});
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const result = referenceSession.snapshots.course!.value as CourseResult;
@@ -21,10 +34,10 @@ const nextResult: CourseResult = {
 };
 const globalCss = readFileSync("src/styles/global.css", "utf8");
 
-function deferred() {
-  let resolve!: () => void;
+function deferred<T>() {
+  let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
-  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
     reject = rejectPromise;
   });
@@ -84,125 +97,52 @@ it("locks the approved square, perimeter, mobile lesson grid, and host selector 
   expect(globalCss).not.toContain(".app-stage p {");
 });
 
-it("copies the exact serializer output and reports success", async () => {
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+it("renders the course sheet as PNG and copies the image", async () => {
+  const write = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { write } });
   render(<CourseSheet result={result} />);
-  await userEvent.click(screen.getByRole("button", { name: "复制课式" }));
-  expect(writeText).toHaveBeenCalledWith(serializeCourseText(result));
-  expect(screen.getByRole("status")).toHaveTextContent("课式已复制");
-  await userEvent.click(screen.getByRole("button", { name: "已复制" }));
-  expect(writeText).toHaveBeenCalledTimes(2);
+  await userEvent.click(screen.getByRole("button", { name: "复制课式图片" }));
+  expect(imageMocks.toBlob).toHaveBeenCalledWith(
+    screen.getByRole("article", { name: "标准文字课式" }),
+    expect.objectContaining({ backgroundColor: "#f3efe6", pixelRatio: 1 }),
+  );
+  expect(write).toHaveBeenCalledOnce();
+  expect(screen.getByRole("status")).toHaveTextContent("课式图片已复制");
 });
 
-it("keeps the result visible and reports clipboard failure", async () => {
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
-  });
+it("keeps the result visible and reports image generation failure", async () => {
+  imageMocks.toBlob.mockRejectedValueOnce(new Error("render failed"));
   render(<CourseSheet result={result} />);
-  await userEvent.click(screen.getByRole("button", { name: "复制课式" }));
-  expect(screen.getByRole("alert")).toHaveTextContent("复制失败，请重试");
+  await userEvent.click(screen.getByRole("button", { name: "复制课式图片" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("图片生成失败，请重试");
   expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
 });
 
-it("keeps a later failure after an earlier success timer expires", async () => {
-  vi.useFakeTimers();
-  const writeText = vi.fn()
-    .mockResolvedValueOnce(undefined)
-    .mockRejectedValueOnce(new Error("denied"));
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+it("shows a long-press preview when image clipboard writing is unavailable", async () => {
+  const createObjectURL = vi.fn(() => "blob:course-image");
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: {} });
   render(<CourseSheet result={result} />);
-
-  fireEvent.click(screen.getByRole("button", { name: "复制课式" }));
-  await act(async () => { await Promise.resolve(); });
-  expect(screen.getByRole("status")).toHaveTextContent("课式已复制");
-
-  fireEvent.click(screen.getByRole("button", { name: "已复制" }));
-  await act(async () => { await Promise.resolve(); });
-  expect(screen.getByRole("alert")).toHaveTextContent("复制失败，请重试");
-
-  act(() => vi.advanceTimersByTime(2000));
-  expect(screen.getByRole("alert")).toHaveTextContent("复制失败，请重试");
+  await userEvent.click(screen.getByRole("button", { name: "复制课式图片" }));
+  expect(screen.getByRole("status")).toHaveTextContent("微信内请长按图片保存");
+  expect(screen.getByRole("img", { name: "生成的大六壬课式" })).toHaveAttribute("src", "blob:course-image");
 });
 
-it("ignores stale copy completion and allows the latest failure to be retried", async () => {
-  const first = deferred();
-  const second = deferred();
-  const writeText = vi.fn()
-    .mockReturnValueOnce(first.promise)
-    .mockReturnValueOnce(second.promise)
-    .mockResolvedValueOnce(undefined);
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-  render(<CourseSheet result={result} />);
-
-  fireEvent.click(screen.getByRole("button", { name: "复制课式" }));
-  fireEvent.click(screen.getByRole("button", { name: "复制课式" }));
-  await act(async () => {
-    second.reject(new Error("denied"));
-    await Promise.resolve();
-  });
-  expect(screen.getByRole("alert")).toHaveTextContent("复制失败，请重试");
-
-  await act(async () => {
-    first.resolve();
-    await Promise.resolve();
-  });
-  expect(screen.getByRole("alert")).toHaveTextContent("复制失败，请重试");
-
-  fireEvent.click(screen.getByRole("button", { name: "复制课式" }));
-  await act(async () => { await Promise.resolve(); });
-  expect(screen.getByRole("status")).toHaveTextContent("课式已复制");
-});
-
-it("invalidates a pending copy when the sheet unmounts", async () => {
-  vi.useFakeTimers();
-  const pending = deferred();
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText: vi.fn().mockReturnValue(pending.promise) },
-  });
-  const { unmount } = render(<CourseSheet result={result} />);
-  fireEvent.click(screen.getByRole("button", { name: "复制课式" }));
-
-  unmount();
-  await act(async () => {
-    pending.resolve();
-    await Promise.resolve();
-  });
-  expect(vi.getTimerCount()).toBe(0);
-});
-
-it("resets copied feedback when a new course result is rendered", async () => {
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText: vi.fn().mockResolvedValue(undefined) },
-  });
+it("ignores stale image generation after the course result changes", async () => {
+  const pending = deferred<Blob | null>();
+  imageMocks.toBlob.mockReturnValueOnce(pending.promise);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { write: vi.fn() } });
   const { rerender } = render(<CourseSheet result={result} />);
-  await userEvent.click(screen.getByRole("button", { name: "复制课式" }));
-  expect(screen.getByRole("status")).toHaveTextContent("课式已复制");
-
-  rerender(<CourseSheet result={nextResult} />);
-  expect(screen.getByText("更新后的课式", { exact: false })).toBeVisible();
-  expect(screen.getByRole("button", { name: "复制课式" })).toBeVisible();
-  expect(screen.queryByRole("status")).not.toBeInTheDocument();
-});
-
-it("ignores an old clipboard completion after the course result changes", async () => {
-  const pending = deferred();
-  const writeText = vi.fn().mockReturnValue(pending.promise);
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-  const { rerender } = render(<CourseSheet result={result} />);
-  fireEvent.click(screen.getByRole("button", { name: "复制课式" }));
+  fireEvent.click(screen.getByRole("button", { name: "复制课式图片" }));
 
   rerender(<CourseSheet result={nextResult} />);
   await act(async () => {
-    pending.resolve();
+    pending.resolve(pngBlob);
     await Promise.resolve();
   });
 
-  expect(writeText).toHaveBeenCalledWith(serializeCourseText(result));
   expect(screen.getByText("更新后的课式", { exact: false })).toBeVisible();
-  expect(screen.getByRole("button", { name: "复制课式" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制课式图片" })).toBeVisible();
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });
