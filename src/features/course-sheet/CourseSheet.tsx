@@ -6,11 +6,21 @@ import { VoidBranch } from "../void-branch/VoidBranch";
 const dayNightText = { day: "昼", night: "夜" } as const;
 const directionText = { forward: "顺", reverse: "逆" } as const;
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === "string"
+      ? resolve(reader.result)
+      : reject(new Error("Course image conversion failed"));
+    reader.onerror = () => reject(reader.error ?? new Error("Course image conversion failed"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function CourseSheet({ result }: { result: CourseResult }) {
   const [copyState, setCopyState] = useState<"idle" | "generating" | "copied" | "preview" | "error">("idle");
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
   const sheetRef = useRef<HTMLElement>(null);
-  const previewUrlRef = useRef<string | undefined>(undefined);
   const resetTimer = useRef<number | undefined>(undefined);
   const copyRequest = useRef(0);
   const mounted = useRef(false);
@@ -37,10 +47,8 @@ export function CourseSheet({ result }: { result: CourseResult }) {
         filter: (node) => !(node instanceof HTMLElement && node.dataset.courseSection === "copy"),
       });
       if (!blob) throw new Error("Course image generation failed");
+      const url = await blobToDataUrl(blob);
       if (!mounted.current || request !== copyRequest.current) return;
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-      const url = URL.createObjectURL(blob);
-      previewUrlRef.current = url;
       setPreviewUrl(url);
       let copied = false;
       if (!isWeChat && navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
@@ -69,16 +77,12 @@ export function CourseSheet({ result }: { result: CourseResult }) {
     window.clearTimeout(resetTimer.current);
     resetTimer.current = undefined;
     setCopyState("idle");
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    previewUrlRef.current = undefined;
     setPreviewUrl(undefined);
     return () => {
       mounted.current = false;
       copyRequest.current += 1;
       window.clearTimeout(resetTimer.current);
       resetTimer.current = undefined;
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = undefined;
     };
   }, [result]);
 
