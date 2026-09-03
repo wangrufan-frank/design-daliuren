@@ -14,6 +14,7 @@ export function CourseSheet({ result }: { result: CourseResult }) {
   const resetTimer = useRef<number | undefined>(undefined);
   const copyRequest = useRef(0);
   const mounted = useRef(false);
+  const isWeChat = typeof navigator !== "undefined" && /MicroMessenger/i.test(navigator.userAgent);
   const methodText = [
     result.method.method,
     result.method.subtype,
@@ -36,8 +37,13 @@ export function CourseSheet({ result }: { result: CourseResult }) {
         filter: (node) => !(node instanceof HTMLElement && node.dataset.courseSection === "copy"),
       });
       if (!blob) throw new Error("Course image generation failed");
+      if (!mounted.current || request !== copyRequest.current) return;
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      const url = URL.createObjectURL(blob);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
       let copied = false;
-      if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+      if (!isWeChat && navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
         try {
           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
           copied = true;
@@ -46,15 +52,8 @@ export function CourseSheet({ result }: { result: CourseResult }) {
         }
       }
       if (!mounted.current || request !== copyRequest.current) return;
-      if (!copied) {
-        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-        const url = URL.createObjectURL(blob);
-        previewUrlRef.current = url;
-        setPreviewUrl(url);
-        setCopyState("preview");
-        return;
-      }
-      setCopyState("copied");
+      setCopyState(copied ? "copied" : "preview");
+      if (!copied) return;
       resetTimer.current = window.setTimeout(() => {
         if (mounted.current && request === copyRequest.current) setCopyState("idle");
         resetTimer.current = undefined;
@@ -150,11 +149,15 @@ export function CourseSheet({ result }: { result: CourseResult }) {
       <footer className="course-sheet__copy" data-course-section="copy">
         <span>生成完整课式图片，不包含本操作区域</span>
         <button type="button" disabled={copyState === "generating"} onClick={copyCourse}>{copyLabel}</button>
-        {copyState === "copied" ? <p role="status">课式图片已复制</p> : null}
-        {copyState === "preview" ? (
+        {previewUrl ? (
           <figure className="course-sheet__image-preview">
-            <figcaption role="status">微信内请长按图片保存</figcaption>
+            <figcaption role="status">
+              {copyState === "copied"
+                ? "课式图片已复制，也可保存下方图片"
+                : isWeChat ? "微信内请长按图片保存" : "请保存或长按下方图片"}
+            </figcaption>
             <img src={previewUrl} alt="生成的大六壬课式" />
+            <a className="course-sheet__save" href={previewUrl} download="大六壬课式.png">保存课式图片</a>
           </figure>
         ) : null}
         {copyState === "error" ? <p role="alert">图片生成失败，请重试</p> : null}

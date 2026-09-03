@@ -15,6 +15,8 @@ const pngBlob = new Blob(["course-image"], { type: "image/png" });
 beforeEach(() => {
   imageMocks.toBlob.mockReset();
   imageMocks.toBlob.mockResolvedValue(pngBlob);
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:course-image") });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
   vi.stubGlobal("ClipboardItem", class {
     constructor(readonly data: Record<string, Blob>) {}
   });
@@ -97,7 +99,7 @@ it("locks the approved square, perimeter, mobile lesson grid, and host selector 
   expect(globalCss).not.toContain(".app-stage p {");
 });
 
-it("renders the course sheet as PNG and copies the image", async () => {
+it("keeps a saveable preview visible after copying the PNG", async () => {
   const write = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { write } });
   render(<CourseSheet result={result} />);
@@ -108,6 +110,8 @@ it("renders the course sheet as PNG and copies the image", async () => {
   );
   expect(write).toHaveBeenCalledOnce();
   expect(screen.getByRole("status")).toHaveTextContent("课式图片已复制");
+  expect(screen.getByRole("img", { name: "生成的大六壬课式" })).toHaveAttribute("src", "blob:course-image");
+  expect(screen.getByRole("link", { name: "保存课式图片" })).toHaveAttribute("href", "blob:course-image");
 });
 
 it("keeps the result visible and reports image generation failure", async () => {
@@ -118,15 +122,16 @@ it("keeps the result visible and reports image generation failure", async () => 
   expect(screen.getByRole("article", { name: "标准文字课式" })).toBeVisible();
 });
 
-it("shows a long-press preview when image clipboard writing is unavailable", async () => {
-  const createObjectURL = vi.fn(() => "blob:course-image");
-  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
-  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: {} });
+it("does not trust image clipboard writes inside WeChat and shows the save preview", async () => {
+  const write = vi.fn().mockResolvedValue(undefined);
+  vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("MicroMessenger");
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { write } });
   render(<CourseSheet result={result} />);
   await userEvent.click(screen.getByRole("button", { name: "复制课式图片" }));
+  expect(write).not.toHaveBeenCalled();
   expect(screen.getByRole("status")).toHaveTextContent("微信内请长按图片保存");
   expect(screen.getByRole("img", { name: "生成的大六壬课式" })).toHaveAttribute("src", "blob:course-image");
+  expect(screen.getByRole("link", { name: "保存课式图片" })).toBeVisible();
 });
 
 it("ignores stale image generation after the course result changes", async () => {
