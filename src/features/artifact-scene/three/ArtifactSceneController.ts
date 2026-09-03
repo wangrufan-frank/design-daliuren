@@ -704,9 +704,37 @@ export class ArtifactSceneController {
       mesh.position.x -= branchCenter.x;
       mesh.position.z -= branchCenter.y;
     }
+
+    const heavenPlate = this.artifact.nodes.get("plate/heaven");
+    if (heavenPlate) {
+      this.artifact.root.updateMatrixWorld(true);
+      for (const mesh of this.branchMeshes.values()) {
+        heavenPlate.attach(mesh);
+      }
+    }
   }
 
   private harmonizeJadeSurfaces(): void {
+    const generalRingJade = new THREE.MeshPhysicalMaterial({
+      name: "runtime/general-ring-jade",
+      color: 0xf0eadd,
+      metalness: 0,
+      roughness: 0.27,
+      transmission: 0,
+      transparent: false,
+      opacity: 1,
+      depthWrite: true,
+      ior: 1.46,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.28,
+    });
+    this.artifact.nodes.get("plate/generals")?.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      if (object.userData.surface_treatment === "general-seat-recess"
+        || object.userData.visual_role === "generals"
+        || object.userData.domain === "general") return;
+      object.material = generalRingJade;
+    });
     const pearlJade = new THREE.MeshPhysicalMaterial({
       name: "runtime/pearl-jade",
       color: 0xf5f1e8,

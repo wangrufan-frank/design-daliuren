@@ -394,7 +394,7 @@ describe("ArtifactSceneController", () => {
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
     const {
       branchNodes, controller, controls, environmentTexture, generalDivider, generalNodes, generalSeatRecess, generalSeatSurface,
-      interactionRing, renderer,
+      heaven, interactionRing, renderer,
     } = fixture();
 
     controller.resize(800, 400, 2);
@@ -430,10 +430,17 @@ describe("ArtifactSceneController", () => {
     expect(camera.userData.v10HeroRollRadians).toBeCloseTo(-0.0997904, 6);
     expect(generalSeatRecess.visible).toBe(false);
     expect(generalDivider.visible).toBe(false);
+    expect(generalSeatSurface.material).toBeInstanceOf(THREE.MeshPhysicalMaterial);
+    expect(generalSeatSurface.material).toMatchObject({
+      color: new THREE.Color(0xf0eadd),
+      metalness: 0,
+      roughness: 0.27,
+    });
     expect(generalNodes.every((general) => (
       (general.children[0] as THREE.Mesh).material as THREE.Material
     ).visible === false)).toBe(true);
     expect(generalNodes.every((general) => (general.children[1] as THREE.Mesh).visible)).toBe(true);
+    expect([...branchNodes.values()].every((branch) => branch.parent === heaven)).toBe(true);
     expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.x, 0) / branchNodes.size).toBeCloseTo(0);
     expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.z, 0) / branchNodes.size).toBeCloseTo(0);
     expect(controls.autoRotate).toBe(false);
