@@ -79,6 +79,7 @@ function fixture(
     general.rotation.set(index * 0.01, index * 0.02, index * 0.03);
     general.scale.setScalar(index + 1);
     const jade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.004, 0.02), new THREE.MeshStandardMaterial({ color: 0xf4f4ed }));
+    jade.userData = { domain: "general", node_id: id };
     general.add(jade);
     const name = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.001, 0.01), new THREE.MeshStandardMaterial({ color: 0x27231f }));
     name.userData.text_role = "general-name";
@@ -101,7 +102,13 @@ function fixture(
     new THREE.MeshStandardMaterial({ color: 0x8a8a8a }),
   );
   generalSeatRecess.userData.surface_treatment = "general-seat-recess";
+  const generalDivider = new THREE.Mesh(
+    new THREE.BoxGeometry(0.001, 0.004, 0.04),
+    new THREE.MeshStandardMaterial({ color: 0xb98a38 }),
+  );
+  generalDivider.userData.visual_role = "generals";
   root.add(generalSeatRecess);
+  root.add(generalDivider);
   root.add(generalSeat);
   const core = node("plate/core");
   core.position.set(0, 0.03, 0);
@@ -215,7 +222,7 @@ function fixture(
     labelSurface: labelSurfaces.get("dynamic/calendar")!, labelSurfaces,
     environmentDispose, environmentTexture, generalNodes, material, movingNode, renderer,
     trace, traceGeometry, traceMaterial, legacyOverlay,
-    heaven, generalSeat, generalSeatSurface, generalSeatRecess, core, generalSlots, monthGlyphs, interactionRing,
+    heaven, generalSeat, generalSeatSurface, generalSeatRecess, generalDivider, core, generalSlots, monthGlyphs, interactionRing,
     monthGlyphOriginalMaterials, generalNameOriginalMaterials,
     addEventListener, removeEventListener,
     setNow: (value: number) => { nowMs = value; },
@@ -386,7 +393,7 @@ describe("ArtifactSceneController", () => {
 
   it("configures an AgX sRGB museum-lighting scene and resizes without WebGL construction", () => {
     const {
-      branchNodes, controller, controls, environmentTexture, generalSeatRecess, generalSeatSurface,
+      branchNodes, controller, controls, environmentTexture, generalDivider, generalNodes, generalSeatRecess, generalSeatSurface,
       interactionRing, renderer,
     } = fixture();
 
@@ -422,6 +429,11 @@ describe("ArtifactSceneController", () => {
     expect(camera.projectionMatrix.elements[9]).toBeCloseTo(-0.359587978, 8);
     expect(camera.userData.v10HeroRollRadians).toBeCloseTo(-0.0997904, 6);
     expect(generalSeatRecess.visible).toBe(false);
+    expect(generalDivider.visible).toBe(false);
+    expect(generalNodes.every((general) => (
+      (general.children[0] as THREE.Mesh).material as THREE.Material
+    ).visible === false)).toBe(true);
+    expect(generalNodes.every((general) => (general.children[1] as THREE.Mesh).visible)).toBe(true);
     expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.x, 0) / branchNodes.size).toBeCloseTo(0);
     expect([...branchNodes.values()].reduce((sum, branch) => sum + branch.position.z, 0) / branchNodes.size).toBeCloseTo(0);
     expect(controls.autoRotate).toBe(false);

@@ -50,6 +50,10 @@
 
 .course-workbench__grid > * { min-width: 0; }
 
+.course-workbench__content {
+  padding-top: 22px;
+}
+
 .course-workbench__stage {
   min-height: 560px;
   padding: 8px;
@@ -219,6 +223,7 @@
   .course-workbench { padding-inline: 16px; }
   .course-workbench__header { align-items: flex-start; flex-direction: column; gap: 6px; }
   .course-workbench__grid { grid-template-columns: minmax(0, 1fr); }
+  .course-workbench__content { padding-top: 16px; }
   .course-workbench__grid > .course-context,
   .course-workbench__grid > .course-workbench__stages,
   .course-workbench__stage > .stage-evidence-drawer { display: none; }

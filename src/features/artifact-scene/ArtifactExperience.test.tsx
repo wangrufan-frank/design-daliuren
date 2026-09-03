@@ -401,6 +401,14 @@ describe("ArtifactExperience", () => {
     expect(document.querySelectorAll(".artifact-annotations__leader")).toHaveLength(0);
   });
 
+  it("starts the simplified artifact in its immediately interactive state", async () => {
+    render(<ArtifactExperience source={referenceSourceResults} startInteractive onShowCourse={vi.fn()} />);
+    await waitFor(() => expect(mocks.controllers).toHaveLength(1));
+
+    expect(latestController().setMonthGeneralInteractionEnabled).toHaveBeenLastCalledWith(true);
+    expect(screen.getByRole("button", { name: "月将环向左一宫" })).toBeEnabled();
+  });
+
   it("keeps compact canvases to stage annotations and focuses parts from the complete directory", async () => {
     vi.stubGlobal("innerWidth", 390);
     const user = userEvent.setup();

@@ -3,24 +3,14 @@ import { ArtifactExperience } from "../artifact-scene/ArtifactExperience";
 import { mapArtifactState } from "../artifact-scene/model/map-artifact-state";
 import type { ArtifactSourceResults } from "../artifact-scene/model/types";
 import { CourseSheet } from "../course-sheet/CourseSheet";
-import type { RuleStageId } from "../../domain/chart/types";
-import { reviewStageFor } from "../artifact-scene/timeline/review-stages";
 
 type CourseMode = "artifact" | "text";
 
-export interface CourseExperienceMobileTools {
-  onCloseTools(): void;
-  partDirectoryHostId: string;
-  timelineHostId: string;
-}
-
 interface CourseExperienceProps {
   source: ArtifactSourceResults;
-  selectedStage?: RuleStageId;
-  mobileTools?: CourseExperienceMobileTools;
 }
 
-export function CourseExperience({ source, selectedStage = "calendar", mobileTools }: CourseExperienceProps) {
+export function CourseExperience({ source }: CourseExperienceProps) {
   const [requestedMode, setRequestedMode] = useState<CourseMode>("artifact");
   const artifactAvailable = useMemo(() => {
     try {
@@ -31,9 +21,7 @@ export function CourseExperience({ source, selectedStage = "calendar", mobileToo
     }
   }, [source]);
   const mode: CourseMode = artifactAvailable ? requestedMode : "text";
-  const stage = reviewStageFor(selectedStage);
   const selectMode = (nextMode: CourseMode) => {
-    mobileTools?.onCloseTools();
     setRequestedMode(nextMode);
   };
   const showArtifact = artifactAvailable && mode === "artifact";
@@ -61,20 +49,14 @@ export function CourseExperience({ source, selectedStage = "calendar", mobileToo
         {showArtifact ? (
           <ArtifactExperience
             source={source}
-            selectedStage={selectedStage}
             onShowCourse={() => selectMode("text")}
-            mobileToolHosts={mobileTools ? {
-              partsId: mobileTools.partDirectoryHostId,
-              timelineId: mobileTools.timelineHostId,
-            } : undefined}
+            showPartDirectory={false}
+            showTimeline={false}
+            startInteractive
           />
         ) : (
           <CourseSheet result={source.course} />
         )}
-      </div>
-      <div className="course-experience__caption" aria-label={`${stage.label}阶段说明`}>
-        <p>{stage.caption[0]}</p>
-        <p>{stage.caption[1]}</p>
       </div>
     </section>
   );

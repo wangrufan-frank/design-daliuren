@@ -57,6 +57,7 @@ interface ArtifactExperienceProps {
   onShowCourse(): void;
   showTimeline?: boolean;
   showPartDirectory?: boolean;
+  startInteractive?: boolean;
   mobileToolHosts?: { partsId: string; timelineId: string };
 }
 
@@ -87,6 +88,10 @@ function authoredVisualReviewMotion(layout: JadePlateLayout) {
       goldProgress: 0,
     })),
   };
+}
+
+function createInteractiveMonthGeneralState(layout: JadePlateLayout): MonthGeneralInteractionState {
+  return reduceMonthGeneralState(createMonthGeneralState(layout), { type: "demo-complete", nowMs: 0 });
 }
 
 function subscribeToViewport(onChange: () => void): () => void {
@@ -165,6 +170,7 @@ export function ArtifactExperience({
   onShowCourse,
   showTimeline = true,
   showPartDirectory = true,
+  startInteractive = false,
   mobileToolHosts,
 }: ArtifactExperienceProps) {
   const displayState = useMemo(() => mapArtifactState(source), [source]);
@@ -185,7 +191,9 @@ export function ArtifactExperience({
   const lastFrameRef = useRef<number | undefined>(undefined);
   const userControlledRef = useRef(false);
   const stageReplayRef = useRef<ActiveStageReplay | undefined>(undefined);
-  const interactionRef = useRef<MonthGeneralInteractionState>(createMonthGeneralState(jadePlateLayout));
+  const interactionRef = useRef<MonthGeneralInteractionState>(
+    startInteractive ? createInteractiveMonthGeneralState(jadePlateLayout) : createMonthGeneralState(jadePlateLayout),
+  );
   const visualReviewPoseRef = useRef<"authored" | undefined>(undefined);
   const interactionMotionObservabilityRef = useRef({ seatedCount: 0, seatedGeneralIds: "", activeMonthGoldProgress: 0, goldGeneralCount: 0 });
   const [status, setStatus] = useState<ExperienceStatus>("loading");
@@ -269,22 +277,29 @@ export function ArtifactExperience({
   }, [publishInteractionMotion]);
 
   const replaceInteraction = useCallback(() => {
-    const next = createMonthGeneralState(jadePlateLayout);
+    const next = startInteractive
+      ? createInteractiveMonthGeneralState(jadePlateLayout)
+      : createMonthGeneralState(jadePlateLayout);
+    const completedIds = startInteractive
+      ? next.layout.generalSequence.map((general) => general.nodeId).join(",")
+      : "";
+    const completedCount = startInteractive ? 12 : 0;
+    const goldProgress = startInteractive ? 1 : 0;
     interactionRef.current = next;
     setInteraction(next);
-    setSeatedCount(0);
-    setSeatedGeneralIds("");
-    setActiveMonthGoldProgress(0);
-    setGoldGeneralCount(0);
+    setSeatedCount(completedCount);
+    setSeatedGeneralIds(completedIds);
+    setActiveMonthGoldProgress(goldProgress);
+    setGoldGeneralCount(completedCount);
     interactionMotionObservabilityRef.current = {
-      seatedCount: 0,
-      seatedGeneralIds: "",
-      activeMonthGoldProgress: 0,
-      goldGeneralCount: 0,
+      seatedCount: completedCount,
+      seatedGeneralIds: completedIds,
+      activeMonthGoldProgress: goldProgress,
+      goldGeneralCount: completedCount,
     };
-    controllerRef.current?.setMonthGeneralInteractionEnabled(false);
+    controllerRef.current?.setMonthGeneralInteractionEnabled(startInteractive);
     return next;
-  }, [jadePlateLayout]);
+  }, [jadePlateLayout, startInteractive]);
 
   const applyInteractionEvent = useCallback((event: MonthGeneralInputEvent) => {
     const current = interactionRef.current;
@@ -489,7 +504,7 @@ export function ArtifactExperience({
       }
       rendererOwnedByController = true;
       controller.setDisplayState(displayStateRef.current);
-      controller.setMonthGeneralInteractionEnabled(false);
+      controller.setMonthGeneralInteractionEnabled(startInteractive);
       resizeController(false);
       controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, reducedMotionRef.current);
       if (controllerRef.current !== controller) return;
@@ -515,7 +530,7 @@ export function ArtifactExperience({
       disposeOwnedController();
       disposeRenderer();
     };
-  }, [applyAt, applyInteractionEvent, finishDemo, measureBranchProjection, stopPlayback]);
+  }, [applyAt, applyInteractionEvent, finishDemo, measureBranchProjection, startInteractive, stopPlayback]);
 
   useEffect(() => {
     displayStateRef.current = displayState;

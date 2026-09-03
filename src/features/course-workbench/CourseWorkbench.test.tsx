@@ -1,7 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { CalendarResult } from "../../domain/calendar/types";
 import type { CourseResult } from "../../domain/course/types";
@@ -37,10 +35,9 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  vi.unstubAllGlobals();
 });
 
-it("renders one semantic three-column workbench for a complete course", () => {
+it("renders only the course display without workbench tools or stage navigation", () => {
   render(
     <CourseWorkbench
       input={referenceSession.input}
@@ -51,15 +48,15 @@ it("renders one semantic three-column workbench for a complete course", () => {
     />,
   );
 
-  expect(screen.getAllByRole("main")).toHaveLength(1);
-  expect(screen.getByRole("region", { name: "起课上下文" })).toBeVisible();
-  expect(screen.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
-  const desktopStages = screen.getByRole("navigation", { name: "推演阶段" });
-  expect(desktopStages).toBeVisible();
-  expect(within(desktopStages).getByRole("button", { name: "复制结课，已完成" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("region", { name: "课式展示" })).toBeVisible();
+  expect(screen.getByRole("toolbar", { name: "课式视图" })).toBeVisible();
+  expect(screen.queryByRole("region", { name: "起课上下文" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: /推演阶段/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("toolbar", { name: "工作台工具" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "查看阶段证据" })).not.toBeInTheDocument();
 });
 
-it("keeps a general stage error visible without replacing the completed workbench", () => {
+it("keeps calculation errors visible above the simplified display", () => {
   render(
     <CourseWorkbench
       input={referenceSession.input}
@@ -72,132 +69,5 @@ it("keeps a general stage error visible without replacing the completed workbenc
   );
 
   expect(screen.getByRole("alert")).toHaveTextContent("历法数据读取失败");
-  expect(screen.getByRole("region", { name: "三维阶段回看" })).toBeVisible();
-  expect(screen.getByRole("navigation", { name: "推演阶段" })).toBeVisible();
-});
-
-it("keeps stage selection inside the workbench and updates the central caption", async () => {
-  const user = userEvent.setup();
-  function Workbench() {
-    const [selectedStage, setSelectedStage] = useState<"calendar" | "heaven-earth" | "four-lessons" | "three-transmissions" | "heavenly-generals" | "course">("course");
-    return <CourseWorkbench input={referenceSession.input} source={source} selectedStage={selectedStage} onSelectStage={setSelectedStage} onRestart={vi.fn()} />;
-  }
-
-  render(<Workbench />);
-  await user.click(within(screen.getByRole("navigation", { name: "推演阶段" })).getByRole("button", { name: "三传取法，已完成" }));
-
-  expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
-});
-
-it("keeps the selected stage while switching between separate mobile child pages", async () => {
-  vi.stubGlobal("innerWidth", 390);
-  vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
-    matches: query === "(max-width: 899px)",
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })));
-  const user = userEvent.setup();
-  function Workbench() {
-    const [selectedStage, setSelectedStage] = useState<"calendar" | "heaven-earth" | "four-lessons" | "three-transmissions" | "heavenly-generals" | "course">("course");
-    return <CourseWorkbench input={referenceSession.input} source={source} selectedStage={selectedStage} onSelectStage={setSelectedStage} onRestart={vi.fn()} />;
-  }
-
-  render(<Workbench />);
-  const mobileStages = screen.getByRole("navigation", { name: "移动推演阶段" });
-  expect(screen.getByRole("toolbar", { name: "工作台工具" })).toBeInTheDocument();
-  await user.click(within(mobileStages).getByRole("button", { name: "三传取法，已完成" }));
-  await user.click(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "文字课式" }));
-
-  expect(screen.getByLabelText("标准文字课式")).toBeVisible();
-  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
-  expect(within(mobileStages).getByRole("button", { name: "三传取法，已完成" })).toHaveAttribute("aria-current", "page");
-
-  await user.click(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "三维推演" }));
-  expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
-  expect(screen.getByLabelText("大六壬三维器物")).toBeVisible();
-  expect(within(screen.getByRole("toolbar", { name: "课式视图" })).getByRole("button", { name: "三维推演" })).toHaveAttribute("aria-pressed", "true");
-});
-
-it("mounts one calendar review when an open desktop evidence drawer moves to mobile", async () => {
-  vi.stubGlobal("innerWidth", 1024);
-  const user = userEvent.setup();
-
-  render(
-    <CourseWorkbench
-      input={referenceSession.input}
-      source={source}
-      selectedStage="calendar"
-      onSelectStage={vi.fn()}
-      onRestart={vi.fn()}
-    />,
-  );
-  await user.click(screen.getByRole("button", { name: "查看阶段证据" }));
-  expect(document.querySelectorAll("#calendar-review-title")).toHaveLength(1);
-
-  act(() => {
-    vi.stubGlobal("innerWidth", 390);
-    window.dispatchEvent(new Event("resize"));
-  });
-  await user.click(within(screen.getByRole("toolbar", { name: "工作台工具" })).getByRole("button", { name: "阶段证据" }));
-
-  for (const id of ["calendar-review-title", "calendar-evidence", "calendar-correction-yearPillar"]) {
-    expect(document.querySelectorAll(`#${id}`), id).toHaveLength(1);
-  }
-  const mobilePanel = screen.getByRole("region", { name: "移动工具面板" });
-  const correctionLabel = within(mobilePanel).getByText("修正年柱", { selector: "label" }) as HTMLLabelElement;
-  const correctionSelect = within(mobilePanel).getByRole("combobox", { name: "修正年柱" });
-  expect(correctionLabel.control).toBe(correctionSelect);
-  expect(document.getElementById(correctionLabel.htmlFor)).toBe(correctionSelect);
-
-  await user.click(correctionLabel);
-  expect(correctionSelect).toHaveFocus();
-});
-
-it("keeps mobile navigation and opens the real text course after artifact loading fails", async () => {
-  vi.stubGlobal("innerWidth", 390);
-  vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
-    matches: query === "(max-width: 899px)",
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })));
-  artifactLoader.loadArtifact.mockRejectedValueOnce(new Error("missing GLB"));
-  const user = userEvent.setup();
-
-  render(<CourseWorkbench input={referenceSession.input} source={source} selectedStage="course" onSelectStage={vi.fn()} onRestart={vi.fn()} />);
-  expect(await screen.findByRole("alert")).toHaveTextContent("三维器物无法加载");
-  expect(screen.getByRole("navigation", { name: "移动推演阶段" })).toBeVisible();
-
-  await screen.findByLabelText("标准文字课式");
-  expect(screen.queryByLabelText("大六壬三维器物")).not.toBeInTheDocument();
-});
-
-it("keeps the mobile dock beside the text course when artifact mapping is unavailable", () => {
-  vi.stubGlobal("innerWidth", 390);
-  const inconsistent: ArtifactSourceResults = {
-    ...source,
-    course: {
-      ...source.course,
-      transmissions: source.course.transmissions.map((item, index) => index === 0
-        ? { ...item, branch: item.branch === "子" ? "丑" : "子" }
-        : item),
-    },
-  };
-
-  render(<CourseWorkbench input={referenceSession.input} source={inconsistent} selectedStage="course" onSelectStage={vi.fn()} onRestart={vi.fn()} />);
-
-  expect(
-    within(screen.getByRole("region", { name: "三维阶段回看" })).getByLabelText("标准文字课式"),
-  ).toBeVisible();
-  expect(screen.getByRole("navigation", { name: "移动推演阶段" })).toBeVisible();
-  expect(screen.getByRole("toolbar", { name: "工作台工具" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "课式展示" })).toBeVisible();
 });

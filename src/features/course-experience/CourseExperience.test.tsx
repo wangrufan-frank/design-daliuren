@@ -80,19 +80,7 @@ it("shows mobile artifact and text modes as separate pages", async () => {
   const user = userEvent.setup();
   function Harness() {
     return (
-      <>
-        <div id="parts-host" />
-        <div id="timeline-host" />
-        <CourseExperience
-          source={source}
-          selectedStage="three-transmissions"
-          mobileTools={{
-            onCloseTools: vi.fn(),
-            partDirectoryHostId: "parts-host",
-            timelineHostId: "timeline-host",
-          }}
-        />
-      </>
+      <CourseExperience source={source} />
     );
   }
 
@@ -104,11 +92,12 @@ it("shows mobile artifact and text modes as separate pages", async () => {
   expect(screen.getByLabelText("标准文字课式")).toBeVisible();
 });
 
-it("shows the selected stage's shared two-line caption", () => {
-  render(<CourseExperience source={source} selectedStage="three-transmissions" />);
+it("omits the removed timeline, part directory, and stage caption", () => {
+  render(<CourseExperience source={source} />);
 
-  expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("初中末传");
-  expect(screen.getByLabelText("三传取法阶段说明")).toHaveTextContent("由课势取其来去");
+  expect(screen.queryByRole("region", { name: "器物推演控制" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "部件目录" })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/阶段说明$/)).not.toBeInTheDocument();
 });
 
 it("keeps the text course and copy action usable when artifact loading fails", async () => {

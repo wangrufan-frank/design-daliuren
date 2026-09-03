@@ -724,8 +724,22 @@ export class ArtifactSceneController {
       if (object instanceof THREE.Mesh && (
         object.userData.surface_treatment === "general-seat-recess"
         || object.name.includes("general-recess/")
+        || object.userData.visual_role === "generals"
       )) {
         object.visible = false;
+      }
+      if (object instanceof THREE.Mesh
+        && object.userData.domain === "general"
+        && typeof object.userData.node_id === "string"
+        && object.userData.node_id.startsWith("general/")) {
+        const hideCarrier = (material: THREE.Material) => {
+          const hidden = material.clone();
+          hidden.visible = false;
+          return hidden;
+        };
+        object.material = Array.isArray(object.material)
+          ? object.material.map(hideCarrier)
+          : hideCarrier(object.material);
       }
       if (object instanceof THREE.Mesh && (
         object.userData.visual_role === "corner-pearl"
