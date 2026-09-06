@@ -20,7 +20,10 @@ function firstInvalidCourseUpstream(session: CourseSession): typeof COURSE_UPSTR
     const allowed = new Set<string>(COURSE_UPSTREAM_ORDER.slice(0, index + 1));
     const prefix = {
       ...session,
-      snapshots: Object.fromEntries(Object.entries(session.snapshots).filter(([key]) => allowed.has(key))),
+      snapshots: Object.entries(session.snapshots).reduce<CourseSession["snapshots"]>(
+        (kept, [key, snapshot]) => allowed.has(key) ? { ...kept, [key]: snapshot } : kept,
+        {},
+      ),
     };
     if (validateSession(prefix).length) return stage;
   }

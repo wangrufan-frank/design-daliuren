@@ -1,0 +1,372 @@
+{
+  "pass": true,
+  "normalization": "none",
+  "canonicalDimensions": {
+    "width": 1286,
+    "height": 1223
+  },
+  "sourceDimensions": {
+    "reference": {
+      "width": 1286,
+      "height": 1223
+    },
+    "actual": {
+      "width": 1286,
+      "height": 1223
+    }
+  },
+  "thresholds": {
+    "mae": 0.035,
+    "edgeOverlap": 0.98,
+    "histogramDistance": 0.08,
+    "blackRatioDelta": 0.015,
+    "blackRatioMaximum": 0.18
+  },
+  "metrics": {
+    "mae": 0,
+    "edgeOverlap": 0.992305839725663,
+    "histogramDistance": 0,
+    "blackRatio": {
+      "reference": 0.0000010698688554756957,
+      "actual": 0.0000010698688554756957
+    },
+    "pixelCount": 934694
+  },
+  "regions": [
+    {
+      "name": "zodiac",
+      "pass": true,
+      "metrics": {
+        "mae": 0,
+        "edgeOverlap": 0.9899575994194658,
+        "histogramDistance": 0,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 529467
+      },
+      "failures": []
+    },
+    {
+      "name": "four-pearls",
+      "pass": true,
+      "metrics": {
+        "mae": 0,
+        "edgeOverlap": 1,
+        "histogramDistance": 0,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 28852
+      },
+      "failures": [],
+      "items": [
+        {
+          "name": "north-west",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": []
+        },
+        {
+          "name": "north-east",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": []
+        },
+        {
+          "name": "south-west",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": []
+        },
+        {
+          "name": "south-east",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": []
+        }
+      ]
+    },
+    {
+      "name": "earth-branches",
+      "pass": true,
+      "metrics": {
+        "mae": 0,
+        "edgeOverlap": 1,
+        "histogramDistance": 0,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 107990
+      },
+      "failures": []
+    },
+    {
+      "name": "month-generals",
+      "pass": true,
+      "metrics": {
+        "mae": 0,
+        "edgeOverlap": 1,
+        "histogramDistance": 0,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 89142
+      },
+      "failures": []
+    },
+    {
+      "name": "general-jades",
+      "pass": true,
+      "metrics": {
+        "mae": 0,
+        "edgeOverlap": 1,
+        "histogramDistance": 0,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 67746
+      },
+      "failures": [],
+      "items": [
+        {
+          "name": "贵人",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5644
+          },
+          "failures": []
+        },
+        {
+          "name": "螣蛇",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5642
+          },
+          "failures": []
+        },
+        {
+          "name": "朱雀",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5650
+          },
+          "failures": []
+        },
+        {
+          "name": "六合",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5645
+          },
+          "failures": []
+        },
+        {
+          "name": "勾陈",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5648
+          },
+          "failures": []
+        },
+        {
+          "name": "青龙",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5642
+          },
+          "failures": []
+        },
+        {
+          "name": "天空",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5644
+          },
+          "failures": []
+        },
+        {
+          "name": "白虎",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5642
+          },
+          "failures": []
+        },
+        {
+          "name": "太常",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5650
+          },
+          "failures": []
+        },
+        {
+          "name": "玄武",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5645
+          },
+          "failures": []
+        },
+        {
+          "name": "太阴",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5650
+          },
+          "failures": []
+        },
+        {
+          "name": "天后",
+          "pass": true,
+          "metrics": {
+            "mae": 0,
+            "edgeOverlap": 1,
+            "histogramDistance": 0,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5644
+          },
+          "failures": []
+        }
+      ]
+    },
+    {
+      "name": "center-trace",
+      "pass": true,
+      "metrics": {
+        "mae": 0,
+        "edgeOverlap": 1,
+        "histogramDistance": 0,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 28833
+      },
+      "failures": []
+    }
+  ],
+  "failures": []
+}

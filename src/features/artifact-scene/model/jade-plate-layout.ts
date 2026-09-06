@@ -18,9 +18,12 @@ export const GENERAL_NODE_IDS = {
   太常: "general/constant", 玄武: "general/black-tortoise", 太阴: "general/yin", 天后: "general/queen-of-heaven",
 } as const satisfies Record<HeavenlyGeneral, `general/${string}`>;
 
-export const GENERAL_LABEL_IDS = Object.fromEntries(
-  Object.entries(GENERAL_NODE_IDS).map(([general, id]) => [general, `dynamic/${id}`]),
-) as unknown as Record<HeavenlyGeneral, `dynamic/general/${string}`>;
+export const GENERAL_LABEL_IDS = {
+  贵人: "dynamic/general/noble", 螣蛇: "dynamic/general/snake", 朱雀: "dynamic/general/vermilion-bird",
+  六合: "dynamic/general/harmony", 勾陈: "dynamic/general/hook-array", 青龙: "dynamic/general/azure-dragon",
+  天空: "dynamic/general/void", 白虎: "dynamic/general/white-tiger", 太常: "dynamic/general/constant",
+  玄武: "dynamic/general/black-tortoise", 太阴: "dynamic/general/yin", 天后: "dynamic/general/queen-of-heaven",
+} as const satisfies Record<HeavenlyGeneral, `dynamic/general/${string}`>;
 
 export interface JadePlateGeneralLayout {
   sequenceIndex: number;

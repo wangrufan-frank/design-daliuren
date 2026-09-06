@@ -1,0 +1,530 @@
+{
+  "pass": false,
+  "normalization": "contain",
+  "canonicalDimensions": {
+    "width": 1286,
+    "height": 1223
+  },
+  "sourceDimensions": {
+    "reference": {
+      "width": 1254,
+      "height": 1254
+    },
+    "actual": {
+      "width": 1286,
+      "height": 1223
+    }
+  },
+  "thresholds": {
+    "mae": 0.035,
+    "edgeOverlap": 0.98,
+    "histogramDistance": 0.08,
+    "blackRatioDelta": 0.015,
+    "blackRatioMaximum": 0.18
+  },
+  "metrics": {
+    "mae": 0.09829489476343388,
+    "edgeOverlap": 0.4647470824013921,
+    "histogramDistance": 0.4507407415332363,
+    "blackRatio": {
+      "reference": 0.000025676852531416697,
+      "actual": 0.0000010698688554756957
+    },
+    "pixelCount": 934694
+  },
+  "regions": [
+    {
+      "name": "zodiac",
+      "pass": false,
+      "metrics": {
+        "mae": 0.1074864991555017,
+        "edgeOverlap": 0.49732073833243284,
+        "histogramDistance": 0.5612109284746105,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 529467
+      },
+      "failures": [
+        "zodiac: MAE 0.107486 > 0.035",
+        "zodiac: edge overlap 0.497321 < 0.98",
+        "zodiac: histogram distance 0.561211 > 0.08"
+      ]
+    },
+    {
+      "name": "four-pearls",
+      "pass": false,
+      "metrics": {
+        "mae": 0.07927122325430935,
+        "edgeOverlap": 0.3600365386846074,
+        "histogramDistance": 0.7243056518323402,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 28852
+      },
+      "failures": [
+        "four-pearls: MAE 0.079271 > 0.035",
+        "four-pearls: edge overlap 0.360037 < 0.98",
+        "four-pearls: histogram distance 0.724306 > 0.08"
+      ],
+      "items": [
+        {
+          "name": "north-west",
+          "pass": false,
+          "metrics": {
+            "mae": 0.0804020337281361,
+            "edgeOverlap": 0.5085629483842296,
+            "histogramDistance": 0.7017884375433247,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": [
+            "four-pearls/north-west: MAE 0.080402 > 0.035",
+            "four-pearls/north-west: edge overlap 0.508563 < 0.98",
+            "four-pearls/north-west: histogram distance 0.701788 > 0.08"
+          ]
+        },
+        {
+          "name": "north-east",
+          "pass": false,
+          "metrics": {
+            "mae": 0.07494166759545447,
+            "edgeOverlap": 0.4228102444471029,
+            "histogramDistance": 0.7513748324783956,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": [
+            "four-pearls/north-east: MAE 0.074942 > 0.035",
+            "four-pearls/north-east: edge overlap 0.422810 < 0.98",
+            "four-pearls/north-east: histogram distance 0.751375 > 0.08"
+          ]
+        },
+        {
+          "name": "south-west",
+          "pass": false,
+          "metrics": {
+            "mae": 0.07621043703770154,
+            "edgeOverlap": 0.35591187953151143,
+            "histogramDistance": 0.6925458662599936,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": [
+            "four-pearls/south-west: MAE 0.076210 > 0.035",
+            "four-pearls/south-west: edge overlap 0.355912 < 0.98",
+            "four-pearls/south-west: histogram distance 0.692546 > 0.08"
+          ]
+        },
+        {
+          "name": "south-east",
+          "pass": false,
+          "metrics": {
+            "mae": 0.08553075465594528,
+            "edgeOverlap": 0.24719967532467535,
+            "histogramDistance": 0.7742039835482233,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 7213
+          },
+          "failures": [
+            "four-pearls/south-east: MAE 0.085531 > 0.035",
+            "four-pearls/south-east: edge overlap 0.247200 < 0.98",
+            "four-pearls/south-east: histogram distance 0.774204 > 0.08"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "earth-branches",
+      "pass": false,
+      "metrics": {
+        "mae": 0.0831274984914483,
+        "edgeOverlap": 0.39277483028876536,
+        "histogramDistance": 0.5725807945180109,
+        "blackRatio": {
+          "reference": 0.00009260116677470137,
+          "actual": 0
+        },
+        "pixelCount": 107990
+      },
+      "failures": [
+        "earth-branches: MAE 0.083127 > 0.035",
+        "earth-branches: edge overlap 0.392775 < 0.98",
+        "earth-branches: histogram distance 0.572581 > 0.08"
+      ]
+    },
+    {
+      "name": "month-generals",
+      "pass": false,
+      "metrics": {
+        "mae": 0.05894984619531179,
+        "edgeOverlap": 0.5059504042730394,
+        "histogramDistance": 0.4062432224241473,
+        "blackRatio": {
+          "reference": 0.00015705279217428372,
+          "actual": 0
+        },
+        "pixelCount": 89142
+      },
+      "failures": [
+        "month-generals: MAE 0.058950 > 0.035",
+        "month-generals: edge overlap 0.505950 < 0.98",
+        "month-generals: histogram distance 0.406243 > 0.08"
+      ]
+    },
+    {
+      "name": "general-jades",
+      "pass": false,
+      "metrics": {
+        "mae": 0.10213976890611587,
+        "edgeOverlap": 0.32528544129329173,
+        "histogramDistance": 0.7261978567000266,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 67746
+      },
+      "failures": [
+        "general-jades: MAE 0.102140 > 0.035",
+        "general-jades: edge overlap 0.325285 < 0.98",
+        "general-jades: histogram distance 0.726198 > 0.08"
+      ],
+      "items": [
+        {
+          "name": "贵人",
+          "pass": false,
+          "metrics": {
+            "mae": 0.1063059620257269,
+            "edgeOverlap": 0.400510881104034,
+            "histogramDistance": 0.8032719111741083,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5644
+          },
+          "failures": [
+            "general-jades/贵人: MAE 0.106306 > 0.035",
+            "general-jades/贵人: edge overlap 0.400511 < 0.98",
+            "general-jades/贵人: histogram distance 0.803272 > 0.08"
+          ]
+        },
+        {
+          "name": "螣蛇",
+          "pass": false,
+          "metrics": {
+            "mae": 0.10498085090115451,
+            "edgeOverlap": 0.39041824256322355,
+            "histogramDistance": 0.7102682263972585,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5642
+          },
+          "failures": [
+            "general-jades/螣蛇: MAE 0.104981 > 0.035",
+            "general-jades/螣蛇: edge overlap 0.390418 < 0.98",
+            "general-jades/螣蛇: histogram distance 0.710268 > 0.08"
+          ]
+        },
+        {
+          "name": "朱雀",
+          "pass": false,
+          "metrics": {
+            "mae": 0.10436092313031407,
+            "edgeOverlap": 0.23857210301996443,
+            "histogramDistance": 0.7571681415929205,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5650
+          },
+          "failures": [
+            "general-jades/朱雀: MAE 0.104361 > 0.035",
+            "general-jades/朱雀: edge overlap 0.238572 < 0.98",
+            "general-jades/朱雀: histogram distance 0.757168 > 0.08"
+          ]
+        },
+        {
+          "name": "六合",
+          "pass": false,
+          "metrics": {
+            "mae": 0.10173686008209011,
+            "edgeOverlap": 0.24386506683010772,
+            "histogramDistance": 0.7851195748449958,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5645
+          },
+          "failures": [
+            "general-jades/六合: MAE 0.101737 > 0.035",
+            "general-jades/六合: edge overlap 0.243865 < 0.98",
+            "general-jades/六合: histogram distance 0.785120 > 0.08"
+          ]
+        },
+        {
+          "name": "勾陈",
+          "pass": false,
+          "metrics": {
+            "mae": 0.10910126090096095,
+            "edgeOverlap": 0.3525032393845302,
+            "histogramDistance": 0.7453375826251184,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5648
+          },
+          "failures": [
+            "general-jades/勾陈: MAE 0.109101 > 0.035",
+            "general-jades/勾陈: edge overlap 0.352503 < 0.98",
+            "general-jades/勾陈: histogram distance 0.745338 > 0.08"
+          ]
+        },
+        {
+          "name": "青龙",
+          "pass": false,
+          "metrics": {
+            "mae": 0.10890983357776526,
+            "edgeOverlap": 0.347714605670542,
+            "histogramDistance": 0.716294458229942,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5642
+          },
+          "failures": [
+            "general-jades/青龙: MAE 0.108910 > 0.035",
+            "general-jades/青龙: edge overlap 0.347715 < 0.98",
+            "general-jades/青龙: histogram distance 0.716294 > 0.08"
+          ]
+        },
+        {
+          "name": "天空",
+          "pass": false,
+          "metrics": {
+            "mae": 0.10011510864681332,
+            "edgeOverlap": 0.3192138801039303,
+            "histogramDistance": 0.6690881171745807,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5644
+          },
+          "failures": [
+            "general-jades/天空: MAE 0.100115 > 0.035",
+            "general-jades/天空: edge overlap 0.319214 < 0.98",
+            "general-jades/天空: histogram distance 0.669088 > 0.08"
+          ]
+        },
+        {
+          "name": "白虎",
+          "pass": false,
+          "metrics": {
+            "mae": 0.08997296188947043,
+            "edgeOverlap": 0.3444868306529393,
+            "histogramDistance": 0.6511284414510218,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5642
+          },
+          "failures": [
+            "general-jades/白虎: MAE 0.089973 > 0.035",
+            "general-jades/白虎: edge overlap 0.344487 < 0.98",
+            "general-jades/白虎: histogram distance 0.651128 > 0.08"
+          ]
+        },
+        {
+          "name": "太常",
+          "pass": false,
+          "metrics": {
+            "mae": 0.09457042049858291,
+            "edgeOverlap": 0.33128223373716736,
+            "histogramDistance": 0.7054277286135693,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5650
+          },
+          "failures": [
+            "general-jades/太常: MAE 0.094570 > 0.035",
+            "general-jades/太常: edge overlap 0.331282 < 0.98",
+            "general-jades/太常: histogram distance 0.705428 > 0.08"
+          ]
+        },
+        {
+          "name": "玄武",
+          "pass": false,
+          "metrics": {
+            "mae": 0.09352506990395804,
+            "edgeOverlap": 0.36156183620486193,
+            "histogramDistance": 0.7231768526719811,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5645
+          },
+          "failures": [
+            "general-jades/玄武: MAE 0.093525 > 0.035",
+            "general-jades/玄武: edge overlap 0.361562 < 0.98",
+            "general-jades/玄武: histogram distance 0.723177 > 0.08"
+          ]
+        },
+        {
+          "name": "太阴",
+          "pass": false,
+          "metrics": {
+            "mae": 0.09546231708022442,
+            "edgeOverlap": 0.2878530634948354,
+            "histogramDistance": 0.7621828908554572,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5650
+          },
+          "failures": [
+            "general-jades/太阴: MAE 0.095462 > 0.035",
+            "general-jades/太阴: edge overlap 0.287853 < 0.98",
+            "general-jades/太阴: histogram distance 0.762183 > 0.08"
+          ]
+        },
+        {
+          "name": "天后",
+          "pass": false,
+          "metrics": {
+            "mae": 0.11664674847023619,
+            "edgeOverlap": 0.3246664134046064,
+            "histogramDistance": 0.8372312780533898,
+            "blackRatio": {
+              "reference": 0,
+              "actual": 0
+            },
+            "pixelCount": 5644
+          },
+          "failures": [
+            "general-jades/天后: MAE 0.116647 > 0.035",
+            "general-jades/天后: edge overlap 0.324666 < 0.98",
+            "general-jades/天后: histogram distance 0.837231 > 0.08"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "center-trace",
+      "pass": false,
+      "metrics": {
+        "mae": 0.055946515532651515,
+        "edgeOverlap": 0.3275864165076872,
+        "histogramDistance": 0.3716574758089688,
+        "blackRatio": {
+          "reference": 0,
+          "actual": 0
+        },
+        "pixelCount": 28833
+      },
+      "failures": [
+        "center-trace: MAE 0.055947 > 0.035",
+        "center-trace: edge overlap 0.327586 < 0.98",
+        "center-trace: histogram distance 0.371657 > 0.08"
+      ]
+    }
+  ],
+  "failures": [
+    "overall: MAE 0.098295 > 0.035",
+    "overall: edge overlap 0.464747 < 0.98",
+    "overall: histogram distance 0.450741 > 0.08",
+    "zodiac: MAE 0.107486 > 0.035",
+    "zodiac: edge overlap 0.497321 < 0.98",
+    "zodiac: histogram distance 0.561211 > 0.08",
+    "four-pearls/north-west: MAE 0.080402 > 0.035",
+    "four-pearls/north-west: edge overlap 0.508563 < 0.98",
+    "four-pearls/north-west: histogram distance 0.701788 > 0.08",
+    "four-pearls/north-east: MAE 0.074942 > 0.035",
+    "four-pearls/north-east: edge overlap 0.422810 < 0.98",
+    "four-pearls/north-east: histogram distance 0.751375 > 0.08",
+    "four-pearls/south-west: MAE 0.076210 > 0.035",
+    "four-pearls/south-west: edge overlap 0.355912 < 0.98",
+    "four-pearls/south-west: histogram distance 0.692546 > 0.08",
+    "four-pearls/south-east: MAE 0.085531 > 0.035",
+    "four-pearls/south-east: edge overlap 0.247200 < 0.98",
+    "four-pearls/south-east: histogram distance 0.774204 > 0.08",
+    "four-pearls: MAE 0.079271 > 0.035",
+    "four-pearls: edge overlap 0.360037 < 0.98",
+    "four-pearls: histogram distance 0.724306 > 0.08",
+    "earth-branches: MAE 0.083127 > 0.035",
+    "earth-branches: edge overlap 0.392775 < 0.98",
+    "earth-branches: histogram distance 0.572581 > 0.08",
+    "month-generals: MAE 0.058950 > 0.035",
+    "month-generals: edge overlap 0.505950 < 0.98",
+    "month-generals: histogram distance 0.406243 > 0.08",
+    "general-jades/贵人: MAE 0.106306 > 0.035",
+    "general-jades/贵人: edge overlap 0.400511 < 0.98",
+    "general-jades/贵人: histogram distance 0.803272 > 0.08",
+    "general-jades/螣蛇: MAE 0.104981 > 0.035",
+    "general-jades/螣蛇: edge overlap 0.390418 < 0.98",
+    "general-jades/螣蛇: histogram distance 0.710268 > 0.08",
+    "general-jades/朱雀: MAE 0.104361 > 0.035",
+    "general-jades/朱雀: edge overlap 0.238572 < 0.98",
+    "general-jades/朱雀: histogram distance 0.757168 > 0.08",
+    "general-jades/六合: MAE 0.101737 > 0.035",
+    "general-jades/六合: edge overlap 0.243865 < 0.98",
+    "general-jades/六合: histogram distance 0.785120 > 0.08",
+    "general-jades/勾陈: MAE 0.109101 > 0.035",
+    "general-jades/勾陈: edge overlap 0.352503 < 0.98",
+    "general-jades/勾陈: histogram distance 0.745338 > 0.08",
+    "general-jades/青龙: MAE 0.108910 > 0.035",
+    "general-jades/青龙: edge overlap 0.347715 < 0.98",
+    "general-jades/青龙: histogram distance 0.716294 > 0.08",
+    "general-jades/天空: MAE 0.100115 > 0.035",
+    "general-jades/天空: edge overlap 0.319214 < 0.98",
+    "general-jades/天空: histogram distance 0.669088 > 0.08",
+    "general-jades/白虎: MAE 0.089973 > 0.035",
+    "general-jades/白虎: edge overlap 0.344487 < 0.98",
+    "general-jades/白虎: histogram distance 0.651128 > 0.08",
+    "general-jades/太常: MAE 0.094570 > 0.035",
+    "general-jades/太常: edge overlap 0.331282 < 0.98",
+    "general-jades/太常: histogram distance 0.705428 > 0.08",
+    "general-jades/玄武: MAE 0.093525 > 0.035",
+    "general-jades/玄武: edge overlap 0.361562 < 0.98",
+    "general-jades/玄武: histogram distance 0.723177 > 0.08",
+    "general-jades/太阴: MAE 0.095462 > 0.035",
+    "general-jades/太阴: edge overlap 0.287853 < 0.98",
+    "general-jades/太阴: histogram distance 0.762183 > 0.08",
+    "general-jades/天后: MAE 0.116647 > 0.035",
+    "general-jades/天后: edge overlap 0.324666 < 0.98",
+    "general-jades/天后: histogram distance 0.837231 > 0.08",
+    "general-jades: MAE 0.102140 > 0.035",
+    "general-jades: edge overlap 0.325285 < 0.98",
+    "general-jades: histogram distance 0.726198 > 0.08",
+    "center-trace: MAE 0.055947 > 0.035",
+    "center-trace: edge overlap 0.327586 < 0.98",
+    "center-trace: histogram distance 0.371657 > 0.08"
+  ]
+}

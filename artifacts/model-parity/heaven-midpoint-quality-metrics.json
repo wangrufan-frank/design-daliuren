@@ -1,0 +1,27 @@
+{
+  "samples": {
+    "native": {
+      "rotationDelta": 0,
+      "projection": "native",
+      "drawCalls": 43,
+      "contrastP90": 43,
+      "edgeP90": 44
+    },
+    "midpoint": {
+      "rotationDelta": 0.2617993877991494,
+      "projection": "blended",
+      "drawCalls": 43,
+      "contrastP90": 54,
+      "edgeP90": 43
+    },
+    "rectified": {
+      "rotationDelta": 0.5235987755982988,
+      "projection": "rectified",
+      "drawCalls": 43,
+      "contrastP90": 80,
+      "edgeP90": 46
+    }
+  },
+  "contrastRetention": 1.255813953488372,
+  "edgeRetention": 0.9772727272727273
+}

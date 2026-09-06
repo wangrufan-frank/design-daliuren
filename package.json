@@ -31,7 +31,13 @@
     "asset:create-mobile": "node scripts/create-mobile-artifact.mjs",
     "postinstall": "npm run asset:copy-basis",
     "test:asset-runner": "node --test scripts/run-blender.test.mjs",
-    "verify:calendar-sources": "node scripts/verify-calendar-cases.mjs"
+    "verify:calendar-sources": "node scripts/verify-calendar-cases.mjs",
+    "model:export-minitool": "node scripts/export-minitool-model.mjs",
+    "model:build-reference-surfaces": "node scripts/build-minitool-reference-surfaces.mjs",
+    "build:minitool": "npm run model:export-minitool && npm run model:build-reference-surfaces && vite build --config vite.minitool.config.ts",
+    "validate:minitool": "node scripts/validate-minitool.mjs artifacts/daliuren-minitool",
+    "package:minitool": "python tools/python/package_minitool.py artifacts/daliuren-minitool artifacts/daliuren-minitool.zip",
+    "verify:minitool": "vitest run src/minitool && node --test scripts/export-minitool-model.test.mjs scripts/build-minitool-reference-surfaces.test.mjs scripts/compare-minitool-model.test.mjs scripts/validate-minitool.test.mjs && npm run build:minitool && playwright test e2e/minitool-model-parity.spec.ts e2e/minitool-solid-model.spec.ts && npm run validate:minitool && python .codex/minitool-zip-builder/scripts/audit_artifact.py artifacts/daliuren-minitool && npm run package:minitool && python .codex/minitool-zip-builder/scripts/audit_artifact.py artifacts/daliuren-minitool.zip && node --test scripts/verify-minitool-artifact.test.mjs && node scripts/verify-minitool-artifact.mjs"
   },
   "keywords": [],
   "type": "commonjs",
@@ -43,7 +49,8 @@
     "lunar-typescript": "1.8.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "three": "0.185.1"
+    "three": "0.185.1",
+    "three-webgl1": "npm:three@0.162.0"
   },
   "devDependencies": {
     "@gltf-transform/cli": "4.4.2",
@@ -60,6 +67,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "astronomy-engine": "2.1.19",
     "jsdom": "^26.1.0",
+    "sharp": "0.34.5",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
     "vitest": "^3.2.7"

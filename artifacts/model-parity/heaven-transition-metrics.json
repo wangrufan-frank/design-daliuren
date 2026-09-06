@@ -1,0 +1,112 @@
+[
+  {
+    "name": "positive-nanoradian",
+    "beforeDelta": 0,
+    "afterDelta": 1e-9,
+    "beforeProjection": "native",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0,
+    "changedRatio": 0
+  },
+  {
+    "name": "negative-nanoradian",
+    "beforeDelta": 0,
+    "afterDelta": -1e-9,
+    "beforeProjection": "native",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0,
+    "changedRatio": 0
+  },
+  {
+    "name": "positive-periodic-nanoradian",
+    "beforeDelta": 6.283185307179586,
+    "afterDelta": 6.283185308179586,
+    "beforeProjection": "blended",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0,
+    "changedRatio": 0
+  },
+  {
+    "name": "negative-periodic-nanoradian",
+    "beforeDelta": -6.283185307179586,
+    "afterDelta": -6.283185308179586,
+    "beforeProjection": "blended",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0,
+    "changedRatio": 0
+  },
+  {
+    "name": "positive-origin",
+    "beforeDelta": 0,
+    "afterDelta": 0.0017453292519943296,
+    "beforeProjection": "native",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0.0011685208212185016,
+    "changedRatio": 0.003428264866173363
+  },
+  {
+    "name": "negative-origin",
+    "beforeDelta": 0,
+    "afterDelta": -0.0017453292519943296,
+    "beforeProjection": "native",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0.0011549932605936705,
+    "changedRatio": 0.0033546618513938774
+  },
+  {
+    "name": "positive",
+    "beforeDelta": 0.26005405854715513,
+    "afterDelta": 0.26354471705114374,
+    "beforeProjection": "blended",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0.0023445847487882604,
+    "changedRatio": 0.006949760217734074
+  },
+  {
+    "name": "negative",
+    "beforeDelta": -0.26005405854715513,
+    "afterDelta": -0.26354471705114374,
+    "beforeProjection": "blended",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0.0023488501958321257,
+    "changedRatio": 0.0069890151589498
+  },
+  {
+    "name": "positive-periodic",
+    "beforeDelta": 6.543239365726741,
+    "afterDelta": 6.5467300242307305,
+    "beforeProjection": "blended",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0.0023445847487882604,
+    "changedRatio": 0.006949760217734074
+  },
+  {
+    "name": "negative-periodic",
+    "beforeDelta": -6.543239365726741,
+    "afterDelta": -6.5467300242307305,
+    "beforeProjection": "blended",
+    "afterProjection": "blended",
+    "beforeDrawCalls": 43,
+    "afterDrawCalls": 43,
+    "mae": 0.0023488501958321257,
+    "changedRatio": 0.0069890151589498
+  }
+]

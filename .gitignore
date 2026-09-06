@@ -8,3 +8,8 @@ playwright-report/
 coverage/
 debug.log
 *.tsbuildinfo
+/artifacts/daliuren-minitool/assets/model-*.js
+/artifacts/daliuren-minitool/assets/reference-surfaces/
+
+/artifacts/daliuren-minitool/
+/artifacts/daliuren-minitool.zip

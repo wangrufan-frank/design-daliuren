@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "sourceModel": "public/models/daliuren/daliuren-artifact-mobile.glb",
+  "referenceImage": {
+    "path": "e2e/fixtures/minitool-model-reference.png",
+    "width": 1286,
+    "height": 1223
+  },
+  "nodeIds": [
+    "artifact/root",
+    "base/body",
+    "plate/earth",
+    "plate/heaven",
+    "plate/generals",
+    "plate/core",
+    "trace/course",
+    "branch/earth/子",
+    "branch/earth/丑",
+    "branch/earth/寅",
+    "branch/earth/卯",
+    "branch/earth/辰",
+    "branch/earth/巳",
+    "branch/earth/午",
+    "branch/earth/未",
+    "branch/earth/申",
+    "branch/earth/酉",
+    "branch/earth/戌",
+    "branch/earth/亥",
+    "general-slot/子",
+    "general-slot/丑",
+    "general-slot/寅",
+    "general-slot/卯",
+    "general-slot/辰",
+    "general-slot/巳",
+    "general-slot/午",
+    "general-slot/未",
+    "general-slot/申",
+    "general-slot/酉",
+    "general-slot/戌",
+    "general-slot/亥",
+    "month-general/胜光",
+    "month-general/小吉",
+    "month-general/传送",
+    "month-general/从魁",
+    "month-general/河魁",
+    "month-general/登明",
+    "month-general/神后",
+    "month-general/大吉",
+    "month-general/功曹",
+    "month-general/太冲",
+    "month-general/天罡",
+    "month-general/太乙",
+    "general/noble",
+    "general/snake",
+    "general/vermilion-bird",
+    "general/harmony",
+    "general/hook-array",
+    "general/azure-dragon",
+    "general/void",
+    "general/white-tiger",
+    "general/constant",
+    "general/black-tortoise",
+    "general/yin",
+    "general/queen-of-heaven"
+  ],
+  "groups": {
+    "earth": {
+      "nodeIds": [
+        "artifact/root",
+        "base/body",
+        "plate/earth",
+        "branch/earth/子",
+        "branch/earth/丑",
+        "branch/earth/寅",
+        "branch/earth/卯",
+        "branch/earth/辰",
+        "branch/earth/巳",
+        "branch/earth/午",
+        "branch/earth/未",
+        "branch/earth/申",
+        "branch/earth/酉",
+        "branch/earth/戌",
+        "branch/earth/亥"
+      ],
+      "visualRoles": ["corner-pearl"]
+    },
+    "heaven": {
+      "nodeIds": [
+        "plate/heaven",
+        "month-general/胜光",
+        "month-general/小吉",
+        "month-general/传送",
+        "month-general/从魁",
+        "month-general/河魁",
+        "month-general/登明",
+        "month-general/神后",
+        "month-general/大吉",
+        "month-general/功曹",
+        "month-general/太冲",
+        "month-general/天罡",
+        "month-general/太乙"
+      ],
+      "visualRoles": ["heaven"]
+    },
+    "generals": {
+      "nodeIds": [
+        "plate/generals",
+        "general-slot/子",
+        "general-slot/丑",
+        "general-slot/寅",
+        "general-slot/卯",
+        "general-slot/辰",
+        "general-slot/巳",
+        "general-slot/午",
+        "general-slot/未",
+        "general-slot/申",
+        "general-slot/酉",
+        "general-slot/戌",
+        "general-slot/亥",
+        "general/noble",
+        "general/snake",
+        "general/vermilion-bird",
+        "general/harmony",
+        "general/hook-array",
+        "general/azure-dragon",
+        "general/void",
+        "general/white-tiger",
+        "general/constant",
+        "general/black-tortoise",
+        "general/yin",
+        "general/queen-of-heaven"
+      ],
+      "visualRoles": ["generals"]
+    },
+    "core": {
+      "nodeIds": ["plate/core", "trace/course"],
+      "visualRoles": ["jade-pivot"]
+    }
+  },
+  "budget": {
+    "triangles": 100000,
+    "drawCalls": 50,
+    "textureSize": 1024
+  },
+  "runtime": {
+    "hiddenMeshKeys": [
+      "plate/generals\u0000RT_lod2_M_JadeRecess_hero",
+      "plate/generals\u0000RT_lod2_M_OldGold_hero"
+    ],
+    "referenceSurfaceDrawCalls": 0
+  }
+}

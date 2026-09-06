@@ -260,8 +260,9 @@ export function invalidateFrom(session: CourseSession, changed: RuleStageId): Co
   for (const stage of RULE_STAGE_ORDER) {
     if (stageDependencies[stage].some((dependency) => invalid.has(dependency))) invalid.add(stage);
   }
-  const snapshots = Object.fromEntries(
-    Object.entries(session.snapshots).filter(([stage]) => !invalid.has(stage as RuleStageId)),
+  const snapshots = Object.entries(session.snapshots).reduce<CourseSession["snapshots"]>(
+    (kept, [stage, snapshot]) => invalid.has(stage as RuleStageId) ? kept : { ...kept, [stage]: snapshot },
+    {},
   );
   return { ...session, snapshots };
 }

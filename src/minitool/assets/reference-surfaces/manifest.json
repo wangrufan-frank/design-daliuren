@@ -1,0 +1,682 @@
+{
+  "schemaVersion": 1,
+  "sampling": "nearest",
+  "canonical": {
+    "width": 1286,
+    "height": 1223
+  },
+  "rectified": {
+    "width": 1024,
+    "height": 1024
+  },
+  "sourceQuad": [
+    [
+      278,
+      125
+    ],
+    [
+      1231,
+      235
+    ],
+    [
+      1134,
+      1157
+    ],
+    [
+      28,
+      964
+    ]
+  ],
+  "transform": {
+    "a": 879.1852592269462,
+    "b": -254.02066920698385,
+    "c": 278,
+    "d": 95.90864006363311,
+    "e": 700.5741030166989,
+    "f": 125,
+    "g": -0.059963233771773976,
+    "h": -0.1435953288208518
+  },
+  "referenceHeavenAngleRad": 2.9626964052603744,
+  "layers": [
+    {
+      "id": "reference/earth",
+      "kind": "earth",
+      "ownerId": "plate/earth",
+      "texture": "earth.png",
+      "coverage": 0.692387580871582
+    },
+    {
+      "id": "reference/heaven",
+      "kind": "heaven",
+      "ownerId": "plate/heaven",
+      "texture": "heaven.png",
+      "coverage": 0.20408248901367188
+    },
+    {
+      "id": "reference/general/贵人",
+      "kind": "general",
+      "name": "贵人",
+      "ownerId": "general/noble",
+      "baselineEarth": "申",
+      "sectorIndex": 0,
+      "texture": "generals.png",
+      "coverage": 0.006473541259765625
+    },
+    {
+      "id": "reference/general/螣蛇",
+      "kind": "general",
+      "name": "螣蛇",
+      "ownerId": "general/snake",
+      "baselineEarth": "未",
+      "sectorIndex": 1,
+      "texture": "generals.png",
+      "coverage": 0.00634765625
+    },
+    {
+      "id": "reference/general/朱雀",
+      "kind": "general",
+      "name": "朱雀",
+      "ownerId": "general/vermilion-bird",
+      "baselineEarth": "午",
+      "sectorIndex": 2,
+      "texture": "generals.png",
+      "coverage": 0.006150245666503906
+    },
+    {
+      "id": "reference/general/六合",
+      "kind": "general",
+      "name": "六合",
+      "ownerId": "general/harmony",
+      "baselineEarth": "巳",
+      "sectorIndex": 3,
+      "texture": "generals.png",
+      "coverage": 0.005939483642578125
+    },
+    {
+      "id": "reference/general/勾陈",
+      "kind": "general",
+      "name": "勾陈",
+      "ownerId": "general/hook-array",
+      "baselineEarth": "辰",
+      "sectorIndex": 4,
+      "texture": "generals.png",
+      "coverage": 0.0057544708251953125
+    },
+    {
+      "id": "reference/general/青龙",
+      "kind": "general",
+      "name": "青龙",
+      "ownerId": "general/azure-dragon",
+      "baselineEarth": "卯",
+      "sectorIndex": 5,
+      "texture": "generals.png",
+      "coverage": 0.005649566650390625
+    },
+    {
+      "id": "reference/general/天空",
+      "kind": "general",
+      "name": "天空",
+      "ownerId": "general/void",
+      "baselineEarth": "寅",
+      "sectorIndex": 6,
+      "texture": "generals.png",
+      "coverage": 0.005654335021972656
+    },
+    {
+      "id": "reference/general/白虎",
+      "kind": "general",
+      "name": "白虎",
+      "ownerId": "general/white-tiger",
+      "baselineEarth": "丑",
+      "sectorIndex": 7,
+      "texture": "generals.png",
+      "coverage": 0.0057525634765625
+    },
+    {
+      "id": "reference/general/太常",
+      "kind": "general",
+      "name": "太常",
+      "ownerId": "general/constant",
+      "baselineEarth": "子",
+      "sectorIndex": 8,
+      "texture": "generals.png",
+      "coverage": 0.00594329833984375
+    },
+    {
+      "id": "reference/general/玄武",
+      "kind": "general",
+      "name": "玄武",
+      "ownerId": "general/black-tortoise",
+      "baselineEarth": "亥",
+      "sectorIndex": 9,
+      "texture": "generals.png",
+      "coverage": 0.0061550140380859375
+    },
+    {
+      "id": "reference/general/太阴",
+      "kind": "general",
+      "name": "太阴",
+      "ownerId": "general/yin",
+      "baselineEarth": "戌",
+      "sectorIndex": 10,
+      "texture": "generals.png",
+      "coverage": 0.006358146667480469
+    },
+    {
+      "id": "reference/general/天后",
+      "kind": "general",
+      "name": "天后",
+      "ownerId": "general/queen-of-heaven",
+      "baselineEarth": "酉",
+      "sectorIndex": 11,
+      "texture": "generals.png",
+      "coverage": 0.006464958190917969
+    },
+    {
+      "id": "reference/core",
+      "kind": "core",
+      "ownerId": "plate/core",
+      "texture": "core.png",
+      "coverage": 0.03088665008544922
+    }
+  ],
+  "nativeLayers": [
+    {
+      "id": "reference-native/earth/0",
+      "kind": "earth",
+      "ownerId": "plate/earth",
+      "texture": "earth-detail-0.png",
+      "sourceRect": {
+        "left": 0,
+        "top": 0,
+        "width": 643,
+        "height": 612
+      },
+      "coverage": 0.08584046826697729
+    },
+    {
+      "id": "reference-native/earth/1",
+      "kind": "earth",
+      "ownerId": "plate/earth",
+      "texture": "earth-detail-1.png",
+      "sourceRect": {
+        "left": 643,
+        "top": 0,
+        "width": 643,
+        "height": 612
+      },
+      "coverage": 0.10315187521697278
+    },
+    {
+      "id": "reference-native/earth/2",
+      "kind": "earth",
+      "ownerId": "plate/earth",
+      "texture": "earth-detail-2.png",
+      "sourceRect": {
+        "left": 0,
+        "top": 612,
+        "width": 643,
+        "height": 611
+      },
+      "coverage": 0.1025605648095281
+    },
+    {
+      "id": "reference-native/earth/3",
+      "kind": "earth",
+      "ownerId": "plate/earth",
+      "texture": "earth-detail-3.png",
+      "sourceRect": {
+        "left": 643,
+        "top": 612,
+        "width": 643,
+        "height": 611
+      },
+      "coverage": 0.12084095784656194
+    },
+    {
+      "id": "reference-native/heaven",
+      "kind": "heaven",
+      "ownerId": "plate/heaven",
+      "texture": "heaven-detail.png",
+      "sourceRect": {
+        "left": 303,
+        "top": 340,
+        "width": 681,
+        "height": 551
+      },
+      "coverage": 0.12049443723144652
+    },
+    {
+      "id": "reference-native/general/贵人",
+      "kind": "general",
+      "name": "贵人",
+      "ownerId": "general/noble",
+      "baselineEarth": "申",
+      "sectorIndex": 0,
+      "texture": "general-detail-00.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.003588554773782441
+    },
+    {
+      "id": "reference-native/general/螣蛇",
+      "kind": "general",
+      "name": "螣蛇",
+      "ownerId": "general/snake",
+      "baselineEarth": "未",
+      "sectorIndex": 1,
+      "texture": "general-detail-01.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.0035872831384976137
+    },
+    {
+      "id": "reference-native/general/朱雀",
+      "kind": "general",
+      "name": "朱雀",
+      "ownerId": "general/vermilion-bird",
+      "baselineEarth": "午",
+      "sectorIndex": 2,
+      "texture": "general-detail-02.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.003592369679636923
+    },
+    {
+      "id": "reference-native/general/六合",
+      "kind": "general",
+      "name": "六合",
+      "ownerId": "general/harmony",
+      "baselineEarth": "巳",
+      "sectorIndex": 3,
+      "texture": "general-detail-03.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.0035891905914248548
+    },
+    {
+      "id": "reference-native/general/勾陈",
+      "kind": "general",
+      "name": "勾陈",
+      "ownerId": "general/hook-array",
+      "baselineEarth": "辰",
+      "sectorIndex": 4,
+      "texture": "general-detail-04.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.0035910980443520954
+    },
+    {
+      "id": "reference-native/general/青龙",
+      "kind": "general",
+      "name": "青龙",
+      "ownerId": "general/azure-dragon",
+      "baselineEarth": "卯",
+      "sectorIndex": 5,
+      "texture": "general-detail-05.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.003588554773782441
+    },
+    {
+      "id": "reference-native/general/天空",
+      "kind": "general",
+      "name": "天空",
+      "ownerId": "general/void",
+      "baselineEarth": "寅",
+      "sectorIndex": 6,
+      "texture": "general-detail-06.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.003588554773782441
+    },
+    {
+      "id": "reference-native/general/白虎",
+      "kind": "general",
+      "name": "白虎",
+      "ownerId": "general/white-tiger",
+      "baselineEarth": "丑",
+      "sectorIndex": 7,
+      "texture": "general-detail-07.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.0035872831384976137
+    },
+    {
+      "id": "reference-native/general/太常",
+      "kind": "general",
+      "name": "太常",
+      "ownerId": "general/constant",
+      "baselineEarth": "子",
+      "sectorIndex": 8,
+      "texture": "general-detail-08.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.003592369679636923
+    },
+    {
+      "id": "reference-native/general/玄武",
+      "kind": "general",
+      "name": "玄武",
+      "ownerId": "general/black-tortoise",
+      "baselineEarth": "亥",
+      "sectorIndex": 9,
+      "texture": "general-detail-09.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.0035891905914248548
+    },
+    {
+      "id": "reference-native/general/太阴",
+      "kind": "general",
+      "name": "太阴",
+      "ownerId": "general/yin",
+      "baselineEarth": "戌",
+      "sectorIndex": 10,
+      "texture": "general-detail-10.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.0035910980443520954
+    },
+    {
+      "id": "reference-native/general/天后",
+      "kind": "general",
+      "name": "天后",
+      "ownerId": "general/queen-of-heaven",
+      "baselineEarth": "酉",
+      "sectorIndex": 11,
+      "texture": "general-detail-11.png",
+      "sourceRect": {
+        "left": 438,
+        "top": 465,
+        "width": 411,
+        "height": 301
+      },
+      "coverage": 0.003588554773782441
+    },
+    {
+      "id": "reference-native/core",
+      "kind": "core",
+      "ownerId": "plate/core",
+      "texture": "core-detail.png",
+      "sourceRect": {
+        "left": 531,
+        "top": 533,
+        "width": 225,
+        "height": 165
+      },
+      "coverage": 0.018332530083711752
+    },
+    {
+      "id": "reference-native/trace",
+      "kind": "trace",
+      "ownerId": "plate/core",
+      "texture": "trace-detail.png",
+      "sourceRect": {
+        "left": 531,
+        "top": 533,
+        "width": 225,
+        "height": 165
+      },
+      "coverage": 0.0007184739359273845
+    }
+  ],
+  "trace": {
+    "center": [
+      643,
+      615
+    ],
+    "radius": [
+      92,
+      64
+    ],
+    "removedPixels": 1277,
+    "referenceEarths": [
+      "卯",
+      "酉",
+      "卯"
+    ]
+  },
+  "textureIntegrity": {
+    "earth.png": {
+      "sha256": "ac686b6810fe4a8ead9e4cdf1add47732100fb02d351fd114c67180264411ad5",
+      "width": 1024,
+      "height": 1024,
+      "semanticIds": [
+        "reference/earth"
+      ]
+    },
+    "heaven.png": {
+      "sha256": "fd49e5ec7e6f9c0f4ef8b9e025e3a47617a558c26611bf4a12a04ba467ae9e7f",
+      "width": 1024,
+      "height": 1024,
+      "semanticIds": [
+        "reference/heaven"
+      ]
+    },
+    "generals.png": {
+      "sha256": "ce695670490590ec8361f9ed948bde422c38c89b9b6cbe15b562d9e5ace74915",
+      "width": 1024,
+      "height": 1024,
+      "semanticIds": [
+        "reference/general/贵人",
+        "reference/general/螣蛇",
+        "reference/general/朱雀",
+        "reference/general/六合",
+        "reference/general/勾陈",
+        "reference/general/青龙",
+        "reference/general/天空",
+        "reference/general/白虎",
+        "reference/general/太常",
+        "reference/general/玄武",
+        "reference/general/太阴",
+        "reference/general/天后"
+      ]
+    },
+    "core.png": {
+      "sha256": "370be173bd079428c524b13f8df05c16c94194e7b64e02ce48fe46aed6e56300",
+      "width": 1024,
+      "height": 1024,
+      "semanticIds": [
+        "reference/core"
+      ]
+    },
+    "earth-detail-0.png": {
+      "sha256": "23fcebd28a26f03b53f0a9d5ccfabd2f63d47d8e777715bc83600970c5ee8b7a",
+      "width": 643,
+      "height": 612,
+      "semanticIds": [
+        "reference-native/earth/0"
+      ]
+    },
+    "earth-detail-1.png": {
+      "sha256": "4c8d4beff84a41e856a33d8b06b3378464c426912c8cfcb0da49bd8778ee1722",
+      "width": 643,
+      "height": 612,
+      "semanticIds": [
+        "reference-native/earth/1"
+      ]
+    },
+    "earth-detail-2.png": {
+      "sha256": "a132e325cd354044f22beb3e583ea614758864b34161a92c48a58c1ac80a0454",
+      "width": 643,
+      "height": 611,
+      "semanticIds": [
+        "reference-native/earth/2"
+      ]
+    },
+    "earth-detail-3.png": {
+      "sha256": "923304b9a6ec3f988e52273b6c543523c5967972f36b02a0ceb77888b084037e",
+      "width": 643,
+      "height": 611,
+      "semanticIds": [
+        "reference-native/earth/3"
+      ]
+    },
+    "heaven-detail.png": {
+      "sha256": "7eb241368da8a3264002433adf85552be12de0f73cd76694bc235274e7228197",
+      "width": 681,
+      "height": 551,
+      "semanticIds": [
+        "reference-native/heaven"
+      ]
+    },
+    "general-detail-00.png": {
+      "sha256": "d22ef86d443b4d632b24cf233e5bee07b85de39cc292aa74e20bc5f220ae8d99",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/贵人"
+      ]
+    },
+    "general-detail-01.png": {
+      "sha256": "2d76e25465f53be86828a971ae71e6ed4320db9e62a178089db38d3ac01e1c30",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/螣蛇"
+      ]
+    },
+    "general-detail-02.png": {
+      "sha256": "8c6efd37be3a8d8553574a839411844953dc1a174f9e11bc63de6a8a84b36fe9",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/朱雀"
+      ]
+    },
+    "general-detail-03.png": {
+      "sha256": "0c8d7b0dc575b006ba4f6b95a4ddc97cd4271d0557d4363342281c37a64d2f41",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/六合"
+      ]
+    },
+    "general-detail-04.png": {
+      "sha256": "d0061842892f430495ad6d541c738e0c433e02e16fb28e29664f2ca4258d435b",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/勾陈"
+      ]
+    },
+    "general-detail-05.png": {
+      "sha256": "4e1b50bf3e4f94b1bef7ef769731de08622fa3450aaed13c95d466883982375d",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/青龙"
+      ]
+    },
+    "general-detail-06.png": {
+      "sha256": "b3b4c67c55dc5c9ee134af9f79e21d56d5aff8af6e29faca68a59dd0db95ae10",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/天空"
+      ]
+    },
+    "general-detail-07.png": {
+      "sha256": "da325ece077f2d2520bffee9698d98f792514abdb3817e952d174067a6a87ea3",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/白虎"
+      ]
+    },
+    "general-detail-08.png": {
+      "sha256": "664f4364b7253439313a8e1e885074381220c803ff737ccfddf407a87c0c2ada",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/太常"
+      ]
+    },
+    "general-detail-09.png": {
+      "sha256": "77b983426350368a217c2c81b885bce8585c9708c218a7d2964b8e0172c623e5",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/玄武"
+      ]
+    },
+    "general-detail-10.png": {
+      "sha256": "839cf0cc339834b5928f95f568dd132ee4fde61a2bc368b06b42c0289cfc0a5d",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/太阴"
+      ]
+    },
+    "general-detail-11.png": {
+      "sha256": "3a683072b5aa16a8c48930b669108b997b564fb87fd312f2fdd720b7360fd87c",
+      "width": 411,
+      "height": 301,
+      "semanticIds": [
+        "reference-native/general/天后"
+      ]
+    },
+    "core-detail.png": {
+      "sha256": "555c181f201638218d124df8c212198c87c798d89e77c532a51d07874f9f13b3",
+      "width": 225,
+      "height": 165,
+      "semanticIds": [
+        "reference-native/core"
+      ]
+    },
+    "trace-detail.png": {
+      "sha256": "c2b5d3b1e652bfe720b9ea0ddc005f605d3fbac7a42d8dccdeb7aad7e7080184",
+      "width": 225,
+      "height": 165,
+      "semanticIds": [
+        "reference-native/trace"
+      ]
+    }
+  }
+}

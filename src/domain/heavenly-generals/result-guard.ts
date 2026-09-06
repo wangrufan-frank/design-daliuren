@@ -113,5 +113,5 @@ function sameValue(left: unknown, right: unknown): boolean {
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
   return leftKeys.length === rightKeys.length
-    && leftKeys.every((key) => Object.hasOwn(right, key) && sameValue(left[key], right[key]));
+    && leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && sameValue(left[key], right[key]));
 }

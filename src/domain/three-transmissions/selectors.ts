@@ -285,18 +285,25 @@ export function selectBySheHai(
   const counts: SheHaiCounts = {};
   const paths: SheHaiPaths = {};
   const pathByCandidate = new Map<LessonCandidate, readonly SheHaiPalaceEvidence[]>();
+  const details: SheHaiPalaceEvidence[] = [];
   for (const candidate of candidates) {
     const path = sheHaiPath(candidate, plate);
     pathByCandidate.set(candidate, path);
-    counts[candidate.upper] = path.at(-1)?.total ?? 0;
+    counts[candidate.upper] = path[path.length - 1]?.total ?? 0;
     paths[candidate.upper] = path;
+    details.push(...path);
   }
 
-  const maximum = Math.max(...candidates.map((candidate) => pathByCandidate.get(candidate)?.at(-1)?.total ?? 0));
+  const maximum = Math.max(...candidates.map((candidate) => {
+    const path = pathByCandidate.get(candidate);
+    return path?.[path.length - 1]?.total ?? 0;
+  }));
   const deepest = candidates.filter(
-    (candidate) => (pathByCandidate.get(candidate)?.at(-1)?.total ?? 0) === maximum,
+    (candidate) => {
+      const path = pathByCandidate.get(candidate);
+      return (path?.[path.length - 1]?.total ?? 0) === maximum;
+    },
   );
-  const details = candidates.flatMap((candidate) => pathByCandidate.get(candidate) ?? []);
   const evidence = (conclusion: string): readonly EvidenceDraft[] => [{
     ruleId: "three-transmissions/shehai-path-v1",
     phase: "selection",

@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import type { AtlasId } from "../../element-atlas/entries";
+import { mountAtlasPicking } from "./atlas-picking";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
@@ -19,6 +21,7 @@ import {
 } from "./dynamic-labels";
 
 interface ArtifactSceneCallbacks {
+  onAtlasSelect?(id: AtlasId): void;
   onUserControlStart(): void;
   onContextLost(): void;
   onError(error: unknown): void;
@@ -192,6 +195,7 @@ export class ArtifactSceneController {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(REVIEW_HORIZONTAL_FOV_DEGREES, 1, 0.05, 4);
   private readonly controls: ControlsLike;
+  private readonly disposeAtlasPicking: () => void;
   private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
   private readonly stoneGround = createStoneGround();
   private readonly baseTransforms = new Map<string, BaseTransform>();
@@ -294,6 +298,7 @@ export class ArtifactSceneController {
 
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialTarget);
+    this.disposeAtlasPicking = mountAtlasPicking(renderer.domElement, this.camera, artifact.root, callbacks.onAtlasSelect);
     this.controls = dependencies.createControls(this.camera, renderer.domElement);
     this.controls.target.copy(this.initialTarget);
     this.controls.autoRotate = false;
@@ -949,6 +954,7 @@ export class ArtifactSceneController {
     this.renderer.domElement.removeEventListener("keydown", this.handleKeyDown);
     this.controls.removeEventListener("start", this.handleControlStart);
     this.controls.dispose();
+    this.disposeAtlasPicking();
 
     for (const binding of this.labelBindings.values()) {
       if (binding.texture) this.labels.release(binding.texture);

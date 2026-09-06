@@ -1,0 +1,86 @@
+[
+  {
+    "nodeId": "general/noble",
+    "defaultChangedPixels": 331,
+    "alternateChangedPixels": 209,
+    "centroidDistance": 97.2110664333479,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/snake",
+    "defaultChangedPixels": 466,
+    "alternateChangedPixels": 472,
+    "centroidDistance": 103.12803957367008,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/vermilion-bird",
+    "defaultChangedPixels": 416,
+    "alternateChangedPixels": 768,
+    "centroidDistance": 121.81762200496469,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/harmony",
+    "defaultChangedPixels": 471,
+    "alternateChangedPixels": 732,
+    "centroidDistance": 124.8638340783919,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/hook-array",
+    "defaultChangedPixels": 413,
+    "alternateChangedPixels": 579,
+    "centroidDistance": 113.68565638616079,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/azure-dragon",
+    "defaultChangedPixels": 430,
+    "alternateChangedPixels": 424,
+    "centroidDistance": 100.92583551693431,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/void",
+    "defaultChangedPixels": 364,
+    "alternateChangedPixels": 160,
+    "centroidDistance": 91.66058856800927,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/white-tiger",
+    "defaultChangedPixels": 381,
+    "alternateChangedPixels": 341,
+    "centroidDistance": 96.29720455646071,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/constant",
+    "defaultChangedPixels": 446,
+    "alternateChangedPixels": 452,
+    "centroidDistance": 113.28839927465752,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/black-tortoise",
+    "defaultChangedPixels": 491,
+    "alternateChangedPixels": 565,
+    "centroidDistance": 119.17936652366248,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/yin",
+    "defaultChangedPixels": 443,
+    "alternateChangedPixels": 496,
+    "centroidDistance": 114.24048115218649,
+    "overlapRatio": 0
+  },
+  {
+    "nodeId": "general/queen-of-heaven",
+    "defaultChangedPixels": 461,
+    "alternateChangedPixels": 380,
+    "centroidDistance": 105.79091763823467,
+    "overlapRatio": 0
+  }
+]

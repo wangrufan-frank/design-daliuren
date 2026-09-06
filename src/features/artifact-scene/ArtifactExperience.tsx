@@ -1,3 +1,4 @@
+import { useElementAtlas } from "../element-atlas/ElementAtlas";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -203,6 +204,9 @@ export function ArtifactExperience({
   startInteractive = false,
   mobileToolHosts,
 }: ArtifactExperienceProps) {
+  const { open: openAtlas } = useElementAtlas();
+  const openAtlasRef = useRef(openAtlas);
+  openAtlasRef.current = openAtlas;
   const displayState = useMemo(() => mapArtifactState(source), [source]);
   const jadePlateLayout = useMemo(() => deriveJadePlateLayout(displayState), [displayState]);
   const reducedMotion = useReducedMotion();
@@ -515,6 +519,7 @@ export function ArtifactExperience({
         onContextLost: failExperience,
         onError: failExperience,
         onMonthGeneralInput: applyInteractionEvent,
+        onAtlasSelect: (id) => openAtlasRef.current(id),
       });
       ownedController = controller;
       controllerRef.current = controller;

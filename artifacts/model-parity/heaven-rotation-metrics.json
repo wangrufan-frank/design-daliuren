@@ -1,0 +1,12 @@
+{
+  "quarterTurn": {
+    "changedPixels": 27304,
+    "aspect": 0.9425287356321839,
+    "drawCalls": 43
+  },
+  "halfTurn": {
+    "changedPixels": 28443,
+    "aspect": 1.0585365853658537,
+    "drawCalls": 43
+  }
+}

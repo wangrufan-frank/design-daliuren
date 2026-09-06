@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AtlasLauncher, ElementAtlasProvider } from "../features/element-atlas/ElementAtlas";
 import { LunarTypescriptAdapter } from "../adapters/calendar/lunar-typescript-adapter";
 import type { CourseInput, CourseSession, RuleStageId } from "../domain/chart/types";
 import {
@@ -266,81 +267,84 @@ export function App() {
   }
 
   return (
-    <main className="app-shell">
-      <header className="app-header">
-        <h1>大六壬演式</h1>
-      </header>
-      <div className="app-workspace">
-        <aside className="app-panel app-input-panel" aria-label="起课输入">
-          <button className="app-panel__toggle" type="button" aria-expanded={inputOpen} onClick={() => setInputOpen((value) => !value)}>
-            起课输入
-          </button>
-          {inputOpen && <CourseInputForm onSubmit={submitInput} />}
-        </aside>
-        <section className="app-stage" aria-live="polite">
-          {reviewStage === "course" && hasCourse ? (
-            artifactSource
-              ? <CourseExperience source={artifactSource} />
-              : <CourseSheet result={courseResult} />
-          ) : reviewStage === "heavenly-generals" && hasHeavenlyGenerals && hasFourLessons && hasThreeTransmissions ? (
-            <HeavenlyGeneralsReview
-              result={heavenlyGeneralsResult}
-              fourLessons={fourLessonsResult}
-              threeTransmissions={threeTransmissionsResult}
-              onReviewCalendar={() => setReviewStage("calendar")}
-              onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
-              onReviewFourLessons={() => setReviewStage("four-lessons")}
-              onReviewThreeTransmissions={() => setReviewStage("three-transmissions")}
-            />
-          ) : reviewStage === "three-transmissions" && hasThreeTransmissions && hasCalendar ? (
-            <ThreeTransmissionsReview
-              result={threeTransmissionsResult}
-              voidBranches={calendarResult.voidBranches}
-              generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
-              onReviewFourLessons={() => setReviewStage("four-lessons")}
-              onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
-            />
-          ) : reviewStage === "four-lessons" && hasFourLessons && hasCalendar ? (
-            <FourLessonsReview
-              result={fourLessonsResult}
-              voidBranches={calendarResult.voidBranches}
-              generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
-              onReviewCalendar={() => setReviewStage("calendar")}
-              onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
-            />
-          ) : reviewStage === "heaven-earth" && hasHeavenEarth && hasCalendar ? (
-            <HeavenEarthReview result={heavenEarthResult} voidBranches={calendarResult.voidBranches} />
-          ) : hasCalendar ? (
-            <CalendarReview
-              result={calendarResult}
-              onSetCorrection={setCorrection}
-              onResetCorrection={resetCorrection}
-              correctionError={correctionError}
-            />
-          ) : (
-            <>
-              <CourseLandingPreview />
-              <h2 className="app-stage__status">起课输入</h2>
-            </>
-          )}
-          {generalErrorMessage ? <p role="alert">{generalErrorMessage}</p> : null}
-        </section>
-        <aside className="app-panel app-rule-panel" aria-label="推演依据">
-          <button className="app-panel__toggle" type="button" aria-expanded={railOpen} onClick={() => setRailOpen((value) => !value)}>
-            推演依据
-          </button>
-          {railOpen && (
-            <RuleStageRail
-              completed={completed}
-              current={current}
-              selected={hasCalendar ? reviewStage : undefined}
-              onSelect={(stage) => {
-                setReviewStage(stage);
-              }}
-            />
-          )}
-        </aside>
-      </div>
-    </main>
+    <ElementAtlasProvider>
+      <main className="app-shell">
+        <header className="app-header">
+          <h1>大六壬演式</h1>
+          <AtlasLauncher />
+        </header>
+        <div className="app-workspace">
+          <aside className="app-panel app-input-panel" aria-label="起课输入">
+            <button className="app-panel__toggle" type="button" aria-expanded={inputOpen} onClick={() => setInputOpen((value) => !value)}>
+              起课输入
+            </button>
+            {inputOpen && <CourseInputForm onSubmit={submitInput} />}
+          </aside>
+          <section className="app-stage" aria-live="polite">
+            {reviewStage === "course" && hasCourse ? (
+              artifactSource
+                ? <CourseExperience source={artifactSource} />
+                : <CourseSheet result={courseResult} />
+            ) : reviewStage === "heavenly-generals" && hasHeavenlyGenerals && hasFourLessons && hasThreeTransmissions ? (
+              <HeavenlyGeneralsReview
+                result={heavenlyGeneralsResult}
+                fourLessons={fourLessonsResult}
+                threeTransmissions={threeTransmissionsResult}
+                onReviewCalendar={() => setReviewStage("calendar")}
+                onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
+                onReviewFourLessons={() => setReviewStage("four-lessons")}
+                onReviewThreeTransmissions={() => setReviewStage("three-transmissions")}
+              />
+            ) : reviewStage === "three-transmissions" && hasThreeTransmissions && hasCalendar ? (
+              <ThreeTransmissionsReview
+                result={threeTransmissionsResult}
+                voidBranches={calendarResult.voidBranches}
+                generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
+                onReviewFourLessons={() => setReviewStage("four-lessons")}
+                onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
+              />
+            ) : reviewStage === "four-lessons" && hasFourLessons && hasCalendar ? (
+              <FourLessonsReview
+                result={fourLessonsResult}
+                voidBranches={calendarResult.voidBranches}
+                generals={hasHeavenlyGenerals ? heavenlyGeneralsResult : undefined}
+                onReviewCalendar={() => setReviewStage("calendar")}
+                onReviewHeavenEarth={() => setReviewStage("heaven-earth")}
+              />
+            ) : reviewStage === "heaven-earth" && hasHeavenEarth && hasCalendar ? (
+              <HeavenEarthReview result={heavenEarthResult} voidBranches={calendarResult.voidBranches} />
+            ) : hasCalendar ? (
+              <CalendarReview
+                result={calendarResult}
+                onSetCorrection={setCorrection}
+                onResetCorrection={resetCorrection}
+                correctionError={correctionError}
+              />
+            ) : (
+              <>
+                <CourseLandingPreview />
+                <h2 className="app-stage__status">起课输入</h2>
+              </>
+            )}
+            {generalErrorMessage ? <p role="alert">{generalErrorMessage}</p> : null}
+          </section>
+          <aside className="app-panel app-rule-panel" aria-label="推演依据">
+            <button className="app-panel__toggle" type="button" aria-expanded={railOpen} onClick={() => setRailOpen((value) => !value)}>
+              推演依据
+            </button>
+            {railOpen && (
+              <RuleStageRail
+                completed={completed}
+                current={current}
+                selected={hasCalendar ? reviewStage : undefined}
+                onSelect={(stage) => {
+                  setReviewStage(stage);
+                }}
+              />
+            )}
+          </aside>
+        </div>
+      </main>
+    </ElementAtlasProvider>
   );
 }
