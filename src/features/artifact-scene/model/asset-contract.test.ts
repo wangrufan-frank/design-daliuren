@@ -8,9 +8,17 @@ describe("artifact asset contract", () => {
     expect(selectArtifactLod(1920, 1)).toBe(0);
   });
 
-  it("caps mobile render density without reducing desktop density", () => {
-    expect(artifactPixelRatio(390, 3)).toBe(1.5);
-    expect(artifactPixelRatio(1280, 2)).toBe(2);
+  it("keeps high-density text sharp within a four-million-pixel budget", () => {
+    expect(artifactPixelRatio(390, 700, 3)).toBe(3);
+    expect(artifactPixelRatio(1280, 620, 2)).toBe(2);
+    const ratio = artifactPixelRatio(1920, 1080, 3);
+    expect(1920 * 1080 * ratio ** 2).toBeCloseTo(4_000_000);
+    expect(artifactPixelRatio(390, 700, 1)).toBe(1);
+  });
+
+  it("does not downgrade desktop model detail merely because the screen is dense", () => {
+    expect(selectArtifactLod(1280, 3)).toBe(1);
+    expect(selectArtifactLod(1920, 2)).toBe(0);
   });
 
   it("requires the layered jade plate nodes", () => {

@@ -6,8 +6,9 @@ export const ARTIFACT_ASSET_URLS = {
 
 export const ARTIFACT_MOBILE_FALLBACK_URL = `${import.meta.env.BASE_URL}models/daliuren/daliuren-artifact-mobile.glb`;
 
-export function artifactPixelRatio(width: number, dpr: number): number {
-  return width < 700 ? Math.min(dpr, 1.5) : dpr;
+export function artifactPixelRatio(width: number, height: number, dpr: number): number {
+  const pixelBudgetRatio = Math.sqrt(4_000_000 / (Math.max(1, width) * Math.max(1, height)));
+  return Math.min(dpr, 3, pixelBudgetRatio);
 }
 
 const BRANCHES = [..."子丑寅卯辰巳午未申酉戌亥"] as const;
@@ -53,8 +54,8 @@ export const REQUIRED_NODE_IDS: readonly string[] = [
   "trace/course",
 ];
 
-export function selectArtifactLod(width: number, dpr: number): 0 | 1 | 2 {
-  if (width < 700 || dpr >= 2.5) return 2;
-  if (width < 1600 || dpr >= 1.5) return 1;
+export function selectArtifactLod(width: number, _dpr: number): 0 | 1 | 2 {
+  if (width < 700) return 2;
+  if (width < 1600) return 1;
   return 0;
 }

@@ -415,7 +415,7 @@ export function ArtifactExperience({
       controller.resize(
         bounds.width || window.innerWidth,
         bounds.height || 560,
-        artifactPixelRatio(window.innerWidth, window.devicePixelRatio || 1),
+        artifactPixelRatio(bounds.width || window.innerWidth, bounds.height || 560, window.devicePixelRatio || 1),
       );
       if (portraitLayout !== undefined
         && portraitLayout !== nextPortraitLayout

@@ -258,7 +258,7 @@ describe("ArtifactExperience", () => {
       "/models/daliuren/daliuren-artifact-mobile.glb",
       expect.anything(),
     );
-    expect(latestController().resize).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 1.5);
+    expect(latestController().resize).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 3);
   });
 
   it("shows loading, then exposes deterministic controls and the text-course escape", async () => {

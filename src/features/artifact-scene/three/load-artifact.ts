@@ -56,6 +56,19 @@ export async function loadArtifact(
     let nodes: ReadonlyMap<string, THREE.Object3D>;
     try {
       nodes = indexArtifactNodes(gltf.scene, REQUIRED_NODE_IDS);
+      const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      gltf.scene.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          for (const [key, value] of Object.entries(material)) {
+            if (key !== "envMap" && value instanceof THREE.Texture) {
+              value.anisotropy = anisotropy;
+              value.needsUpdate = true;
+            }
+          }
+        }
+      });
     } catch (cause) {
       disposeArtifact(gltf.scene);
       throw cause;

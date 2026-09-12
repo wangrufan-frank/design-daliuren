@@ -68,13 +68,27 @@ describe("artifact loader", () => {
       .toThrow(/duplicate plate\/heaven.*missing artifact\/root/);
   });
 
+  it("preserves texture detail at oblique angles on single and multi-material meshes", async () => {
+    const root = artifactRoot();
+    const map = new THREE.Texture();
+    const normalMap = new THREE.Texture();
+    const material = new THREE.MeshStandardMaterial({ map, normalMap });
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(), material));
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(), [material, new THREE.MeshBasicMaterial()]));
+    const renderer = { capabilities: { getMaxAnisotropy: () => 4 } } as THREE.WebGLRenderer;
+    await loadArtifact("/artifact.glb", renderer, { loadAsync: vi.fn().mockResolvedValue({ scene: root, animations: [] }) });
+    expect(map.anisotropy).toBe(4);
+    expect(normalMap.anisotropy).toBe(4);
+    disposeArtifact(root);
+  });
+
   it("returns the loaded root, node map, animations, and source URL", async () => {
     ktx2Loaders.length = 0;
     const root = artifactRoot();
     const animations = [new THREE.AnimationClip("open")];
     const loader = { loadAsync: vi.fn().mockResolvedValue({ scene: root, animations }) };
 
-    const artifact = await loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer, loader);
+    const artifact = await loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", { capabilities: { getMaxAnisotropy: () => 8 } } as THREE.WebGLRenderer, loader);
 
     expect(artifact.root).toBe(root);
     expect(artifact.nodes.get("plate/heaven")).toBeDefined();
@@ -91,7 +105,7 @@ describe("artifact loader", () => {
 
   it("shares KTX2 support across overlapping artifact loads until both settle", async () => {
     ktx2Loaders.length = 0;
-    const renderer = {} as THREE.WebGLRenderer;
+    const renderer = { capabilities: { getMaxAnisotropy: () => 8 } } as THREE.WebGLRenderer;
     let resolveFirst!: (value: { scene: THREE.Group; animations: THREE.AnimationClip[] }) => void;
     let resolveSecond!: (value: { scene: THREE.Group; animations: THREE.AnimationClip[] }) => void;
     const firstResult = new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((resolve) => {
@@ -118,7 +132,7 @@ describe("artifact loader", () => {
     const cause = new Error("network unavailable");
     const loader = { loadAsync: vi.fn().mockRejectedValue(cause) };
 
-    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer, loader))
+    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", { capabilities: { getMaxAnisotropy: () => 8 } } as THREE.WebGLRenderer, loader))
       .rejects.toMatchObject({ cause });
 
     expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
@@ -135,7 +149,7 @@ describe("artifact loader", () => {
     root.add(new THREE.Mesh(geometry, material));
     const loader = { loadAsync: vi.fn().mockResolvedValue({ scene: root, animations: [] }) };
 
-    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer, loader))
+    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", { capabilities: { getMaxAnisotropy: () => 8 } } as THREE.WebGLRenderer, loader))
       .rejects.toThrow(/missing plate\/heaven/);
 
     expect(geometryDispose).toHaveBeenCalledOnce();
@@ -148,7 +162,7 @@ describe("artifact loader", () => {
     const cause = new Error("unsupported renderer");
     ktx2SetupFailure.cause = cause;
 
-    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer))
+    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", { capabilities: { getMaxAnisotropy: () => 8 } } as THREE.WebGLRenderer))
       .rejects.toMatchObject({ cause });
 
     expect(ktx2Loaders[0].dispose).toHaveBeenCalledOnce();
@@ -162,7 +176,7 @@ describe("artifact loader", () => {
       setKTX2Loader: vi.fn(() => { throw cause; }),
     };
 
-    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", {} as THREE.WebGLRenderer, loader))
+    await expect(loadArtifact("/models/daliuren/daliuren-artifact-lod1.glb", { capabilities: { getMaxAnisotropy: () => 8 } } as THREE.WebGLRenderer, loader))
       .rejects.toMatchObject({ cause });
 
     expect(loader.loadAsync).not.toHaveBeenCalled();
