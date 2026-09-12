@@ -220,6 +220,10 @@ export class ArtifactSceneController {
   private readonly reportedAnnotationErrors = new Set<ArtifactAnnotationId>();
   private annotationViewport = { width: 1, height: 1 };
   private cameraTween: CameraTween | undefined;
+  private viewMode: "overall" | "top" | "detail" | undefined;
+  private viewZoom = 1;
+  private fittedDistance = 1;
+  private renderDpr = 1;
   private interactionEnabled = false;
   private activeRingGesture: { pointerId: number; angleRad: number; atMs: number; controlsEnabled: boolean } | undefined;
   private stopped = false;
@@ -379,8 +383,15 @@ export class ArtifactSceneController {
 
   resize(width: number, height: number, dpr: number): void {
     if (this.disposed) return;
+    this.renderDpr = dpr;
     this.annotationViewport = { width: Math.max(1, width), height: Math.max(1, height) };
     this.camera.aspect = this.annotationViewport.width / this.annotationViewport.height;
+    if (this.viewMode) {
+      this.frameView();
+      this.renderer.setPixelRatio(dpr);
+      this.renderer.setSize(width, height, false);
+      return;
+    }
     const landscapeFovScale = 1 + Math.max(0, this.camera.aspect - 1) * 0.065;
     this.camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(
       Math.tan(THREE.MathUtils.degToRad(REVIEW_HORIZONTAL_FOV_DEGREES * landscapeFovScale) / 2) / this.camera.aspect,
@@ -625,16 +636,62 @@ export class ArtifactSceneController {
   }
 
   resetCamera(): void {
+    this.setView("overall");
+  }
+
+  setView(view: "overall" | "top" | "detail"): void {
     if (this.disposed) return;
     this.cameraTween = undefined;
-    this.camera.position.copy(this.initialCameraPosition);
-    this.controls.target.copy(this.initialTarget);
-    this.camera.lookAt(this.initialTarget);
+    this.viewMode = view;
+    this.viewZoom = view === "detail" ? 0.6 : 1;
+    this.controls.minPolarAngle = 0.001;
+    this.camera.position.copy(this.controls.target).add(
+      view === "top" ? new THREE.Vector3(0, 1, 0.001) : new THREE.Vector3(0.62, 0.82, 0.78),
+    );
+    this.frameView();
+  }
+
+  zoomView(factor: number): void {
+    if (this.disposed || !Number.isFinite(factor) || factor <= 0) return;
+    if (!this.viewMode) this.setView("overall");
+    this.viewZoom = THREE.MathUtils.clamp(this.camera.position.distanceTo(this.controls.target) / this.fittedDistance * factor, 0.35, 2);
+    this.frameView();
+  }
+
+  private frameView(): void {
+    this.artifact.root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(this.artifact.nodes.get("base/body") ?? this.artifact.root);
+    if (bounds.isEmpty()) return;
+    const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
+    this.camera.fov = 35;
+    const verticalHalfFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
+    const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * this.camera.aspect);
+    const right = new THREE.Vector3().crossVectors(this.camera.up, direction).normalize();
+    const up = new THREE.Vector3().crossVectors(direction, right).normalize();
+    let fitDistance = 0;
+    for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+      const corner = new THREE.Vector3(x, y, z).sub(sphere.center);
+      fitDistance = Math.max(fitDistance,
+        Math.abs(corner.dot(right)) / Math.tan(horizontalHalfFov) + corner.dot(direction),
+        Math.abs(corner.dot(up)) / Math.tan(verticalHalfFov) + corner.dot(direction));
+    }
+    this.fittedDistance = fitDistance * 1.12;
+    const distance = this.fittedDistance * this.viewZoom;
+    this.controls.target.copy(sphere.center);
+    this.camera.position.copy(sphere.center).addScaledVector(direction, distance);
+    this.camera.far = Math.max(4, distance + sphere.radius * 2);
+    this.camera.updateProjectionMatrix();
+    this.camera.lookAt(sphere.center);
     this.controls.update();
   }
 
   applyCameraPreset(preset: ArtifactCameraPreset, immediate = false): void {
     if (this.disposed) return;
+    const restoreProjection = this.viewMode !== undefined;
+    this.viewMode = undefined;
+    this.controls.minPolarAngle = Math.PI / 9;
+    if (restoreProjection) this.resize(this.annotationViewport.width, this.annotationViewport.height, this.renderDpr);
     const toTarget = new THREE.Vector3(...preset.target);
     const toPosition = new THREE.Vector3(...preset.position);
     if (this.annotationViewport.width < this.annotationViewport.height) {
@@ -674,8 +731,9 @@ export class ArtifactSceneController {
       this.updateCameraTween(timestampMs);
       this.controls.update();
       this.camera.lookAt(this.controls.target);
-      this.camera.rotateZ(REVIEW_CAMERA_ROLL_RADIANS);
-      this.camera.userData.v10HeroRollRadians = REVIEW_CAMERA_ROLL_RADIANS;
+      const roll = this.viewMode ? 0 : REVIEW_CAMERA_ROLL_RADIANS;
+      this.camera.rotateZ(roll);
+      this.camera.userData.v10HeroRollRadians = roll;
       this.renderer.render(this.scene, this.camera);
       return cameraWasMoving && this.cameraTween === undefined;
     } catch (error) {

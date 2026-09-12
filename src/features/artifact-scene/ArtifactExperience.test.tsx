@@ -37,6 +37,8 @@ interface ControllerDouble {
   captureAnnotationFrame: any;
   focusNode: any;
   resetCamera: any;
+  setView: any;
+  zoomView: any;
   render: any;
   dispose: any;
 }
@@ -111,6 +113,8 @@ beforeAll(async () => {
       }));
       focusNode = vi.fn();
       resetCamera = vi.fn();
+      setView = vi.fn();
+      zoomView = vi.fn();
       render = vi.fn(() => false);
       dispose = vi.fn();
 
@@ -777,6 +781,25 @@ describe("ArtifactExperience", () => {
     expect(facts).toHaveTextContent("太阴 卯（天盘空）/戌");
     expect(facts).toHaveTextContent(/初传 .*寅（空）/);
     expect(facts).toHaveTextContent("旬空 寅、卯");
+  });
+
+  it("provides complete-view, top-view, detail, zoom, and reset controls", async () => {
+    const user = userEvent.setup();
+    render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    const overall = await screen.findByRole("button", { name: "整体" });
+    expect(latestController().setView).toHaveBeenCalledWith("overall");
+    await user.click(screen.getByRole("button", { name: "俯视" }));
+    expect(latestController().setView).toHaveBeenLastCalledWith("top");
+    await user.click(screen.getByRole("button", { name: "细节" }));
+    expect(latestController().setView).toHaveBeenLastCalledWith("detail");
+    await user.click(overall);
+    expect(latestController().setView).toHaveBeenLastCalledWith("overall");
+    await user.click(screen.getByRole("button", { name: "放大盘面" }));
+    expect(latestController().zoomView).toHaveBeenLastCalledWith(0.8);
+    await user.click(screen.getByRole("button", { name: "缩小盘面" }));
+    expect(latestController().zoomView).toHaveBeenLastCalledWith(1.25);
+    await user.click(screen.getByRole("button", { name: "复位" }));
+    expect(latestController().resetCamera).toHaveBeenCalledOnce();
   });
 
   it("selects the initial LOD from viewport width instead of canvas width", async () => {

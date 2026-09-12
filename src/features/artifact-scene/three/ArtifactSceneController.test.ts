@@ -387,6 +387,31 @@ const completeDisplayState = {
 } as unknown as ArtifactDisplayState;
 
 describe("ArtifactSceneController", () => {
+  it("fits the complete artifact in landscape and portrait views and resets bounded zoom", () => {
+    const { controller, renderer, artifact } = fixture();
+    for (const [width, height] of [[1200, 600], [390, 700]]) {
+      controller.resize(width, height, 2);
+      controller.setView("overall");
+      controller.render();
+      const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
+      const bounds = new THREE.Box3().setFromObject(artifact.root);
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+        const projected = new THREE.Vector3(x, y, z).project(camera);
+        expect(Math.abs(projected.x)).toBeLessThan(1);
+        expect(Math.abs(projected.y)).toBeLessThan(1);
+      }
+      const position = camera.position.clone();
+      controller.zoomView(0.8);
+      expect(camera.position.distanceTo(position)).toBeGreaterThan(0);
+      controller.resetCamera();
+      expect(camera.position.distanceTo(position)).toBeLessThan(0.00001);
+      controller.setView("top");
+      controller.render();
+      expect(camera.getWorldDirection(new THREE.Vector3()).y).toBeLessThan(-0.99);
+    }
+    controller.dispose();
+  });
+
   it("grounds the jade with one shadow light while keeping glyphs out of shadow casting", () => {
     const { controller, renderer, branchNodes, generalSeatSurface } = fixture();
     controller.render();
@@ -1017,18 +1042,18 @@ describe("ArtifactSceneController", () => {
     );
   });
 
-  it("focuses a runtime node and restores the three-quarter initial camera", () => {
-    const { controller, controls, renderer } = fixture();
+  it("focuses a runtime node and restores the complete artifact view", () => {
+    const { controller, controls, renderer, artifact } = fixture();
 
     controller.focusNode("calendar/slip");
     expect(controls.target.toArray()).toEqual([1, 2, 3]);
     controller.resetCamera();
     controller.render();
     const camera = vi.mocked(renderer.render).mock.calls.at(-1)![1] as THREE.PerspectiveCamera;
-    expect(controls.target.toArray()).toEqual([0, 0.05, 0]);
-    expect(camera.position.toArray()).toEqual([0.62, 0.58, 0.78]);
-    expect(camera.position.distanceTo(controls.target)).toBeGreaterThanOrEqual(1.04);
-    expect(camera.position.distanceTo(controls.target)).toBeLessThanOrEqual(1.18);
+    const center = new THREE.Box3().setFromObject(artifact.root).getCenter(new THREE.Vector3());
+    expect(controls.target.distanceTo(center)).toBeLessThan(0.00001);
+    expect(camera.fov).toBe(35);
+    expect(camera.position.y).toBeGreaterThan(center.y);
   });
 
   it("keeps a focused node after a later render interrupts a stage camera tween", () => {

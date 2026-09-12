@@ -420,7 +420,7 @@ export function ArtifactExperience({
       if (portraitLayout !== undefined
         && portraitLayout !== nextPortraitLayout
         && !userControlledRef.current) {
-        controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, true);
+        controller.setView("overall");
       }
       portraitLayout = nextPortraitLayout;
       if (measure) measureBranchProjection();
@@ -547,6 +547,7 @@ export function ArtifactExperience({
       controller.applyCameraPreset(reviewStageFor(selectedStageRef.current).camera, reducedMotionRef.current);
       if (controllerRef.current !== controller) return;
       applyAt(timeRef.current);
+      controller.setView("overall");
       measureBranchProjection();
       setStatus("ready");
       frameRef.current = requestAnimationFrame(frame);
@@ -680,6 +681,11 @@ export function ArtifactExperience({
       onShowCourse={onShowCourse}
     />
   );
+  const controlView = (action: () => void) => {
+    userControlledRef.current = true;
+    setAutoCamera(false);
+    action();
+  };
   const monthGeneralControls = (
     <MonthGeneralControls
       enabled={interaction.phase !== "locked"}
@@ -720,6 +726,14 @@ export function ArtifactExperience({
       {status === "ready" && (
         <>
           <AccessibleFacts state={displayState} interaction={interaction} seatedCount={seatedCount} />
+          <div className="artifact-view-controls" role="group" aria-label="盘面查看">
+            {(["overall", "top", "detail"] as const).map((view, index) => (
+              <button type="button" key={view} onClick={() => controlView(() => controllerRef.current?.setView(view))}>{["整体", "俯视", "细节"][index]}</button>
+            ))}
+            <button type="button" aria-label="放大盘面" onClick={() => controlView(() => controllerRef.current?.zoomView(0.8))}>＋ 放大</button>
+            <button type="button" aria-label="缩小盘面" onClick={() => controlView(() => controllerRef.current?.zoomView(1.25))}>－ 缩小</button>
+            <button type="button" onClick={() => controlView(() => controllerRef.current?.resetCamera())}>复位</button>
+          </div>
           {showPartDirectory && compactLayout && !mobileToolHosts ? partDirectory : null}
           {monthGeneralControls}
           {showTimeline && !mobileToolHosts ? timeline : null}
