@@ -9,6 +9,37 @@ import { AtlasLauncher, AtlasTerm, ElementAtlasProvider } from "./ElementAtlas";
 afterEach(cleanup);
 const course = referenceSession.snapshots.course!.value as CourseResult;
 
+it("shows category totals and can clear an empty combined search", async () => {
+  const user = userEvent.setup();
+  render(<ElementAtlasProvider><AtlasLauncher /></ElementAtlasProvider>);
+  await user.click(screen.getByRole("button", { name: "元素图鉴" }));
+  const category = screen.getByRole("button", { name: "地支" });
+  expect(category).toHaveTextContent("12");
+  await user.click(category);
+  await user.type(screen.getByRole("searchbox"), "不存在的词");
+  await user.click(screen.getByRole("button", { name: "查看全部" }));
+  expect(screen.getByRole("searchbox")).toHaveValue("");
+  expect(screen.getByRole("button", { name: "全部" })).toHaveAttribute("aria-pressed", "true");
+  await user.type(screen.getByRole("searchbox"), "天盘");
+  expect(document.querySelector(".atlas-tile")).toHaveAccessibleName("天地盘");
+  await user.click(screen.getByRole("button", { name: "清空搜索" }));
+  expect(screen.getByRole("searchbox")).toHaveValue("");
+  expect(screen.getByRole("searchbox")).toHaveFocus();
+});
+
+it("restores list position and the selected tile when returning from a detail", async () => {
+  const user = userEvent.setup();
+  render(<ElementAtlasProvider><AtlasLauncher /></ElementAtlasProvider>);
+  await user.click(screen.getByRole("button", { name: "元素图鉴" }));
+  const dialog = screen.getByRole("dialog");
+  dialog.scrollTop = 420;
+  await user.click(screen.getByRole("button", { name: "子 · 神后" }));
+  expect(dialog.scrollTop).toBe(0);
+  await user.click(screen.getByRole("button", { name: "← 全部图鉴" }));
+  expect(dialog.scrollTop).toBe(420);
+  expect(screen.getByRole("button", { name: "子 · 神后" })).toHaveFocus();
+});
+
 it("browses without a course, compares water branches and restores launch focus", async () => {
   const user = userEvent.setup();
   render(<ElementAtlasProvider><AtlasLauncher /></ElementAtlasProvider>);

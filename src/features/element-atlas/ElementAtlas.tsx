@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useId, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { CourseResult } from "../../domain/course/types";
 import { atlasArt, atlasCourseContext, atlasEntries, atlasIdForTerm, type AtlasEntry, type AtlasId } from "./entries";
@@ -42,11 +42,29 @@ function AtlasReader({ screen, onSelect, onClose, returnFocus, course }: {
   const panel = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const listPosition = useRef<{ top: number; id: AtlasId } | undefined>(undefined);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState("全部");
   const [compare, setCompare] = useState(false);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
-  const matching = atlasEntries.filter((item) => (filter === "全部" || item.category === filter) && [item.title, ...item.aliases, item.summary].join(" ").includes(query.trim()));
+  const search = query.trim().toLocaleLowerCase();
+  function relevance(item: AtlasEntry) {
+    const names = [item.title, ...item.aliases].map((name) => name.toLocaleLowerCase());
+    if (names.includes(search)) return 0;
+    return names.some((name) => name.startsWith(search)) ? 1 : 2;
+  }
+  const matching = atlasEntries.filter((item) => (filter === "全部" || item.category === filter) && [item.title, ...item.aliases, item.summary].join(" ").toLocaleLowerCase().includes(search))
+    .sort((left, right) => relevance(left) - relevance(right));
+  function selectTile(id: AtlasId) {
+    listPosition.current = { top: panel.current?.scrollTop ?? 0, id };
+    onSelect(id);
+  }
+  function clearSearch(all = false) {
+    setQuery(""); setPage(0);
+    if (all) setFilter("全部");
+    searchInput.current?.focus();
+  }
   const pages = Math.max(1, Math.ceil(matching.length / 12));
   const entry = atlasEntries.find((item) => item.id === screen);
   useEffect(() => {
@@ -61,10 +79,16 @@ function AtlasReader({ screen, onSelect, onClose, returnFocus, course }: {
       if (returnFocus?.isConnected) returnFocus.focus();
     };
   }, [returnFocus]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setCompare(false);
-    if (panel.current) panel.current.scrollTop = 0;
-    panel.current?.querySelector<HTMLElement>("[data-atlas-close]")?.focus();
+    const reader = panel.current;
+    if (!reader) return;
+    const previous = screen === "index" ? listPosition.current : undefined;
+    const target = previous
+      ? Array.from(reader.querySelectorAll<HTMLElement>("[data-atlas-id]")).find((tile) => tile.dataset.atlasId === previous.id)
+      : reader.querySelector<HTMLElement>("[data-atlas-close]");
+    target?.focus({ preventScroll: true });
+    reader.scrollTop = previous?.top ?? 0;
   }, [screen]);
   function keyboard(event: KeyboardEvent) {
     if (event.key === "Escape") { event.stopPropagation(); onClose(); return; }
@@ -102,11 +126,11 @@ function AtlasReader({ screen, onSelect, onClose, returnFocus, course }: {
         <nav className="atlas-related" aria-label="继续阅读"><span>沿着疑问，再读一页</span>{atlasEntries.filter((item) => item.id !== entry.id && item.category === entry.category).slice(0, 4).map((item) => <button type="button" key={item.id} onClick={() => onSelect(item.id)}>{item.title} ↗</button>)}</nav>
       </> : <>
         <div className="atlas-intro"><span className="atlas-kicker">式盘里的文化与知识</span><h2 id={titleId}>元素图鉴</h2><p>从一幅画，认识一个名字。<br />再回到盘中，看见它的位置。</p><span className="atlas-edition">全元素 · {atlasEntries.length} 则知识</span></div>
-        <label className="atlas-search"><span>查一个名字，或它的别称</span><input type="search" aria-label="搜索元素" placeholder="如：子、神后、腾蛇、四课" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} /></label>
-        <div className="atlas-filters" role="group" aria-label="图鉴分类">{["全部", "地支", "天干", "天将", "五行", "六亲", "盘式", "取传"].map((item) => <button key={item} type="button" aria-pressed={filter === item} onClick={() => { setFilter(item); setPage(0); }}>{item}</button>)}</div>
+        <div className="atlas-search"><label htmlFor={`${titleId}-search`}>查一个名字，或它的别称</label><div className="atlas-search__field"><input ref={searchInput} id={`${titleId}-search`} type="search" aria-label="搜索元素" placeholder="如：子、神后、腾蛇、四课" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} />{query && <button type="button" aria-label="清空搜索" onClick={() => clearSearch()}>清空</button>}</div></div>
+        <div className="atlas-filters" role="group" aria-label="图鉴分类">{["全部", "地支", "天干", "天将", "五行", "六亲", "盘式", "取传"].map((item) => <button key={item} type="button" aria-label={item} aria-pressed={filter === item} onClick={() => { setFilter(item); setPage(0); }}>{item}<span className="atlas-category-count" aria-hidden="true">{item === "全部" ? atlasEntries.length : atlasEntries.filter((entry) => entry.category === item).length}</span></button>)}</div>
         <p className="atlas-result-count" role="status">共 {matching.length} 则{matching.length > 0 ? ` · 第 ${page + 1} / ${pages} 页` : ""}</p>
-        {!matching.length && <p className="atlas-index-note">没有找到相关条目，请换个名称或分类。</p>}
-        <div className="atlas-grid">{matching.slice(page * 12, (page + 1) * 12).map((item) => <button className={"atlas-tile atlas-tile--" + item.id} key={item.id} type="button" aria-label={item.title} onClick={() => onSelect(item.id)}>
+        {!matching.length && <div className="atlas-empty"><p>没有找到相关条目，请换个名称或分类。</p><button type="button" onClick={() => clearSearch(true)}>查看全部</button></div>}
+        <div className="atlas-grid">{matching.slice(page * 12, (page + 1) * 12).map((item) => <button className={"atlas-tile atlas-tile--" + item.id} key={item.id} type="button" aria-label={item.title} data-atlas-id={item.id} onClick={() => selectTile(item.id)}>
           <div className="atlas-tile__image"><img src={imageBase + item.image} alt="" style={{ objectPosition: item.position }} /><span>{item.glyph}</span></div>
           <div className="atlas-tile__text"><small>{item.category}</small><b>{item.title}</b><p>{item.subtitle}</p><span aria-hidden="true">展开阅读 ↗</span></div>
         </button>)}</div>
@@ -148,7 +172,7 @@ function AtlasCard({ entry, titleId, course }: { entry: AtlasEntry; titleId: str
       {entry.id === "plates" && <div className="atlas-plate-diagram" role="img" aria-label="天盘圆形、地盘方形的两层结构示意，不表示当前排盘"><div><span>天盘</span></div><span>地盘</span><small>两层结构示意</small></div>}
       <section className="atlas-context" aria-label="在这一课中"><h3>在这一课中</h3>{course ? atlasCourseContext(entry.id, course).map((line) => <p key={line}>{line}</p>) : <p>起课后，从盘面打开这张卡片，可查看它在本课中的位置与关系。</p>}</section>
       <div className="atlas-reading">
-        <details open><summary>来历与背景</summary><p>{entry.history}</p></details>
+        <details><summary>来历与背景</summary><p>{entry.history}</p></details>
         <details><summary>六壬中的含义</summary><p>{entry.meaning}</p></details>
         <details><summary>容易混淆的地方</summary><p>{entry.caution}</p></details>
         <details><summary>知识与画作出处</summary><h3>知识依据</h3>{entry.sources.map((source) => <p key={source}>{source}</p>)}<h3>画作来源</h3><p>{art.title}<br />{art.detail}<br />{art.credit}</p><p>使用开放馆藏图并裁取局部。配图呈现传统艺术意境，不构成术式对应或历史人物身份的证据。</p></details>

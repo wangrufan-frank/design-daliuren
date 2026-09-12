@@ -13,26 +13,26 @@ button.atlas-term:hover { color: #285b4f; background: #e6ede7; }
 .atlas-topbar > span { font-size: 12px; letter-spacing: .12em; }
 .atlas-topbar button { border: 0; background: transparent; color: #365547; padding: 6px 0; font-size: 13px; }
 .atlas-topbar button span { font-size: 22px; padding-left: 9px; vertical-align: -1px; }
-.atlas-intro { position: relative; padding: 42px 32px 24px; }
+.atlas-intro { position: relative; padding: 28px 32px 20px; }
 .atlas-kicker { font-size: 11px; color: #64766b; letter-spacing: .25em; }
 .atlas-intro h2 { margin: 12px 0; font: 42px/1.3 "Songti SC", "STSong", SimSun, serif; letter-spacing: .12em; font-weight: 400; }
 .atlas-intro p { margin: 14px 0 0; font-size: 14px; line-height: 1.9; color: #637166; }
 .atlas-edition { position: absolute; right: 33px; bottom: 30px; writing-mode: vertical-rl; letter-spacing: .24em; font: 12px "Songti SC", SimSun, serif; color: #7a6652; }
 .atlas-filters { display: flex; flex-wrap: wrap; margin: 0 32px 23px;  padding: 10px 0; border-top: 1px solid #cdd5c9; border-bottom: 1px solid #cdd5c9; }
-.atlas-filters button { border: 0; padding: 6px 18px; border-radius: 2px; background: transparent; color: #5e7064; font-size: 13px; }
+.atlas-filters button { min-height: 44px; border: 0; padding: 8px 12px; border-radius: 2px; background: transparent; color: #5e7064; font-size: 13px; }
 .atlas-filters button[aria-pressed="true"] { background: #355a4b; color: #f4f4e9; }
 .atlas-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-gap: 22px 18px; padding: 0 32px 20px; }
 .atlas-tile { padding: 0; overflow: hidden; border: 1px solid #d6d9cc; border-radius: 2px; background: #f9f8f0; text-align: left; color: #2f493b; }
-.atlas-tile__image { height: 165px; position: relative; overflow: hidden; background: #d3c4a2; }
+.atlas-tile__image { height: 112px; position: relative; overflow: hidden; background: #d3c4a2; }
 .atlas-tile__image img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.16); }
 .atlas-tile__image > span { position: absolute; right: 13px; top: 13px; display: block; width: 29px; height: 35px; text-align: center; background: #f6f0dcdd; color: #7e3929; font: 24px/35px "Songti SC", SimSun, serif; }
 .atlas-tile__text { padding: 16px; }
 .atlas-tile__text small { display: block; color: #798274; font-size: 10px; letter-spacing: .2em; }
-.atlas-tile__text b { display: block; margin: 4px 0; font: 23px/1.5 "Songti SC", SimSun, serif; }
-.atlas-tile__text p { min-height: 38px; margin: 8px 0 16px; color: #6c7567; font-size: 12px; line-height: 1.7; }
+.atlas-tile__text b { display: block; margin: 4px 0; font: 21px/1.5 "Songti SC", SimSun, serif; }
+.atlas-tile__text p { min-height: 38px; margin: 6px 0 12px; color: #6c7567; font-size: 12px; line-height: 1.7; }
 .atlas-tile__text > span { display: block; font-size: 11px; color: #416553; }
 .atlas-index-note { margin: 8px 32px 35px; color: #7b8378; font-size: 11px; line-height: 1.9; }
-.atlas-hero { position: relative; height: 330px; margin: 0; overflow: hidden; background: #ad9e78; }
+.atlas-hero { position: relative; height: 230px; margin: 0; overflow: hidden; background: #ad9e78; }
 .atlas-hero > img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.12); }
 .atlas-hero::after { content: ""; position: absolute; top: 30%; right: 0; bottom: 0; left: 0; background: linear-gradient(transparent, rgba(30, 42, 29, .88)); }
 .atlas-hero__label { position: absolute; left: 32px; right: 32px; bottom: 26px; z-index: 1; color: #fcf9e9; }
@@ -42,12 +42,12 @@ button.atlas-term:hover { color: #285b4f; background: #e6ede7; }
 .atlas-seal { position: absolute; top: 25px; right: 29px; z-index: 1; background: #eff0ddda; border: 1px solid #eee8c1; outline: 1px solid #eff0ddda; outline-offset: 3px; padding: 5px 7px; color: #7b3e2d; font: 30px "Songti SC", SimSun, serif; }
 .atlas-card-body { padding: 0 32px; }
 .atlas-art-caption { margin: 12px 0 25px; font-size: 10px; color: #7d8275; }
-.atlas-summary { margin: 0 0 28px; font: 21px/1.85 "Songti SC", "STSong", SimSun, serif; color: #2c493a; }
+.atlas-summary { margin: 0 0 22px; font: 19px/1.85 "Songti SC", "STSong", SimSun, serif; color: #2c493a; }
 .atlas-context { background: #e4eadd; border-left: 2px solid #67816a; padding: 17px 20px; margin: 24px 0; }
 .atlas-context h3 { margin: 0 0 10px; font-size: 12px; letter-spacing: .12em; font-weight: 600; color: #43634b; }
 .atlas-context p { margin: 6px 0; font-size: 13px; color: #53604e; line-height: 1.9; }
 .atlas-reading details { border-top: 1px solid #d0d7c9; padding: 0 0 3px; }
-.atlas-reading summary { padding: 16px 0; cursor: pointer; color: #365540; font-size: 15px; }
+.atlas-reading summary { padding: 18px 0; cursor: pointer; color: #365540; font-size: 15px; }
 .atlas-reading p { margin: 0 0 20px; color: #5a6657; font-size: 14px; line-height: 2; }
 .atlas-reading h3 { font-size: 12px; margin: 8px 0; color: #365540; }
 .atlas-save { margin: 25px 0; }
@@ -76,17 +76,17 @@ button.atlas-term:hover { color: #285b4f; background: #e6ede7; }
   .atlas-intro h2 { font-size: 35px; }
   .atlas-edition { right: 24px; bottom: 24px; }
   .atlas-filters { margin: 0 22px 18px;  }
-  .atlas-filters button { padding: 6px 15px; }
+  .atlas-filters button { padding: 8px 10px; }
   .atlas-grid { padding: 0 22px 16px; grid-gap: 15px 12px; }
-  .atlas-tile__image { height: 132px; }
+  .atlas-tile__image { height: 88px; }
   .atlas-tile__text { padding: 12px; }
-  .atlas-tile__text b { font-size: 20px; }
-  .atlas-tile__text p { min-height: 58px; }
-  .atlas-hero { height: 300px; }
+  .atlas-tile__text b { font-size: 18px; }
+  .atlas-tile__text p { min-height: 44px; }
+  .atlas-hero { height: 210px; }
   .atlas-hero__label { left: 24px; right: 24px; bottom: 25px; }
   .atlas-hero__label h2 { font-size: 35px; }
   .atlas-card-body { padding: 0 24px; }
-  .atlas-summary { font-size: 20px; }
+  .atlas-summary { font-size: 18px; }
   .atlas-comparison { margin-left: 24px; margin-right: 24px; }
   .atlas-related { padding: 22px 24px 30px; }
 }
@@ -109,10 +109,18 @@ button.atlas-term:hover { color: #285b4f; background: #e6ede7; }
 @media (max-width: 600px) { .atlas-filters button + button { margin-left: 3px; } }
 
 .atlas-search { display: block; margin: 0 28px 18px; }
-.atlas-search span { display: block; margin-bottom: 8px; font-size: 12px; color: #697368; }
-.atlas-search input { box-sizing: border-box; width: 100%; padding: 12px 14px; border: 1px solid #bfc8b9; border-radius: 3px; background: #fffdf6; color: #233d32; font: inherit; }
+.atlas-search label { display: block; margin-bottom: 8px; font-size: 12px; color: #697368; }
+.atlas-search input { min-width: 0; box-sizing: border-box; width: 100%; padding: 12px 14px; border: 1px solid #bfc8b9; border-radius: 3px; background: #fffdf6; color: #233d32; font: inherit; }
 .atlas-result-count { margin: 12px 28px; color: #697368; font-size: 12px; }
 .atlas-pagination { display: flex; align-items: center; justify-content: space-between; margin: 22px 28px; }
 .atlas-pagination button { padding: 10px 16px; border: 1px solid #bfc8b9; background: #fffdf6; color: #233d32; cursor: pointer; }
 .atlas-pagination button:disabled { opacity: .4; cursor: default; }
 .atlas-pagination span { font-size: 12px; color: #697368; }
+
+.atlas-category-count { display: inline-block; margin-left: 5px; font-size: 10px; opacity: .8; font-variant-numeric: tabular-nums; }
+.atlas-search__field { position: relative; }
+.atlas-search__field input { padding-right: 60px; }
+.atlas-search__field button { position: absolute; top: 1px; right: 1px; bottom: 1px; min-width: 52px; padding: 6px; border: 0; background: #fffdf6; color: #355a4b; font-size: 12px; }
+.atlas-empty { margin: 24px 28px; padding: 24px 16px; border: 1px solid #cdd5c9; text-align: center; }
+.atlas-empty p { margin: 0 0 16px; color: #5e7064; font-size: 14px; line-height: 1.8; }
+.atlas-empty button { min-height: 44px; padding: 8px 20px; border: 1px solid #355a4b; background: #355a4b; color: #f4f4e9; }
