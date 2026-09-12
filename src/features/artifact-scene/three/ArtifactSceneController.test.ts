@@ -188,6 +188,7 @@ function fixture(
   const renderer = {
     domElement: canvas,
     capabilities: { getMaxAnisotropy: vi.fn(() => 12) },
+    shadowMap: { enabled: false, type: THREE.BasicShadowMap },
     setPixelRatio: vi.fn(),
     setSize: vi.fn(),
     render: vi.fn(),
@@ -386,6 +387,22 @@ const completeDisplayState = {
 } as unknown as ArtifactDisplayState;
 
 describe("ArtifactSceneController", () => {
+  it("grounds the jade with one shadow light while keeping glyphs out of shadow casting", () => {
+    const { controller, renderer, branchNodes, generalSeatSurface } = fixture();
+    controller.render();
+    const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
+    const lights = scene.children.filter((child) => child instanceof THREE.DirectionalLight && child.castShadow) as THREE.DirectionalLight[];
+    expect(renderer.shadowMap.enabled).toBe(true);
+    expect(lights).toHaveLength(1);
+    expect(lights[0].shadow.intensity).toBeLessThan(0.6);
+    expect((scene.getObjectByName("environment/stone-ground") as THREE.Mesh).receiveShadow).toBe(true);
+    expect(generalSeatSurface.castShadow).toBe(true);
+    expect([...branchNodes.values()].every((mesh) => !mesh.castShadow && !mesh.receiveShadow)).toBe(true);
+    const disposeShadow = vi.spyOn(lights[0].shadow, "dispose");
+    controller.dispose();
+    expect(disposeShadow).toHaveBeenCalledOnce();
+  });
+
   it("keeps the physical artifact geometry visible without a reference-surface replacement", () => {
     const { branchNodes, legacyOverlay } = fixture(["dynamic/calendar"], { includeLegacyOverlay: true });
 
@@ -410,14 +427,14 @@ describe("ArtifactSceneController", () => {
     const scene = vi.mocked(renderer.render).mock.calls[0][0] as THREE.Scene;
     expect(scene.background).toEqual(new THREE.Color(0xd8d2c8));
     expect(scene.environment).toBe(environmentTexture);
-    expect(scene.environmentIntensity).toBe(0.9);
+    expect(scene.environmentIntensity).toBe(0.65);
     expect(controls.minPolarAngle).toBeCloseTo(Math.PI / 9);
     expect(controls.maxPolarAngle).toBeCloseTo(5 * Math.PI / 12);
     expect(controls.minAzimuthAngle).toBe(-Infinity);
     expect(controls.maxAzimuthAngle).toBe(Infinity);
     const lights = scene.children.filter((child) => child instanceof THREE.Light) as THREE.Light[];
     expect(lights).toHaveLength(4);
-    expect(lights.map((light) => light.intensity)).toEqual([1.65, 1.05, 0.65, 0.7]);
+    expect(lights.map((light) => light.intensity)).toEqual([2, 0.65, 0.45, 0.5]);
     expect(lights[0].color).toEqual(new THREE.Color(0xfff7e8));
     expect(lights[1]).toBeInstanceOf(THREE.HemisphereLight);
     expect(lights[2]).toBeInstanceOf(THREE.DirectionalLight);
@@ -436,7 +453,7 @@ describe("ArtifactSceneController", () => {
     expect(generalSeatSurface.material).toMatchObject({
       color: new THREE.Color(0xf0eadd),
       metalness: 0,
-      roughness: 0.27,
+      roughness: 0.32,
     });
     const generalPieceMaterials = generalNodes.map((general) => (
       (general.children[0] as THREE.Mesh).material as THREE.MeshPhysicalMaterial

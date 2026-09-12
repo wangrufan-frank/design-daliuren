@@ -188,6 +188,7 @@ function createStoneGround(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandard
   ground.name = "environment/stone-ground";
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.001;
+  ground.receiveShadow = true;
   return ground;
 }
 
@@ -198,6 +199,7 @@ export class ArtifactSceneController {
   private readonly disposeAtlasPicking: () => void;
   private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
   private readonly stoneGround = createStoneGround();
+  private readonly keyLight = new THREE.DirectionalLight(0xfff7e8, 2);
   private readonly baseTransforms = new Map<string, BaseTransform>();
   private readonly generalSlots = new Map<EarthlyBranch, BaseTransform>();
   private readonly labelBindings = new Map<string, LabelBinding>();
@@ -280,21 +282,48 @@ export class ArtifactSceneController {
     this.scene.background = new THREE.Color(0xd8d2c8);
     this.environment = dependencies.createEnvironment(renderer);
     this.scene.environment = this.environment.texture;
-    this.scene.environmentIntensity = 0.9;
+    this.scene.environmentIntensity = 0.65;
     this.configureInteractionRing();
     this.centerJadePlate();
     this.harmonizeJadeSurfaces();
     this.scene.add(artifact.root);
     this.now = dependencies.now ?? (() => performance.now());
 
-    const keyLight = new THREE.DirectionalLight(0xfff7e8, 1.65);
-    keyLight.position.set(-0.65, 0.95, 0.7);
-    const fillLight = new THREE.HemisphereLight(0xf1f3ef, 0x8f8981, 1.05);
-    const sideFill = new THREE.DirectionalLight(0xdce9e3, 0.65);
+    const keyLight = this.keyLight;
+    keyLight.position.set(-0.65, 0.75, 0.5);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    Object.assign(keyLight.shadow.camera, { left: -0.45, right: 0.45, top: 0.45, bottom: -0.45, near: 0.1, far: 2 });
+    keyLight.shadow.camera.updateProjectionMatrix();
+    keyLight.shadow.bias = -0.0001;
+    keyLight.shadow.normalBias = 0.0006;
+    keyLight.shadow.intensity = 0.45;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    const fillLight = new THREE.HemisphereLight(0xf1f3ef, 0x8f8981, 0.65);
+    const sideFill = new THREE.DirectionalLight(0xdce9e3, 0.45);
     sideFill.position.set(0.75, 0.5, 0.35);
-    const rimLight = new THREE.DirectionalLight(0xffe8bb, 0.7);
+    const rimLight = new THREE.DirectionalLight(0xffe8bb, 0.5);
     rimLight.position.set(-0.5, 0.8, -0.7);
     this.scene.add(this.stoneGround, keyLight, fillLight, sideFill, rimLight);
+    this.artifact.root.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        if (material instanceof THREE.MeshStandardMaterial
+          && material.name === "RT_M_JadeBody_outer_board_v10") {
+          material.normalScale.set(0.4, 0.4);
+          material.roughness = 0.35;
+        }
+      }
+      const nodeId = object.userData.node_id ?? "";
+      const isLabel = object.userData.text_role || object.userData.dynamic_label_id
+        || materials.every((material) => /Text|DynamicLabel/.test(material.name))
+        || nodeId.startsWith("branch/") || nodeId.startsWith("month-general/")
+        || nodeId.startsWith("interaction/") || nodeId.startsWith("trace/");
+      object.castShadow = !isLabel;
+      object.receiveShadow = !isLabel;
+    });
 
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialTarget);
@@ -715,14 +744,14 @@ export class ArtifactSceneController {
       name: "runtime/general-ring-jade",
       color: 0xf0eadd,
       metalness: 0,
-      roughness: 0.27,
+      roughness: 0.32,
       transmission: 0,
       transparent: false,
       opacity: 1,
       depthWrite: true,
       ior: 1.46,
-      clearcoat: 0.1,
-      clearcoatRoughness: 0.28,
+      clearcoat: 0.18,
+      clearcoatRoughness: 0.32,
     });
     this.artifact.nodes.get("plate/generals")?.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -971,6 +1000,7 @@ export class ArtifactSceneController {
     this.labels.dispose();
     this.stoneGround.geometry.dispose();
     this.stoneGround.material.dispose();
+    this.keyLight.shadow.dispose();
     this.scene.environment = null;
     this.environment.dispose();
     disposeArtifact(this.artifact.root);
