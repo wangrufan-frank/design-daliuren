@@ -32,6 +32,28 @@
   transform: translate(-50%, -50%);
 }
 
+.artifact-inspection-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; }
+.artifact-inspection-layout > .artifact-experience__viewport { min-width: 0; }
+.artifact-inspector { padding: 24px; background: #f4f3eb; color: #254c40; border-left: 1px solid #c4cfc5; }
+.artifact-inspector__eyebrow { font-size: 12px; letter-spacing: .2em; color: #5b7167; }
+.artifact-inspector h3 { margin: 16px 0; font-family: "Noto Serif SC", "SimSun", serif; font-size: 22px; }
+.artifact-inspector p { font-size: 14px; line-height: 1.9; }
+.artifact-inspector__heading { display: flex; gap: 14px; align-items: center; margin-top: 22px; }
+.artifact-inspector__heading h3 { margin: 5px 0; }
+.artifact-inspector__heading > div > span { font-size: 12px; }
+.artifact-inspector__glyph { font-family: "Noto Serif SC", "SimSun", serif; font-size: 38px; color: #81642f; }
+.artifact-inspector__context { border-top: 1px solid #c4cfc5; margin-top: 24px; padding-top: 16px; }
+.artifact-inspector h4 { margin: 0; font-size: 13px; letter-spacing: .12em; }
+.artifact-inspector__hint { color: #5b7167; }
+.artifact-inspector__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.artifact-inspector__actions button { min-height: 44px; padding: 8px 12px; border: 1px solid #aabcb0; border-radius: 4px; color: #254c40; background: #faf9f1; cursor: pointer; }
+.artifact-inspector__actions button:first-child { color: #faf9f1; background: #254c40; }
+.artifact-inspector__actions button:focus-visible { outline: 2px solid #81642f; outline-offset: 3px; }
+@media (max-width: 1000px) {
+  .artifact-inspection-layout { grid-template-columns: minmax(0, 1fr); }
+  .artifact-inspector { border-left: 0; border-top: 1px solid #c4cfc5; padding: 18px 20px; }
+}
+
 .artifact-view-controls {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

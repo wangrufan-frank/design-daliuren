@@ -26,11 +26,11 @@ function visible(object: THREE.Object3D): boolean {
   return materials.some((material) => material.visible && material.opacity > 0 && material.colorWrite);
 }
 
-function elementFor(object: THREE.Object3D): AtlasId | undefined {
+function elementFor(object: THREE.Object3D): { id: AtlasId; node: THREE.Object3D } | undefined {
   for (let node: THREE.Object3D | null = object; node; node = node.parent) {
     const id = node.userData.node_id;
     if (typeof id !== "string") continue;
-    if (ELEMENTS[id]) return ELEMENTS[id];
+    if (ELEMENTS[id]) return { id: ELEMENTS[id], node };
     if (/^(branch|general|month-general|lesson|transmission)\//.test(id)) return undefined;
   }
   return undefined;
@@ -40,7 +40,7 @@ export function mountAtlasPicking(
   canvas: HTMLCanvasElement,
   camera: THREE.Camera,
   root: THREE.Object3D,
-  onSelect?: (id: AtlasId) => void,
+  onSelect?: (id: AtlasId, node: THREE.Object3D) => void,
 ): () => void {
   if (!onSelect) return () => {};
   const pointers = new Set<number>();
@@ -71,7 +71,7 @@ export function mountAtlasPicking(
     const id = hit && elementFor(hit.object);
     if (id) {
       canvas.focus();
-      onSelect!(id);
+      onSelect!(id.id, id.node);
     }
   }
   const cancelTap = () => { tap = undefined; };

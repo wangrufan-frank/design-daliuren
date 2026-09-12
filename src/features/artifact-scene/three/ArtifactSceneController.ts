@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { AtlasId } from "../../element-atlas/entries";
 import { mountAtlasPicking } from "./atlas-picking";
+import { highlightSelection } from "./selection-highlight";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { EARTHLY_BRANCHES } from "../../../domain/calendar/constants";
@@ -197,6 +198,12 @@ export class ArtifactSceneController {
   private readonly camera = new THREE.PerspectiveCamera(REVIEW_HORIZONTAL_FOV_DEGREES, 1, 0.05, 4);
   private readonly controls: ControlsLike;
   private readonly disposeAtlasPicking: () => void;
+  private disposeSelection: (() => void) | undefined;
+
+  clearSelection(): void {
+    this.disposeSelection?.();
+    this.disposeSelection = undefined;
+  }
   private readonly environment: ReturnType<ArtifactSceneDependencies["createEnvironment"]>;
   private readonly stoneGround = createStoneGround();
   private readonly keyLight = new THREE.DirectionalLight(0xfff7e8, 2);
@@ -331,7 +338,11 @@ export class ArtifactSceneController {
 
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialTarget);
-    this.disposeAtlasPicking = mountAtlasPicking(renderer.domElement, this.camera, artifact.root, callbacks.onAtlasSelect);
+    this.disposeAtlasPicking = mountAtlasPicking(renderer.domElement, this.camera, artifact.root, callbacks.onAtlasSelect && ((id, node) => {
+      this.clearSelection();
+      this.disposeSelection = highlightSelection(node);
+      callbacks.onAtlasSelect?.(id);
+    }));
     this.controls = dependencies.createControls(this.camera, renderer.domElement);
     this.controls.target.copy(this.initialTarget);
     this.controls.autoRotate = false;
@@ -1042,6 +1053,7 @@ export class ArtifactSceneController {
     this.controls.removeEventListener("start", this.handleControlStart);
     this.controls.dispose();
     this.disposeAtlasPicking();
+    this.clearSelection();
 
     for (const binding of this.labelBindings.values()) {
       if (binding.texture) this.labels.release(binding.texture);

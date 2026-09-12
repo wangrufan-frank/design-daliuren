@@ -1,4 +1,5 @@
 import { useElementAtlas } from "../element-atlas/ElementAtlas";
+import { atlasEntries, atlasCourseContext, type AtlasId } from "../element-atlas/entries";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -205,8 +206,8 @@ export function ArtifactExperience({
   mobileToolHosts,
 }: ArtifactExperienceProps) {
   const { open: openAtlas } = useElementAtlas();
-  const openAtlasRef = useRef(openAtlas);
-  openAtlasRef.current = openAtlas;
+  const [selectedAtlasId, setSelectedAtlasId] = useState<AtlasId | null>(null);
+  const selectedEntry = atlasEntries.find((entry) => entry.id === selectedAtlasId);
   const displayState = useMemo(() => mapArtifactState(source), [source]);
   const jadePlateLayout = useMemo(() => deriveJadePlateLayout(displayState), [displayState]);
   const reducedMotion = useReducedMotion();
@@ -519,7 +520,7 @@ export function ArtifactExperience({
         onContextLost: failExperience,
         onError: failExperience,
         onMonthGeneralInput: applyInteractionEvent,
-        onAtlasSelect: (id) => openAtlasRef.current(id),
+        onAtlasSelect: (id) => setSelectedAtlasId(id),
       });
       ownedController = controller;
       controllerRef.current = controller;
@@ -573,6 +574,8 @@ export function ArtifactExperience({
 
   useEffect(() => {
     displayStateRef.current = displayState;
+    setSelectedAtlasId(null);
+    controllerRef.current?.clearSelection();
     replaceInteraction();
     timeRef.current = 0;
     accumulatedTimeRef.current = 0;
@@ -714,9 +717,32 @@ export function ArtifactExperience({
       data-auto-camera={String(autoCamera)}
       {...observabilityAttributes}
     >
+      <div className="artifact-inspection-layout">
       <div className="artifact-experience__viewport">
         <canvas ref={canvasRef} aria-label="大六壬三维器物" />
         {status === "loading" && <p className="artifact-experience__loading" role="status">正在加载三维器物</p>}
+      </div>
+      {status === "ready" && <aside className="artifact-inspector" aria-label="盘面元素说明">
+        <span className="artifact-inspector__eyebrow">识盘 · 图鉴</span>
+        {selectedEntry ? <>
+          <div className="artifact-inspector__heading">
+            <span className="artifact-inspector__glyph" aria-hidden="true">{selectedEntry.glyph}</span>
+            <div aria-live="polite"><span>{selectedEntry.category}</span><h3>{selectedEntry.title}</h3></div>
+          </div>
+          <p>{selectedEntry.summary}</p>
+          <div className="artifact-inspector__context"><h4>本课位置</h4>
+            {atlasCourseContext(selectedEntry.id, source.course).map((line) => <p key={line}>{line}</p>)}
+          </div>
+          <div className="artifact-inspector__actions">
+            <button type="button" onClick={() => openAtlas(selectedEntry.id)}>查看图鉴 ↗</button>
+            <button type="button" onClick={() => { setSelectedAtlasId(null); controllerRef.current?.clearSelection(); canvasRef.current?.focus(); }}>取消选中</button>
+          </div>
+        </> : <>
+          <h3>点一处，读懂一处</h3>
+          <p>点击盘面上的地支、月将或神将，查看释义与本课位置。选中处以浅金色标记。</p>
+          <p className="artifact-inspector__hint">拖动旋转 · 滚轮或双指缩放</p>
+        </>}
+      </aside>}
       </div>
       {status === "loading" && (
         <div className="artifact-experience__loading-actions">

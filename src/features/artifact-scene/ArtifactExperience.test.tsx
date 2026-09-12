@@ -20,6 +20,7 @@ import { ARTIFACT_ANNOTATION_DESCRIPTORS } from "./annotations/descriptors";
 
 interface ControllerDouble {
   callbacks: {
+    onAtlasSelect?(id: string): void;
     onUserControlStart(): void;
     onContextLost(): void;
     onError(error: unknown): void;
@@ -39,6 +40,7 @@ interface ControllerDouble {
   resetCamera: any;
   setView: any;
   zoomView: any;
+  clearSelection: any;
   render: any;
   dispose: any;
 }
@@ -117,6 +119,7 @@ beforeAll(async () => {
       zoomView = vi.fn();
       render = vi.fn(() => false);
       dispose = vi.fn();
+      clearSelection = vi.fn();
 
       constructor(_renderer: unknown, _artifact: unknown, callbacks: typeof this.callbacks) {
         this.callbacks = callbacks;
@@ -230,6 +233,22 @@ afterEach(() => {
 });
 
 describe("ArtifactExperience", () => {
+  it("shows picked element context and clears selection when the course changes", async () => {
+    const { rerender } = render(<ArtifactExperience source={referenceSourceResults} onShowCourse={vi.fn()} />);
+    const panel = await screen.findByRole("complementary", { name: "盘面元素说明" });
+    act(() => mocks.controllers[0].callbacks.onAtlasSelect?.("zi"));
+    expect(within(panel).getByRole("heading", { name: "本课位置" })).toBeVisible();
+    expect(within(panel).getByRole("button", { name: "查看图鉴 ↗" })).toBeVisible();
+    expect(panel.textContent).toContain("地盘子宫上方");
+    fireEvent.click(within(panel).getByRole("button", { name: "取消选中" }));
+    expect(within(panel).getByText("点一处，读懂一处")).toBeVisible();
+    expect(mocks.controllers[0].clearSelection).toHaveBeenCalled();
+    act(() => mocks.controllers[0].callbacks.onAtlasSelect?.("noble"));
+    expect(panel.textContent).toContain("贵人");
+    rerender(<ArtifactExperience source={{ ...referenceSourceResults }} onShowCourse={vi.fn()} />);
+    expect(within(panel).getByText("点一处，读懂一处")).toBeVisible();
+  });
+
   it("keeps the text-course escape accessible while the artifact is loading", async () => {
     mocks.loadArtifact.mockReturnValue(new Promise(() => undefined));
     const onShowCourse = vi.fn();
