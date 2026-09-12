@@ -50,6 +50,8 @@ it("renders the approved reading order and enclosing palace square", () => {
     .toEqual(["initial", "middle", "final"]);
   expect(screen.getAllByTestId("course-lesson").map((node) => node.getAttribute("data-lesson")))
     .toEqual(["fourth", "third", "second", "first"]);
+  expect([...screen.getByRole("article").querySelectorAll("[data-course-section]")].map((node) => node.getAttribute("data-course-section")))
+    .toEqual(["summary", "palaces", "lessons", "transmissions"]);
   const firstTransmission = screen.getAllByTestId("course-transmission")[0];
   expect([...firstTransmission.children].map((node) => node.getAttribute("data-layer")))
     .toEqual(["general", "content"]);
@@ -61,6 +63,15 @@ it("renders the approved reading order and enclosing palace square", () => {
   expect(palaces.map((palace) => palace.getAttribute("data-earth")))
     .toEqual(["巳", "午", "未", "申", "酉", "戌", "亥", "子", "丑", "寅", "卯", "辰"]);
   expect(screen.getByTestId("course-plate-center")).toHaveTextContent("月将");
+});
+
+it("labels pillars and explains lesson and transmission reading layers", () => {
+  render(<CourseSheet result={result} />);
+  for (const [index, label] of ["年柱", "月柱", "日柱", "时柱"].entries()) {
+    expect(screen.getByText(label).parentElement).toHaveTextContent(Object.values(result.context.pillars)[index]);
+  }
+  expect(screen.getByText("神将在上，横线以上为上神，以下为下位。")).toBeVisible();
+  expect(screen.getByLabelText("三传各列含义").textContent).toBe("神将传次地支六亲");
 });
 
 it("shows natal context and marks void branches across transmissions, lessons, and palaces", () => {
@@ -90,7 +101,7 @@ it("locks the approved square, perimeter, mobile lesson grid, and host selector 
   perimeter.forEach((gridArea, index) => {
     expect(globalCss).toContain(`.course-sheet__plate li:nth-child(${index + 1}) { grid-area: ${gridArea}; }`);
   });
-  expect(globalCss).toMatch(/@media \(max-width: 760px\) \{[\s\S]*\.course-sheet__lessons ol \{ grid-template-columns: repeat\(2,/);
+  expect(globalCss).toMatch(/@media \(max-width: 760px\) \{[\s\S]*\.course-sheet__lessons ol \{ grid-template-columns: repeat\(4,/);
   expect(globalCss).toContain(".app-stage > h2 {");
   expect(globalCss).toContain(".app-stage > p {");
   expect(globalCss).not.toContain(".app-stage h2 {");
@@ -104,8 +115,9 @@ it("keeps a saveable preview visible after copying the PNG", async () => {
   await userEvent.click(screen.getByRole("button", { name: "复制课式图片" }));
   expect(imageMocks.toBlob).toHaveBeenCalledWith(
     screen.getByRole("article", { name: "标准文字课式" }),
-    expect.objectContaining({ backgroundColor: "#f3efe6", pixelRatio: 1 }),
+    expect.objectContaining({ backgroundColor: "#f3efe6", pixelRatio: 1, style: { margin: "0" } }),
   );
+  expect(screen.getByRole("article")).not.toContainElement(await screen.findByRole("img", { name: "生成的大六壬课式" }));
   expect(write).toHaveBeenCalledOnce();
   expect(await screen.findByRole("status")).toHaveTextContent("课式图片已复制");
   expect(screen.getByRole("img", { name: "生成的大六壬课式" }))

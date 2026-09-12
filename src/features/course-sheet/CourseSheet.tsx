@@ -38,9 +38,9 @@ export function CourseSheet({ result }: { result: CourseResult }) {
       const blob = await toBlob(sheet, {
         backgroundColor: "#f3efe6",
         cacheBust: true,
+        style: { margin: "0" },
         skipFonts: true,
         pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-        filter: (node) => !(node instanceof HTMLElement && node.dataset.courseSection === "copy"),
       });
       if (!blob) throw new Error("Course image generation failed");
       const url = await blobToDataUrl(blob);
@@ -87,54 +87,34 @@ export function CourseSheet({ result }: { result: CourseResult }) {
     : copyState === "copied" ? "图片已复制" : "复制课式图片";
 
   return (
+    <>
     <article ref={sheetRef} className="course-sheet" aria-label="标准文字课式">
       <header className="course-sheet__summary" data-course-section="summary">
         <div>
-          <p>第六阶段 · 已验证事实投影</p>
-          <h2>大六壬 · 标准文字课式</h2>
-          <span>{result.context.locationName} · {result.context.lunarDateDisplay}</span>
+          <p>本课</p>
+          <h2>大六壬课式</h2>
+          <span>{result.context.locationName ? `${result.context.locationName} · ` : ""}{result.context.lunarDateDisplay}</span>
         </div>
         <dl>
-          <div><dt>北京时间</dt><dd>{result.context.civilDateTime}</dd></div>
+          <div><dt>北京时间</dt><dd>{result.context.civilDateTime.replace("T", " ")}</dd></div>
           <div><dt><AtlasTerm value="换日口径">生效干支日</AtlasTerm></dt><dd>{result.context.effectiveGanzhiDate}</dd></div>
-          <div><dt><AtlasTerm value="四柱" /></dt><dd>{Object.values(result.context.pillars).map((pillar, index) => <span key={index}>{index > 0 ? "　" : ""}{pillar.split("").map((term, offset) => <AtlasTerm key={offset} value={term} />)}</span>)}</dd></div>
-          <div><dt><AtlasTerm value="旬空" /></dt><dd>{result.context.voidBranches.map((branch, index) => <span key={branch}>{index > 0 ? "　" : ""}<AtlasTerm value={branch} /></span>)}</dd></div>
+          <div className="course-sheet__pillars"><dt><AtlasTerm value="四柱" /></dt><dd>{Object.values(result.context.pillars).map((pillar, index) => <span key={index}><small>{["年柱", "月柱", "日柱", "时柱"][index]}</small><span>{pillar.split("").map((term, offset) => <AtlasTerm key={offset} value={term} />)}</span></span>)}</dd></div>
+          <div className="course-sheet__key-fact"><dt><AtlasTerm value="旬空" /></dt><dd>{result.context.voidBranches.map((branch, index) => <span key={branch}>{index > 0 ? "　" : ""}<AtlasTerm value={branch} /></span>)}</dd></div>
           <div><dt><AtlasTerm value="本命" /></dt><dd>{result.context.natal.birthYear}年 · <AtlasTerm value={result.context.natal.branch} />命 · {result.context.natal.source === "manual" ? "手动选择" : "自动换算"}</dd></div>
-          <div><dt><AtlasTerm value="月建" /> / <AtlasTerm value="月将" /></dt><dd><AtlasTerm value={result.context.monthBuild} /> · <AtlasTerm value={result.context.monthGeneral.name} /><AtlasTerm value={result.context.monthGeneral.branch} /></dd></div>
+          <div className="course-sheet__key-fact"><dt><AtlasTerm value="月建" /> / <AtlasTerm value="月将" /></dt><dd><AtlasTerm value={result.context.monthBuild} /> · <AtlasTerm value={result.context.monthGeneral.name} /><AtlasTerm value={result.context.monthGeneral.branch} /></dd></div>
+          <div className="course-sheet__key-fact"><dt><AtlasTerm value="占时" /></dt><dd><AtlasTerm value={result.context.divinationHour} />时</dd></div>
         </dl>
       </header>
       <div className="course-sheet__body">
-        <div className="course-sheet__left">
-          <section className="course-sheet__transmissions" data-course-section="transmissions">
-            <h3><AtlasTerm value="三传" /> · <AtlasTerm value={result.method.method} />{result.method.subtype && <> · <AtlasTerm value={result.method.subtype} /></>}{result.method.variants.map((variant) => <span key={variant}> · <AtlasTerm value={variant} /></span>)}</h3>
-            <ol>
-              {result.transmissions.map((item) => (
-                <li key={item.position} data-testid="course-transmission" data-position={item.position}>
-                  <b data-layer="general"><AtlasTerm value={item.general} /></b>
-                  <div data-layer="content"><span><AtlasTerm value={item.label} /></span><strong><AtlasTerm value={item.branch}><VoidBranch value={item.branch} voidBranches={result.context.voidBranches} /></AtlasTerm></strong><small><AtlasTerm value={item.relation} /></small></div>
-                </li>
-              ))}
-            </ol>
-          </section>
-          <section className="course-sheet__lessons" data-course-section="lessons">
-            <h3><AtlasTerm value="四课" /></h3>
-            <ol>
-              {result.lessons.map((item) => (
-                <li key={item.id} data-testid="course-lesson" data-lesson={item.id}>
-                  <b data-layer="general"><AtlasTerm value={item.general} /></b>
-                  <span><AtlasTerm value={item.id === "fourth" ? "第四课" : item.label}>{item.label}</AtlasTerm></span><strong><AtlasTerm value={item.upper}><VoidBranch value={item.upper} voidBranches={result.context.voidBranches} /></AtlasTerm></strong><i /><small><AtlasTerm value={item.lower.value}><VoidBranch value={item.lower.value} voidBranches={result.context.voidBranches} /></AtlasTerm></small>
-                </li>
-              ))}
-            </ol>
-          </section>
-        </div>
         <section className="course-sheet__plate-region" data-course-section="palaces">
+          <h3>十二宫方盘</h3>
           <p className="course-sheet__orientation">上南 · 下北 · 左东 · 右西</p>
+          <p className="course-sheet__legend">每宫自上而下：神将 · <AtlasTerm value="天盘" /> · <AtlasTerm value="地盘" /></p>
           <div className="course-sheet__plate-layout">
             <ul className="course-sheet__plate" aria-label="标准课式十二宫方盘">
               {result.palaces.map((item) => (
                 <li key={item.earth} data-earth={item.earth} data-noble={item.noble}>
-                  <strong><AtlasTerm value={item.general} /></strong><span><AtlasTerm value="天盘" /> <AtlasTerm value={item.heaven}><VoidBranch value={item.heaven} voidBranches={result.context.voidBranches} /></AtlasTerm></span><span><AtlasTerm value="地盘" /> <AtlasTerm value={item.earth}><VoidBranch value={item.earth} voidBranches={result.context.voidBranches} /></AtlasTerm></span>
+                  <strong><AtlasTerm value={item.general} /></strong><span className="course-sheet__heaven" aria-label="天盘"><AtlasTerm value={item.heaven}><VoidBranch value={item.heaven} voidBranches={result.context.voidBranches} /></AtlasTerm></span><span className="course-sheet__earth" aria-label="地盘"><AtlasTerm value={item.earth}><VoidBranch value={item.earth} voidBranches={result.context.voidBranches} /></AtlasTerm></span>
                 </li>
               ))}
             </ul>
@@ -145,9 +125,34 @@ export function CourseSheet({ result }: { result: CourseResult }) {
             </div>
           </div>
         </section>
+        <section className="course-sheet__lessons" data-course-section="lessons">
+            <h3><AtlasTerm value="四课" /><small>从右至左 · 一课至四课</small></h3>
+            <p className="course-sheet__reading-note">神将在上，横线以上为上神，以下为下位。</p>
+            <ol>
+              {result.lessons.map((item) => (
+                <li key={item.id} data-testid="course-lesson" data-lesson={item.id}>
+                  <b data-layer="general"><AtlasTerm value={item.general} /></b>
+                  <span><AtlasTerm value={item.id === "fourth" ? "第四课" : item.label}>{item.label}</AtlasTerm></span><strong><AtlasTerm value={item.upper}><VoidBranch value={item.upper} voidBranches={result.context.voidBranches} /></AtlasTerm></strong><i /><small><AtlasTerm value={item.lower.value}><VoidBranch value={item.lower.value} voidBranches={result.context.voidBranches} /></AtlasTerm></small>
+                </li>
+              ))}
+            </ol>
+          </section>
+        <section className="course-sheet__transmissions" data-course-section="transmissions">
+            <h3><AtlasTerm value="三传" /> · <AtlasTerm value={result.method.method} />{result.method.subtype && <> · <AtlasTerm value={result.method.subtype} /></>}{result.method.variants.map((variant) => <span key={variant}> · <AtlasTerm value={variant} /></span>)}</h3>
+            <div className="course-sheet__transmission-head" role="group" aria-label="三传各列含义"><span>神将</span><div data-layer="content"><span>传次</span><span>地支</span><span>六亲</span></div></div>
+            <ol>
+              {result.transmissions.map((item) => (
+                <li key={item.position} data-testid="course-transmission" data-position={item.position}>
+                  <b data-layer="general"><AtlasTerm value={item.general} /></b>
+                  <div data-layer="content"><span><AtlasTerm value={item.label} /></span><strong><AtlasTerm value={item.branch}><VoidBranch value={item.branch} voidBranches={result.context.voidBranches} /></AtlasTerm></strong><small><AtlasTerm value={item.relation} /></small></div>
+                </li>
+              ))}
+            </ol>
+          </section>
       </div>
+    </article>
       <footer className="course-sheet__copy" data-course-section="copy">
-        <span>生成完整课式图片，不包含本操作区域</span>
+        <span>保存本课、十二宫、四课与三传为一张图片</span>
         <button type="button" disabled={copyState === "generating"} onClick={copyCourse}>{copyLabel}</button>
         {previewUrl ? (
           <figure className="course-sheet__image-preview">
@@ -162,6 +167,6 @@ export function CourseSheet({ result }: { result: CourseResult }) {
         ) : null}
         {copyState === "error" ? <p role="alert">图片生成失败，请重试</p> : null}
       </footer>
-    </article>
+    </>
   );
 }
