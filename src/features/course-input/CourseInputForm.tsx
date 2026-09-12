@@ -1,11 +1,15 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import type { CourseInput, EarthlyBranch } from "../../domain/chart/types";
 import { deriveNatalBranch } from "../../domain/chart/natal";
 import { parseCourseInput, type InputErrors } from "./schema";
 
+import "./course-entry.css";
+
 const NATAL_BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"] as const;
 
 export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) => void }) {
+  const dateTimeRef = useRef<HTMLInputElement>(null);
+  const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<InputErrors>({});
   const [birthYear, setBirthYear] = useState("");
   const [manualNatal, setManualNatal] = useState(false);
@@ -22,6 +26,13 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
 
     if (!("corrections" in result)) {
       setErrors(result);
+      for (const name of ["civilDateTime", "birthYear", "natalBranch", "reason"] as const) {
+        const field = event.currentTarget.elements.namedItem(name);
+        if (result[name] && field instanceof HTMLElement) {
+          field.focus();
+          break;
+        }
+      }
       return;
     }
 
@@ -30,20 +41,28 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
   }
 
   return (
-    <form onSubmit={submit} noValidate>
+    <form className="course-input" onSubmit={submit} noValidate>
+      <fieldset><legend>起课时间 <small>必填</small></legend>
       <label htmlFor="civilDateTime">日期与时间</label>
       <input
+        ref={dateTimeRef}
+        required
         id="civilDateTime"
         name="civilDateTime"
         type="datetime-local"
-        step={1}
-        min="1900-01-01T00:00:00"
-        max="2100-12-31T23:59:59"
+        step={60}
+        min="1900-01-01T00:00"
+        max="2100-12-31T23:59"
         aria-describedby={errors.civilDateTime ? "civilDateTime-error" : undefined}
         aria-invalid={errors.civilDateTime ? true : undefined}
       />
       {errors.civilDateTime ? <p id="civilDateTime-error" role="alert">{errors.civilDateTime}</p> : null}
 
+      <div className="course-input__time-help"><span>按北京时间填写，精确到分钟</span><button type="button" onClick={() => {
+        if (dateTimeRef.current) dateTimeRef.current.value = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16);
+      }}>使用当前时间</button></div>
+      </fieldset>
+      <fieldset><legend>本命信息 <small>必填</small></legend>
       <label htmlFor="birthYear">出生年份</label>
       <input
         id="birthYear"
@@ -91,6 +110,9 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
       ) : null}
       {errors.natalBranch ? <p role="alert">{errors.natalBranch}</p> : null}
 
+      </fieldset>
+      <fieldset><legend>事由与地点</legend>
+      <p className="course-input__hint">事由必填，地点可留空。</p>
       <label htmlFor="locationName">地点（选填）</label>
       <input
         id="locationName"
@@ -103,11 +125,15 @@ export function CourseInputForm({ onSubmit }: { onSubmit: (input: CourseInput) =
         name="reason"
         required
         maxLength={120}
+        value={reason}
+        onChange={(event) => setReason(event.currentTarget.value)}
         aria-describedby={errors.reason ? "reason-error" : undefined}
         aria-invalid={errors.reason ? true : undefined}
       />
+      <p className="course-input__count" aria-live="polite">{reason.length} / 120 字</p>
       {errors.reason ? <p id="reason-error" role="alert">{errors.reason}</p> : null}
 
+      </fieldset>
       <button type="submit">生成完整课式</button>
     </form>
   );

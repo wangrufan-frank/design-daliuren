@@ -10,9 +10,9 @@ export function CourseLandingPreview() {
         <i data-axis="horizontal" />
       </div>
       <div className="course-landing-preview__copy">
-        <p>可追溯的数字器物</p>
-        <h2>从占时到课式，回看每一步依据</h2>
-        <p>输入起课时间，生成可回看依据的三维课式与标准文字课式。</p>
+        <p>起课 · 观盘 · 读课式</p>
+        <h2>填写信息<br />展开一课</h2>
+        <p>填写北京时间、出生年份和事由，即可查看三维式盘与文字课式；文字课式支持保存为图片。</p>
         <ul>
           <li>三维课式</li>
           <li>标准文字课式</li>

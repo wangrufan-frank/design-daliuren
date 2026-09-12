@@ -1,3 +1,15 @@
+.course-input fieldset { display: grid; min-width: 0; gap: 8px; margin: 0 0 14px; padding: 14px 0 0; border: 0; border-top: 1px solid var(--patina); }
+.course-input legend { padding: 0 8px 0 0; color: var(--ash); font-weight: 600; }
+.course-input legend small { margin-left: 6px; color: var(--ru-celadon); font-size: .7rem; font-weight: 400; }
+.course-input__hint, .course-input__time-help, .course-input__count { margin: 0; color: var(--ru-celadon); font-family: var(--font-utility); font-size: .75rem; line-height: 1.7; }
+.course-input__time-help { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.course-input__time-help button { min-height: 44px; padding: 6px 10px; border: 1px solid var(--patina); background: var(--panel); color: var(--ru-celadon); cursor: pointer; }
+.course-input__count { text-align: right; }
+.course-input textarea { width: 100%; min-width: 0; min-height: 96px; padding: 10px; resize: vertical; border: 1px solid var(--patina); border-radius: 0; background: var(--dark-bronze); color: var(--ash); font: inherit; }
+.course-input input { min-width: 0; }
+.course-input [aria-invalid="true"] { border-color: var(--error); }
+.course-input [role="alert"] { margin: 0; color: var(--error); font-size: .8rem; line-height: 1.6; }
+
 .course-landing-preview {
   display: grid;
   grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1fr);

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { CourseInputForm } from "./CourseInputForm";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it("shows concrete errors and does not submit invalid input", async () => {
   const onSubmit = vi.fn();
@@ -39,13 +39,13 @@ it("associates each invalid base input with its own error", async () => {
   }
 });
 
-it("accepts second-level Beijing time within the supported range", () => {
+it("accepts minute-level Beijing time within the supported range", () => {
   render(<CourseInputForm onSubmit={vi.fn()} />);
 
   const input = screen.getByLabelText("日期与时间");
-  expect(input).toHaveAttribute("step", "1");
-  expect(input).toHaveAttribute("min", "1900-01-01T00:00:00");
-  expect(input).toHaveAttribute("max", "2100-12-31T23:59:59");
+  expect(input).toHaveAttribute("step", "60");
+  expect(input).toHaveAttribute("min", "1900-01-01T00:00");
+  expect(input).toHaveAttribute("max", "2100-12-31T23:59");
 });
 
 it("derives the natal branch from birth year and allows a manual override", async () => {
@@ -99,4 +99,24 @@ it("names the action by the complete result it creates", () => {
   render(<CourseInputForm onSubmit={vi.fn()} />);
 
   expect(screen.getByRole("button", { name: "生成完整课式" })).toBeVisible();
+});
+
+
+it("fills current Beijing time to the minute across a UTC date boundary", async () => {
+  vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-09-12T23:45:59Z"));
+  render(<CourseInputForm onSubmit={vi.fn()} />);
+  await userEvent.click(screen.getByRole("button", { name: "使用当前时间" }));
+  expect(screen.getByLabelText("日期与时间")).toHaveValue("2026-09-13T07:45");
+});
+
+it("counts the reason and focuses the first invalid field", async () => {
+  render(<CourseInputForm onSubmit={vi.fn()} />);
+  expect(screen.getByText("0 / 120 字")).toBeVisible();
+  await userEvent.type(screen.getByLabelText("起课事由"), "文化学习");
+  expect(screen.getByText("4 / 120 字")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "生成完整课式" }));
+  expect(screen.getByLabelText("日期与时间")).toHaveFocus();
+  await userEvent.type(screen.getByLabelText("日期与时间"), "2026-09-12T12:00");
+  await userEvent.click(screen.getByRole("button", { name: "生成完整课式" }));
+  expect(screen.getByLabelText("出生年份")).toHaveFocus();
 });
